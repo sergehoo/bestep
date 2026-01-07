@@ -14,7 +14,7 @@ services:
   # -------------------------
   # PostgreSQL (optionnel mais recommandé)
   # -------------------------
-  betepargneDB:
+  bestDB:
     image: postgres:16-alpine
     container_name: best_epargne_postgres
     restart: unless-stopped
@@ -90,7 +90,7 @@ services:
   # -------------------------
   # Django (Gunicorn)
   # -------------------------
-  betepargne:
+  bestweb:
     # Option A: build local (recommandé)
     build:
       context: .
@@ -98,7 +98,7 @@ services:
     # Option B: image déjà buildée
     # image: your-registry/best-epargne:latest
 
-    container_name: betepargne
+    container_name: bestweb
     restart: unless-stopped
     env_file:
       - .env
@@ -125,7 +125,7 @@ services:
       SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
 
     depends_on:
-      postgres:
+      bestDB:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -182,11 +182,11 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-best-epargne}
     depends_on:
-      betepargneDB:
+      bestDB:
         condition: service_healthy
       redis:
         condition: service_healthy
-      betepargne:
+      bestweb:
         condition: service_started
     networks:
       - internal
@@ -211,11 +211,11 @@ services:
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
     depends_on:
-      betepargneDB:
+      bestDB:
         condition: service_healthy
       redis:
         condition: service_healthy
-      betepargne:
+      bestweb:
         condition: service_started
     networks:
       - internal
