@@ -27,7 +27,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-best_epargne} -d ${POSTGRES_DB:-best_epargne}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -190,8 +190,8 @@ services:
         condition: service_started
     networks:
       - internal
-    command: >
-      sh -c "celery -A best_epargne worker -l INFO --concurrency=${CELERY_CONCURRENCY:-2}"
+    command: [ "celery", "-A", "best_epargne.celery:app", "worker", "-l", "info" ]
+
 
   # -------------------------
   # Celery Beat (scheduler)
@@ -219,5 +219,4 @@ services:
         condition: service_started
     networks:
       - internal
-    command: >
-      sh -c "celery -A best_epargne beat -l INFO --pidfile="
+    command: ["celery", "-A", "best_epargne.celery:app", "beat", "-l", "info"]
