@@ -14,10 +14,10 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 DATABASES = {
   "default": {
     "ENGINE": "django.db.backends.postgresql",
-    "NAME": os.getenv("POSTGRES_DB", "best_epargne"),
-    "USER": os.getenv("POSTGRES_USER", "postgres"),
-    "PASSWORD": os.getenv("POSTGRES_PASSWORD", "postgres"),
-    "HOST": os.getenv("POSTGRES_HOST", "best_epargne_postgres"),  # ✅ IMPORTANT
+    "NAME": os.getenv("POSTGRES_DB"),
+    "USER": os.getenv("POSTGRES_USER"),
+    "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+    "HOST": os.getenv("POSTGRES_HOST", "bestDB"),  # ✅ IMPORTANT
     "PORT": os.getenv("POSTGRES_PORT", "5432"),
   }
 }
