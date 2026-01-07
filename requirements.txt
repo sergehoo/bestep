@@ -111,3 +111,4 @@ wcwidth==0.2.14
 webencodings==0.5.1
 whitenoise==6.11.0
 zipp==3.23.0
+dj-database-url==2.2.0
