@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'commerce',
     'enrollments',
     'reviews',
+    'formations',
 ]
 
 MIDDLEWARE = [
@@ -191,7 +192,7 @@ ACCOUNT_ADAPTER = "compte.adapters.AccountAdapter"
 
 # Redirections
 LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/accounts/login/"
+LOGOUT_REDIRECT_URL = "/account/login/"
 
 # Formulaires custom (optionnel mais recommandé)
 ACCOUNT_FORMS = {

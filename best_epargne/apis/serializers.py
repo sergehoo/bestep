@@ -179,3 +179,183 @@ class MediaAssetListSerializer(serializers.ModelSerializer):
             "duration_seconds",
             "created_at",
         ]
+
+class PublicCourseSerializer(serializers.ModelSerializer):
+    # ✅ champs “UI-friendly” calculés
+    course_type_label = serializers.CharField(source="get_course_type_display", read_only=True)
+    pricing_type_label = serializers.CharField(source="get_pricing_type_display", read_only=True)
+
+    category_name = serializers.SerializerMethodField()
+    category_slug = serializers.SerializerMethodField()
+
+    instructor_name = serializers.SerializerMethodField()
+    instructor_initials = serializers.SerializerMethodField()
+
+    thumbnail_url = serializers.SerializerMethodField()
+
+    # ✅ champs attendus par le front (mais absents du modèle) => valeurs par défaut
+    level = serializers.SerializerMethodField()
+    level_label = serializers.SerializerMethodField()
+    level_color = serializers.SerializerMethodField()
+
+    duration = serializers.SerializerMethodField()
+    enrolled_count = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
+
+    is_popular = serializers.SerializerMethodField()
+    color_gradient = serializers.SerializerMethodField()
+    icon = serializers.SerializerMethodField()
+
+    price_period = serializers.SerializerMethodField()
+
+    detail_url = serializers.SerializerMethodField()
+    preview_url = serializers.SerializerMethodField()
+    enroll_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Course
+        fields = [
+            "id",
+            "title",
+            "slug",
+            "subtitle",
+            "description",
+
+            "category_name",
+            "category_slug",
+
+            "course_type",
+            "course_type_label",
+
+            "pricing_type",
+            "pricing_type_label",
+            "price",
+            "currency",
+            "price_period",
+
+            "status",
+            "published_at",
+
+            "company_only",
+            "thumbnail_url",
+            "preview_video_url",
+
+            # front-friendly
+            "level",
+            "level_label",
+            "level_color",
+            "duration",
+            "enrolled_count",
+            "rating",
+            "is_popular",
+            "color_gradient",
+            "icon",
+
+            "instructor_name",
+            "instructor_initials",
+
+            "detail_url",
+            "preview_url",
+            "enroll_url",
+        ]
+
+    # ---------- Category ----------
+    def get_category_name(self, obj):
+        return obj.category.name if obj.category else None
+
+    def get_category_slug(self, obj):
+        return obj.category.slug if obj.category else None
+
+    # ---------- Instructor ----------
+    def get_instructor_name(self, obj):
+        instructor = obj.instructor
+        if not instructor:
+            return "Formateur"
+        name = ""
+        if hasattr(instructor, "get_full_name"):
+            name = instructor.get_full_name() or ""
+        return name.strip() or getattr(instructor, "username", "Formateur")
+
+    def get_instructor_initials(self, obj):
+        name = self.get_instructor_name(obj) or "BE"
+        parts = [p for p in name.split(" ") if p]
+        if len(parts) >= 2:
+            return (parts[0][0] + parts[1][0]).upper()
+        if len(parts) == 1 and parts[0]:
+            return parts[0][0].upper()
+        return "BE"
+
+    # ---------- Media ----------
+    def get_thumbnail_url(self, obj):
+        if obj.thumbnail:
+            try:
+                return obj.thumbnail.url
+            except Exception:
+                return None
+        return None
+
+    # ---------- Front defaults (absents du modèle) ----------
+    def get_level(self, obj):
+        # Ton modèle n'a pas "level" -> valeur par défaut
+        return "beginner"
+
+    def get_level_label(self, obj):
+        return {
+            "beginner": "Débutant",
+            "intermediate": "Intermédiaire",
+            "advanced": "Avancé",
+        }.get(self.get_level(obj), "Niveau")
+
+    def get_level_color(self, obj):
+        return {
+            "beginner": "green",
+            "intermediate": "yellow",
+            "advanced": "rose",
+        }.get(self.get_level(obj), "blue")
+
+    def get_duration(self, obj):
+        # Pas dans ton modèle -> défaut
+        return "—"
+
+    def get_enrolled_count(self, obj):
+        # À brancher plus tard avec Enrollment aggregation
+        return 0
+
+    def get_rating(self, obj):
+        # À brancher plus tard avec Review/Rating model
+        return 0.0
+
+    def get_is_popular(self, obj):
+        # Exemple: populaire si publié récemment
+        return bool(obj.published_at)
+
+    def get_color_gradient(self, obj):
+        # Couleur selon pricing_type par exemple
+        if obj.pricing_type == Course.PricingType.FREE:
+            return "from-green-600 to-green-500"
+        if obj.pricing_type == Course.PricingType.HYBRID:
+            return "from-yellow-600 to-yellow-500"
+        return "from-blue-600 to-blue-500"
+
+    def get_icon(self, obj):
+        # Icon selon course_type
+        return {
+            Course.CourseType.CERTIFIANTE: "fas fa-certificate",
+            Course.CourseType.PROFESSIONNELLE: "fas fa-briefcase",
+            Course.CourseType.ACADEMIQUE: "fas fa-graduation-cap",
+            Course.CourseType.INTERNE: "fas fa-building",
+        }.get(obj.course_type, "fas fa-book-open")
+
+    def get_price_period(self, obj):
+        # Ton modèle n'a pas price_period -> défaut
+        return "cours"
+
+    # ---------- URLs ----------
+    def get_detail_url(self, obj):
+        return f"/courses/{obj.slug}/"  # ✅ mieux que id (slug existe)
+
+    def get_preview_url(self, obj):
+        return f"/courses/{obj.slug}/"
+
+    def get_enroll_url(self, obj):
+        return f"/courses/{obj.slug}/enroll/"
