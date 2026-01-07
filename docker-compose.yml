@@ -1,7 +1,4 @@
-version: "3.9"
 
-# ✅ Réseau Traefik déjà existant (ex: créé par votre stack traefik)
-# docker network create proxy
 networks:
   proxy:
     external: true
