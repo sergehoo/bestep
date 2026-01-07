@@ -182,11 +182,11 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-best-epargne}
     depends_on:
-      postgres:
+      betepargneDB:
         condition: service_healthy
       redis:
         condition: service_healthy
-      web:
+      betepargne:
         condition: service_started
     networks:
       - internal
@@ -211,11 +211,11 @@ services:
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
     depends_on:
-      postgres:
+      betepargneDB:
         condition: service_healthy
       redis:
         condition: service_healthy
-      web:
+      betepargne:
         condition: service_started
     networks:
       - internal
