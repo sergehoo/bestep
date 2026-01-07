@@ -12,14 +12,14 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
 # DB Postgres (à adapter à ton infra)
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", ""),
-        "USER": os.environ.get("DB_USER", ""),
-        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
-        "HOST": os.environ.get("DB_HOST", ""),
-        "PORT": os.environ.get("DB_PORT", "5432"),
-    }
+  "default": {
+    "ENGINE": "django.db.backends.postgresql",
+    "NAME": os.getenv("POSTGRES_DB", "best_epargne"),
+    "USER": os.getenv("POSTGRES_USER", "postgres"),
+    "PASSWORD": os.getenv("POSTGRES_PASSWORD", "postgres"),
+    "HOST": os.getenv("POSTGRES_HOST", "best_epargne_postgres"),  # ✅ IMPORTANT
+    "PORT": os.getenv("POSTGRES_PORT", "5432"),
+  }
 }
 
 # Redis en prod (souvent un container/host "redis")
