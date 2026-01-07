@@ -19,9 +19,9 @@ services:
     container_name: best_epargne_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
-      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
+      POSTGRES_DB: ${DB_NAME:-best_epargne}
+      POSTGRES_USER: ${DB_USER:-best_epargne}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-best_epargne_pwd}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
