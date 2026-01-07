@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Inscription — best-épargne</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 to-yellow-50">
+
+<div class="w-full max-w-lg bg-white rounded-2xl shadow-xl p-8">
+  <h1 class="text-2xl font-bold text-center text-sky-600">Créer un compte</h1>
+
+  <form method="post" action="{% url 'account_signup' %}" class="mt-6 space-y-4">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    {{ form.email }}
+    {{ form.password1 }}
+    {{ form.password2 }}
+
+    <!-- Champ rôle ajouté dans signup form -->
+    <div>
+      <label class="text-sm font-semibold">Profil</label>
+      {{ form.role }}
+    </div>
+
+    <button class="w-full mt-4 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 transition">
+      Créer mon compte
+    </button>
+  </form>
+
+  <p class="mt-6 text-center text-sm">
+    Déjà inscrit ?
+    <a href="{% url 'account_login' %}" class="text-sky-600 font-semibold">Se connecter</a>
+  </p>
+</div>
+
+</body>
+</html>

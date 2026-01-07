@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>best-épargne — Administrateur</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            be: {
+              sky: { 50:"#F2FAFF",100:"#DEF3FF",200:"#BEE8FF",300:"#8AD7FF",400:"#4DBFFF",500:"#1EA7FF",600:"#0C87D6",700:"#0B6FAE",800:"#0C5C8E",900:"#0A466B" },
+              sun: { 50:"#FFFBEA",100:"#FFF3BF",200:"#FFE58A",300:"#FFD14D",400:"#FFBD1F",500:"#F7A600",600:"#D48300",700:"#AD6400",800:"#8A4E00",900:"#6A3B00" },
+              ink: { 50:"#F7FAFC",100:"#EEF2F7",200:"#D7DEE9",300:"#B5C0D4",400:"#7E8AA6",500:"#5B6783",600:"#3F4A63",700:"#2B3449",800:"#1E2536",900:"#121827" }
+            }
+          },
+          boxShadow: {
+            soft: "0 10px 30px rgba(12,92,142,.12)",
+            ring: "0 0 0 6px rgba(30,167,255,.12)"
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="h-full bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50 text-be-ink-900"
+      x-data="AdminApp()" x-init="init()">
+
+  <!-- Topbar -->
+  <header class="sticky top-0 z-40">
+    <div class="mx-auto max-w-[1480px] px-3 sm:px-6 py-3">
+      <div class="flex items-center justify-between gap-3 rounded-2xl border border-be-sky-100 bg-white/80 backdrop-blur-xl shadow-soft px-3 sm:px-4 py-2.5">
+        <div class="flex items-center gap-2">
+          <button class="w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 transition"
+                  @click="sidebarOpen=!sidebarOpen" aria-label="Menu">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+
+          <a href="#" class="flex items-center gap-2">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-be-sky-500 to-be-sky-700 text-white flex items-center justify-center shadow-ring">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3l9 5-9 5-9-5 9-5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M3 10l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M3 14l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="leading-tight">
+              <div class="font-semibold tracking-tight">best-épargne</div>
+              <div class="text-[11px] text-be-ink-500 -mt-0.5">Vue Administrateur</div>
+            </div>
+          </a>
+        </div>
+
+        <div class="hidden lg:flex flex-1 max-w-xl">
+          <div class="relative w-full">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <input x-model="q" placeholder="Rechercher cours, apprenants, entreprises…"
+                   class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100 bg-white focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 focus:border-be-sky-300 text-sm"/>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <div class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-be-ink-100 bg-white">
+            <span class="text-xs text-be-ink-500">Profil:</span>
+            <span class="text-sm font-semibold">Administrateur</span>
+          </div>
+
+          <div class="relative" x-data="{open:false}">
+            <button @click="open=!open" class="w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 transition">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <div x-show="open" x-transition.origin.top.right @click.outside="open=false"
+                 class="absolute right-0 mt-2 w-80 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+              <div class="px-4 py-3 border-b border-be-ink-100 flex items-center justify-between">
+                <div class="font-semibold text-sm">Notifications</div>
+                <button class="text-xs text-be-sky-700 hover:underline">Tout lire</button>
+              </div>
+              <div class="max-h-80 overflow-auto no-scrollbar">
+                <template x-for="n in notifications" :key="n.id">
+                  <div class="px-4 py-3 border-b border-be-ink-50 hover:bg-be-ink-50/60 transition">
+                    <div class="text-sm font-medium" x-text="n.title"></div>
+                    <div class="text-xs text-be-ink-500 mt-1" x-text="n.desc"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <div class="relative" x-data="{open:false}">
+            <button @click="open=!open" class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 transition">
+              <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-be-sun-300 to-be-sun-500 flex items-center justify-center font-semibold text-sm">SO</div>
+              <div class="hidden sm:block text-left leading-tight">
+                <div class="text-sm font-semibold">Serge OGAH</div>
+                <div class="text-[11px] text-be-ink-500 -mt-0.5">Admin principal</div>
+              </div>
+              <svg class="w-4 h-4 text-be-ink-500" viewBox="0 0 24 24" fill="none">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <div x-show="open" x-transition.origin.top.right @click.outside="open=false"
+                 class="absolute right-0 mt-2 w-64 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+              <a href="#" class="block px-4 py-3 text-sm hover:bg-be-ink-50">Mon profil</a>
+              <a href="#" class="block px-4 py-3 text-sm hover:bg-be-ink-50">Paramètres</a>
+              <div class="border-t border-be-ink-100"></div>
+              <a href="#" class="block px-4 py-3 text-sm hover:bg-be-ink-50 text-rose-600">Déconnexion</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Shell -->
+  <div class="mx-auto max-w-[1480px] px-3 sm:px-6 pb-10">
+    <div class="grid lg:grid-cols-12 gap-4 lg:gap-6">
+      <!-- Sidebar -->
+      <aside class="lg:col-span-3 xl:col-span-2" :class="sidebarOpen ? '' : 'hidden lg:block'">
+        <div class="sticky top-[92px]">
+          <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+            <div class="p-4 border-b border-be-ink-100 bg-gradient-to-br from-be-sky-50 to-white">
+              <div class="text-xs text-be-ink-500">Résumé</div>
+              <div class="text-lg font-semibold mt-1">Admin</div>
+              <div class="text-xs text-be-ink-500 -mt-0.5">Supervision globale</div>
+            </div>
+
+            <nav class="p-2">
+              <div class="px-2 py-2 text-[11px] uppercase tracking-wider text-be-ink-400">Administration</div>
+              <template x-for="item in nav" :key="item.key">
+                <button
+                  @click="goto(item.route)"
+                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition"
+                  :class="route===item.route ? 'bg-be-sky-600 text-white shadow-soft' : 'text-be-ink-700 hover:bg-be-ink-50'">
+                  <span class="w-9 h-9 rounded-xl flex items-center justify-center"
+                        :class="route===item.route ? 'bg-white/15' : 'bg-be-ink-50 border border-be-ink-100'">
+                    <span x-html="item.icon"></span>
+                  </span>
+                  <span class="flex-1 text-left" x-text="item.label"></span>
+                  <span x-show="item.badge" class="text-[10px] px-2 py-0.5 rounded-full"
+                        :class="route===item.route ? 'bg-white/15' : 'bg-be-sun-100 text-be-sun-800 border border-be-sun-200'"
+                        x-text="item.badge"></span>
+                </button>
+              </template>
+            </nav>
+          </div>
+
+          <div class="mt-4 rounded-2xl border border-be-sun-200 bg-gradient-to-br from-be-sun-50 via-white to-be-sky-50 shadow-soft p-4">
+            <div class="text-xs text-be-ink-500">Actions rapides</div>
+            <button class="mt-3 w-full px-3 py-2 rounded-xl bg-be-ink-900 text-white text-sm font-semibold hover:opacity-90">+ Créer un cours</button>
+            <button class="mt-2 w-full px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">+ Créer entreprise</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="lg:col-span-9 xl:col-span-10">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <div class="text-xs text-be-ink-500">best-épargne • Administrateur</div>
+            <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight mt-1" x-text="pageTitle()"></h1>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-medium">Exporter</button>
+            <button class="px-3 py-2 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-medium shadow-soft">Planifier</button>
+          </div>
+        </div>
+
+        <div class="mt-5 space-y-6">
+          <!-- DASHBOARD -->
+          <section x-show="route==='dashboard'" x-transition.opacity>
+            <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              <template x-for="k in kpis" :key="k.label">
+                <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <div class="text-xs text-be-ink-500" x-text="k.label"></div>
+                      <div class="text-2xl font-semibold mt-1" x-text="k.value"></div>
+                      <div class="text-xs mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full"
+                           :class="k.deltaUp ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'">
+                        <span x-text="k.delta"></span>
+                      </div>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center"
+                         :class="k.tone==='sky' ? 'bg-be-sky-100 text-be-sky-700 border border-be-sky-200' : 'bg-be-sun-100 text-be-sun-800 border border-be-sun-200'">
+                      <span x-html="k.icon"></span>
+                    </div>
+                  </div>
+                  <div class="mt-4 h-2 rounded-full bg-be-ink-100 overflow-hidden">
+                    <div class="h-full rounded-full"
+                         :class="k.tone==='sky' ? 'bg-be-sky-600' : 'bg-be-sun-500'"
+                         :style="`width:${k.progress}%`"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="grid xl:grid-cols-3 gap-4">
+              <div class="xl:col-span-2 rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-semibold">Progression globale</div>
+                    <div class="text-xs text-be-ink-500 mt-1">Vue de performance.</div>
+                  </div>
+                  <div class="inline-flex rounded-xl border border-be-ink-100 bg-white p-1">
+                    <button class="px-3 py-1.5 rounded-lg text-xs font-medium"
+                            :class="range==='7d' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                            @click="range='7d'">7j</button>
+                    <button class="px-3 py-1.5 rounded-lg text-xs font-medium"
+                            :class="range==='30d' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                            @click="range='30d'">30j</button>
+                    <button class="px-3 py-1.5 rounded-lg text-xs font-medium"
+                            :class="range==='90d' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                            @click="range='90d'">90j</button>
+                  </div>
+                </div>
+                <div class="mt-5 grid grid-cols-12 gap-2 items-end h-40">
+                  <template x-for="(v,i) in chartData(range)" :key="i">
+                    <div class="col-span-1 rounded-xl"
+                         :class="i%3===0 ? 'bg-be-sky-600' : (i%3===1 ? 'bg-be-sun-500' : 'bg-be-ink-300')"
+                         :style="`height:${v}%;`"></div>
+                  </template>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
+                <div class="text-sm font-semibold">Activité récente</div>
+                <div class="text-xs text-be-ink-500 mt-1">Dernières actions.</div>
+                <div class="mt-4 space-y-3">
+                  <template x-for="a in activity" :key="a.id">
+                    <div class="flex items-start gap-3 p-3 rounded-xl border border-be-ink-100 hover:bg-be-ink-50/60 transition">
+                      <div class="w-10 h-10 rounded-xl flex items-center justify-center"
+                           :class="a.tone==='sky' ? 'bg-be-sky-100 text-be-sky-700 border border-be-sky-200' : 'bg-be-sun-100 text-be-sun-800 border border-be-sun-200'">
+                        <span x-html="a.icon"></span>
+                      </div>
+                      <div class="min-w-0">
+                        <div class="text-sm font-medium truncate" x-text="a.title"></div>
+                        <div class="text-xs text-be-ink-500 mt-1" x-text="a.time"></div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- COURSES -->
+          <section x-show="route==='courses'" x-transition.opacity>
+            <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+              <div class="p-5 flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-semibold">Catalogue des cours</div>
+                  <div class="text-xs text-be-ink-500 mt-1">Gestion, publication, validation.</div>
+                </div>
+                <button class="px-3 py-2 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
+                  + Nouveau cours
+                </button>
+              </div>
+              <div class="overflow-auto no-scrollbar">
+                <table class="min-w-full text-sm">
+                  <thead class="bg-be-ink-50/60 text-be-ink-600">
+                    <tr>
+                      <th class="text-left font-semibold px-5 py-3">Cours</th>
+                      <th class="text-left font-semibold px-5 py-3">Formateur</th>
+                      <th class="text-left font-semibold px-5 py-3">Statut</th>
+                      <th class="text-left font-semibold px-5 py-3">Inscrits</th>
+                      <th class="px-5 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="c in popularCourses" :key="c.id">
+                      <tr class="border-t border-be-ink-100 hover:bg-be-ink-50/40 transition">
+                        <td class="px-5 py-4">
+                          <div class="font-semibold" x-text="c.title"></div>
+                          <div class="text-xs text-be-ink-500 mt-1" x-text="c.type"></div>
+                        </td>
+                        <td class="px-5 py-4" x-text="c.instructor"></td>
+                        <td class="px-5 py-4">
+                          <span class="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Publié</span>
+                        </td>
+                        <td class="px-5 py-4" x-text="c.enrolled"></td>
+                        <td class="px-5 py-4 text-right">
+                          <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold">Gérer</button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- USERS -->
+          <section x-show="route==='users'" x-transition.opacity>
+            <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-semibold">Utilisateurs</div>
+                  <div class="text-xs text-be-ink-500 mt-1">Apprenants, entreprises, formateurs.</div>
+                </div>
+                <button class="px-3 py-2 rounded-xl bg-be-ink-900 text-white text-sm font-semibold hover:opacity-90">+ Ajouter</button>
+              </div>
+              <div class="mt-4 text-sm text-be-ink-600">
+                (Table / liste à connecter sur ton API DRF)
+              </div>
+            </div>
+          </section>
+
+          <!-- PAYMENTS -->
+          <section x-show="route==='payments'" x-transition.opacity>
+            <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-semibold">Paiements</div>
+                  <div class="text-xs text-be-ink-500 mt-1">Commandes, transactions, statuts.</div>
+                </div>
+                <button class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold">Exporter</button>
+              </div>
+              <div class="mt-4 text-sm text-be-ink-600">(Table paiements à brancher)</div>
+            </div>
+          </section>
+
+          <!-- SETTINGS -->
+          <section x-show="route==='settings'" x-transition.opacity>
+            <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
+              <div class="text-sm font-semibold">Paramètres</div>
+              <div class="text-xs text-be-ink-500 mt-1">Sécurité, profils, rôles.</div>
+            </div>
+          </section>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    function icon(name){
+      const icons = {
+        dashboard: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+          <path d="M4 13h7V4H4v9Zm9 7h7V11h-7v9ZM4 20h7v-5H4v5Zm9-18v7h7V2h-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>`,
+        catalog: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+          <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>`,
+        users: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+          <path d="M17 21a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M9 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" stroke="currentColor" stroke-width="2"/>
+          <path d="M23 21a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>`,
+        payments: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+          <path d="M21 7H3V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2Z" stroke="currentColor" stroke-width="2"/>
+          <path d="M3 7v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7" stroke="currentColor" stroke-width="2"/>
+          <path d="M7 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>`,
+        settings: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+          <path d="M12 15.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Z" stroke="currentColor" stroke-width="2"/>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .3 1.7 1.7 0 0 0-.87 1.47V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.1 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06A2 2 0 1 1 3.34 17l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.3-1 1.7 1.7 0 0 0-1.47-.87H2a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.1a1.7 1.7 0 0 0-.34-1.87l-.06-.06A2 2 0 1 1 6.03 3.34l.06.06A1.7 1.7 0 0 0 8.1 4.6a1.7 1.7 0 0 0 1-.3 1.7 1.7 0 0 0 .87-1.47V2a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.9 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06A2 2 0 1 1 20.66 6l-.06.06A1.7 1.7 0 0 0 19.4 8.1a1.7 1.7 0 0 0 .3 1 1.7 1.7 0 0 0 1.47.87H22a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>`
+      }
+      return icons[name] || icons.dashboard;
+    }
+
+    function AdminApp(){
+      return {
+        sidebarOpen: true,
+        route: "dashboard",
+        q: "",
+        range: "30d",
+        nav: [
+          { key:"dashboard", route:"dashboard", label:"Dashboard", icon: icon("dashboard") },
+          { key:"courses", route:"courses", label:"Cours", icon: icon("catalog"), badge:"86" },
+          { key:"users", route:"users", label:"Utilisateurs", icon: icon("users"), badge:"1.2k" },
+          { key:"payments", route:"payments", label:"Paiements", icon: icon("payments"), badge:"12" },
+          { key:"settings", route:"settings", label:"Paramètres", icon: icon("settings") },
+        ],
+        kpis: [],
+        activity: [],
+        popularCourses: [],
+        notifications: [],
+        init(){
+          this.kpis = [
+            { label:"Apprenants actifs", value:"1 284", delta:"+8.4%", deltaUp:true, tone:"sky", progress:78, icon: icon("users") },
+            { label:"Cours publiés", value:"86", delta:"+2", deltaUp:true, tone:"sun", progress:64, icon: icon("catalog") },
+            { label:"Taux complétion", value:"74%", delta:"+3.1%", deltaUp:true, tone:"sky", progress:74, icon: icon("dashboard") },
+            { label:"Revenu (mois)", value:"8.4M XOF", delta:"-1.2%", deltaUp:false, tone:"sun", progress:52, icon: icon("payments") },
+          ];
+          this.activity = [
+            { id:1, tone:"sky", icon: icon("users"), title:"12 nouveaux apprenants inscrits", time:"Il y a 12 min" },
+            { id:2, tone:"sun", icon: icon("payments"), title:"Transaction confirmée", time:"Il y a 1h" },
+            { id:3, tone:"sky", icon: icon("catalog"), title:"Cours soumis en validation", time:"Hier" },
+          ];
+          this.popularCourses = [
+            { id:1, title:"Budget & Épargne intelligente", instructor:"A. Kouassi", type:"Certifiante", enrolled:920, completion:78, rating:"4.8" },
+            { id:2, title:"Excel pour la Finance", instructor:"S. Diabaté", type:"Professionnelle", enrolled:1104, completion:71, rating:"4.6" },
+            { id:3, title:"Procédures RH & conformité", instructor:"M. Traoré", type:"Interne", enrolled:640, completion:82, rating:"4.7" },
+          ];
+          this.notifications = [
+            { id:1, title:"Nouvelle inscription", desc:"12 apprenants ont rejoint 'Budget & Épargne'." },
+            { id:2, title:"Webhook paiement", desc:"Transaction SUCCESS confirmée." },
+          ];
+          const mq = window.matchMedia("(max-width: 1024px)");
+          this.sidebarOpen = !mq.matches;
+          mq.addEventListener?.("change", (e)=>{ this.sidebarOpen = !e.matches; });
+        },
+        goto(r){ this.route = r; if (window.innerWidth < 1024) this.sidebarOpen = false; },
+        pageTitle(){
+          return {
+            dashboard:"Tableau de bord",
+            courses:"Gestion des cours",
+            users:"Gestion des utilisateurs",
+            payments:"Paiements",
+            settings:"Paramètres"
+          }[this.route] || "Tableau de bord";
+        },
+        chartData(r){
+          const d7 = [20,35,28,55,48,62,70,66,60,52,58,64];
+          const d30 = [18,22,30,28,34,42,46,54,50,58,64,72];
+          const d90 = [12,14,18,20,24,28,34,38,44,50,56,62];
+          if (r==="7d") return d7;
+          if (r==="90d") return d90;
+          return d30;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
