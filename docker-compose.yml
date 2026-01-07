@@ -12,7 +12,7 @@ volumes:
 
 services:
   # -------------------------
-  # PostgreSQL (optionnel mais recommandé)
+  # PostgreSQL
   # -------------------------
   bestDB:
     image: postgres:16-alpine
@@ -27,13 +27,13 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-best_epargne} -d ${POSTGRES_DB:-best_epargne}"]
       interval: 10s
       timeout: 5s
       retries: 10
 
   # -------------------------
-  # Redis (cache + celery broker)
+  # Redis (broker celery)
   # -------------------------
   redis:
     image: redis:7-alpine
@@ -51,7 +51,7 @@ services:
       retries: 10
 
   # -------------------------
-  # MinIO (S3 compatible)
+  # MinIO (S3)
   # -------------------------
   minio:
     image: minio/minio:latest
@@ -69,20 +69,20 @@ services:
     labels:
       - "traefik.enable=true"
 
-      # --- API S3 (port 9000)
+      # API S3 (9000)
       - "traefik.http.routers.best-minio.rule=Host(`${MINIO_HOST:-minio.example.com}`)"
       - "traefik.http.routers.best-minio.entrypoints=${TRAEFIK_ENTRYPOINT_WEBSECURE:-websecure}"
       - "traefik.http.routers.best-minio.tls=true"
       - "traefik.http.services.best-minio.loadbalancer.server.port=9000"
 
-      # --- Console MinIO (port 9001)
+      # Console (9001)
       - "traefik.http.routers.best-minio-console.rule=Host(`${MINIO_CONSOLE_HOST:-minio-console.example.com}`)"
       - "traefik.http.routers.best-minio-console.entrypoints=${TRAEFIK_ENTRYPOINT_WEBSECURE:-websecure}"
       - "traefik.http.routers.best-minio-console.tls=true"
       - "traefik.http.services.best-minio-console.loadbalancer.server.port=9001"
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 10
@@ -91,13 +91,9 @@ services:
   # Django (Gunicorn)
   # -------------------------
   bestweb:
-    # Option A: build local (recommandé)
     build:
       context: .
       dockerfile: Dockerfile
-    # Option B: image déjà buildée
-    # image: your-registry/best-epargne:latest
-
     container_name: bestweb
     restart: unless-stopped
     env_file:
@@ -106,8 +102,8 @@ services:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
 
-      # Database
-      DATABASE_URL: ${DATABASE_URL:-postgres://best_epargne:best_epargne_pwd@postgres:5432/best_epargne}
+      # ✅ IMPORTANT: host = bestDB (pas "postgres")
+      DATABASE_URL: ${DATABASE_URL:-postgres://best_epargne:best_epargne_pwd@bestDB:5432/best_epargne}
 
       # Redis / Celery
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
@@ -120,7 +116,7 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-best-epargne}
 
-      # Important derrière Traefik
+      # Proxy headers
       USE_X_FORWARDED_HOST: "true"
       SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
 
@@ -131,34 +127,24 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+
     networks:
       - internal
       - proxy
+
     labels:
       - "traefik.enable=true"
-
-      # Route principale
       - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST:-best-epargne.example.com}`)"
       - "traefik.http.routers.best-epargne.entrypoints=${TRAEFIK_ENTRYPOINT_WEBSECURE:-websecure}"
       - "traefik.http.routers.best-epargne.tls=true"
-
-      # Service -> Gunicorn port
       - "traefik.http.services.best-epargne.loadbalancer.server.port=${APP_PORT:-8000}"
 
-      # Middlewares utiles (optionnels)
-      # - redirection www/non-www : à gérer selon votre besoin
-      # - headers sécurité : possible via Traefik dynamic config
-
-    # Commande standard: migrations + collectstatic + gunicorn
-    command: >
-      sh -c "
-        python manage.py migrate --noinput &&
-        python manage.py collectstatic --noinput &&
-        gunicorn best_epargne.wsgi:application
-          --bind 0.0.0.0:${APP_PORT:-8000}
-          --workers ${GUNICORN_WORKERS:-3}
-          --timeout ${GUNICORN_TIMEOUT:-120}
-      "
+    # ✅ Fix --bind not found : une seule ligne
+    command:
+      [
+        "sh","-c",
+        "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn best_epargne.wsgi:application --bind 0.0.0.0:${APP_PORT:-8000} --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120}"
+      ]
 
   # -------------------------
   # Celery Worker
@@ -173,14 +159,19 @@ services:
       - .env
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
-      DATABASE_URL: ${DATABASE_URL:-postgres://best_epargne:best_epargne_pwd@postgres:5432/best_epargne}
+
+      # ✅ IMPORTANT: host = bestDB
+      DATABASE_URL: ${DATABASE_URL:-postgres://best_epargne:best_epargne_pwd@bestDB:5432/best_epargne}
+
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
       MINIO_BUCKET: ${MINIO_BUCKET:-best-epargne}
+
     depends_on:
       bestDB:
         condition: service_healthy
@@ -188,13 +179,14 @@ services:
         condition: service_healthy
       bestweb:
         condition: service_started
+
     networks:
       - internal
-    command: [ "celery", "-A", "best_epargne.celery:app", "worker", "-l", "info" ]
 
+    command: ["celery", "-A", "best_epargne.celery:app", "worker", "-l", "info"]
 
   # -------------------------
-  # Celery Beat (scheduler)
+  # Celery Beat
   # -------------------------
   celery_beat:
     build:
@@ -206,10 +198,14 @@ services:
       - .env
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
-      DATABASE_URL: ${DATABASE_URL:-postgres://best_epargne:best_epargne_pwd@postgres:5432/best_epargne}
+
+      # ✅ IMPORTANT: host = bestDB
+      DATABASE_URL: ${DATABASE_URL:-postgres://best_epargne:best_epargne_pwd@bestDB:5432/best_epargne}
+
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+
     depends_on:
       bestDB:
         condition: service_healthy
@@ -217,6 +213,8 @@ services:
         condition: service_healthy
       bestweb:
         condition: service_started
+
     networks:
       - internal
+
     command: ["celery", "-A", "best_epargne.celery:app", "beat", "-l", "info"]
