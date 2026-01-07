@@ -11,15 +11,25 @@ ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
 # DB Postgres (à adapter à ton infra)
+# DATABASES = {
+#   "default": {
+#     "ENGINE": "django.db.backends.postgresql",
+#     "NAME": os.getenv("POSTGRES_DB"),
+#     "USER": os.getenv("POSTGRES_USER"),
+#     "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+#     "HOST": os.getenv("POSTGRES_HOST", "bestDB"),  # ✅ IMPORTANT
+#     "PORT": os.getenv("POSTGRES_PORT", "5432"),
+#   }
+# }
 DATABASES = {
-  "default": {
-    "ENGINE": "django.db.backends.postgresql",
-    "NAME": os.getenv("POSTGRES_DB"),
-    "USER": os.getenv("POSTGRES_USER"),
-    "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-    "HOST": os.getenv("POSTGRES_HOST", "bestDB"),  # ✅ IMPORTANT
-    "PORT": os.getenv("POSTGRES_PORT", "5432"),
-  }
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',  # Correct engine for GIS support
+        'NAME': os.environ.get('DATABASE_NAME'),
+        'USER': os.environ.get('DATABASE_USER'),
+        'PASSWORD': os.environ.get('DATABASE_PASSWORD'),
+        'HOST': os.environ.get('DATABASE_HOST'),
+        'PORT': os.environ.get('DATABASE_PORT'),
+    }
 }
 
 # Redis en prod (souvent un container/host "redis")
