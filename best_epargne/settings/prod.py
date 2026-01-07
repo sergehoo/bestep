@@ -6,7 +6,6 @@ DEBUG = False
 
 # Domaine(s) du site en prod
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
-# ex: DJANGO_ALLOWED_HOSTS="rhpartnersafric.com,www.rhpartnersafric.com"
 
 # SECRET_KEY obligatoire via env en prod
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
@@ -15,10 +14,10 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "rhpartnersafric"),
-        "USER": os.environ.get("DB_USER", "rhpartnersafric"),
+        "NAME": os.environ.get("DB_NAME", ""),
+        "USER": os.environ.get("DB_USER", ""),
         "PASSWORD": os.environ.get("DB_PASSWORD", ""),
-        "HOST": os.environ.get("DB_HOST", "rhp_db"),
+        "HOST": os.environ.get("DB_HOST", ""),
         "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }

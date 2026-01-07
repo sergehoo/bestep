@@ -1,0 +1,648 @@
+{# templates/home/learner_explore.html #}
+{% extends "layout/learner_base.html" %}
+{% load static %}
+
+{% block title %}best-épargne — Explorer les cours{% endblock %}
+{% block topbar_subtitle %}Explorer{% endblock %}
+
+{% block topbar_search %}
+  <input x-model.debounce.300ms="filters.q"
+         @input="loadExplore()"
+         placeholder="Rechercher un cours…"
+         class="w-full px-4 py-2 rounded-xl border border-be-ink-100/70 bg-white/80 dark:bg-white/5">
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'learner_dashboard' %}"
+     class="px-3 py-2 rounded-xl border border-be-ink-100/70 bg-white/80 dark:bg-white/5 hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition text-sm font-semibold">
+    Retour dashboard
+  </a>
+{% endblock %}
+
+{% block topbar_user %}
+  <div class="flex items-center gap-2" x-data="{me: window.__beLearnerMe || {}}">
+    <div class="w-8 h-8 rounded-lg bg-be-sun-400 text-be-ink-900 flex items-center justify-center font-bold"
+         x-text="me.initials || 'A'"></div>
+    <span class="hidden sm:block text-sm font-semibold" x-text="me.full_name || 'Apprenant'"></span>
+  </div>
+{% endblock %}
+
+{% block sidebar %}
+  {% include "partials/learner_side.html" %}
+{% endblock %}
+
+{% block content %}
+<section class="space-y-6"
+         x-data="exploreApp({
+           endpoints: {
+             me: '{% url "api_learner_me" %}',
+             explore: '{% url "api_learner_courses_explore" %}',
+             enroll: (id) => `/api/learner/courses/${id}/enroll/`,
+             courseDetail: (id) => `/api/learner/courses/${id}/`,
+           }
+         })"
+         x-init="init()">
+
+  <!-- Header -->
+  <div class="rounded-2xl border border-be-ink-100/70 bg-white/80 dark:bg-white/5 shadow-soft p-5">
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-be-sky-500 to-be-sky-700 text-white flex items-center justify-center shadow-ring overflow-hidden">
+          <img src="{% static 'img/logo-2.png' %}" class="w-9 h-9 object-contain" alt="logo">
+        </div>
+        <div>
+          <div class="text-sm font-semibold">Explorer les cours</div>
+          <div class="text-xs text-be-ink-500 mt-1">Découvre les cours publiés et inscris-toi en 1 clic.</div>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button @click="loadExplore()"
+                class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
+          Actualiser
+        </button>
+      </div>
+    </div>
+
+    <!-- Filters row -->
+    <div class="mt-4 grid md:grid-cols-12 gap-3">
+      <div class="md:col-span-5">
+        <label class="text-xs font-semibold text-be-ink-600">Recherche</label>
+        <div class="mt-1 relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <input x-model.debounce.300ms="filters.q"
+                 @input="loadExplore()"
+                 placeholder="Ex: Excel, Budget, Investissement…"
+                 class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm focus:outline-none focus:ring-4 focus:ring-be-sky-200/60"/>
+        </div>
+      </div>
+
+      <div class="md:col-span-2">
+        <label class="text-xs font-semibold text-be-ink-600">Type</label>
+        <select x-model="filters.type" @change="loadExplore()"
+                class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+          <option value="">Tous</option>
+          <option value="CERTIFIANTE">Certifiante</option>
+          <option value="PROFESSIONNELLE">Professionnelle</option>
+          <option value="ACADEMIQUE">Académique</option>
+          <option value="INTERNE">Interne</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2">
+        <label class="text-xs font-semibold text-be-ink-600">Pricing</label>
+        <select x-model="filters.pricing" @change="loadExplore()"
+                class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+          <option value="">Tous</option>
+          <option value="FREE">Gratuit</option>
+          <option value="PAID">Payant</option>
+          <option value="HYBRID">Hybride</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-3">
+        <label class="text-xs font-semibold text-be-ink-600">Trier</label>
+        <select x-model="filters.sort" @change="loadExplore()"
+                class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+          <option value="recent">Récents</option>
+          <option value="popular">Populaires</option>
+          <option value="rating">Mieux notés</option>
+          <option value="price_asc">Prix ↑</option>
+          <option value="price_desc">Prix ↓</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <template x-if="toast.show">
+    <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft px-4 py-3 flex items-start justify-between gap-3">
+      <div class="text-sm">
+        <div class="font-semibold" x-text="toast.title"></div>
+        <div class="text-be-ink-600 mt-1" x-text="toast.message"></div>
+      </div>
+      <button class="text-xs px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-be-ink-50"
+              @click="toast.show=false">OK</button>
+    </div>
+  </template>
+
+  <!-- Results -->
+  <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+    <div class="p-4 sm:p-5 border-b border-be-ink-100 flex items-center justify-between">
+      <div>
+        <div class="text-sm font-semibold">Cours publiés</div>
+        <div class="text-xs text-be-ink-500 mt-1">
+          <span x-text="meta.count"></span> cours •
+          <span x-text="meta.offset"></span> – <span x-text="Math.min(meta.offset + meta.limit, meta.count)"></span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                :disabled="loading.explore || meta.offset<=0"
+                @click="prevPage()">
+          ← Précédent
+        </button>
+        <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                :disabled="loading.explore || (meta.offset + meta.limit) >= meta.count"
+                @click="nextPage()">
+          Suivant →
+        </button>
+      </div>
+    </div>
+
+    <div class="p-4 sm:p-5">
+      <template x-if="loading.explore">
+        <div class="text-sm text-be-ink-500">Chargement…</div>
+      </template>
+
+      <template x-if="!loading.explore && courses.length===0">
+        <div class="text-sm text-be-ink-500">Aucun cours trouvé.</div>
+      </template>
+
+      <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <template x-for="c in courses" :key="c.id">
+          <div class="rounded-2xl border border-be-ink-100 bg-white p-4 hover:bg-be-ink-50/40 transition">
+            <div class="flex items-start gap-3">
+              <div class="w-16 h-12 rounded-xl bg-be-ink-50 border border-be-ink-100 overflow-hidden shrink-0">
+                <img x-show="c.thumbnail_url" :src="c.thumbnail_url" class="w-full h-full object-cover" alt="">
+                <div x-show="!c.thumbnail_url" class="w-full h-full flex items-center justify-center text-[11px] text-be-ink-400">No img</div>
+              </div>
+
+              <div class="min-w-0 flex-1">
+                <div class="font-semibold truncate" x-text="c.title"></div>
+                <div class="text-xs text-be-ink-500 mt-1 truncate" x-text="c.subtitle || ''"></div>
+
+                <div class="mt-2 flex flex-wrap gap-2 text-[11px]">
+                  <span class="px-2 py-0.5 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700"
+                        x-text="c.course_type || '—'"></span>
+
+                  <span class="px-2 py-0.5 rounded-full border"
+                        :class="(c.pricing_type==='PAID') ? 'bg-be-sun-50 border-be-sun-200 text-be-sun-800'
+                               : (c.pricing_type==='FREE') ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                               : 'bg-be-ink-50 border-be-ink-100 text-be-ink-700'"
+                        x-text="pricingLabel(c)"></span>
+
+                  <span class="px-2 py-0.5 rounded-full border bg-be-ink-50 border-be-ink-100 text-be-ink-700"
+                        x-show="c.enrolled_count!=null">
+                    👥 <span x-text="c.enrolled_count"></span>
+                  </span>
+
+                  <span class="px-2 py-0.5 rounded-full border bg-be-ink-50 border-be-ink-100 text-be-ink-700"
+                        x-show="c.rating_avg!=null">
+                    ★ <span x-text="(c.rating_avg||0).toFixed(1)"></span>
+                  </span>
+                </div>
+
+                <div class="mt-3 flex items-center justify-between gap-2">
+                  <div class="text-[11px] text-be-ink-500 truncate" x-text="c.instructor_name || ''"></div>
+                  <div class="text-[11px] text-be-ink-500" x-text="(c.lessons_count ?? 0) + ' leçons'"></div>
+                </div>
+
+                <div class="mt-3 flex gap-2">
+                  <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                          @click="openDetail(c)">
+                    Détails
+                  </button>
+
+                  <button class="px-3 py-2 rounded-xl text-xs font-semibold"
+                          :class="c.is_enrolled ? 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'
+                                               : 'bg-be-sky-600 text-white hover:bg-be-sky-700 shadow-soft'"
+                          :disabled="loading.enrollId===c.id || c.is_enrolled"
+                          @click="enroll(c)">
+                    <template x-if="c.is_enrolled">
+                      <span>Déjà inscrit</span>
+                    </template>
+                    <template x-if="!c.is_enrolled">
+                      <span x-show="loading.enrollId!==c.id">S’inscrire</span>
+                    </template>
+                    <span x-show="loading.enrollId===c.id">Inscription…</span>
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div x-show="modals.detail" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40" @click="closeDetail()"></div>
+    <div class="relative w-full max-w-3xl rounded-2xl bg-white border border-be-ink-100 shadow-soft overflow-hidden">
+      <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
+        <div class="font-semibold" x-text="detail?.title || 'Détails du cours'"></div>
+        <button class="w-9 h-9 rounded-xl border border-be-ink-100 hover:bg-be-ink-50" @click="closeDetail()">✕</button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <template x-if="loading.detail">
+          <div class="text-sm text-be-ink-500">Chargement…</div>
+        </template>
+
+        <template x-if="!loading.detail && detail">
+          <div class="grid md:grid-cols-12 gap-4">
+            <div class="md:col-span-4">
+              <div class="aspect-[4/3] rounded-2xl overflow-hidden border border-be-ink-100 bg-be-ink-50">
+                <img x-show="detail.thumbnail_url" :src="detail.thumbnail_url" class="w-full h-full object-cover" alt="">
+                <div x-show="!detail.thumbnail_url" class="w-full h-full flex items-center justify-center text-sm text-be-ink-400">No image</div>
+              </div>
+            </div>
+            <div class="md:col-span-8">
+              <div class="text-sm font-semibold" x-text="detail.title"></div>
+              <div class="text-xs text-be-ink-500 mt-1" x-text="detail.subtitle || ''"></div>
+
+              <div class="mt-3 text-sm text-be-ink-700 whitespace-pre-wrap" x-text="detail.description || ''"></div>
+
+              <div class="mt-4 flex flex-wrap gap-2 text-[11px]">
+                <span class="px-2 py-0.5 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700"
+                      x-text="detail.course_type || '—'"></span>
+                <span class="px-2 py-0.5 rounded-full border bg-be-ink-50 border-be-ink-100 text-be-ink-700"
+                      x-text="pricingLabel(detail)"></span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="px-5 py-4 border-t border-be-ink-100 flex items-center justify-between">
+        <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
+                @click="closeDetail()">Fermer</button>
+
+        <button class="px-4 py-2.5 rounded-xl text-sm font-semibold"
+                :class="detail?.is_enrolled ? 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'
+                                           : 'bg-be-sky-600 text-white hover:bg-be-sky-700 shadow-soft'"
+                :disabled="!detail || loading.enrollId===detail.id || detail.is_enrolled"
+                @click="detail && enroll(detail)">
+          <span x-show="detail && detail.is_enrolled">Déjà inscrit</span>
+          <span x-show="detail && !detail.is_enrolled && loading.enrollId!==detail.id">S’inscrire</span>
+          <span x-show="detail && loading.enrollId===detail.id">Inscription…</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+ 
+<script>
+/** IMPORTANT: on expose la fonction pour Alpine */
+window.learnerApp = function(cfg) {
+  return {
+    endpoints: cfg.endpoints || {},
+
+    activeTab: "courses",
+
+    // ✅ évite “me is not defined”
+    me: { full_name: "", email: "", initials: "A" },
+
+    // ✅ évite “filters is not defined”
+    filters: { q: "", status: "" },
+
+    kpis: [],
+    enrollments: [],
+    notifications: [],
+    payments: [],
+
+    loading: {
+      me: false, kpis: false, enrollments: false,
+      notifications: false, payments: false,
+      progress: false,
+    },
+
+    toast: { show: false, title: "", message: "" },
+
+    drawers: { progress: false },
+    progress: { title:"", course_id:null, progress_percent:null, completed_lessons:0, total_lessons:null, lessons:[] },
+
+    init() {
+      this.loadMe();
+      this.loadKpis();
+      this.loadEnrollments();
+    },
+
+    showToast(title, message) {
+      this.toast = { show: true, title, message };
+      setTimeout(() => this.toast.show = false, 3500);
+    },
+
+    getCsrf() {
+      const m = document.cookie.match(/csrftoken=([^;]+)/);
+      return m ? m[1] : "";
+    },
+
+    async apiGet(url) {
+      const res = await fetch(url, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+      if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
+      return await res.json();
+    },
+
+    async apiPost(url, payload) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "X-CSRFToken": this.getCsrf(),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(payload || {})
+      });
+
+      if (!res.ok) {
+        let detail = "";
+        try { detail = JSON.stringify(await res.json()); } catch(e) {}
+        throw new Error(`POST ${url} -> ${res.status} ${detail}`);
+      }
+      return await res.json();
+    },
+
+    fmtMoney(v) {
+      return Number(v || 0).toLocaleString("fr-FR");
+    },
+
+    formatDate(dt) {
+      if (!dt) return "—";
+      try { return new Date(dt).toLocaleString("fr-FR"); }
+      catch(e){ return String(dt); }
+    },
+
+    async loadMe() {
+      try {
+        this.loading.me = true;
+        const data = await this.apiGet(this.endpoints.me);
+        const initials = (data.full_name || data.email || "A")
+          .split(" ").filter(Boolean).slice(0,2).map(x => x[0].toUpperCase()).join("");
+        this.me = { ...this.me, ...data, initials: initials || "A" };
+
+        // utile si tu veux réutiliser ailleurs
+        window.__beLearnerMe = this.me;
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.loading.me = false;
+      }
+    },
+
+    async loadKpis() {
+      try {
+        this.loading.kpis = true;
+        const data = await this.apiGet(this.endpoints.kpis);
+
+        const enrolled = data.enrollments?.total ?? "—";
+        const completed = data.enrollments?.completed ?? "—";
+        const avgProg = data.progress?.avg_percent ?? null;
+        const avgRate = data.reviews?.avg_rating_given ?? null;
+
+        this.kpis = [
+          { key:"enrolled", label:"Cours inscrits", value: enrolled, hint:"Total inscriptions", tone:"sky", icon:"📚" },
+          { key:"completed", label:"Cours terminés", value: completed, hint:"Complétés", tone:"sun", icon:"✅" },
+          { key:"progress", label:"Progression moyenne", value: (avgProg==null ? "—" : Math.round(avgProg)+"%"), hint:"Moyenne leçons", tone:"sky", icon:"📈" },
+          { key:"rating", label:"Note donnée", value: (avgRate==null ? "—" : Number(avgRate).toFixed(1)), hint:"Moyenne de vos avis", tone:"sun", icon:"⭐" },
+        ];
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.loading.kpis = false;
+      }
+    },
+
+    buildEnrollmentsUrl() {
+      const u = new URL(this.endpoints.enrollments, window.location.origin);
+      if (this.filters.q) u.searchParams.set("q", this.filters.q);
+      if (this.filters.status) u.searchParams.set("status", this.filters.status);
+      return u.toString();
+    },
+
+    async loadEnrollments() {
+      try {
+        this.loading.enrollments = true;
+        const data = await this.apiGet(this.buildEnrollmentsUrl());
+        this.enrollments = data.results || data || [];
+      } catch (e) {
+        console.error(e);
+        this.showToast("Erreur", "Impossible de charger vos cours.");
+      } finally {
+        this.loading.enrollments = false;
+      }
+    },
+
+    async loadNotifications() {
+      try {
+        this.loading.notifications = true;
+        const data = await this.apiGet(this.endpoints.notifications);
+        this.notifications = data.results || data || [];
+      } catch (e) {
+        console.error(e);
+        this.showToast("Erreur", "Impossible de charger les notifications.");
+      } finally {
+        this.loading.notifications = false;
+      }
+    },
+
+    async loadPayments() {
+      try {
+        this.loading.payments = true;
+        const data = await this.apiGet(this.endpoints.payments);
+        this.payments = data.results || data || [];
+      } catch (e) {
+        console.error(e);
+        this.showToast("Erreur", "Impossible de charger les paiements.");
+      } finally {
+        this.loading.payments = false;
+      }
+    },
+
+    async openProgress(courseId, title) {
+      this.progress = { title: title || "", course_id: courseId, progress_percent:null, completed_lessons:0, total_lessons:null, lessons:[] };
+      this.drawers.progress = true;
+      this.loading.progress = true;
+
+      try {
+        // ton endpoint: /api/learner/courses/<id>/progress/
+        const url = (this.endpoints.courseProgress) ? this.endpoints.courseProgress(courseId) : `/api/learner/courses/${courseId}/progress/`;
+        const data = await this.apiGet(url);
+        this.progress = { ...this.progress, ...data, title: title || this.progress.title };
+      } catch (e) {
+        console.error(e);
+        this.showToast("Erreur", "Impossible de charger la progression.");
+      } finally {
+        this.loading.progress = false;
+      }
+    },
+
+    closeProgress() { this.drawers.progress = false; },
+  }
+};
+</script>
+
+<script>
+function exploreApp(cfg){
+  return {
+    endpoints: cfg.endpoints,
+
+    me: {},
+    courses: [],
+    meta: { count: 0, limit: 24, offset: 0 },
+
+    filters: { q:"", type:"", pricing:"", sort:"recent" },
+
+    loading: { me:false, explore:false, enrollId:null, detail:false },
+    toast: { show:false, title:"", message:"" },
+    modals: { detail:false },
+    detail: null,
+
+    init(){
+      this.loadMe();
+      this.loadExplore(true);
+    },
+
+    showToast(title, message){
+      this.toast = { show:true, title, message };
+      setTimeout(()=>this.toast.show=false, 3500);
+    },
+
+    getCsrf(){
+      const m = document.cookie.match(/csrftoken=([^;]+)/);
+      return m ? m[1] : "";
+    },
+
+    async apiGet(url){
+      const res = await fetch(url, { headers: { "Accept":"application/json" }, credentials:"same-origin" });
+      if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
+      return await res.json();
+    },
+
+    async apiPost(url, payload){
+      const res = await fetch(url, {
+        method:"POST",
+        headers: {
+          "Content-Type":"application/json",
+          "X-CSRFToken": this.getCsrf(),
+          "Accept":"application/json"
+        },
+        body: JSON.stringify(payload || {}),
+        credentials:"same-origin"
+      });
+      if (!res.ok){
+        let detail = "";
+        try { detail = JSON.stringify(await res.json()); } catch(e){}
+        throw new Error(`POST ${url} -> ${res.status} ${detail}`);
+      }
+      return await res.json();
+    },
+
+    async loadMe(){
+      try{
+        this.loading.me = true;
+        const data = await this.apiGet(this.endpoints.me);
+        const initials = (data.full_name || data.email || "A")
+          .split(" ").filter(Boolean).slice(0,2).map(x=>x[0].toUpperCase()).join("");
+        this.me = { ...data, initials };
+        // petit hack pour que topbar_user puisse réutiliser
+        window.__beLearnerMe = this.me;
+      } catch(e){ console.error(e); }
+      finally{ this.loading.me = false; }
+    },
+
+    buildExploreUrl(resetOffset=false){
+      const u = new URL(this.endpoints.explore, window.location.origin);
+      if (this.filters.q) u.searchParams.set("q", this.filters.q);
+      if (this.filters.type) u.searchParams.set("type", this.filters.type);
+      if (this.filters.pricing) u.searchParams.set("pricing", this.filters.pricing);
+      if (this.filters.sort) u.searchParams.set("sort", this.filters.sort);
+
+      u.searchParams.set("limit", String(this.meta.limit || 24));
+      u.searchParams.set("offset", String(resetOffset ? 0 : (this.meta.offset || 0)));
+      return u.toString();
+    },
+
+    async loadExplore(resetOffset=false){
+      try{
+        this.loading.explore = true;
+        const data = await this.apiGet(this.buildExploreUrl(resetOffset));
+        this.courses = data.results || [];
+        this.meta = {
+          count: data.count ?? this.courses.length,
+          limit: data.limit ?? (this.meta.limit || 24),
+          offset: data.offset ?? (resetOffset ? 0 : (this.meta.offset || 0)),
+        };
+      } catch(e){
+        console.error(e);
+        this.showToast("Erreur", "Impossible de charger les cours publiés.");
+      } finally {
+        this.loading.explore = false;
+      }
+    },
+
+    nextPage(){
+      if ((this.meta.offset + this.meta.limit) >= this.meta.count) return;
+      this.meta.offset = this.meta.offset + this.meta.limit;
+      this.loadExplore(false);
+    },
+    prevPage(){
+      if (this.meta.offset <= 0) return;
+      this.meta.offset = Math.max(0, this.meta.offset - this.meta.limit);
+      this.loadExplore(false);
+    },
+
+    pricingLabel(c){
+      const p = c.pricing_type;
+      if (p === "FREE") return "Gratuit";
+      if (p === "HYBRID") return "Hybride";
+      const price = Number(c.price || 0).toLocaleString("fr-FR");
+      return `Payant • ${price} ${c.currency || "XOF"}`;
+    },
+
+    async enroll(course){
+      if (!course || course.is_enrolled) return;
+      try{
+        this.loading.enrollId = course.id;
+        await this.apiPost(this.endpoints.enroll(course.id), {});
+        this.showToast("Succès", "Inscription effectuée.");
+
+        // mets à jour localement
+        this.courses = this.courses.map(x => x.id===course.id ? ({...x, is_enrolled:true}) : x);
+        if (this.detail && this.detail.id === course.id) this.detail = { ...this.detail, is_enrolled:true };
+
+      } catch(e){
+        console.error(e);
+        this.showToast("Erreur", "Impossible de s’inscrire à ce cours.");
+      } finally {
+        this.loading.enrollId = null;
+      }
+    },
+
+    async openDetail(course){
+      // si tu veux un détail “live”
+      this.modals.detail = true;
+      this.detail = { ...course };
+      this.loading.detail = true;
+
+      try{
+        const data = await this.apiGet(this.endpoints.courseDetail(course.id));
+        // si ton endpoint detail ne renvoie pas thumbnail_url etc, on garde fallback
+        this.detail = { ...this.detail, ...data };
+      } catch(e){
+        console.error(e);
+      } finally {
+        this.loading.detail = false;
+      }
+    },
+
+    closeDetail(){
+      this.modals.detail = false;
+      this.detail = null;
+    },
+  }
+}
+</script>
+{% endblock %}

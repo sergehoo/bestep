@@ -37,6 +37,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    "compte",
+    "organizations",
+    'assessments',
+    'catalog',
+    'certifications',
+    'commerce',
+    'enrollments',
+    'reviews',
 ]
 
 MIDDLEWARE = [
@@ -47,6 +55,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+
 ]
 
 ROOT_URLCONF = 'best_epargne.urls'
@@ -70,7 +80,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'best_epargne.wsgi.application'
 
-
+ACCOUNT_FORMS = {
+    "signup": "compte.forms.CustomSignupForm",
+}
+LOGIN_REDIRECT_URL = "/dashboard/"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -80,7 +93,17 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+AUTH_USER_MODEL = "compte.User"
 
+REST_FRAMEWORK = {
+  "DEFAULT_AUTHENTICATION_CLASSES": [
+    "rest_framework.authentication.SessionAuthentication",
+    "rest_framework.authentication.TokenAuthentication",
+  ],
+  "DEFAULT_PERMISSION_CLASSES": [
+    "rest_framework.permissions.AllowAny",
+  ],
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

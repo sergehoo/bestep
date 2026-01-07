@@ -1,10 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Title</title>
+  <meta charset="utf-8"/>
+  <title>best-épargne — Entreprise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body>
+
+<body class="bg-slate-50" x-data="businessApp()">
+
+<header class="bg-white border-b px-6 py-4 flex justify-between">
+  <h1 class="font-bold text-primary">best-épargne</h1>
+  <span class="text-sm">Espace Entreprise</span>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 py-8 space-y-6">
+
+  <div class="bg-white rounded-xl p-6 shadow">
+    <div class="font-semibold text-lg">Employés</div>
+    <table class="w-full mt-4 text-sm">
+      <thead class="bg-slate-100">
+        <tr>
+          <th class="text-left px-3 py-2">Nom</th>
+          <th class="text-left px-3 py-2">Cours</th>
+          <th class="text-left px-3 py-2">Progression</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="e in employees">
+          <tr class="border-t">
+            <td class="px-3 py-2" x-text="e.name"></td>
+            <td class="px-3 py-2" x-text="e.course"></td>
+            <td class="px-3 py-2 font-semibold" x-text="e.progress + '%'"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+function businessApp(){
+  return {
+    employees:[
+      {name:'Aïcha Koné', course:'Excel Finance', progress:72},
+      {name:'Yao N’Dri', course:'Conformité', progress:38}
+    ]
+  }
+}
+</script>
 
 </body>
 </html>

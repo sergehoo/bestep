@@ -1,0 +1,256 @@
+{% extends "layout/learner_base.html" %}
+{% load static %}
+
+{% block title %}Continuer le cours{% endblock %}
+{% block topbar_subtitle %}Continuer{% endblock %}
+
+{% block content %}
+<script id="player-config" type="application/json">
+{
+  "courseId": {{ course_id|default:"null" }},
+  "api": {
+    "outline": "/api/learner/courses/{{ course_id }}/outline/",
+    "continue": "/api/learner/courses/{{ course_id }}/continue/",
+    "lessonStateBase": "/api/learner/courses/{{ course_id }}/lessons/",
+    "lessonProgressBase": "/api/learner/courses/{{ course_id }}/lessons/",
+    "setCurrent": "/api/learner/courses/{{ course_id }}/set-current/"
+  }
+}
+</script>
+
+<div class="grid lg:grid-cols-12 gap-4" x-data="coursePlayer()" x-init="init()">
+
+  <!-- LEFT: Outline -->
+  <aside class="lg:col-span-4 xl:col-span-3 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+    <div class="p-4 border-b border-be-ink-100">
+      <div class="text-sm font-semibold" x-text="course.title || 'Cours'"></div>
+      <div class="text-xs text-be-ink-500 mt-1">
+        Progression: <span class="font-semibold" x-text="progress.percent + '%'"></span>
+        • <span x-text="progress.completed_lessons"></span>/<span x-text="progress.total_lessons"></span>
+      </div>
+      <div class="mt-2 h-2 rounded-full bg-be-ink-100 overflow-hidden">
+        <div class="h-full rounded-full bg-be-sky-600" :style="`width:${progress.percent || 0}%`"></div>
+      </div>
+    </div>
+
+    <div class="p-4 space-y-4 overflow-auto no-scrollbar" style="max-height: calc(100vh - 210px)">
+      <template x-if="loading.outline">
+        <div class="text-sm text-be-ink-500">Chargement plan…</div>
+      </template>
+
+      <template x-for="s in sections" :key="s.id">
+        <div class="space-y-2">
+          <div class="text-xs font-semibold text-be-ink-700" x-text="s.title"></div>
+
+          <template x-for="l in s.lessons" :key="l.id">
+            <button
+              class="w-full text-left rounded-xl border px-3 py-2 flex items-center justify-between gap-2 hover:bg-be-ink-50"
+              :class="l.id===currentLessonId ? 'border-be-sky-300 bg-be-sky-50' : 'border-be-ink-100 bg-white'"
+              @click="openLesson(l.id)">
+              <div class="min-w-0">
+                <div class="text-sm font-semibold truncate" x-text="l.title"></div>
+                <div class="text-[11px] text-be-ink-500 mt-0.5">
+                  <span x-text="l.type"></span>
+                  <span class="ml-2" x-show="l.is_completed">• ✅ terminé</span>
+                </div>
+              </div>
+              <div class="text-xs font-semibold" x-text="(l.percent ?? 0) + '%'"></div>
+            </button>
+          </template>
+        </div>
+      </template>
+    </div>
+  </aside>
+
+  <!-- RIGHT: Player -->
+  <section class="lg:col-span-8 xl:col-span-9 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+    <div class="p-4 border-b border-be-ink-100 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="text-sm font-semibold truncate" x-text="lesson.title || 'Leçon'"></div>
+        <div class="text-xs text-be-ink-500 mt-1">
+          <span x-text="lesson.type || ''"></span>
+          <span class="ml-2">•</span>
+          <span class="ml-2">Progress: <span class="font-semibold" x-text="lessonProgress.percent + '%'"></span></span>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
+                @click="markCompleted()">
+          Marquer terminé
+        </button>
+        <button class="px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold"
+                @click="nextLesson()">
+          Suivant →
+        </button>
+      </div>
+    </div>
+
+    <div class="p-5">
+      <template x-if="loading.lesson">
+        <div class="text-sm text-be-ink-500">Chargement leçon…</div>
+      </template>
+
+      <template x-if="!loading.lesson">
+        <div>
+          <!-- VIDEO -->
+          <template x-if="lesson.type==='VIDEO' && lesson.video_url">
+            <div class="rounded-2xl border border-be-ink-100 overflow-hidden">
+              <iframe class="w-full" style="height:420px" :src="lesson.video_url" allowfullscreen></iframe>
+            </div>
+          </template>
+
+          <!-- FILE -->
+          <template x-if="lesson.type==='FILE' && lesson.file_url">
+            <a class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
+               :href="lesson.file_url" target="_blank">
+              📄 Ouvrir le fichier
+            </a>
+          </template>
+
+          <!-- TEXT -->
+          <template x-if="lesson.type==='TEXT'">
+            <div class="prose max-w-none">
+              <div x-html="lesson.content || '<p>Contenu vide.</p>'"></div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <div class="mt-6 rounded-2xl border border-be-ink-100 bg-be-ink-50/40 p-4">
+        <div class="text-xs font-semibold text-be-ink-700">Sauvegarde rapide</div>
+        <div class="text-xs text-be-ink-500 mt-1">Exemple : tu peux enregistrer un % manuellement.</div>
+
+        <div class="mt-3 flex items-center gap-2">
+          <input type="range" min="0" max="100" x-model="lessonProgress.percent" class="w-full">
+          <button class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold"
+                  @click="saveProgress(false)">
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+function coursePlayer(){
+  const cfg = JSON.parse(document.getElementById("player-config").textContent);
+
+  return {
+    courseId: cfg.courseId,
+    api: cfg.api,
+
+    loading: { outline:true, lesson:true },
+    course: { id:null, title:"" },
+    sections: [],
+    progress: { percent:0, completed_lessons:0, total_lessons:0 },
+
+    currentLessonId: null,
+    lesson: { id:null, title:"", type:"", video_url:null, file_url:null, content:null },
+    lessonProgress: { percent:0, is_completed:false, last_position_seconds:0 },
+
+    async apiGet(url){
+      const res = await fetch(url, { headers:{ "Accept":"application/json" }, credentials:"same-origin" });
+      if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
+      return await res.json();
+    },
+    getCsrf(){
+      const m = document.cookie.match(/csrftoken=([^;]+)/);
+      return m ? m[1] : "";
+    },
+    async apiPost(url, payload){
+      const res = await fetch(url, {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "X-CSRFToken": this.getCsrf(),
+          "Accept":"application/json"
+        },
+        body: JSON.stringify(payload || {}),
+        credentials:"same-origin"
+      });
+      if (!res.ok){
+        let d=""; try{ d = JSON.stringify(await res.json()); }catch(e){}
+        throw new Error(`POST ${url} -> ${res.status} ${d}`);
+      }
+      return await res.json();
+    },
+
+    async init(){
+      await this.loadOutline();
+      await this.resolveContinueLesson();
+      if (this.currentLessonId) await this.loadLesson(this.currentLessonId);
+    },
+
+    async loadOutline(){
+      try{
+        this.loading.outline = true;
+        const data = await this.apiGet(this.api.outline);
+        this.course = data.course;
+        this.sections = data.sections || [];
+        this.progress = data.progress || this.progress;
+        this.currentLessonId = data.current_lesson_id;
+      } finally {
+        this.loading.outline = false;
+      }
+    },
+
+    async resolveContinueLesson(){
+      // si outline n'a pas current, on demande continue()
+      if (this.currentLessonId) return;
+      const data = await this.apiGet(this.api.continue);
+      this.currentLessonId = data.lesson_id;
+    },
+
+    async openLesson(lessonId){
+      this.currentLessonId = lessonId;
+      await this.apiPost(this.api.setCurrent, { lesson_id: lessonId });
+      await this.loadLesson(lessonId);
+    },
+
+    async loadLesson(lessonId){
+      try{
+        this.loading.lesson = true;
+        const url = `${this.api.lessonStateBase}${lessonId}/state/`;
+        const data = await this.apiGet(url);
+        this.lesson = data.lesson;
+        this.lessonProgress = data.progress;
+      } finally {
+        this.loading.lesson = false;
+      }
+    },
+
+    async saveProgress(markDone){
+      const url = `${this.api.lessonProgressBase}${this.currentLessonId}/progress/`;
+      const payload = {
+        percent: this.lessonProgress.percent,
+        last_position_seconds: this.lessonProgress.last_position_seconds,
+        is_completed: !!markDone
+      };
+      const data = await this.apiPost(url, payload);
+
+      // refresh outline (update badges + % global)
+      await this.loadOutline();
+
+      // si API propose next lesson
+      if (data.next_lesson_id){
+        this.currentLessonId = data.next_lesson_id;
+        await this.loadLesson(this.currentLessonId);
+      }
+    },
+
+    async markCompleted(){
+      this.lessonProgress.percent = 100;
+      await this.saveProgress(true);
+    },
+
+    async nextLesson(){
+      // stratégie simple : marquer terminé -> next auto si dispo
+      await this.markCompleted();
+    }
+  }
+}
+</script>
+{% endblock %}

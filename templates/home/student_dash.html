@@ -1,10 +1,898 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Title</title>
-</head>
-<body>
+{% extends "layout/learner_base.html" %}
+{% load static %}
 
-</body>
-</html>
+{% block title %}best-épargne — Espace Apprenant{% endblock %}
+{% block topbar_subtitle %}Espace Apprenant{% endblock %}
+
+{% block topbar_search %}
+  <div class="relative w-full">
+    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/50">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+        <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <input
+      x-model.debounce.300ms="$store.learner.filters.q"
+      @input="$store.learner.loadEnrollments()"
+      placeholder="Rechercher un cours…"
+      class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100/70 dark:border-white/10
+             bg-white/80 dark:bg-white/5 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 text-sm">
+  </div>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'learner_explore' %}"
+     class="px-3 py-2 rounded-xl bg-be-sky-600 text-white shadow-soft hover:bg-be-sky-700 transition text-sm font-semibold">
+    Explorer les cours
+  </a>
+{% endblock %}
+
+{% block topbar_user %}
+  <div class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl border border-be-ink-100/70 dark:border-white/10 bg-white/80 dark:bg-white/5">
+    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-be-sun-300 to-be-sun-500 flex items-center justify-center text-be-ink-900 font-semibold text-sm"
+         x-text="$store.learner.me.initials || 'A'"></div>
+    <div class="hidden sm:block leading-tight">
+      <div class="text-sm font-semibold"
+           x-text="$store.learner.me.full_name || $store.learner.me.email || 'Apprenant'"></div>
+      <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5">Apprenant</div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block sidebar %}
+  {% include "partials/learner_side.html" %}
+{% endblock %}
+
+{% block content %}
+
+<script id="learner-endpoints" type="application/json">
+{
+  "me": "{% url 'api_learner_me' %}",
+  "kpis": "{% url 'api_learner_kpis' %}",
+  "enrollments": "{% url 'api_learner_enrollments' %}",
+  "notifications": "{% url 'api_learner_notifications' %}",
+  "payments": "{% url 'api_learner_payments' %}",
+  "courseProgressBase": "/api/learner/courses/"
+}
+</script>
+
+<section class="space-y-6" x-data x-init="$nextTick(() => $store.learner.init())">
+
+  <!-- Header -->
+  <div class="rounded-2xl border border-be-ink-100/70 bg-white/80 dark:bg-white/5 shadow-soft p-5">
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-be-sky-500 to-be-sky-700 text-white flex items-center justify-center shadow-ring overflow-hidden">
+          <img src="{% static 'img/logo-2.png' %}" class="w-9 h-9 object-contain" alt="logo">
+        </div>
+        <div>
+          <div class="text-sm font-semibold">Dashboard Apprenant</div>
+          <div class="text-xs text-be-ink-500 mt-1">Suivi de progression, cours, notifications et paiements.</div>
+        </div>
+      </div>
+
+      <div class="inline-flex rounded-xl border border-be-ink-100/70 bg-white p-1">
+        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                :class="$store.learner.activeTab==='courses' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                @click="$store.learner.activeTab='courses'; $store.learner.loadEnrollments()">
+          Mes cours
+        </button>
+
+        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                :class="$store.learner.activeTab==='notifications' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                @click="$store.learner.activeTab='notifications'; $store.learner.loadNotifications()">
+          Notifications
+        </button>
+
+        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                :class="$store.learner.activeTab==='payments' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                @click="$store.learner.activeTab='payments'; $store.learner.loadPayments()">
+          Paiements
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <template x-if="$store.learner.toast.show">
+    <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft px-4 py-3 flex items-start justify-between gap-3">
+      <div class="text-sm">
+        <div class="font-semibold" x-text="$store.learner.toast.title"></div>
+        <div class="text-be-ink-600 mt-1" x-text="$store.learner.toast.message"></div>
+      </div>
+      <button class="text-xs px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-be-ink-50"
+              @click="$store.learner.toast.show=false">OK</button>
+    </div>
+  </template>
+
+  <!-- KPIs -->
+  <section class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <template x-for="k in $store.learner.kpis" :key="k.key">
+      <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-xs text-be-ink-500" x-text="k.label"></div>
+            <div class="text-2xl font-semibold mt-1" x-text="k.value"></div>
+            <div class="text-[11px] text-be-ink-500 mt-2" x-text="k.hint || ''"></div>
+          </div>
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center border"
+               :class="k.tone==='sky' ? 'bg-be-sky-100 border-be-sky-200 text-be-sky-700' : 'bg-be-sun-100 border-be-sun-200 text-be-sun-800'">
+            <span x-html="k.icon"></span>
+          </div>
+        </div>
+      </div>
+    </template>
+  </section>
+
+  <!-- TAB: Mes cours -->
+  <div x-show="$store.learner.activeTab==='courses'"
+       class="rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+
+    <!-- toolbar -->
+    <div class="p-4 sm:p-5 border-b border-be-ink-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div>
+        <div class="text-sm font-semibold">Mes cours</div>
+        <div class="text-xs text-be-ink-500 mt-1">Cliquez sur Continuer pour reprendre là où vous vous êtes arrêté.</div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 items-center">
+        <select class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm"
+                x-model="$store.learner.filters.status"
+                @change="$store.learner.loadEnrollments()">
+          <option value="">Tous statuts</option>
+          <option value="ACTIVE">Actif</option>
+          <option value="COMPLETED">Terminé</option>
+          <option value="CANCELED">Annulé</option>
+        </select>
+
+        <button @click="$store.learner.loadEnrollments()"
+                class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
+          Actualiser
+        </button>
+      </div>
+    </div>
+
+    <!-- content -->
+    <div class="p-4 sm:p-5">
+
+      <template x-if="$store.learner.loading.enrollments">
+        <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <template x-for="i in [1,2,3,4,5,6]" :key="i">
+            <div class="rounded-2xl border border-be-ink-100 bg-white p-4 animate-pulse">
+              <div class="flex gap-3">
+                <div class="w-16 h-12 rounded-xl bg-be-ink-100"></div>
+                <div class="flex-1">
+                  <div class="h-3 bg-be-ink-100 rounded w-3/4"></div>
+                  <div class="h-3 bg-be-ink-100 rounded w-1/2 mt-2"></div>
+                  <div class="h-2 bg-be-ink-100 rounded w-full mt-4"></div>
+                  <div class="flex gap-2 mt-4">
+                    <div class="h-8 bg-be-ink-100 rounded-xl w-24"></div>
+                    <div class="h-8 bg-be-ink-100 rounded-xl w-24"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <template x-if="!$store.learner.loading.enrollments && $store.learner.enrollments.length===0">
+        <div class="rounded-2xl border border-be-ink-100 bg-white p-8 text-center">
+          <div class="w-16 h-16 rounded-2xl bg-be-ink-50 border border-be-ink-100 flex items-center justify-center mx-auto">
+            <svg class="w-8 h-8 text-be-ink-300" viewBox="0 0 24 24" fill="none">
+              <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="text-sm font-semibold mt-4">Aucun cours inscrit</div>
+          <div class="text-sm text-be-ink-500 mt-1">Explorez les cours et inscrivez-vous pour commencer.</div>
+          <a href="{% url 'learner_explore' %}"
+             class="inline-flex mt-4 px-4 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold hover:bg-be-sky-700">
+            Explorer les cours
+          </a>
+        </div>
+      </template>
+
+      <template x-if="!$store.learner.loading.enrollments && $store.learner.enrollments.length>0">
+        <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <template x-for="e in $store.learner.enrollments" :key="e.enrollment_id">
+            <div class="group rounded-2xl border border-be-ink-100 bg-white p-4 hover:shadow-lift transition-all duration-300">
+              <div class="flex items-start gap-3">
+
+                <div class="w-16 h-12 rounded-xl bg-gradient-to-br from-be-sky-50 to-be-sky-100 border border-be-ink-100 overflow-hidden shrink-0 flex items-center justify-center">
+                  <template x-if="e.course.thumbnail_url">
+                    <img :src="e.course.thumbnail_url" class="w-full h-full object-cover" alt="">
+                  </template>
+                  <template x-if="!e.course.thumbnail_url">
+                    <div class="w-full h-full flex items-center justify-center text-be-sky-600">
+                      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                        <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                      </svg>
+                    </div>
+                  </template>
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      <div class="font-semibold text-sm truncate" x-text="e.course.title"></div>
+                      <div class="text-xs text-be-ink-500 mt-1 truncate" x-text="e.course.subtitle || 'Sans sous-titre'"></div>
+                    </div>
+
+                    <span class="shrink-0 text-[10px] px-2 py-1 rounded-full border font-semibold"
+                          :class="$store.learner.badgeClass(e.status)"
+                          x-text="$store.learner.statusLabel(e.status)"></span>
+                  </div>
+
+                  <div class="mt-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-xs text-be-ink-600 font-medium">Progression</div>
+
+                      <div class="text-xs font-semibold"
+                           :class="$store.learner.normStatus(e.status)==='CANCELED' ? 'text-rose-600' : 'text-be-sky-700'"
+                           x-text="$store.learner.normStatus(e.status)==='CANCELED' ? 'Annulé' : ($store.learner.safePercent(e.progress_percent) + '%')"></div>
+                    </div>
+
+                    <div class="h-2 rounded-full bg-be-ink-100 overflow-hidden">
+                      <div class="h-full rounded-full transition-all duration-700 ease-out"
+                           :class="$store.learner.normStatus(e.status)==='CANCELED'
+                                    ? 'bg-rose-400'
+                                    : ($store.learner.safePercent(e.progress_percent) >= 100 ? 'bg-emerald-500' : 'bg-be-sky-600')"
+                           :style="`width:${$store.learner.normStatus(e.status)==='CANCELED' ? 100 : $store.learner.safePercent(e.progress_percent)}%`"></div>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-2">
+                      <div class="text-[11px] text-be-ink-500">
+                        <span x-text="$store.learner.progressHint(e)"></span>
+                      </div>
+
+                      <div class="text-[11px] text-be-ink-500"
+                           x-show="$store.learner.normStatus(e.status)!=='CANCELED' && $store.learner.normStatus(e.status)!=='COMPLETED'">
+                        <span x-text="$store.learner.safePercent(e.progress_percent)"></span>% terminé
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-4 flex flex-wrap gap-2">
+                    <button
+                      class="px-3 py-2 rounded-xl border border-be-ink-200 bg-white hover:bg-be-ink-50 text-xs font-semibold transition-colors"
+                      :class="$store.learner.normStatus(e.status)==='CANCELED' ? 'opacity-50 cursor-not-allowed' : ''"
+                      :disabled="$store.learner.normStatus(e.status)==='CANCELED'"
+                      @click="$store.learner.openProgress(e.course.id, e.course.title)">
+                      Voir détails
+                    </button>
+
+                    <a
+                      class="px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200"
+                      :class="$store.learner.continueBtnClass(e)"
+                      :href="$store.learner.continueHref(e)"
+                      @click="$store.learner.onContinueClick(e, $event)">
+                      <span x-text="$store.learner.continueLabel(e)"></span>
+                      <svg class="w-3 h-3 ml-1 inline" viewBox="0 0 24 24" fill="none" x-show="$store.learner.normStatus(e.status)!=='CANCELED'">
+                        <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </a>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+    </div>
+  </div>
+
+  <!-- TAB: Notifications -->
+  <div x-show="$store.learner.activeTab==='notifications'"
+       class="rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+    <div class="p-4 sm:p-5 border-b border-be-ink-100 flex items-center justify-between">
+      <div>
+        <div class="text-sm font-semibold">Notifications</div>
+        <div class="text-xs text-be-ink-500 mt-1">Informations, alertes, confirmations…</div>
+      </div>
+      <button @click="$store.learner.loadNotifications()"
+              class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
+        Actualiser
+      </button>
+    </div>
+
+    <div class="p-4 sm:p-5 space-y-3">
+      <template x-if="$store.learner.loading.notifications">
+        <div class="text-sm text-be-ink-500">Chargement…</div>
+      </template>
+
+      <template x-if="!$store.learner.loading.notifications && $store.learner.notifications.length===0">
+        <div class="text-sm text-be-ink-500">Aucune notification.</div>
+      </template>
+
+      <template x-for="n in $store.learner.notifications" :key="n.id">
+        <div class="rounded-2xl border border-be-ink-100 bg-white p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="font-semibold text-sm" x-text="n.title"></div>
+              <div class="text-xs text-be-ink-500 mt-1" x-text="n.level || ''"></div>
+            </div>
+            <span class="text-[11px] px-2 py-1 rounded-full border"
+                  :class="n.is_read ? 'bg-be-ink-50 border-be-ink-100 text-be-ink-700' : 'bg-be-sky-50 border-be-sky-200 text-be-sky-700'">
+              <span x-text="n.is_read ? 'Lu' : 'Nouveau'"></span>
+            </span>
+          </div>
+          <div class="text-sm text-be-ink-700 mt-3" x-text="n.body"></div>
+          <template x-if="n.action_url">
+            <a class="text-xs text-be-sky-700 hover:underline mt-3 inline-block" :href="n.action_url">Ouvrir</a>
+          </template>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- TAB: Paiements -->
+  <div x-show="$store.learner.activeTab==='payments'"
+       class="rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+    <div class="p-4 sm:p-5 border-b border-be-ink-100 flex items-center justify-between">
+      <div>
+        <div class="text-sm font-semibold">Paiements</div>
+        <div class="text-xs text-be-ink-500 mt-1">Historique de vos transactions.</div>
+      </div>
+      <button @click="$store.learner.loadPayments()"
+              class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
+        Actualiser
+      </button>
+    </div>
+
+    <div class="p-4 sm:p-5 overflow-auto no-scrollbar">
+      <table class="min-w-full text-sm">
+        <thead class="bg-be-ink-50/60 text-be-ink-600">
+          <tr>
+            <th class="text-left font-semibold px-4 py-3">Date</th>
+            <th class="text-left font-semibold px-4 py-3">Réf</th>
+            <th class="text-left font-semibold px-4 py-3">Montant</th>
+            <th class="text-left font-semibold px-4 py-3">Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="$store.learner.loading.payments">
+            <tr><td colspan="4" class="px-4 py-8 text-center text-be-ink-500">Chargement…</td></tr>
+          </template>
+
+          <template x-if="!$store.learner.loading.payments && $store.learner.payments.length===0">
+            <tr><td colspan="4" class="px-4 py-8 text-center text-be-ink-500">Aucun paiement.</td></tr>
+          </template>
+
+          <template x-for="p in $store.learner.payments" :key="p.reference">
+            <tr class="border-t border-be-ink-100">
+              <td class="px-4 py-3" x-text="$store.learner.formatDate(p.created_at)"></td>
+              <td class="px-4 py-3 font-mono text-xs" x-text="p.reference"></td>
+              <td class="px-4 py-3 font-semibold" x-text="`${$store.learner.fmtMoney(p.amount)} ${p.currency || 'XOF'}`"></td>
+              <td class="px-4 py-3">
+                <span class="text-[11px] px-2 py-1 rounded-full border"
+                      :class="p.status==='PAID' ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            : p.status==='FAILED' ? 'bg-rose-50 border-rose-200 text-rose-700'
+                            : 'bg-be-ink-50 border-be-ink-100 text-be-ink-700'">
+                  <span x-text="p.status"></span>
+                </span>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Drawer: Progression -->
+  <div x-show="$store.learner.drawers.progress" x-transition.opacity class="fixed inset-0 z-50 flex justify-end">
+    <div class="absolute inset-0 bg-black/40" @click="$store.learner.closeProgress()"></div>
+
+    <div class="relative w-full max-w-xl h-full bg-white border-l border-be-ink-100 shadow-soft p-5 overflow-auto no-scrollbar">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="font-semibold">Progression</div>
+          <div class="text-xs text-be-ink-500 mt-1" x-text="$store.learner.progress.title || '—'"></div>
+        </div>
+        <button class="w-9 h-9 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                @click="$store.learner.closeProgress()">✕</button>
+      </div>
+
+      <template x-if="$store.learner.loading.progress">
+        <div class="mt-5 text-sm text-be-ink-500">Chargement…</div>
+      </template>
+
+      <template x-if="!$store.learner.loading.progress">
+        <div class="mt-5 space-y-4">
+          <div class="rounded-2xl border border-be-ink-100 bg-white p-4">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-be-ink-500">Progression globale</div>
+              <div class="text-sm font-semibold"
+                   x-text="$store.learner.safePercent($store.learner.progress.progress_percent ?? 0) + '%'"></div>
+            </div>
+            <div class="mt-2 h-2 rounded-full bg-be-ink-100 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-700 ease-out"
+                   :class="$store.learner.safePercent($store.learner.progress.progress_percent ?? 0) >= 100 ? 'bg-emerald-500' : 'bg-be-sky-600'"
+                   :style="`width:${$store.learner.safePercent($store.learner.progress.progress_percent ?? 0)}%`"></div>
+            </div>
+            <div class="text-[11px] text-be-ink-500 mt-2">
+              Leçons terminées:
+              <span class="font-semibold" x-text="$store.learner.progress.completed_lessons || 0"></span>
+              /
+              <span class="font-semibold" x-text="$store.learner.progress.total_lessons ?? '—'"></span>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-be-ink-100 bg-white p-4">
+            <div class="text-sm font-semibold">Leçons</div>
+            <div class="text-xs text-be-ink-500 mt-1">Détails par leçon</div>
+
+            <div class="mt-3 space-y-2">
+              <template x-if="($store.learner.progress.lessons || []).length===0">
+                <div class="text-sm text-be-ink-500">Aucune donnée.</div>
+              </template>
+
+              <template x-for="l in ($store.learner.progress.lessons || [])" :key="l.lesson_id || l.id">
+                <div class="rounded-xl border border-be-ink-100 p-3 hover:border-be-sky-200 transition-colors">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                      <div class="text-sm font-semibold truncate"
+                           x-text="l.lesson_title || l.title || ('Leçon #' + (l.lesson_id || l.id))"></div>
+                      <div class="text-[11px] text-be-ink-500 mt-1">
+                        <span x-text="($store.learner.safePercent(l.percent ?? l.progress_percent ?? 0)) + '%'"></span>
+                        <span class="ml-2" x-show="l.is_completed || l.completed">• ✅ terminée</span>
+                      </div>
+                    </div>
+                    <span class="text-[11px] px-2 py-1 rounded-full border shrink-0"
+                          :class="(l.is_completed || l.completed)
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            : 'bg-be-ink-50 border-be-ink-100 text-be-ink-700'">
+                      <span x-text="(l.is_completed || l.completed) ? 'OK' : 'En cours'"></span>
+                    </span>
+                  </div>
+                  <div class="mt-2 h-1.5 rounded-full bg-be-ink-100 overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-500 ease-out"
+                         :class="(l.is_completed || l.completed) ? 'bg-emerald-400' : 'bg-be-sky-400'"
+                         :style="`width:${$store.learner.safePercent(l.percent ?? l.progress_percent ?? 0)}%`"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+</section>
+
+<script>
+document.addEventListener('alpine:init', () => {
+  const icon = (name) => {
+    const icons = {
+      courses: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+        <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>`,
+      progress: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+        <path d="M3 17l6-6 4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14 7h7v7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`,
+      star: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      </svg>`
+    };
+    return icons[name] || icons.courses;
+  };
+
+  const el = document.getElementById('learner-endpoints');
+  const endpoints = el ? JSON.parse(el.textContent) : {};
+
+  // Helper global: utilisable côté player si besoin (même onglet)
+  window.dispatchLearnerCourseProgress = function(payload){
+    window.dispatchEvent(new CustomEvent("learner:course-progress", { detail: payload || {} }));
+  };
+
+  Alpine.store('learner', {
+    endpoints,
+    booted: false,
+    activeTab: "courses",
+
+    me: {},
+    kpis: [],
+    enrollments: [],
+    notifications: [],
+    payments: [],
+
+    filters: { q: "", status: "" },
+
+    loading: { me:false, kpis:false, enrollments:false, notifications:false, payments:false, progress:false },
+    toast: { show:false, title:"", message:"" },
+
+    drawers: { progress:false },
+    progress: { title:"", course_id:null, progress_percent:0, completed_lessons:0, total_lessons:null, lessons:[] },
+
+    // -------- NORMALISATION
+    normStatus(s){ return String(s || "ACTIVE").toUpperCase(); },
+
+    safePercent(v){
+      const n = Number(v ?? 0);
+      if (Number.isNaN(n)) return 0;
+      return Math.max(0, Math.min(100, Math.round(n)));
+    },
+
+    normEnrollment(e){
+      const status = this.normStatus(e?.status);
+      const progress = this.safePercent(e?.progress_percent);
+      return { ...e, status, progress_percent: progress };
+    },
+
+    normPercentFromProgressApi(v){
+      const n = Number(v ?? 0);
+      if (Number.isNaN(n)) return 0;
+      if (n > 0 && n <= 1) return this.safePercent(n * 100);
+      return this.safePercent(n);
+    },
+
+    statusLabel(s){
+      const v = this.normStatus(s);
+      if (v === "COMPLETED") return "Terminé";
+      if (v === "CANCELED") return "Annulé";
+      return "Actif";
+    },
+
+    badgeClass(s){
+      const v = this.normStatus(s);
+      if (v === "COMPLETED") return "bg-emerald-50 border-emerald-200 text-emerald-700";
+      if (v === "CANCELED") return "bg-rose-50 border-rose-200 text-rose-700";
+      return "bg-be-sky-50 border-be-sky-200 text-be-sky-700";
+    },
+
+    progressHint(e){
+      const status = this.normStatus(e?.status);
+      const p = this.safePercent(e?.progress_percent);
+      if (status === "CANCELED") return "Accès bloqué";
+      if (status === "COMPLETED") return "Cours terminé";
+      if (p === 0) return "Prêt à commencer";
+      if (p >= 100) return "Terminé à 100%";
+      return "En progression";
+    },
+
+    continueLabel(e){
+      const status = this.normStatus(e?.status);
+      const p = this.safePercent(e?.progress_percent);
+      if (status === "CANCELED") return "Indisponible";
+      if (status === "COMPLETED") return "Revoir le cours";
+      if (p === 0) return "Commencer";
+      if (p >= 100) return "Revoir";
+      return "Continuer";
+    },
+
+    continueBtnClass(e){
+      const status = this.normStatus(e?.status);
+      if (status === "CANCELED") return "bg-be-ink-100 text-be-ink-400 cursor-not-allowed";
+      if (status === "COMPLETED") return "bg-emerald-600 text-white hover:bg-emerald-700";
+      return "bg-be-sky-600 text-white hover:bg-be-sky-700";
+    },
+
+    continueHref(e){
+      const url = e?.course?.continue_url;
+      if (url) return url;
+      const cid = e?.course?.id;
+      return cid ? `/dashboard/learner/courses/${cid}/` : "#";
+    },
+
+    onContinueClick(e, evt){
+      const status = this.normStatus(e?.status);
+      if (status === "CANCELED") {
+        evt.preventDefault();
+        this.showToast("Information", "Ce cours a été annulé et n'est plus accessible.");
+        return false;
+      }
+      const href = this.continueHref(e);
+      if (!href || href === "#") {
+        evt.preventDefault();
+        this.showToast("Information", "Le lien de continuation n'est pas configuré.");
+        return false;
+      }
+      return true;
+    },
+
+    // --- persistence (survit navigation player -> dashboard)
+    progressCachePrefix: "learner:course-progress:",
+    progressCacheTTLms: 1000 * 60 * 60 * 24 * 7, // 7 jours
+
+    cacheProgress(courseId, patch){
+      if (courseId == null) return;
+      const cid = String(Number(courseId));
+      const payload = {
+        course_id: Number(courseId),
+        progress_percent: this.safePercent(patch?.progress_percent ?? patch?.progress ?? 0),
+        status: patch?.status ?? null,
+        ts: Date.now()
+      };
+      try {
+        localStorage.setItem(this.progressCachePrefix + cid, JSON.stringify(payload));
+      } catch (e) {}
+    },
+
+    readCachedProgress(courseId){
+      if (courseId == null) return null;
+      const cid = String(Number(courseId));
+      try {
+        const raw = localStorage.getItem(this.progressCachePrefix + cid);
+        if (!raw) return null;
+        const p = JSON.parse(raw);
+        if (!p?.ts) return null;
+        if (Date.now() - p.ts > this.progressCacheTTLms) return null;
+        return p;
+      } catch (e) {
+        return null;
+      }
+    },
+
+    applyCachedProgressToEnrollments(){
+      const rows = this.enrollments || [];
+      if (!rows.length) return;
+
+      const copy = [...rows];
+      let changed = false;
+
+      for (let i = 0; i < copy.length; i++) {
+        const e = copy[i];
+        const cid = e?.course?.id;
+        if (!cid) continue;
+
+        const cached = this.readCachedProgress(cid);
+        if (!cached) continue;
+
+        const cachedPercent = this.safePercent(cached.progress_percent ?? 0);
+        const currentPercent = this.safePercent(e?.progress_percent ?? 0);
+
+        // ✅ applique seulement si cache plus avancé
+        if (cachedPercent > currentPercent) {
+          copy[i] = this.normEnrollment({
+            ...e,
+            progress_percent: cachedPercent,
+            ...(cached.status ? { status: cached.status } : {})
+          });
+          changed = true;
+        }
+      }
+
+      if (changed) this.enrollments = copy;
+    },
+
+    // --- realtime bridge
+    progressEventName: "learner:course-progress",
+
+    listenProgressEvents(){
+      if (this._progressListenerBound) return;
+      this._progressListenerBound = true;
+
+      window.addEventListener(this.progressEventName, (ev) => {
+        const d = ev?.detail || {};
+        const courseId = d.course_id ?? d.courseId;
+        if (courseId == null) return;
+
+        const p = this.safePercent(d.progress_percent ?? d.progress ?? 0);
+
+        // ✅ 1) persiste pour le retour dashboard
+        this.cacheProgress(courseId, { progress_percent: p, ...(d.status ? { status: d.status } : {}) });
+
+        // ✅ 2) update carte si présente
+        this.syncEnrollmentProgress(courseId, {
+          progress_percent: p,
+          ...(d.status ? { status: d.status } : {})
+        });
+
+        // ✅ 3) update drawer si ouvert
+        if (this.drawers.progress && Number(this.progress.course_id) === Number(courseId)) {
+          this.progress = { ...this.progress, progress_percent: p };
+        }
+      });
+
+      // ✅ quand on revient sur l’onglet / back navigation
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+          this.applyCachedProgressToEnrollments();
+        }
+      });
+
+      // ✅ compat Safari/back-forward cache
+      window.addEventListener("pageshow", () => {
+        this.applyCachedProgressToEnrollments();
+      });
+    },
+
+    syncEnrollmentProgress(courseId, patch){
+      if (courseId == null) return;
+
+      const cid = Number(courseId);
+      const idx = (this.enrollments || []).findIndex(x => Number(x?.course?.id) === cid);
+      if (idx === -1) return;
+
+      const current = this.enrollments[idx] || {};
+      const nextRaw = { ...current, ...patch, course: { ...(current.course || {}) } };
+      const next = this.normEnrollment(nextRaw);
+
+      const copy = [...this.enrollments];
+      copy[idx] = next;
+      this.enrollments = copy;
+    },
+
+    // --- basics
+    showToast(title, message){
+      this.toast = { show:true, title, message };
+      setTimeout(() => this.toast.show = false, 3500);
+    },
+
+    async apiGet(url){
+      if (!url) throw new Error("Endpoint manquant");
+      const res = await fetch(url, { headers:{ "Accept":"application/json" }, credentials:"same-origin" });
+      if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
+      return await res.json();
+    },
+
+    fmtMoney(v){ return Number(v || 0).toLocaleString("fr-FR"); },
+
+    formatDate(dt){
+      if (!dt) return "—";
+      try { return new Date(dt).toLocaleString("fr-FR"); } catch(e){ return String(dt); }
+    },
+
+    init(){
+      if (this.booted) return;
+      if (!this.endpoints?.me) {
+        console.error("Endpoints learner manquants:", this.endpoints);
+        return;
+      }
+      this.booted = true;
+
+      this.listenProgressEvents();
+
+      // ✅ applique un cache déjà présent (si back nav)
+      this.applyCachedProgressToEnrollments();
+
+      this.loadMe();
+      this.loadKpis();
+      this.loadEnrollments();
+    },
+
+    async loadMe(){
+      try{
+        this.loading.me = true;
+        const data = await this.apiGet(this.endpoints.me);
+        const initials = (data.full_name || data.email || "A")
+          .split(" ").filter(Boolean).slice(0,2).map(x => x[0].toUpperCase()).join("");
+        this.me = { ...data, initials };
+      } catch(e){
+        console.error(e);
+      } finally {
+        this.loading.me = false;
+      }
+    },
+
+    async loadKpis(){
+      try{
+        this.loading.kpis = true;
+        const data = await this.apiGet(this.endpoints.kpis);
+
+        const enrolled = data.enrollments?.total ?? "—";
+        const completed = data.enrollments?.completed ?? "—";
+        const avgProg = data.progress?.avg_percent;
+        const avgRate = data.reviews?.avg_rating_given;
+
+        this.kpis = [
+          { key:"enrolled", label:"Cours inscrits", value: enrolled, hint:"Total inscriptions", tone:"sky", icon: icon("courses") },
+          { key:"completed", label:"Cours terminés", value: completed, hint:"Complétés", tone:"sun", icon: icon("progress") },
+          { key:"progress", label:"Progression moyenne", value: (avgProg == null ? "—" : Math.round(avgProg) + "%"), hint:"Moyenne leçons", tone:"sky", icon: icon("progress") },
+          { key:"rating", label:"Note donnée", value: (avgRate == null ? "—" : Number(avgRate).toFixed(1)), hint:"Moyenne de vos avis", tone:"sun", icon: icon("star") },
+        ];
+      } catch(e){
+        console.error(e);
+      } finally {
+        this.loading.kpis = false;
+      }
+    },
+
+    buildEnrollmentsUrl(){
+      const base = this.endpoints.enrollments;
+      if (!base) throw new Error("Endpoint enrollments manquant");
+      const u = new URL(base, window.location.origin);
+      if (this.filters.q) u.searchParams.set("q", this.filters.q);
+      if (this.filters.status) u.searchParams.set("status", this.filters.status);
+      return u.toString();
+    },
+
+    async loadEnrollments(){
+      try{
+        this.loading.enrollments = true;
+        const data = await this.apiGet(this.buildEnrollmentsUrl());
+        const rows = data.results || data;
+
+        this.enrollments = (rows || []).map(e => this.normEnrollment(e));
+
+        // ✅ applique cache après fetch -> barre se met à jour au chargement
+        this.applyCachedProgressToEnrollments();
+
+      } catch(e){
+        console.error(e);
+        this.showToast("Erreur", "Impossible de charger vos cours.");
+      } finally {
+        this.loading.enrollments = false;
+      }
+    },
+
+    async loadNotifications(){
+      try{
+        this.loading.notifications = true;
+        const data = await this.apiGet(this.endpoints.notifications);
+        this.notifications = data.results || data;
+      } catch(e){
+        console.error(e);
+        this.showToast("Erreur", "Impossible de charger les notifications.");
+      } finally {
+        this.loading.notifications = false;
+      }
+    },
+
+    async loadPayments(){
+      try{
+        this.loading.payments = true;
+        const data = await this.apiGet(this.endpoints.payments);
+        this.payments = data.results || data;
+      } catch(e){
+        console.error(e);
+        this.showToast("Erreur", "Impossible de charger les paiements.");
+      } finally {
+        this.loading.payments = false;
+      }
+    },
+
+    async openProgress(courseId, title){
+      const base = this.endpoints.courseProgressBase || "/api/learner/courses/";
+      const url = `${base}${courseId}/progress/`;
+
+      this.progress = { title: title || "", course_id:courseId, progress_percent:0, completed_lessons:0, total_lessons:null, lessons:[] };
+      this.drawers.progress = true;
+      this.loading.progress = true;
+
+      try{
+        const data = await this.apiGet(url);
+
+        const gpRaw = data?.progress?.percent ?? data?.progress_percent ?? 0;
+        const cl = data?.progress?.completed_lessons ?? data?.completed_lessons ?? 0;
+        const tl = data?.progress?.total_lessons ?? data?.total_lessons ?? null;
+        const lessons = data?.lessons ?? data?.progress?.lessons ?? [];
+
+        const newPercent = this.normPercentFromProgressApi(gpRaw);
+
+        this.progress = {
+          ...this.progress,
+          ...data,
+          title: title || this.progress.title,
+          progress_percent: newPercent,
+          completed_lessons: cl,
+          total_lessons: tl,
+          lessons: lessons,
+        };
+
+        // ✅ update carte + cache
+        this.syncEnrollmentProgress(courseId, { progress_percent: newPercent });
+        this.cacheProgress(courseId, { progress_percent: newPercent });
+
+      } catch(e){
+        console.error(e);
+        this.showToast("Erreur", "Impossible de charger la progression.");
+      } finally {
+        this.loading.progress = false;
+      }
+    },
+
+    closeProgress(){ this.drawers.progress = false; }
+  });
+});
+</script>
+
+{% endblock %}

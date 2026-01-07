@@ -1,10 +1,1638 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Title</title>
-</head>
-<body>
+{% extends "layout/admin_base.html" %}
+{% load static %}
 
-</body>
-</html>
+{% block title %}best-épargne — Espace Formateur{% endblock %}
+{% block topbar_subtitle %}Espace Formateur{% endblock %}
+
+{% block topbar_search %}
+    <input x-model.debounce.300ms="filters.q" @input="loadCourses()" placeholder="Rechercher un cours…" class="w-full px-4 py-2 rounded-xl border bg-white/80 dark:bg-white/5">
+{% endblock %}
+
+{% block topbar_actions %}
+    <button @click="openCreateCourse()" class="px-3 py-2 rounded-xl bg-be-sky-600 text-white shadow-soft">+ Nouveau cours</button>
+{% endblock %}
+
+{% block topbar_user %}
+    <div class="relative" x-data="{open:false}">
+        <button @click="open=!open; if(open) loadNotifications()" class="w-50 h-10 inline-flex items-center justify-center rounded-xl border border-be-ink-100 hover:bg-be-ink-50 transition">
+          <img src="{% static 'img/logo-2.png' %}" alt="Logo" class="w-full h-full object-cover">
+        </button>
+        <div x-show="open" x-transition.origin.top.right @click.outside="open=false"
+             class="absolute right-0 mt-2 w-96 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+            <div class="px-4 py-3 border-b border-be-ink-100 flex items-center justify-between">
+                <div class="font-semibold text-sm">Notifications</div>
+                <button class="text-xs text-be-sky-700 hover:underline" @click="open=false">Fermer</button>
+            </div>
+            <div class="max-h-96 overflow-auto no-scrollbar">
+                <template x-if="loading.notifications">
+                    <div class="p-4 text-sm text-be-ink-500">Chargement…</div>
+                </template>
+                <template x-if="!loading.notifications && notifications.length===0">
+                    <div class="p-4 text-sm text-be-ink-500">Aucune notification.</div>
+                </template>
+                <template x-for="n in notifications" :key="n.id">
+                    <div class="px-4 py-3 border-b border-be-ink-50 hover:bg-be-ink-50/60 transition">
+                        <div class="text-sm font-medium" x-text="n.title"></div>
+                        <div class="text-xs text-be-ink-500 mt-1" x-text="n.body"></div>
+                        <div class="text-[11px] text-be-ink-400 mt-1" x-text="n.time"></div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl border border-be-ink-100 bg-white">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-be-sun-300 to-be-sun-500 flex items-center justify-center text-be-ink-900 font-semibold text-sm"
+             x-text="me.initials || 'F'"></div>
+        <div class="hidden sm:block leading-tight">
+            <div class="text-sm font-semibold" x-text="me.full_name || me.email || 'Formateur'"></div>
+            <div class="text-[11px] text-be-ink-500 -mt-0.5">Formateur</div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block sidebar %}
+    {% include "partials/instructor_side.html" %}
+{% endblock %}
+
+{% block content %}
+    <body class="h-full bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50 text-be-ink-900" x-data="instructorApp({
+        endpoints: {
+          me: '{% url "api_instructor_me" %}',
+          kpis: '{% url "api_instructor_kpis" %}',
+          courses: '{% url "api_instructor_courses" %}',
+
+          courseDetail: (id) => `/api/instructor/courses/${id}/`,
+          courseSections: (id) => `/api/instructor/courses/${id}/sections/`,
+          sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`,
+
+          createCourse: '{% url "api_instructor_course_create" %}',
+          updateCourse: (id) => `/api/instructor/courses/${id}/update/`,
+          publishCourse: (id) => `/api/instructor/courses/${id}/publish/`,
+          archiveCourse: (id) => `/api/instructor/courses/${id}/archive/`,
+
+          createSection: (courseId) => `/api/instructor/courses/${courseId}/sections/create/`,
+          updateSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/update/`,
+          deleteSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/delete/`,
+          createLesson: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/create/`,
+          updateLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/update/`,
+          deleteLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/delete/`,
+
+          uploadInit: '{% url "api_media_upload_init" %}',
+          uploadFinalize: '{% url "api_media_upload_finalize" %}',
+
+          mediaList: '{% url "api_instructor_media" %}',
+          signedGet: (assetId) => `/api/media/${assetId}/signed/`,
+
+          reviews: '{% url "api_instructor_reviews" %}',
+          payouts: '{% url "api_instructor_payouts" %}',
+          notifications: '{% url "api_instructor_notifications" %}',
+        }
+      })"
+          x-init="init()"
+    >
+
+
+    <div class="mx-auto max-w-[1480px] px-3 sm:px-6 pb-10">
+        <div class="space-y-6">
+
+            <!-- Toast Notification -->
+            <template x-if="toast.show">
+                <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft px-4 py-3 flex items-start justify-between gap-3">
+                    <div class="text-sm">
+                        <div class="font-semibold" x-text="toast.title"></div>
+                        <div class="text-be-ink-600 mt-1" x-text="toast.message"></div>
+                    </div>
+                    <button class="text-xs px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-be-ink-50"
+                            @click="toast.show=false">OK
+                    </button>
+                </div>
+            </template>
+
+            <!-- KPIs Section -->
+            <section class="grid sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                <template x-for="k in kpis" :key="k.key">
+                    <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <div class="text-xs text-be-ink-500" x-text="k.label"></div>
+                                <div class="text-2xl font-semibold mt-1" x-text="k.value"></div>
+                                <div class="text-[11px] text-be-ink-500 mt-2" x-text="k.hint || ''"></div>
+                            </div>
+                            <div class="w-12 h-12 rounded-2xl flex items-center justify-center border"
+                                 :class="k.tone==='sky' ? 'bg-be-sky-100 border-be-sky-200 text-be-sky-700' : 'bg-be-sun-100 border-be-sun-200 text-be-sun-800'">
+                                <span x-html="k.icon"></span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+            </section>
+
+            <!-- Main Content Section -->
+            <section class="rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+                <div class="p-4 sm:p-5 border-b border-be-ink-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <div class="text-sm font-semibold">Gestion Formateur</div>
+                        <div class="text-xs text-be-ink-500 mt-1">Cours, sections/leçons, uploads MinIO, contenus, avis,
+                            paiements.
+                        </div>
+                    </div>
+                    <div class="inline-flex rounded-xl border border-be-ink-100 bg-white p-1">
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                :class="activeTab==='courses' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                                @click="activeTab='courses'; loadCourses()">Cours
+                        </button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                :class="activeTab==='builder' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                                @click="activeTab='builder'; if(selectedCourse) openBuilder(selectedCourse)">Builder
+                        </button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                :class="activeTab==='reviews' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                                @click="activeTab='reviews'; loadReviews()">Avis
+                        </button>
+                        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                :class="activeTab==='payouts' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                                @click="activeTab='payouts'; loadPayouts()">Paiements
+                        </button>
+                    </div>
+                </div>
+
+                <!-- COURSES TAB -->
+                <div x-show="activeTab==='courses'" class="p-4 sm:p-5">
+                    <div class="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+                        <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            <select class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm"
+                                    x-model="filters.status" @change="loadCourses()">
+                                <option value="">Tous statuts</option>
+                                <option value="DRAFT">Brouillon</option>
+                                <option value="REVIEW">En validation</option>
+                                <option value="PUBLISHED">Publié</option>
+                                <option value="ARCHIVED">Archivé</option>
+                            </select>
+
+                            <select class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm"
+                                    x-model="filters.pricing" @change="loadCourses()">
+                                <option value="">Tous pricing</option>
+                                <option value="PAID">Payant</option>
+                                <option value="FREE">Gratuit</option>
+                                <option value="HYBRID">Hybride</option>
+                            </select>
+
+                            <select class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm"
+                                    x-model="filters.type" @change="loadCourses()">
+                                <option value="">Tous types</option>
+                                <option value="CERTIFIANTE">Certifiante</option>
+                                <option value="PROFESSIONNELLE">Professionnelle</option>
+                                <option value="ACADEMIQUE">Académique</option>
+                                <option value="INTERNE">Interne</option>
+                            </select>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button @click="loadCourses()"
+                                    class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
+                                Actualiser
+                            </button>
+                            <button @click="openCreateCourse()"
+                                    class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
+                                + Nouveau cours
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 overflow-auto no-scrollbar">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-be-ink-50/60 text-be-ink-600">
+                            <tr>
+                                <th class="text-left font-semibold px-4 py-3">Cours</th>
+                                <th class="text-left font-semibold px-4 py-3">Statut</th>
+                                <th class="text-left font-semibold px-4 py-3">Pricing</th>
+                                <th class="text-left font-semibold px-4 py-3">Inscrits</th>
+                                <th class="text-left font-semibold px-4 py-3">Note</th>
+                                <th class="text-left font-semibold px-4 py-3">Complétion</th>
+                                <th class="px-4 py-3"></th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            <template x-if="loading.courses">
+                                <tr>
+                                    <td colspan="7" class="px-4 py-8 text-center text-be-ink-500">Chargement…</td>
+                                </tr>
+                            </template>
+
+                            <template x-if="!loading.courses && courses.length===0">
+                                <tr>
+                                    <td colspan="7" class="px-4 py-8 text-center text-be-ink-500">Aucun cours.</td>
+                                </tr>
+                            </template>
+
+                            <template x-for="c in courses" :key="c.id">
+                                <tr class="border-t border-be-ink-100 hover:bg-be-ink-50/40 transition">
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-14 h-10 rounded-xl bg-be-ink-50 border border-be-ink-100 overflow-hidden shrink-0">
+                                                <img x-show="c.thumbnail_url" :src="c.thumbnail_url"
+                                                     class="w-full h-full object-cover" alt="">
+                                                <div x-show="!c.thumbnail_url"
+                                                     class="w-full h-full flex items-center justify-center text-[11px] text-be-ink-400">
+                                                    No img
+                                                </div>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="font-semibold truncate" x-text="c.title"></div>
+                                                <div class="text-xs text-be-ink-500 mt-1 truncate"
+                                                     x-text="c.subtitle || ''"></div>
+
+                                                <div class="text-[11px] text-be-ink-500 mt-1">
+                                                    Sections: <span class="font-semibold"
+                                                                    x-text="c.sections_count"></span>
+                                                    • Leçons: <span class="font-semibold"
+                                                                    x-text="c.lessons_count"></span>
+                                                    <span class="ml-2">• MAJ: <span
+                                                            x-text="c.updated_at_human || '—'"></span></span>
+                                                </div>
+
+                                                <button class="text-[11px] text-be-sky-700 hover:underline mt-1"
+                                                        @click="openCoursePreview(c)">
+                                                    ▶ Preview
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-4 py-4">
+                  <span class="text-xs px-2 py-1 rounded-full border"
+                        :class="statusPill(c.status)"
+                        x-text="statusLabel(c.status)"></span>
+                                    </td>
+
+                                    <td class="px-4 py-4">
+                  <span class="text-xs px-2 py-1 rounded-full border"
+                        :class="pricingPill(c.pricing_type)"
+                        x-text="pricingLabel(c.pricing_type, c.price, c.currency)"></span>
+                                    </td>
+
+                                    <td class="px-4 py-4" x-text="c.enrolled_count"></td>
+
+                                    <td class="px-4 py-4">
+                                        <div class="inline-flex items-center gap-1 text-xs">
+                                            <span class="text-be-sun-600">★</span>
+                                            <span class="font-semibold" x-text="c.rating_avg || '—'"></span>
+                                            <span class="text-be-ink-400" x-show="c.rating_count">(<span
+                                                    x-text="c.rating_count"></span>)</span>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="h-2 w-28 rounded-full bg-be-ink-100 overflow-hidden">
+                                                <div class="h-full rounded-full bg-be-sky-600"
+                                                     :style="`width:${c.completion_rate || 0}%`"></div>
+                                            </div>
+                                            <div class="text-xs font-semibold text-be-ink-700"
+                                                 x-text="(c.completion_rate ?? 0) + '%'"></div>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="inline-flex gap-2">
+                                            <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                                                    @click="openBuilder(c)">
+                                                Builder
+                                            </button>
+
+                                            <button class="px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-xs font-semibold"
+                                                    @click="openEditCourse(c)">
+                                                Éditer
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- BUILDER TAB -->
+                <div x-show="activeTab==='builder'" class="p-0">
+                    <template x-if="!selectedCourse">
+                        <div class="p-6 text-sm text-be-ink-500">Sélectionne un cours (onglet "Cours" → "Builder").
+                        </div>
+                    </template>
+
+                    <template x-if="selectedCourse">
+                        <div class="grid lg:grid-cols-12">
+                            <div class="lg:col-span-4 border-r border-be-ink-100 bg-be-ink-50/30 p-5">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <div class="text-xs text-be-ink-500">Cours sélectionné</div>
+                                        <div class="font-semibold truncate mt-1" x-text="selectedCourse.title"></div>
+                                        <div class="text-xs text-be-ink-500 mt-1">
+                                            Statut: <span class="font-semibold"
+                                                          x-text="statusLabel(selectedCourse.status)"></span>
+                                            • Pricing: <span class="font-semibold"
+                                                             x-text="pricingLabel(selectedCourse.pricing_type, selectedCourse.price, selectedCourse.currency)"></span>
+                                        </div>
+                                    </div>
+                                    <button class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-xs font-semibold hover:bg-be-sky-700 shadow-soft"
+                                            @click="createSectionPrompt()">
+                                        + Section
+                                    </button>
+                                </div>
+
+                                <div class="mt-4 space-y-2">
+                                    <template x-if="loading.sections">
+                                        <div class="text-sm text-be-ink-500">Chargement sections…</div>
+                                    </template>
+
+                                    <template x-for="s in sections" :key="s.id">
+                                        <button class="w-full text-left p-3 rounded-2xl border transition"
+                                                :class="activeSection?.id===s.id ? 'bg-white border-be-sky-200 shadow-soft' : 'bg-white/60 border-be-ink-100 hover:bg-white'"
+                                                @click="selectSection(s)">
+                                            <div class="flex items-start justify-between gap-2">
+                                                <div class="min-w-0">
+                                                    <div class="font-semibold text-sm truncate"
+                                                         x-text="s.order + '. ' + s.title"></div>
+                                                    <div class="text-[11px] text-be-ink-500 mt-1">
+                                                        Leçons: <span class="font-semibold"
+                                                                      x-text="s.lessons_count || '—'"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="flex gap-1">
+                                                    <button class="px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-be-ink-50 text-[11px]"
+                                                            @click.stop="editSectionPrompt(s)">Édit
+                                                    </button>
+                                                    <button class="px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-be-ink-50 text-[11px]"
+                                                            @click.stop="deleteSection(s)">Suppr
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </template>
+                                </div>
+
+                                <div class="mt-5 rounded-2xl border border-be-ink-100 bg-white p-4">
+                                    <div class="text-sm font-semibold">Publication</div>
+                                    <div class="text-xs text-be-ink-500 mt-1">Publier/archiver après validation.</div>
+                                    <div class="mt-3 flex gap-2">
+                                        <button class="flex-1 px-3 py-2 rounded-xl bg-be-ink-900 text-white text-xs font-semibold hover:opacity-90"
+                                                @click="publishCourse(selectedCourse)"
+                                                :disabled="loading.publish">
+                                            Publier
+                                        </button>
+                                        <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                                                @click="archiveCourse(selectedCourse)"
+                                                :disabled="loading.archive">
+                                            Archiver
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="lg:col-span-8 p-5">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div class="text-sm font-semibold">Leçons</div>
+                                        <div class="text-xs text-be-ink-500 mt-1" x-show="activeSection">
+                                            Section: <span class="font-semibold" x-text="activeSection?.title"></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex gap-2">
+                                        <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                                                @click="openUploadDrawer()"
+                                                :disabled="!activeSection">
+                                            Upload MinIO
+                                        </button>
+                                        <button class="px-3 py-2 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-xs font-semibold shadow-soft"
+                                                @click="openLessonEditor(null)"
+                                                :disabled="!activeSection">
+                                            + Leçon
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 space-y-2">
+                                    <template x-if="!activeSection">
+                                        <div class="text-sm text-be-ink-500">Choisis une section à gauche.</div>
+                                    </template>
+
+                                    <template x-if="activeSection && loading.lessons">
+                                        <div class="text-sm text-be-ink-500">Chargement leçons…</div>
+                                    </template>
+
+                                    <template x-for="l in lessons" :key="l.id">
+                                        <div class="rounded-2xl border border-be-ink-100 bg-white p-4 hover:bg-be-ink-50/40 transition">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="min-w-0">
+                                                    <div class="font-semibold text-sm truncate"
+                                                         x-text="l.order + '. ' + l.title"></div>
+
+                                                    <div class="text-xs text-be-ink-500 mt-1">
+                                                        Type: <span class="font-semibold" x-text="l.lesson_type"></span>
+                                                        <span x-show="l.is_preview"
+                                                              class="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-be-sun-100 text-be-sun-800 border border-be-sun-200">Preview</span>
+                                                        <span x-show="l.duration_sec" class="ml-2">• Durée: <span
+                                                                class="font-semibold"
+                                                                x-text="formatDuration(l.duration_sec)"></span></span>
+                                                    </div>
+
+                                                    <div class="text-xs text-be-ink-500 mt-2"
+                                                         x-show="l.lesson_type==='TEXT' && l.content">
+                                                        <span class="font-semibold">Contenu:</span>
+                                                        <span x-text="l.content.slice(0,120) + (l.content.length>120?'…':'')"></span>
+                                                    </div>
+
+                                                    <div class="text-xs text-be-ink-500 mt-2" x-show="l.media_asset">
+                                                        Media: <span class="font-mono text-[11px]"
+                                                                     x-text="l.media_asset?.object_key"></span>
+                                                    </div>
+
+                                                    <div class="mt-2 flex gap-2">
+                                                        <button class="text-[11px] text-be-sky-700 hover:underline"
+                                                                @click="openLessonPreview(l)">▶ Prévisualiser
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div class="flex gap-2">
+                                                    <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                                                            @click="openLessonEditor(l)">Éditer
+                                                    </button>
+                                                    <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                                                            @click="deleteLesson(l)">Suppr
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- REVIEWS TAB -->
+                <div x-show="activeTab==='reviews'" class="p-4 sm:p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-semibold">Avis</div>
+                            <div class="text-xs text-be-ink-500 mt-1">Feedback apprenants sur vos cours.</div>
+                        </div>
+                        <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
+                                @click="loadReviews()">Actualiser
+                        </button>
+                    </div>
+
+                    <div class="mt-4 space-y-3">
+                        <template x-if="loading.reviews">
+                            <div class="text-sm text-be-ink-500">Chargement…</div>
+                        </template>
+
+                        <template x-if="!loading.reviews && reviews.length===0">
+                            <div class="text-sm text-be-ink-500">Aucun avis.</div>
+                        </template>
+
+                        <template x-for="r in reviews" :key="r.id">
+                            <div class="rounded-2xl border border-be-ink-100 bg-white p-4">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div class="font-semibold text-sm" x-text="r.course_title"></div>
+                                        <div class="text-xs text-be-ink-500 mt-1">
+                                            <span x-text="r.user_name"></span> • <span class="text-be-sun-600">★</span>
+                                            <span x-text="r.rating"></span>
+                                            • <span x-text="r.created_at_human"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-be-ink-700 mt-3" x-text="r.comment"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- PAYOUTS TAB -->
+                <div x-show="activeTab==='payouts'" class="p-4 sm:p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-semibold">Paiements</div>
+                            <div class="text-xs text-be-ink-500 mt-1">Historique des transactions formateur &
+                                commissions.
+                            </div>
+                        </div>
+                        <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
+                                @click="loadPayouts()">Actualiser
+                        </button>
+                    </div>
+
+                    <div class="mt-4 overflow-auto no-scrollbar">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-be-ink-50/60 text-be-ink-600">
+                            <tr>
+                                <th class="text-left font-semibold px-4 py-3">Date</th>
+                                <th class="text-left font-semibold px-4 py-3">Réf</th>
+                                <th class="text-left font-semibold px-4 py-3">Montant</th>
+                                <th class="text-left font-semibold px-4 py-3">Statut</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <template x-if="loading.payouts">
+                                <tr>
+                                    <td colspan="4" class="px-4 py-8 text-center text-be-ink-500">Chargement…</td>
+                                </tr>
+                            </template>
+
+                            <template x-for="p in payouts" :key="p.ref">
+                                <tr class="border-t border-be-ink-100">
+                                    <td class="px-4 py-3" x-text="p.date"></td>
+                                    <td class="px-4 py-3 font-mono text-xs" x-text="p.ref"></td>
+                                    <td class="px-4 py-3 font-semibold" x-text="p.amount"></td>
+                                    <td class="px-4 py-3">
+                    <span class="text-[11px] px-2 py-1 rounded-full border"
+                          :class="p.status==='PAID' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-be-ink-50 border-be-ink-100 text-be-ink-700'">
+                      <span x-text="p.status_label"></span>
+                    </span>
+                                    </td>
+                                </tr>
+                            </template>
+
+                            <template x-if="!loading.payouts && payouts.length===0">
+                                <tr>
+                                    <td colspan="4" class="px-4 py-8 text-center text-be-ink-500">Aucun paiement.</td>
+                                </tr>
+                            </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+        </div>
+    </div>
+
+    <!-- COURSE MODAL (Create/Edit) -->
+    <div x-show="modals.course" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="closeCourseModal()"></div>
+        <div class="relative w-full max-w-2xl rounded-2xl bg-white border border-be-ink-100 shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
+                <div class="font-semibold" x-text="courseForm.id ? 'Éditer le cours' : 'Créer un cours'"></div>
+                <button class="w-9 h-9 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                        @click="closeCourseModal()">✕
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Titre</label>
+                        <input x-model="courseForm.title"  class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"/>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Sous-titre</label>
+                        <input x-model="courseForm.subtitle"    class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"/>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-be-ink-600">Description</label>
+                    <textarea x-model="courseForm.description" rows="4"   class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"></textarea>
+                </div>
+
+                <div class="grid sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Type</label>
+                        <select x-model="courseForm.course_type" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                            <option value="PROFESSIONNELLE">Professionnelle</option>
+                            <option value="CERTIFIANTE">Certifiante</option>
+                            <option value="ACADEMIQUE">Académique</option>
+                            <option value="INTERNE">Interne</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Pricing</label>
+                        <select x-model="courseForm.pricing_type" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                            <option value="PAID">Payant</option>
+                            <option value="FREE">Gratuit</option>
+                            <option value="HYBRID">Hybride</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Prix</label>
+                        <input type="number" x-model="courseForm.price"
+                               :disabled="courseForm.pricing_type==='FREE'"
+                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"/>
+                        <div class="text-[11px] text-be-ink-500 mt-1">Devise: XOF</div>
+                    </div>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Thumbnail</label>
+                        <input type="file" accept="image/*" @change="courseThumbPicked($event)"
+                               class="mt-1 w-full text-sm"/>
+                        <div class="text-[11px] text-be-ink-500 mt-1" x-show="courseForm.thumbnailFile">
+                            <span x-text="courseForm.thumbnailFile?.name"></span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Preview vidéo (YouTube embed URL)</label>
+                        <input x-model="courseForm.preview_video_url"
+                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"
+                               placeholder="https://www.youtube.com/embed/..."/>
+                        <div class="text-[11px] text-be-ink-500 mt-1">Optionnel, sinon preview via MediaAsset
+                            possible.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="px-5 py-4 border-t border-be-ink-100 flex items-center justify-between">
+                <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
+                        @click="closeCourseModal()">Annuler
+                </button>
+                <button class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft"
+                        @click="saveCourse()" :disabled="loading.saveCourse">
+                    <span x-show="!loading.saveCourse">Enregistrer</span>
+                    <span x-show="loading.saveCourse">Enregistrement…</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- COURSE PREVIEW MODAL -->
+    <div x-show="modals.previewCourse" x-transition.opacity
+         class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="closeCoursePreview()"></div>
+        <div class="relative w-full max-w-4xl rounded-2xl bg-white border border-be-ink-100 shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
+                <div class="font-semibold" x-text="previewCourse?.title || 'Preview'"></div>
+                <button class="w-9 h-9 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                        @click="closeCoursePreview()">✕
+                </button>
+            </div>
+            <div class="p-5">
+                <template x-if="previewCourse?.preview_video_url">
+                    <div class="aspect-video rounded-2xl overflow-hidden border border-be-ink-100">
+                        <iframe class="w-full h-full" :src="previewCourse.preview_video_url"
+                                allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                    </div>
+                </template>
+                <template x-if="!previewCourse?.preview_video_url">
+                    <div class="text-sm text-be-ink-500">Aucune preview configurée (ajoute une URL embed dans l'édition
+                        du cours).
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- LESSON EDITOR MODAL -->
+    <div x-show="modals.lesson" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="modals.lesson=false"></div>
+        <div class="relative w-full max-w-3xl rounded-2xl bg-white border border-be-ink-100 shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
+                <div class="font-semibold" x-text="lessonForm.id ? 'Éditer la leçon' : 'Créer une leçon'"></div>
+                <button class="w-9 h-9 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                        @click="modals.lesson=false">✕
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Titre</label>
+                        <input x-model="lessonForm.title"
+                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"/>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600">Type</label>
+                            <select x-model="lessonForm.lesson_type"
+                                    class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm"
+                                    @change="onLessonTypeChanged()">
+                                <option value="VIDEO">VIDEO</option>
+                                <option value="TEXT">TEXT</option>
+                                <option value="FILE">FILE</option>
+                                <option value="QUIZ">QUIZ</option>
+                                <option value="LIVE">LIVE</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600">Durée (sec)</label>
+                            <input type="number" x-model="lessonForm.duration_sec"
+                                   class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"/>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" x-model="lessonForm.is_preview" class="rounded border-be-ink-200">
+                    <span class="text-sm text-be-ink-700">Leçon en preview (gratuite)</span>
+                </div>
+
+                <div x-show="lessonForm.lesson_type==='TEXT'">
+                    <label class="text-xs font-semibold text-be-ink-600">Contenu</label>
+                    <textarea x-model="lessonForm.content" rows="10"
+                              class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"
+                              placeholder="Texte, plan, ressources, liens…"></textarea>
+                </div>
+
+                <div x-show="lessonForm.lesson_type!=='TEXT'">
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600">Video URL (optionnel)</label>
+                            <input x-model="lessonForm.video_url"
+                                   class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"
+                                   placeholder="https://www.youtube.com/embed/..."/>
+                            <div class="text-[11px] text-be-ink-500 mt-1">Pour Vimeo/YouTube/externes.</div>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600">Media MinIO (optionnel)</label>
+                            <div class="mt-1 flex gap-2">
+                                <select x-model="lessonForm.media_asset_id"
+                                        class="w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                                    <option value="">— Aucun —</option>
+                                    <template x-for="m in mediaLibrary" :key="m.id">
+                                        <option :value="m.id"
+                                                x-text="`${m.kind} • ${m.title || m.object_key}`"></option>
+                                    </template>
+                                </select>
+                                <button class="px-3 py-2.5 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-xs font-semibold"
+                                        @click="openUploadDrawer()">
+                                    Uploader
+                                </button>
+                            </div>
+                            <div class="text-[11px] text-be-ink-500 mt-1">Choisis un media déjà uploadé.</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="px-5 py-4 border-t border-be-ink-100 flex items-center justify-between">
+                <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
+                        @click="modals.lesson=false">Annuler
+                </button>
+                <button class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft"
+                        @click="saveLesson()">
+                    Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LESSON PREVIEW MODAL -->
+    <div x-show="modals.previewLesson" x-transition.opacity
+         class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="closeLessonPreview()"></div>
+        <div class="relative w-full max-w-4xl rounded-2xl bg-white border border-be-ink-100 shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
+                <div class="font-semibold" x-text="previewLesson?.title || 'Prévisualisation'"></div>
+                <button class="w-9 h-9 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                        @click="closeLessonPreview()">✕
+                </button>
+            </div>
+            <div class="p-5">
+                <template x-if="previewLesson?.lesson_type==='TEXT'">
+                    <div class="prose max-w-none text-sm whitespace-pre-wrap"
+                         x-text="previewLesson?.content || ''"></div>
+                </template>
+
+                <template x-if="previewLesson?.lesson_type!=='TEXT'">
+                    <template x-if="previewLessonSignedUrl">
+                        <div class="aspect-video rounded-2xl overflow-hidden border border-be-ink-100">
+                            <video class="w-full h-full" controls :src="previewLessonSignedUrl"></video>
+                        </div>
+                    </template>
+                    <template x-if="!previewLessonSignedUrl && previewLesson?.video_url">
+                        <div class="aspect-video rounded-2xl overflow-hidden border border-be-ink-100">
+                            <iframe class="w-full h-full" :src="previewLesson.video_url"
+                                    allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                        </div>
+                    </template>
+                    <template x-if="!previewLessonSignedUrl && !previewLesson?.video_url">
+                        <div class="text-sm text-be-ink-500">Aucune source vidéo/fichier disponible.</div>
+                    </template>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Drawer (MinIO) -->
+    <div x-show="drawers.upload" x-transition.opacity class="fixed inset-0 z-50 flex justify-end">
+        <div class="absolute inset-0 bg-black/40" @click="drawers.upload=false"></div>
+        <div class="relative w-full max-w-xl h-full bg-white border-l border-be-ink-100 shadow-soft p-5 overflow-auto no-scrollbar">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="font-semibold">Upload MinIO</div>
+                    <div class="text-xs text-be-ink-500 mt-1">Upload direct (presigned) + liaison optionnelle à une
+                        leçon.
+                    </div>
+                </div>
+                <button class="w-9 h-9 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                        @click="drawers.upload=false">✕
+                </button>
+            </div>
+
+            <div class="mt-5 space-y-4">
+                <div>
+                    <label class="text-xs font-semibold text-be-ink-600">Fichier (video/audio/doc)</label>
+                    <input type="file" @change="handleFilePicked($event)" class="mt-1 w-full text-sm"/>
+                    <div class="text-[11px] text-be-ink-500 mt-2" x-show="upload.file">
+                        <span class="font-semibold" x-text="upload.file?.name"></span>
+                        • <span x-text="humanBytes(upload.file?.size || 0)"></span>
+                        • <span x-text="upload.file?.type"></span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Kind</label>
+                        <select x-model="upload.kind"
+                                class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                            <option value="video">Video</option>
+                            <option value="audio">Audio</option>
+                            <option value="doc">Document</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Titre (optionnel)</label>
+                        <input x-model="upload.title"
+                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"
+                               placeholder="Ex: Chapitre 1 — Intro"/>
+                    </div>
+                </div>
+
+                <div class="rounded-2xl border border-be-ink-100 bg-be-ink-50/40 p-4">
+                    <div class="text-xs text-be-ink-500">Lier à une leçon (optionnel)</div>
+                    <div class="mt-2">
+                        <label class="text-xs font-semibold text-be-ink-600">Leçon</label>
+                        <select x-model="upload.bindLessonId"
+                                class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                            <option value="">— Ne pas lier —</option>
+                            <template x-for="l in lessons" :key="l.id">
+                                <option :value="l.id" x-text="`${l.order}. ${l.title}`"></option>
+                            </template>
+                        </select>
+                        <div class="text-[11px] text-be-ink-500 mt-2">Si lié, la leçon recevra <code>media_asset</code>.
+                        </div>
+                    </div>
+                </div>
+
+                <div x-show="upload.progress>0" class="rounded-2xl border border-be-ink-100 bg-white p-4">
+                    <div class="text-xs text-be-ink-500">Progression</div>
+                    <div class="mt-2 h-2 rounded-full bg-be-ink-100 overflow-hidden">
+                        <div class="h-full bg-be-sky-600 rounded-full" :style="`width:${upload.progress}%`"></div>
+                    </div>
+                    <div class="text-[11px] text-be-ink-500 mt-2" x-text="upload.progress + '%'"></div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button class="flex-1 px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
+                            @click="drawers.upload=false">Fermer
+                    </button>
+                    <button class="flex-1 px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft"
+                            @click="startUpload()" :disabled="loading.upload">
+                        <span x-show="!loading.upload">Uploader</span>
+                        <span x-show="loading.upload">Upload…</span>
+                    </button>
+                </div>
+
+                <template x-if="upload.error">
+                    <div class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3"
+                         x-text="upload.error"></div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    </body>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        function icon(name) {
+            const icons = {
+                courses: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+      <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>`,
+                users: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+      <path d="M17 21a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M9 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" stroke="currentColor" stroke-width="2"/>
+      <path d="M23 21a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>`,
+                money: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+      <path d="M21 7H3V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2Z" stroke="currentColor" stroke-width="2"/>
+      <path d="M3 7v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7" stroke="currentColor" stroke-width="2"/>
+      <path d="M7 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>`,
+                star: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+    </svg>`,
+                trend: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+      <path d="M3 17l6-6 4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M14 7h7v7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`
+            };
+            return icons[name] || icons.courses;
+        }
+
+        function instructorApp(cfg) {
+            return {
+                endpoints: cfg.endpoints,
+
+                activeTab: "courses",
+                me: {},
+                kpis: [],
+                courses: [],
+                sections: [],
+                lessons: [],
+                notifications: [],
+                reviews: [],
+                payouts: [],
+
+                selectedCourse: null,
+                activeSection: null,
+
+                filters: {q: "", status: "", pricing: "", type: ""},
+
+                loading: {
+                    me: false, kpis: false, courses: false,
+                    sections: false, lessons: false,
+                    saveCourse: false, publish: false, archive: false,
+                    upload: false,
+                    reviews: false, payouts: false, notifications: false,
+                },
+
+                modals: {course: false, previewCourse: false, lesson: false, previewLesson: false},
+                drawers: {upload: false},
+
+                courseForm: {
+                    id: null, title: "", subtitle: "", description: "",
+                    course_type: "PROFESSIONNELLE", pricing_type: "PAID", price: 0,
+                    thumbnailFile: null,
+                    preview_video_url: ""
+                },
+
+                lessonForm: {
+                    id: null, title: "", lesson_type: "VIDEO", is_preview: false, duration_sec: 0,
+                    content: "", video_url: "", media_asset_id: ""
+                },
+
+                mediaLibrary: [],
+
+                upload: {
+                    file: null,
+                    kind: "video",
+                    title: "",
+                    progress: 0,
+                    error: "",
+                    bindLessonId: "",
+                    upload_id: null,
+                    object_key: null
+                },
+
+                toast: {show: false, title: "", message: ""},
+
+                previewCourse: null,
+                previewLesson: null,
+                previewLessonSignedUrl: "",
+
+                init() {
+                    this.loadMe();
+                    this.loadKpis();
+                    this.loadCourses();
+                },
+
+                showToast(title, message) {
+                    this.toast = {show: true, title, message};
+                    setTimeout(() => this.toast.show = false, 3500);
+                },
+
+                statusLabel(s) {
+                    const map = {DRAFT: "Brouillon", REVIEW: "En validation", PUBLISHED: "Publié", ARCHIVED: "Archivé"};
+                    return map[s] || s;
+                },
+                statusPill(s) {
+                    if (s === "PUBLISHED") return "bg-emerald-50 border-emerald-200 text-emerald-700";
+                    if (s === "REVIEW") return "bg-be-sun-50 border-be-sun-200 text-be-sun-800";
+                    if (s === "ARCHIVED") return "bg-be-ink-50 border-be-ink-100 text-be-ink-700";
+                    return "bg-be-sky-50 border-be-sky-200 text-be-sky-700";
+                },
+                pricingLabel(p, price, cur) {
+                    if (p === "FREE") return "Gratuit";
+                    if (p === "HYBRID") return "Hybride";
+                    return `Payant • ${Number(price || 0).toLocaleString('fr-FR')} ${cur || 'XOF'}`;
+                },
+                pricingPill(p) {
+                    if (p === "PAID") return "bg-be-sun-50 border-be-sun-200 text-be-sun-800";
+                    if (p === "HYBRID") return "bg-be-sky-50 border-be-sky-200 text-be-sky-700";
+                    return "bg-be-ink-50 border-be-ink-100 text-be-ink-700";
+                },
+                formatDuration(sec) {
+                    sec = Number(sec || 0);
+                    const m = Math.floor(sec / 60), s = sec % 60;
+                    if (m < 60) return `${m}m ${s}s`;
+                    const h = Math.floor(m / 60), mm = m % 60;
+                    return `${h}h ${mm}m`;
+                },
+                humanBytes(bytes) {
+                    const b = Number(bytes || 0);
+                    const u = ["B", "KB", "MB", "GB"];
+                    let i = 0, v = b;
+                    while (v >= 1024 && i < u.length - 1) {
+                        v /= 1024;
+                        i++;
+                    }
+                    return `${v.toFixed(i ? 1 : 0)} ${u[i]}`;
+                },
+
+                getCsrf() {
+                    const m = document.cookie.match(/csrftoken=([^;]+)/);
+                    return m ? m[1] : "";
+                },
+
+                async apiGet(url) {
+                    const res = await fetch(url, {headers: {"Accept": "application/json"}, credentials: "same-origin"});
+                    if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
+                    return await res.json();
+                },
+
+                async apiPost(url, payload) {
+                    const res = await fetch(url, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": this.getCsrf(),
+                            "Accept": "application/json"
+                        },
+                        body: JSON.stringify(payload || {}),
+                        credentials: "same-origin"
+                    });
+                    if (!res.ok) {
+                        let detail = "";
+                        try {
+                            detail = JSON.stringify(await res.json());
+                        } catch (e) {
+                        }
+                        throw new Error(`POST ${url} -> ${res.status} ${detail}`);
+                    }
+                    return await res.json();
+                },
+
+                async apiPostForm(url, formData) {
+                    const res = await fetch(url, {
+                        method: "POST",
+                        headers: {"X-CSRFToken": this.getCsrf(), "Accept": "application/json"},
+                        body: formData,
+                        credentials: "same-origin"
+                    });
+                    if (!res.ok) {
+                        let detail = "";
+                        try {
+                            detail = JSON.stringify(await res.json());
+                        } catch (e) {
+                        }
+                        throw new Error(`POST ${url} -> ${res.status} ${detail}`);
+                    }
+                    return await res.json();
+                },
+
+                async loadMe() {
+                    try {
+                        this.loading.me = true;
+                        this.me = await this.apiGet(this.endpoints.me);
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        this.loading.me = false;
+                    }
+                },
+
+                async loadKpis() {
+                    try {
+                        this.loading.kpis = true;
+                        const data = await this.apiGet(this.endpoints.kpis);
+                        this.kpis = [
+                            {
+                                key: "courses",
+                                label: "Cours",
+                                value: data.courses_count ?? "—",
+                                hint: "Total publiés + brouillons",
+                                tone: "sky",
+                                icon: icon("courses")
+                            },
+                            {
+                                key: "learners",
+                                label: "Inscrits",
+                                value: data.enrolled_total ?? "—",
+                                hint: "Apprenants cumulés",
+                                tone: "sun",
+                                icon: icon("users")
+                            },
+                            {
+                                key: "revenue",
+                                label: "Revenus",
+                                value: data.revenue_month ?? "—",
+                                hint: "Mois courant",
+                                tone: "sun",
+                                icon: icon("money")
+                            },
+                            {
+                                key: "rating",
+                                label: "Note moyenne",
+                                value: data.rating_avg ?? "—",
+                                hint: "Tous cours",
+                                tone: "sky",
+                                icon: icon("star")
+                            },
+                            {
+                                key: "completion",
+                                label: "Complétion",
+                                value: (data.completion_avg ?? "—") + (data.completion_avg != null ? "%" : ""),
+                                hint: "Moyenne",
+                                tone: "sky",
+                                icon: icon("trend")
+                            },
+                        ];
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        this.loading.kpis = false;
+                    }
+                },
+
+                buildCoursesUrl() {
+                    const u = new URL(this.endpoints.courses, window.location.origin);
+                    if (this.filters.q) u.searchParams.set("q", this.filters.q);
+                    if (this.filters.status) u.searchParams.set("status", this.filters.status);
+                    if (this.filters.pricing) u.searchParams.set("pricing", this.filters.pricing);
+                    if (this.filters.type) u.searchParams.set("course_type", this.filters.type);
+                    return u.toString();
+                },
+
+                async loadCourses() {
+                    try {
+                        this.loading.courses = true;
+                        const data = await this.apiGet(this.buildCoursesUrl());
+                        this.courses = data.results || data;
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible de charger les cours.");
+                    } finally {
+                        this.loading.courses = false;
+                    }
+                },
+
+                async openBuilder(course) {
+                    this.selectedCourse = course;
+                    this.activeTab = "builder";
+                    await this.loadSections(course.id);
+                    if (this.sections.length) await this.selectSection(this.sections[0]);
+                    else {
+                        this.activeSection = null;
+                        this.lessons = [];
+                    }
+                },
+
+                async loadSections(courseId) {
+                    try {
+                        this.loading.sections = true;
+                        this.sections = await this.apiGet(this.endpoints.courseSections(courseId));
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible de charger les sections.");
+                    } finally {
+                        this.loading.sections = false;
+                    }
+                },
+
+                async selectSection(section) {
+                    this.activeSection = section;
+                    await this.loadLessons(this.selectedCourse.id, section.id);
+                },
+
+                async loadLessons(courseId, sectionId) {
+                    try {
+                        this.loading.lessons = true;
+                        this.lessons = await this.apiGet(this.endpoints.sectionLessons(courseId, sectionId));
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible de charger les leçons.");
+                    } finally {
+                        this.loading.lessons = false;
+                    }
+                },
+
+                async loadReviews() {
+                    try {
+                        this.loading.reviews = true;
+                        const data = await this.apiGet(this.endpoints.reviews);
+                        this.reviews = data.results || data;
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible de charger les avis.");
+                    } finally {
+                        this.loading.reviews = false;
+                    }
+                },
+
+                async loadPayouts() {
+                    try {
+                        this.loading.payouts = true;
+                        const data = await this.apiGet(this.endpoints.payouts);
+                        this.payouts = data.results || data;
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible de charger les paiements.");
+                    } finally {
+                        this.loading.payouts = false;
+                    }
+                },
+
+                async loadNotifications() {
+                    try {
+                        this.loading.notifications = true;
+                        const data = await this.apiGet(this.endpoints.notifications);
+                        this.notifications = data.results || data;
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        this.loading.notifications = false;
+                    }
+                },
+
+                openCreateCourse() {
+                    this.courseForm = {
+                        id: null,
+                        title: "",
+                        subtitle: "",
+                        description: "",
+                        course_type: "PROFESSIONNELLE",
+                        pricing_type: "PAID",
+                        price: 0,
+                        thumbnailFile: null,
+                        preview_video_url: ""
+                    };
+                    this.modals.course = true;
+                },
+
+                openEditCourse(c) {
+                    this.courseForm = {
+                        id: c.id,
+                        title: c.title || "",
+                        subtitle: c.subtitle || "",
+                        description: c.description || "",
+                        course_type: c.course_type || "PROFESSIONNELLE",
+                        pricing_type: c.pricing_type || "PAID",
+                        price: c.price || 0,
+                        thumbnailFile: null,
+                        preview_video_url: c.preview_video_url || ""
+                    };
+                    this.modals.course = true;
+                },
+
+                courseThumbPicked(ev) {
+                    this.courseForm.thumbnailFile = ev.target.files?.[0] || null;
+                },
+
+                closeCourseModal() {
+                    this.modals.course = false;
+                },
+
+                async saveCourse() {
+                    try {
+                        this.loading.saveCourse = true;
+
+                        const fd = new FormData();
+                        fd.append("title", this.courseForm.title);
+                        fd.append("subtitle", this.courseForm.subtitle || "");
+                        fd.append("description", this.courseForm.description || "");
+                        fd.append("course_type", this.courseForm.course_type);
+                        fd.append("pricing_type", this.courseForm.pricing_type);
+                        fd.append("price", this.courseForm.pricing_type === "FREE" ? "0" : String(this.courseForm.price || 0));
+                        fd.append("preview_video_url", this.courseForm.preview_video_url || "");
+
+                        if (this.courseForm.thumbnailFile) {
+                            fd.append("thumbnail", this.courseForm.thumbnailFile);
+                        }
+
+                        let resp;
+                        if (!this.courseForm.id) {
+                            resp = await this.apiPostForm(this.endpoints.createCourse, fd);
+                            this.showToast("Succès", "Cours créé.");
+                        } else {
+                            resp = await this.apiPostForm(this.endpoints.updateCourse(this.courseForm.id), fd);
+                            this.showToast("Succès", "Cours mis à jour.");
+                        }
+
+                        this.modals.course = false;
+                        await this.loadCourses();
+
+                        if (this.selectedCourse && resp.id === this.selectedCourse.id) {
+                            this.selectedCourse = resp;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible d'enregistrer le cours.");
+                    } finally {
+                        this.loading.saveCourse = false;
+                    }
+                },
+
+                async publishCourse(c) {
+                    try {
+                        this.loading.publish = true;
+                        await this.apiPost(this.endpoints.publishCourse(c.id), {});
+                        this.showToast("OK", "Cours publié.");
+                        await this.loadCourses();
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Publication impossible.");
+                    } finally {
+                        this.loading.publish = false;
+                    }
+                },
+
+                async archiveCourse(c) {
+                    try {
+                        this.loading.archive = true;
+                        await this.apiPost(this.endpoints.archiveCourse(c.id), {});
+                        this.showToast("OK", "Cours archivé.");
+                        await this.loadCourses();
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Archivage impossible.");
+                    } finally {
+                        this.loading.archive = false;
+                    }
+                },
+
+                async createSectionPrompt() {
+                    const title = prompt("Titre de la section ?");
+                    if (!title) return;
+                    try {
+                        await this.apiPost(this.endpoints.createSection(this.selectedCourse.id), {title});
+                        await this.loadSections(this.selectedCourse.id);
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible de créer la section.");
+                    }
+                },
+
+                async editSectionPrompt(s) {
+                    const title = prompt("Nouveau titre ?", s.title);
+                    if (!title) return;
+                    try {
+                        await this.apiPost(this.endpoints.updateSection(this.selectedCourse.id, s.id), {title});
+                        await this.loadSections(this.selectedCourse.id);
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible de modifier la section.");
+                    }
+                },
+
+                async deleteSection(s) {
+                    if (!confirm("Supprimer cette section ?")) return;
+                    try {
+                        await this.apiPost(this.endpoints.deleteSection(this.selectedCourse.id, s.id), {});
+                        await this.loadSections(this.selectedCourse.id);
+                        if (this.activeSection?.id === s.id) {
+                            this.activeSection = null;
+                            this.lessons = [];
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible de supprimer la section.");
+                    }
+                },
+
+                async loadMediaLibrary(kind = "") {
+                    try {
+                        const u = new URL(this.endpoints.mediaList, window.location.origin);
+                        if (kind) u.searchParams.set("kind", kind);
+                        this.mediaLibrary = await this.apiGet(u.toString());
+                    } catch (e) {
+                        console.error(e);
+                        this.mediaLibrary = [];
+                    }
+                },
+
+                onLessonTypeChanged() {
+                    const lt = this.lessonForm.lesson_type;
+                    if (lt === "VIDEO") this.loadMediaLibrary("video");
+                    else if (lt === "FILE") this.loadMediaLibrary("doc");
+                    else this.loadMediaLibrary("");
+                },
+
+                openLessonEditor(l = null) {
+                    if (!this.activeSection) return;
+
+                    if (l) {
+                        this.lessonForm = {
+                            id: l.id,
+                            title: l.title || "",
+                            lesson_type: l.lesson_type || "VIDEO",
+                            is_preview: !!l.is_preview,
+                            duration_sec: l.duration_sec || 0,
+                            content: l.content || "",
+                            video_url: l.video_url || "",
+                            media_asset_id: l.media_asset?.id || ""
+                        };
+                    } else {
+                        this.lessonForm = {
+                            id: null,
+                            title: "",
+                            lesson_type: "VIDEO",
+                            is_preview: false,
+                            duration_sec: 0,
+                            content: "",
+                            video_url: "",
+                            media_asset_id: ""
+                        };
+                    }
+
+                    this.modals.lesson = true;
+                    this.onLessonTypeChanged();
+                },
+
+                async saveLesson() {
+                    if (!this.activeSection) return;
+                    try {
+                        const payload = {...this.lessonForm};
+                        if (!payload.media_asset_id) payload.media_asset_id = null;
+
+                        if (!payload.id) {
+                            await this.apiPost(this.endpoints.createLesson(this.selectedCourse.id, this.activeSection.id), payload);
+                        } else {
+                            await this.apiPost(this.endpoints.updateLesson(this.selectedCourse.id, this.activeSection.id, payload.id), payload);
+                        }
+
+                        this.modals.lesson = false;
+                        await this.loadLessons(this.selectedCourse.id, this.activeSection.id);
+                        await this.loadSections(this.selectedCourse.id);
+                        this.showToast("OK", "Leçon enregistrée.");
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible d'enregistrer la leçon.");
+                    }
+                },
+
+                async deleteLesson(l) {
+                    if (!confirm("Supprimer cette leçon ?")) return;
+                    try {
+                        await this.apiPost(this.endpoints.deleteLesson(this.selectedCourse.id, this.activeSection.id, l.id), {});
+                        await this.loadLessons(this.selectedCourse.id, this.activeSection.id);
+                        await this.loadSections(this.selectedCourse.id);
+                    } catch (e) {
+                        console.error(e);
+                        this.showToast("Erreur", "Impossible de supprimer la leçon.");
+                    }
+                },
+
+                openCoursePreview(c) {
+                    this.previewCourse = c;
+                    this.modals.previewCourse = true;
+                },
+                closeCoursePreview() {
+                    this.modals.previewCourse = false;
+                    this.previewCourse = null;
+                },
+
+                async openLessonPreview(l) {
+                    this.previewLesson = l;
+                    this.previewLessonSignedUrl = "";
+                    this.modals.previewLesson = true;
+
+                    if (l.media_asset?.id) {
+                        try {
+                            const resp = await this.apiGet(this.endpoints.signedGet(l.media_asset.id));
+                            this.previewLessonSignedUrl = resp.url || "";
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                },
+                closeLessonPreview() {
+                    this.modals.previewLesson = false;
+                    this.previewLesson = null;
+                    this.previewLessonSignedUrl = "";
+                },
+
+                openUploadDrawer() {
+                    if (!this.activeSection) {
+                        this.showToast("Info", "Choisis une section avant l'upload.");
+                        return;
+                    }
+                    this.upload = {
+                        file: null,
+                        kind: "video",
+                        title: "",
+                        progress: 0,
+                        error: "",
+                        bindLessonId: "",
+                        upload_id: null,
+                        object_key: null
+                    };
+                    this.drawers.upload = true;
+                },
+
+                handleFilePicked(ev) {
+                    const f = ev.target.files?.[0];
+                    if (!f) return;
+                    this.upload.file = f;
+                    if (f.type.startsWith("video/")) this.upload.kind = "video";
+                    else if (f.type.startsWith("audio/")) this.upload.kind = "audio";
+                    else this.upload.kind = "doc";
+                },
+
+                async startUpload() {
+                    try {
+                        this.upload.error = "";
+                        if (!this.upload.file) {
+                            this.upload.error = "Choisis un fichier.";
+                            return;
+                        }
+
+                        this.loading.upload = true;
+                        this.upload.progress = 1;
+
+                        const initResp = await this.apiPost(this.endpoints.uploadInit, {
+                            filename: this.upload.file.name,
+                            content_type: this.upload.file.type || "application/octet-stream",
+                            size: this.upload.file.size,
+                            kind: this.upload.kind,
+                            title: this.upload.title || ""
+                        });
+
+                        this.upload.upload_id = initResp.upload_id;
+                        this.upload.object_key = initResp.object_key;
+
+                        await this.putFile(initResp.upload_url, this.upload.file, initResp.headers || {});
+
+                        const finalizePayload = {
+                            upload_id: this.upload.upload_id,
+                            object_key: this.upload.object_key,
+                            kind: this.upload.kind,
+                            title: this.upload.title || "",
+                            content_type: this.upload.file.type || "application/octet-stream",
+                            size: this.upload.file.size,
+                            duration_seconds: null,
+                            bind: this.upload.bindLessonId ? {
+                                course_id: this.selectedCourse.id,
+                                section_id: this.activeSection.id,
+                                lesson_id: Number(this.upload.bindLessonId)
+                            } : null
+                        };
+
+                        await this.apiPost(this.endpoints.uploadFinalize, finalizePayload);
+
+                        this.upload.progress = 100;
+                        this.showToast("Succès", "Upload terminé.");
+
+                        await this.loadLessons(this.selectedCourse.id, this.activeSection.id);
+                        await this.loadSections(this.selectedCourse.id);
+
+                        this.onLessonTypeChanged();
+                        this.drawers.upload = false;
+
+                    } catch (e) {
+                        console.error(e);
+                        this.upload.error = "Upload échoué. Vérifie MinIO et l'endpoint.";
+                        this.showToast("Erreur", "Upload échoué.");
+                    } finally {
+                        this.loading.upload = false;
+                    }
+                },
+
+                async putFile(uploadUrl, file, headers) {
+                    await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open("PUT", uploadUrl, true);
+                        Object.entries(headers || {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+                        xhr.upload.onprogress = (e) => {
+                            if (e.lengthComputable) {
+                                this.upload.progress = Math.round((e.loaded / e.total) * 100);
+                            }
+                        };
+                        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error(xhr.status));
+                        xhr.onerror = () => reject(new Error("network"));
+                        xhr.send(file);
+                    });
+                },
+            }
+        }
+    </script>
+{% endblock %}

@@ -1,10 +1,238 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Title</title>
-</head>
-<body>
+{% load static %}
+{% with m=mode|default:"desktop" %}
+<div
+  x-data="learnerSidebar({
+    mode: '{{ m }}',
+    collapsed: (window.__beShell ? window.__beShell.sidebar.collapsed : false)
+  })"
+  x-init="init()"
+  class="rounded-2.5xl border border-be-ink-100/70 dark:border-white/10
+         bg-white/80 dark:bg-white/5 shadow-soft overflow-hidden"
+>
+  <!-- Brand / Header -->
+  <div class="p-4 border-b border-be-ink-100/70 dark:border-white/10">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-be-sky-500 to-be-sky-700 text-white flex items-center justify-center shadow-ring overflow-hidden">
+        <img src="{% static 'img/logo-2.png' %}" alt="logo" class="w-8 h-8 object-contain">
+      </div>
 
-</body>
-</html>
+      <div class="min-w-0" x-show="!collapsed || mode==='mobile'">
+        <div class="font-semibold truncate">Espace Apprenant</div>
+        <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5 truncate">
+          Mes cours • progression • alerts
+        </div>
+      </div>
+
+      <!-- collapse hint -->
+      <div class="ml-auto" x-show="collapsed && mode==='desktop'">
+        <div class="text-[10px] text-be-ink-400 dark:text-white/50">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="p-2">
+    <a href="{% url 'learner_dashboard' %}"
+       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition"
+       :class="isActive('learner_dashboard') ? 'bg-be-sky-50 dark:bg-white/10 border border-be-sky-200/70 dark:border-white/10'
+                                            : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+    >
+      <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
+                   bg-white dark:bg-white/5">
+        <svg class="w-5 h-5 text-be-sky-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+          <path d="M3 10.5 12 3l9 7.5V21a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 21v-10.5Z"
+                stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M9 22v-7h6v7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+        <span class="block text-sm font-semibold truncate">Dashboard</span>
+        <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">KPIs & résumé</span>
+      </span>
+    </a>
+
+    <a href="#"
+       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1"
+       :class="isActive('my_courses') ? 'bg-be-sky-50 dark:bg-white/10 border border-be-sky-200/70 dark:border-white/10'
+                                      : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+    >
+      <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
+                   bg-white dark:bg-white/5">
+        <svg class="w-5 h-5 text-be-sky-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+          <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+        <span class="block text-sm font-semibold truncate">Mes cours</span>
+        <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Inscriptions</span>
+      </span>
+    </a>
+
+    <a href="#"
+       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1"
+       :class="isActive('progress') ? 'bg-be-sun-50 dark:bg-white/10 border border-be-sun-200/70 dark:border-white/10'
+                                    : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+    >
+      <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
+                   bg-white dark:bg-white/5">
+        <svg class="w-5 h-5 text-be-sun-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+          <path d="M3 17l6-6 4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M14 7h7v7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+        <span class="block text-sm font-semibold truncate">Progression</span>
+        <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Leçons & complétion</span>
+      </span>
+    </a>
+
+    <div class="my-3 border-t border-be-ink-100/70 dark:border-white/10"></div>
+
+    <a href="#"
+       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition"
+       :class="isActive('notifications') ? 'bg-be-ink-50 dark:bg-white/10 border border-be-ink-100/70 dark:border-white/10'
+                                          : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+    >
+      <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
+                   bg-white dark:bg-white/5">
+        <svg class="w-5 h-5 text-be-ink-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+        <span class="block text-sm font-semibold truncate">Notifications</span>
+        <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Alertes & infos</span>
+      </span>
+
+      <span class="ml-auto text-[11px] px-2 py-1 rounded-full border border-be-ink-100 bg-white/70 dark:bg-white/5
+                   text-be-ink-600 dark:text-white/70"
+            x-show="(!collapsed || mode==='mobile') && badge.notifications !== null"
+            x-text="badge.notifications"></span>
+    </a>
+
+    <a href="#"
+       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1"
+       :class="isActive('payments') ? 'bg-be-sun-50 dark:bg-white/10 border border-be-sun-200/70 dark:border-white/10'
+                                    : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+    >
+      <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
+                   bg-white dark:bg-white/5">
+        <svg class="w-5 h-5 text-be-sun-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+          <path d="M21 7H3V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2Z" stroke="currentColor" stroke-width="2"/>
+          <path d="M3 7v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7" stroke="currentColor" stroke-width="2"/>
+          <path d="M7 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+        <span class="block text-sm font-semibold truncate">Paiements</span>
+        <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Historique</span>
+      </span>
+    </a>
+
+    <div class="my-3 border-t border-be-ink-100/70 dark:border-white/10"></div>
+
+    <!-- Quick actions -->
+    <div class="p-2">
+      <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white/70 dark:bg-white/5 p-3">
+        <div class="text-[11px] text-be-ink-500 dark:text-white/60" x-show="!collapsed || mode==='mobile'">
+          Actions rapides
+        </div>
+
+        <div class="mt-2 grid gap-2" :class="(collapsed && mode==='desktop') ? 'grid-cols-1' : 'grid-cols-2'">
+          <a href="#"
+             class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-xs font-semibold hover:bg-be-sky-700 transition text-center"
+             :title="(collapsed && mode==='desktop') ? 'Explorer' : ''">
+            <span x-show="!collapsed || mode==='mobile'">Explorer</span>
+            <span x-show="collapsed && mode==='desktop'">🔎</span>
+          </a>
+          <a href="#"
+             class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold transition text-center"
+             :title="(collapsed && mode==='desktop') ? 'Support' : ''">
+            <span x-show="!collapsed || mode==='mobile'">Support</span>
+            <span x-show="collapsed && mode==='desktop'">💬</span>
+          </a>
+        </div>
+
+        <div class="mt-2 text-[11px] text-be-ink-500 dark:text-white/60" x-show="!collapsed || mode==='mobile'">
+          Astuce : clique sur “Progression” pour voir les détails par leçon.
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Footer -->
+  <div class="p-3 border-t border-be-ink-100/70 dark:border-white/10">
+    <div class="flex items-center justify-between gap-2">
+      <div class="text-[11px] text-be-ink-500 dark:text-white/60" x-show="!collapsed || mode==='mobile'">
+        © <span x-text="new Date().getFullYear()"></span> best-épargne
+      </div>
+
+      <div class="flex gap-2">
+        <a href="#"
+           class="w-10 h-10 rounded-xl inline-flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
+                  hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition"
+           :title="(collapsed && mode==='desktop') ? 'Paramètres' : 'Paramètres'">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+            <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M19.4 15a7.9 7.9 0 0 0 .1-1l2-1.5-2-3.5-2.4.6a7.8 7.8 0 0 0-1.7-1l-.3-2.5H10l-.3 2.5a7.8 7.8 0 0 0-1.7 1L5.6 9 3.6 12.5l2 1.5a7.9 7.9 0 0 0 .1 1l-2 1.5 2 3.5 2.4-.6a7.8 7.8 0 0 0 1.7 1l.3 2.5h4.4l.3-2.5a7.8 7.8 0 0 0 1.7-1l2.4.6 2-3.5-2-1.5Z"
+                  stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </a>
+
+        <form method="post" action="{% url 'account_logout' %}" class="contents">
+          {% csrf_token %}
+          <button type="submit"
+                  class="w-10 h-10 rounded-xl inline-flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
+                         hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition"
+                  :title="(collapsed && mode==='desktop') ? 'Déconnexion' : 'Déconnexion'">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <path d="M10 17l5-5-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M21 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function learnerSidebar(cfg){
+  return {
+    mode: cfg.mode || "desktop",
+    collapsed: !!cfg.collapsed,
+
+    badge: {
+      notifications: null, // placeholder: tu peux remplir via API plus tard
+    },
+
+    init(){
+      // sync from shell events
+      window.addEventListener("be:sidebar", (e)=>{
+        if (this.mode === "desktop"){
+          this.collapsed = !!(e.detail && e.detail.collapsed);
+        }
+      });
+
+      // Example: badge placeholder (si tu veux une api unread_count)
+      // this.badge.notifications = 0;
+    },
+
+    isActive(key){
+      // mapping simple: tu peux lier à tes urls plus tard
+      const p = window.location.pathname || "";
+      if (key === "learner_dashboard") return p.includes("/student") || p.includes("/learner") || p.includes("/dashboard");
+      if (key === "my_courses") return p.includes("/courses") || p.includes("/enrollments");
+      if (key === "progress") return p.includes("/progress");
+      if (key === "notifications") return p.includes("/notifications");
+      if (key === "payments") return p.includes("/payments");
+      return false;
+    }
+  }
+}
+</script>
+{% endwith %}

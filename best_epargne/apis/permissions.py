@@ -1,6 +1,6 @@
 from rest_framework.permissions import BasePermission
-from apps.accounts.models import User
-from apps.organizations.models import CompanyMember
+from compte.models import User
+from organizations.models import CompanyMember
 
 class IsInstructor(BasePermission):
     def has_permission(self, request, view):
@@ -17,3 +17,7 @@ class IsCompanyAdmin(BasePermission):
 class IsSuperAdmin(BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == User.Role.SUPERADMIN
+class IsInstructor(BasePermission):
+    def has_permission(self, request, view):
+        u = request.user
+        return bool(u and u.is_authenticated and getattr(u, "is_instructor", False))

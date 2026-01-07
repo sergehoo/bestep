@@ -1,10 +1,750 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Best-Épargne - Plateforme e-Learning Premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        :root {
+            --primary-blue: #4A90E2;
+            --primary-yellow: #FFD166;
+            --light-blue: #E8F4FD;
+            --success-green: #2ECC71;
+        }
+        
+        .sidebar-active {
+            background-color: #E8F4FD;
+            border-left: 4px solid #4A90E2;
+            color: #4A90E2;
+            font-weight: 600;
+        }
+        
+        .course-card:hover .course-overlay {
+            opacity: 1;
+        }
+        
+        .progress-ring circle {
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        
+        .badge-earned {
+            box-shadow: 0 4px 12px rgba(255, 209, 102, 0.3);
+        }
+    </style>
 </head>
-<body>
+<body class="bg-gray-50">
+    <!-- Navigation principale -->
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <!-- Logo -->
+            <div class="flex items-center space-x-2">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-r from-blue-500 to-blue-400 flex items-center justify-center">
+                    <span class="text-white font-bold text-xl">BÉ</span>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-blue-600">Best-<span class="text-yellow-500">Épargne</span></h1>
+                    <p class="text-xs text-gray-500 -mt-1">Apprentissage financier</p>
+                </div>
+            </div>
+            
+            <!-- Navigation desktop -->
+            <div class="hidden md:flex space-x-8">
+                <a href="#" class="text-blue-600 font-semibold border-b-2 border-blue-600 pb-1">Accueil</a>
+                <a href="#apprenant" class="text-gray-600 hover:text-blue-600 transition">Apprenants</a>
+                <a href="#entreprise" class="text-gray-600 hover:text-blue-600 transition">Entreprises</a>
+                <a href="#formateur" class="text-gray-600 hover:text-blue-600 transition">Formateurs</a>
+                <a href="#cours" class="text-gray-600 hover:text-blue-600 transition">Catalogue</a>
+            </div>
+            
+            <!-- Boutons CTA -->
+            <div class="flex items-center space-x-4">
+                <button class="hidden md:block px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Connexion
+                </button>
+                <button class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition flex items-center">
+                    <i class="fas fa-rocket mr-2"></i>Essai gratuit
+                </button>
+                
+                <!-- Menu mobile -->
+                <button id="mobile-menu-btn" class="md:hidden text-gray-700">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Menu mobile -->
+        <div id="mobile-menu" class="md:hidden hidden bg-white px-4 py-3 border-t">
+            <div class="flex flex-col space-y-3">
+                <a href="#" class="text-blue-600 font-semibold py-2">Accueil</a>
+                <a href="#apprenant" class="text-gray-600 py-2">Apprenants</a>
+                <a href="#entreprise" class="text-gray-600 py-2">Entreprises</a>
+                <a href="#formateur" class="text-gray-600 py-2">Formateurs</a>
+                <a href="#cours" class="text-gray-600 py-2">Catalogue</a>
+                <a href="#" class="text-blue-600 py-2 border-t pt-3">Connexion</a>
+            </div>
+        </div>
+    </nav>
 
+    <!-- Hero Section -->
+    <section class="bg-gradient-to-r from-blue-50 to-blue-100 py-12 md:py-20">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row items-center">
+                <div class="md:w-1/2 mb-10 md:mb-0">
+                    <h1 class="text-4xl md:text-5xl font-bold text-gray-800 leading-tight">
+                        Optimisez votre <span class="text-blue-600">épargne</span> avec des experts certifiés
+                    </h1>
+                    <p class="text-gray-600 text-lg mt-6 mb-8">
+                        La plateforme complète d'apprentissage financier pour particuliers, entreprises et formateurs.
+                    </p>
+                    <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                        <button class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition flex items-center justify-center">
+                            <i class="fas fa-play-circle mr-2"></i> Découvrir les cours
+                        </button>
+                        <button class="bg-white text-blue-600 border border-blue-600 px-6 py-3 rounded-lg font-semibold shadow-sm hover:shadow transition flex items-center justify-center">
+                            <i class="fas fa-building mr-2"></i> Espace entreprise
+                        </button>
+                    </div>
+                    
+                    <div class="mt-12 grid grid-cols-3 gap-6 text-center">
+                        <div>
+                            <p class="text-3xl font-bold text-blue-600">10K+</p>
+                            <p class="text-gray-600 text-sm">Apprenants actifs</p>
+                        </div>
+                        <div>
+                            <p class="text-3xl font-bold text-yellow-500">500+</p>
+                            <p class="text-gray-600 text-sm">Entreprises</p>
+                        </div>
+                        <div>
+                            <p class="text-3xl font-bold text-green-500">150+</p>
+                            <p class="text-gray-600 text-sm">Formateurs experts</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="md:w-1/2 flex justify-center">
+                    <div class="relative">
+                        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-xl font-bold text-gray-800">Tableau de bord apprenant</h3>
+                                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span class="text-blue-600 font-bold">JD</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Progression -->
+                            <div class="mb-6">
+                                <div class="flex justify-between mb-2">
+                                    <p class="text-gray-700">Progression globale</p>
+                                    <p class="text-blue-600 font-bold">68%</p>
+                                </div>
+                                <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-blue-500 to-green-400" style="width: 68%"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Cours en cours -->
+                            <div class="space-y-4">
+                                <div class="flex items-center p-3 bg-blue-50 rounded-lg">
+                                    <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center mr-3">
+                                        <i class="fas fa-chart-line text-white"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="font-medium text-gray-800">Investissements avancés</p>
+                                        <div class="flex items-center">
+                                            <div class="h-1.5 bg-gray-200 rounded-full flex-1 mr-2">
+                                                <div class="h-full bg-yellow-500 rounded-full" style="width: 75%"></div>
+                                            </div>
+                                            <span class="text-sm text-gray-600">75%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center p-3 bg-green-50 rounded-lg">
+                                    <div class="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center mr-3">
+                                        <i class="fas fa-piggy-bank text-white"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="font-medium text-gray-800">Épargne retraite</p>
+                                        <div class="flex items-center">
+                                            <div class="h-1.5 bg-gray-200 rounded-full flex-1 mr-2">
+                                                <div class="h-full bg-green-500 rounded-full" style="width: 40%"></div>
+                                            </div>
+                                            <span class="text-sm text-gray-600">40%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button class="w-full mt-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg transition">
+                                Continuer mon apprentissage
+                            </button>
+                        </div>
+                        
+                        <!-- Badges flottants -->
+                        <div class="absolute -top-4 -right-4 bg-yellow-500 text-white rounded-full w-16 h-16 flex flex-col items-center justify-center shadow-lg">
+                            <i class="fas fa-trophy text-xl"></i>
+                            <p class="text-xs font-bold mt-1">Niveau 3</p>
+                        </div>
+                        
+                        <div class="absolute -bottom-4 -left-4 bg-white rounded-xl shadow-lg p-3 flex items-center">
+                            <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mr-3">
+                                <i class="fas fa-medal text-blue-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium">8 badges obtenus</p>
+                                <p class="text-xs text-gray-500">Expert en épargne</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Espaces de la plateforme -->
+    <section class="py-16 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-12">
+                Une plateforme <span class="text-blue-600">complète</span> pour tous vos besoins
+            </h2>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Espace Apprenant -->
+                <div id="apprenant" class="bg-gradient-to-br from-blue-50 to-white rounded-2xl shadow-lg p-8 border border-blue-100 hover:shadow-xl transition duration-300">
+                    <div class="w-16 h-16 rounded-xl bg-gradient-to-r from-blue-500 to-blue-400 flex items-center justify-center mb-6">
+                        <i class="fas fa-user-graduate text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">Espace Apprenant</h3>
+                    <p class="text-gray-600 mb-6">
+                        Parcours personnalisés, suivi de progression détaillé, certifications reconnues et communauté d'entraide.
+                    </p>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                            <span>Tableau de bord de progression</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                            <span>Cours recommandés intelligemment</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                            <span>Certificats téléchargeables</span>
+                        </li>
+                    </ul>
+                    <button class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition">
+                        Explorer l'espace apprenant
+                    </button>
+                </div>
+                
+                <!-- Espace Entreprise -->
+                <div id="entreprise" class="bg-gradient-to-br from-yellow-50 to-white rounded-2xl shadow-lg p-8 border border-yellow-100 hover:shadow-xl transition duration-300">
+                    <div class="w-16 h-16 rounded-xl bg-gradient-to-r from-yellow-500 to-yellow-400 flex items-center justify-center mb-6">
+                        <i class="fas fa-building text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">Espace Entreprise</h3>
+                    <p class="text-gray-600 mb-6">
+                        Gérez la formation de vos équipes, suivez les progrès, analysez les compétences et optimisez votre budget formation.
+                    </p>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                            <span>Dashboard analytique complet</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                            <span>Gestion centralisée des équipes</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                            <span>Rapports détaillés et exportables</span>
+                        </li>
+                    </ul>
+                    <button class="bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition">
+                        Découvrir l'espace entreprise
+                    </button>
+                </div>
+                
+                <!-- Espace Formateur -->
+                <div id="formateur" class="bg-gradient-to-br from-green-50 to-white rounded-2xl shadow-lg p-8 border border-green-100 hover:shadow-xl transition duration-300">
+                    <div class="w-16 h-16 rounded-xl bg-gradient-to-r from-green-500 to-green-400 flex items-center justify-center mb-6">
+                        <i class="fas fa-chalkboard-teacher text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">Espace Formateur</h3>
+                    <p class="text-gray-600 mb-6">
+                        Créez, publiez et vendez vos cours. Suivez vos performances, interagissez avec les apprenants et développez votre audience.
+                    </p>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                            <span>Outils de création avancés</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                            <span>Analytique de performance détaillée</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                            <span>Paiements sécurisés et rapports</span>
+                        </li>
+                    </ul>
+                    <button class="bg-gradient-to-r from-green-500 to-green-400 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition">
+                        Devenir formateur
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Catalogue de cours -->
+    <section id="cours" class="py-16 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center mb-10">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800">Catalogue de <span class="text-blue-600">cours</span></h2>
+                    <p class="text-gray-600 mt-2">Découvrez nos formations les plus populaires</p>
+                </div>
+                <div class="hidden md:flex space-x-2">
+                    <button class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium">Tous</button>
+                    <button class="px-4 py-2 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-100">Débutant</button>
+                    <button class="px-4 py-2 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-100">Intermédiaire</button>
+                    <button class="px-4 py-2 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-100">Avancé</button>
+                </div>
+            </div>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Cours 1 -->
+                <div class="course-card bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300">
+                    <div class="relative">
+                        <div class="h-48 bg-gradient-to-r from-blue-500 to-blue-400 flex items-center justify-center">
+                            <i class="fas fa-chart-line text-white text-5xl"></i>
+                        </div>
+                        <div class="absolute top-4 right-4 bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            <i class="fas fa-star mr-1"></i> Populaire
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-xl font-bold text-gray-800">Investissements avancés</h3>
+                            <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm font-medium">Expert</span>
+                        </div>
+                        <p class="text-gray-600 mb-6">
+                            Maîtrisez les stratégies d'investissement à haut rendement avec des experts du secteur.
+                        </p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                                    <span class="text-blue-600 font-bold">MJ</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium">Marie Jensen</p>
+                                    <p class="text-xs text-gray-500">Analyste financier</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg font-bold text-blue-600">24€</p>
+                                <p class="text-xs text-gray-500">/ mois</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
+                            <div class="flex items-center text-gray-500">
+                                <i class="far fa-clock mr-2"></i>
+                                <span>12h</span>
+                            </div>
+                            <div class="flex items-center text-gray-500">
+                                <i class="fas fa-users mr-2"></i>
+                                <span>1.2K apprenants</span>
+                            </div>
+                            <div class="flex items-center text-green-500">
+                                <i class="fas fa-star mr-1"></i>
+                                <span>4.9</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Cours 2 -->
+                <div class="course-card bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300">
+                    <div class="relative">
+                        <div class="h-48 bg-gradient-to-r from-green-500 to-green-400 flex items-center justify-center">
+                            <i class="fas fa-piggy-bank text-white text-5xl"></i>
+                        </div>
+                        <div class="absolute top-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            Nouveau
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-xl font-bold text-gray-800">Épargne retraite optimisée</h3>
+                            <span class="bg-green-100 text-green-600 px-3 py-1 rounded-full text-sm font-medium">Intermédiaire</span>
+                        </div>
+                        <p class="text-gray-600 mb-6">
+                            Planifiez sereinement votre retraite avec les meilleures stratégies d'épargne à long terme.
+                        </p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                                    <span class="text-green-600 font-bold">PD</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium">Pierre Dubois</p>
+                                    <p class="text-xs text-gray-500">Conseiller retraite</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg font-bold text-green-600">Gratuit</p>
+                                <p class="text-xs text-gray-500">Essai gratuit</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
+                            <div class="flex items-center text-gray-500">
+                                <i class="far fa-clock mr-2"></i>
+                                <span>8h</span>
+                            </div>
+                            <div class="flex items-center text-gray-500">
+                                <i class="fas fa-users mr-2"></i>
+                                <span>3.4K apprenants</span>
+                            </div>
+                            <div class="flex items-center text-green-500">
+                                <i class="fas fa-star mr-1"></i>
+                                <span>4.7</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Cours 3 -->
+                <div class="course-card bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300">
+                    <div class="relative">
+                        <div class="h-48 bg-gradient-to-r from-purple-500 to-purple-400 flex items-center justify-center">
+                            <i class="fas fa-shield-alt text-white text-5xl"></i>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-xl font-bold text-gray-800">Sécurité financière numérique</h3>
+                            <span class="bg-yellow-100 text-yellow-600 px-3 py-1 rounded-full text-sm font-medium">Débutant</span>
+                        </div>
+                        <p class="text-gray-600 mb-6">
+                            Protégez vos actifs numériques et apprenez les meilleures pratiques de sécurité financière.
+                        </p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center mr-3">
+                                    <span class="text-purple-600 font-bold">SG</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium">Sophie Garnier</p>
+                                    <p class="text-xs text-gray-500">Expert cybersécurité</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg font-bold text-purple-600">18€</p>
+                                <p class="text-xs text-gray-500">/ mois</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
+                            <div class="flex items-center text-gray-500">
+                                <i class="far fa-clock mr-2"></i>
+                                <span>6h</span>
+                            </div>
+                            <div class="flex items-center text-gray-500">
+                                <i class="fas fa-users mr-2"></i>
+                                <span>2.1K apprenants</span>
+                            </div>
+                            <div class="flex items-center text-green-500">
+                                <i class="fas fa-star mr-1"></i>
+                                <span>4.8</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-12">
+                <button class="bg-white text-blue-600 border border-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition flex items-center mx-auto">
+                    <i class="fas fa-book-open mr-2"></i> Voir tous les cours (150+)
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard Entreprise -->
+    <section class="py-16 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-4">
+                Dashboard <span class="text-yellow-500">Entreprise</span>
+            </h2>
+            <p class="text-gray-600 text-center mb-12 max-w-2xl mx-auto">
+                Gérez efficacement la formation de vos équipes avec des outils analytiques puissants
+            </p>
+            
+            <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl shadow-xl p-6 md:p-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-800">Synthèse des formations</h3>
+                        <p class="text-gray-600">Équipe: Direction Financière • Période: Janvier 2024</p>
+                    </div>
+                    <button class="mt-4 md:mt-0 bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-5 py-2.5 rounded-lg font-medium hover:shadow-lg transition flex items-center">
+                        <i class="fas fa-download mr-2"></i> Exporter le rapport
+                    </button>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500 text-sm">Taux de complétion</p>
+                                <p class="text-3xl font-bold text-blue-600 mt-2">84%</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                                <i class="fas fa-check-circle text-blue-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="h-2 bg-gray-200 rounded-full mt-4 overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-blue-500 to-green-400" style="width: 84%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500 text-sm">Heures de formation</p>
+                                <p class="text-3xl font-bold text-yellow-600 mt-2">156h</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
+                                <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-green-500 text-sm mt-2">
+                            <i class="fas fa-arrow-up mr-1"></i> 12% vs période précédente
+                        </p>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500 text-sm">Budget utilisé</p>
+                                <p class="text-3xl font-bold text-green-600 mt-2">€12,450</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
+                                <i class="fas fa-euro-sign text-green-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-gray-500 text-sm mt-2">€3,550 restant sur €16,000</p>
+                    </div>
+                </div>
+                
+                <!-- Tableau des équipes -->
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="text-left p-4 font-semibold text-gray-700 rounded-l-lg">Collaborateur</th>
+                                <th class="text-left p-4 font-semibold text-gray-700">Cours assignés</th>
+                                <th class="text-left p-4 font-semibold text-gray-700">Progression</th>
+                                <th class="text-left p-4 font-semibold text-gray-700">Score moyen</th>
+                                <th class="text-left p-4 font-semibold text-gray-700 rounded-r-lg">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                <td class="p-4">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                                            <span class="text-blue-600 font-bold">AL</span>
+                                        </div>
+                                        <div>
+                                            <p class="font-medium">Alexandre Leroy</p>
+                                            <p class="text-sm text-gray-500">Analyste financier</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">5 cours</span>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center">
+                                        <div class="h-2 bg-gray-200 rounded-full w-24 mr-2">
+                                            <div class="h-full bg-green-500 rounded-full" style="width: 92%"></div>
+                                        </div>
+                                        <span>92%</span>
+                                    </div>
+                                </td>
+                                <td class="p-4 font-semibold">
+                                    <span class="text-green-600">4.8/5</span>
+                                </td>
+                                <td class="p-4">
+                                    <span class="bg-green-100 text-green-600 px-3 py-1 rounded-full text-sm">À jour</span>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                <td class="p-4">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+                                            <span class="text-yellow-600 font-bold">CM</span>
+                                        </div>
+                                        <div>
+                                            <p class="font-medium">Claire Martin</p>
+                                            <p class="text-sm text-gray-500">Contrôleur de gestion</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">3 cours</span>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center">
+                                        <div class="h-2 bg-gray-200 rounded-full w-24 mr-2">
+                                            <div class="h-full bg-blue-500 rounded-full" style="width: 65%"></div>
+                                        </div>
+                                        <span>65%</span>
+                                    </div>
+                                </td>
+                                <td class="p-4 font-semibold">
+                                    <span class="text-blue-600">4.2/5</span>
+                                </td>
+                                <td class="p-4">
+                                    <span class="bg-yellow-100 text-yellow-600 px-3 py-1 rounded-full text-sm">En cours</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gradient-to-r from-blue-900 to-blue-800 text-white pt-12 pb-8">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-start">
+                <div class="mb-8 md:mb-0">
+                    <div class="flex items-center space-x-2 mb-6">
+                        <div class="w-10 h-10 rounded-lg bg-white flex items-center justify-center">
+                            <span class="text-blue-600 font-bold text-xl">BÉ</span>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold text-white">Best-<span class="text-yellow-500">Épargne</span></h1>
+                            <p class="text-blue-200 text-xs -mt-1">Apprentissage financier</p>
+                        </div>
+                    </div>
+                    <p class="text-blue-200 max-w-xs mb-6">
+                        La plateforme de référence pour l'apprentissage financier des particuliers, entreprises et formateurs.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center hover:bg-blue-600 transition">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center hover:bg-blue-600 transition">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center hover:bg-blue-600 transition">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center hover:bg-blue-600 transition">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-8 md:gap-16">
+                    <div>
+                        <h4 class="text-lg font-semibold mb-4">Plateforme</h4>
+                        <ul class="space-y-2">
+                            <li><a href="#" class="text-blue-200 hover:text-white transition">Espace Apprenant</a></li>
+                            <li><a href="#" class="text-blue-200 hover:text-white transition">Espace Entreprise</a></li>
+                            <li><a href="#" class="text-blue-200 hover:text-white transition">Espace Formateur</a></li>
+                            <li><a href="#" class="text-blue-200 hover:text-white transition">Tarifs</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-lg font-semibold mb-4">Ressources</h4>
+                        <ul class="space-y-2">
+                            <li><a href="#" class="text-blue-200 hover:text-white transition">Centre d'aide</a></li>
+                            <li><a href="#" class="text-blue-200 hover:text-white transition">Blog</a></li>
+                            <li><a href="#" class="text-blue-200 hover:text-white transition">Témoignages</a></li>
+                            <li><a href="#" class="text-blue-200 hover:text-white transition">Contact</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-span-2 md:col-span-1">
+                        <h4 class="text-lg font-semibold mb-4">Newsletter</h4>
+                        <p class="text-blue-200 mb-4">Recevez nos conseils financiers exclusifs</p>
+                        <div class="flex">
+                            <input type="email" placeholder="Votre email" class="bg-blue-700 text-white px-4 py-3 rounded-l-lg focus:outline-none flex-1">
+                            <button class="bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-4 py-3 rounded-r-lg font-medium">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t border-blue-700 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-blue-300 text-sm mb-4 md:mb-0">© 2024 Best-Épargne. Tous droits réservés.</p>
+                <div class="flex space-x-6">
+                    <a href="#" class="text-blue-300 hover:text-white text-sm">Mentions légales</a>
+                    <a href="#" class="text-blue-300 hover:text-white text-sm">Politique de confidentialité</a>
+                    <a href="#" class="text-blue-300 hover:text-white text-sm">CGU</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Menu mobile
+        document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        });
+
+        // Simulation de chargement des badges
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animation des barres de progression
+            const progressBars = document.querySelectorAll('.progress-fill');
+            progressBars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 300);
+            });
+            
+            // Animation des cartes au défilement
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, observerOptions);
+            
+            // Animer les cartes de cours
+            const courseCards = document.querySelectorAll('.course-card');
+            courseCards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                setTimeout(() => {
+                    observer.observe(card);
+                }, index * 100);
+            });
+        });
+    </script>
 </body>
 </html>
