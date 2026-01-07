@@ -53,7 +53,8 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels -r /app/requireme
 
 # Copier le code projet
 COPY . /app
-
+WORKDIR /app
+RUN chmod +x /app/entrypoint.sh
 # Permissions (staticfiles/media)
 RUN mkdir -p /app/staticfiles /app/media \
  && chown -R appuser:appuser /app

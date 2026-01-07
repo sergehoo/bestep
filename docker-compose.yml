@@ -27,7 +27,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-best_epargne} -d ${POSTGRES_DB:-best_epargne}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
