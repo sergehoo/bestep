@@ -1,4 +1,4 @@
-version: "3.9"
+
 
 networks:
   proxy:
@@ -69,7 +69,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-
+      - "traefik.docker.network=proxy"
       # API S3 (9000)
       - "traefik.http.routers.best-minio.rule=Host(`minio.ayo-group.com`)"
       - "traefik.http.routers.best-minio.entrypoints=websecure"
@@ -139,6 +139,7 @@ services:
 
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
       - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST}`)"
       - "traefik.http.routers.best-epargne.entrypoints=websecure"
       - "traefik.http.routers.best-epargne.tls=true"
