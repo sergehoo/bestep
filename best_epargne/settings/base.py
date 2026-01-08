@@ -177,9 +177,9 @@ ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "first_name", "last_name", "password1*", "password2*"]
 
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None      # ✅ dit à allauth: pas de username
-ACCOUNT_USERNAME_REQUIRED = False             # (legacy, mais ok si encore lu)
+# ACCOUNT_USERNAME_REQUIRED = False             # (legacy, mais ok si encore lu)
 ACCOUNT_USER_MODEL_EMAIL_FIELD = "email"
-ACCOUNT_EMAIL_REQUIRED = True
+# ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 # Email
 ACCOUNT_EMAIL_VERIFICATION = "optional"  # ou "mandatory" en prod
