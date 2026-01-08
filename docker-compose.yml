@@ -134,7 +134,7 @@ services:
 
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST:-best-epargne.example.com}`)"
+      - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST}`)"
       - "traefik.http.routers.best-epargne.entrypoints=${TRAEFIK_ENTRYPOINT_WEBSECURE:-websecure}"
       - "traefik.http.routers.best-epargne.tls=true"
       - "traefik.http.services.best-epargne.loadbalancer.server.port=${APP_PORT:-8000}"
