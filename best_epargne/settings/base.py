@@ -156,7 +156,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  # dossier cible de collects
 
 # (facultatif) si tu as un dossier /static dans le code source pour tes assets non collectés
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
-MEDIA_URL = "/media/"
+# MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # -------------
@@ -243,6 +243,7 @@ AWS_S3_SIGNATURE_VERSION = "s3v4"
 AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = True  # si tu utilises des URLs signées
 
+MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/"
 
 
 
