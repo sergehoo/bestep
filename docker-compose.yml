@@ -71,13 +71,13 @@ services:
 
       # API S3 (9000)
       - "traefik.http.routers.best-minio.rule=Host(`minio.ayo-group.com`)"
-      - "traefik.http.routers.best-minio.entrypoints=${TRAEFIK_ENTRYPOINT_WEBSECURE:-websecure}"
+      - "traefik.http.routers.best-minio.entrypoints=websecure"
       - "traefik.http.routers.best-minio.tls=true"
       - "traefik.http.services.best-minio.loadbalancer.server.port=9000"
 
       # Console (9001)
       - "traefik.http.routers.best-minio-console.rule=Host(`minio-console.ayo-group.com`)"
-      - "traefik.http.routers.best-minio-console.entrypoints=${TRAEFIK_ENTRYPOINT_WEBSECURE:-websecure}"
+      - "traefik.http.routers.best-minio-console.entrypoints=websecure"
       - "traefik.http.routers.best-minio-console.tls=true"
       - "traefik.http.services.best-minio-console.loadbalancer.server.port=9001"
 
