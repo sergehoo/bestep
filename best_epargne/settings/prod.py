@@ -5,10 +5,32 @@ import os
 DEBUG = True
 
 # Domaine(s) du site en prod
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
+# ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = [
+    "ayo-group.com",
+    "www.ayo-group.com",
+]
+CSRF_TRUSTED_ORIGINS = [
+    "https://ayo-group.com",
+    "https://www.ayo-group.com",
+]
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# SECRET_KEY obligatoire via env en prod
-SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+SECURE_SSL_REDIRECT = True
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = "DENY"
 
 # DB Postgres (à adapter à ton infra)
 # DATABASES = {
