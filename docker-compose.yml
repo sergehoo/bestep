@@ -103,7 +103,6 @@ services:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
 
       # ✅ IMPORTANT: host = bestDB (pas "postgres")
-      DATABASE_URL: ${DATABASE_URL:-postgres://best_epargne:best_epargne_pwd@bestDB:5432/best_epargne}
 
       # Redis / Celery
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
@@ -161,7 +160,6 @@ services:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
 
       # ✅ IMPORTANT: host = bestDB
-      DATABASE_URL: ${DATABASE_URL:-postgres://best_epargne:best_epargne_pwd@bestDB:5432/best_epargne}
 
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
@@ -198,10 +196,6 @@ services:
       - .env
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
-
-      # ✅ IMPORTANT: host = bestDB
-      DATABASE_URL: ${DATABASE_URL:-postgres://best_epargne:best_epargne_pwd@bestDB:5432/best_epargne}
-
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
