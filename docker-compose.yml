@@ -89,6 +89,12 @@ services:
       - "traefik.http.routers.best-minio-console.tls=true"
       - "traefik.http.routers.best-minio-console.service=best-minio-console"
 
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
   # -------------------------
   # Django (Gunicorn)
   # -------------------------
@@ -141,12 +147,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.services.best-epargne.loadbalancer.server.port=8000"
-
-      - "traefik.http.routers.best-epargne.rule=Host(`ayo-group.com`) || Host(`www.ayo-group.com`)"
+      - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST}`)"
       - "traefik.http.routers.best-epargne.entrypoints=websecure"
       - "traefik.http.routers.best-epargne.tls=true"
-      - "traefik.http.routers.best-epargne.service=best-epargne"
+      - "traefik.http.services.best-epargne.loadbalancer.server.port=${APP_PORT:-8000}"
 
     command:
       [
