@@ -173,9 +173,8 @@ CACHES = {
     }
 }
 # Connexion par email uniquement
-ACCOUNT_AUTHENTICATION_METHOD = "email"
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "first_name", "last_name", "password1*", "password2*"]
 
 # Email
 ACCOUNT_EMAIL_VERIFICATION = "optional"  # ou "mandatory" en prod
@@ -183,10 +182,11 @@ ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 
 # UX
-ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
-ACCOUNT_LOGIN_ATTEMPTS_TIMEOUT = 300
-ACCOUNT_USERNAME_REQUIRED = False  # ✅ AJOUTE
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_RATE_LIMITS = {
+    "login_failed": "5/5m",
+    "signup": "10/h",
+    "reset_password": "5/h",
+}
 
 ACCOUNT_ADAPTER = "compte.adapters.AccountAdapter"
 
