@@ -156,7 +156,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  # dossier cible de collects
 
 # (facultatif) si tu as un dossier /static dans le code source pour tes assets non collectés
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 

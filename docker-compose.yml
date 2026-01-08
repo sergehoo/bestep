@@ -1,3 +1,4 @@
+version: "3.9"
 
 networks:
   proxy:
@@ -27,7 +28,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 -p 5432 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -82,7 +83,7 @@ services:
       - "traefik.http.services.best-minio-console.loadbalancer.server.port=9001"
 
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 10
@@ -102,7 +103,12 @@ services:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
 
-      # ✅ IMPORTANT: host = bestDB (pas "postgres")
+      # ✅ DB (Django lit ces vars dans prod.py)
+      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
+      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
+      DB_HOST: ${DB_HOST:-bestDB}
+      DB_PORT: ${DB_PORT:-5432}
 
       # Redis / Celery
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
@@ -134,11 +140,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST}`)"
-      - "traefik.http.routers.best-epargne.entrypoints=${TRAEFIK_ENTRYPOINT_WEBSECURE:-websecure}"
+      - "traefik.http.routers.best-epargne.entrypoints=websecure"
       - "traefik.http.routers.best-epargne.tls=true"
       - "traefik.http.services.best-epargne.loadbalancer.server.port=${APP_PORT:-8000}"
 
-    # ✅ Fix --bind not found : une seule ligne
     command:
       [
         "sh","-c",
@@ -159,7 +164,12 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
 
-      # ✅ IMPORTANT: host = bestDB
+      # ✅ DB identique à bestweb
+      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
+      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
+      DB_HOST: ${DB_HOST:-bestDB}
+      DB_PORT: ${DB_PORT:-5432}
 
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
@@ -196,6 +206,14 @@ services:
       - .env
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
+
+      # ✅ DB identique à bestweb
+      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
+      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
+      DB_HOST: ${DB_HOST:-bestDB}
+      DB_PORT: ${DB_PORT:-5432}
+
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
