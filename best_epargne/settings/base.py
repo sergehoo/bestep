@@ -36,7 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "rest_framework",
-
+    'storages',
     "django.contrib.sites",
 
     # Allauth
@@ -224,19 +224,28 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_RESULT_EXTENDED = True
 
 # settings.py
-INSTALLED_APPS += ["storages"]
 
-AWS_ACCESS_KEY_ID = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
-AWS_SECRET_ACCESS_KEY = os.environ.get("MINIO_SECRET_KEY", "minioadmin123")
+AWS_ACCESS_KEY_ID = os.getenv("MINIO_ACCESS_KEY")
+AWS_SECRET_ACCESS_KEY = os.getenv("MINIO_SECRET_KEY")
+AWS_STORAGE_BUCKET_NAME = os.getenv("MINIO_BUCKET", "bestepargne")
+AWS_S3_REGION_NAME = os.getenv("MINIO_REGION", "us-east-1")
 
-AWS_STORAGE_BUCKET_NAME = os.environ.get("MINIO_BUCKET", "best-epargne")
-AWS_S3_ENDPOINT_URL = os.environ.get("MINIO_ENDPOINT", "http://localhost:9000")
-AWS_S3_REGION_NAME = "us-east-1"  # valeur arbitraire pour compat
+# IMPORTANT: endpoint interne pour que Django parle à MinIO
+AWS_S3_ENDPOINT_URL = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
+
+# IMPORTANT: url publique pour que le navigateur affiche les fichiers
+AWS_S3_CUSTOM_DOMAIN = os.getenv("MINIO_PUBLIC_ENDPOINT", "").replace("https://", "").replace("http://", "")
+AWS_S3_URL_PROTOCOL = "https:"  # force https si tu exposes minio en https
+
+AWS_S3_USE_SSL = True
+AWS_S3_VERIFY = False
 AWS_S3_SIGNATURE_VERSION = "s3v4"
-
-AWS_S3_ADDRESSING_STYLE = "path"  # IMPORTANT pour MinIO
 AWS_DEFAULT_ACL = None
-AWS_QUERYSTRING_AUTH = True
+AWS_QUERYSTRING_AUTH = True  # si tu utilises des URLs signées
+
+
+
+
 
 # MinIO / S3 compatible
 MINIO_ENDPOINT_URL = "http://127.0.0.1:9000"  # ou http://minio:9000 en docker

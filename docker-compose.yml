@@ -81,13 +81,13 @@ services:
       - "traefik.http.routers.best-minio.rule=Host(`minio.ayo-group.com`)"
       - "traefik.http.routers.best-minio.entrypoints=websecure"
       - "traefik.http.routers.best-minio.tls=true"
-      - "traefik.http.routers.best-minio.service=best-minio"
+      - "traefik.http.routers.best-minio.service=best-minio-svc"
 
       # --- Router Console -> service best-minio-console
       - "traefik.http.routers.best-minio-console.rule=Host(`minio-console.ayo-group.com`)"
       - "traefik.http.routers.best-minio-console.entrypoints=websecure"
       - "traefik.http.routers.best-minio-console.tls=true"
-      - "traefik.http.routers.best-minio-console.service=best-minio-console"
+      - "traefik.http.routers.best-minio-console.service=best-minio-console-svc"
 
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
