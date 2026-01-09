@@ -2,7 +2,8 @@
 from .base import *
 import os
 
-DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
+# DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
+DEBUG = True
 
 ALLOWED_HOSTS = [
     "ayo-group.com",
