@@ -109,6 +109,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      MINIO_PUBLIC_DOMAIN: ${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}
 
       # ✅ DB (Django lit ces vars dans prod.py)
       POSTGRES_DB: ${POSTGRES_DB:-best_epargne}

@@ -1,0 +1,1046 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SONETRIZ — Riz Premium, Production Responsable</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .glass { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+    /* Animations premium */
+    @keyframes floaty { 0%,100%{ transform: translateY(0)} 50%{ transform: translateY(-10px)} }
+    @keyframes shimmer { 0%{ background-position: 0% 50% } 100%{ background-position: 100% 50% } }
+    @keyframes fadeUp { 0%{ opacity:0; transform: translateY(14px)} 100%{ opacity:1; transform: translateY(0)} }
+    @keyframes glowPulse { 0%,100%{ box-shadow: 0 18px 70px rgba(52, 211, 153, .18)} 50%{ box-shadow: 0 18px 70px rgba(250, 204, 21, .22)} }
+
+    .anim-float { animation: floaty 5.5s ease-in-out infinite; }
+    .anim-fadeup { animation: fadeUp .7s ease-out both; }
+    .anim-glow { animation: glowPulse 3.8s ease-in-out infinite; }
+
+    /* reveal on scroll */
+    [data-reveal="true"] { opacity: 0; transform: translateY(14px); }
+    [data-reveal="true"].is-visible { opacity: 1; transform: translateY(0); transition: opacity .7s ease, transform .7s ease; }
+
+    /* image hover */
+    .img-zoom { transition: transform .55s ease; }
+    .card-hover:hover .img-zoom { transform: scale(1.06); }
+
+    /* gradient anim */
+    .bg-anim {
+      background-size: 200% 200%;
+      animation: shimmer 7s ease-in-out infinite alternate;
+    }
+  </style>
+
+  <script>
+    // Palette: jaune + vert clair + vert foncé
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sonet: {
+              dark: "#0B3D2E",     // vert foncé
+              green: "#137A4A",    // vert principal
+              light: "#A7F3D0",    // vert clair (mint)
+              lime: "#34D399",     // vert clair plus punchy
+              yellow: "#FACC15",   // jaune
+              cream: "#FFF7D6",    // fond jaune doux
+              mist: "#F6FBF7",     // fond clair
+              ink: "#0F172A"
+            }
+          },
+          boxShadow: {
+            soft: "0 12px 40px rgba(2, 44, 34, .10)",
+            glow: "0 18px 70px rgba(52, 211, 153, .22)",
+            sun:  "0 18px 70px rgba(250, 204, 21, .22)"
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-white text-slate-900" x-data="sonetrizLanding()">
+
+  <!-- Top bar -->
+  <div class="bg-sonet-dark text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-3">
+      <p class="text-xs sm:text-sm opacity-95">
+        <i class="fa-solid fa-seedling mr-2 text-sonet-yellow"></i>
+        SONETRIZ • Riz premium • Approvisionnement B2B & B2C • Livraison sur demande
+      </p>
+      <a href="#contact" class="text-xs sm:text-sm font-semibold underline underline-offset-4 hover:opacity-90">
+        Demander un devis
+      </a>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-white/80 glass border-b border-emerald-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+
+      <!-- Brand -->
+      <a href="{% url 'home' %}" class="group flex items-center gap-3">
+        <!-- Logo -->
+        <div class="w-12 h-12 rounded-2xl  to-sonet-lime shadow-glow flex items-center justify-center overflow-hidden ring-1 ring-emerald-100
+                    group-hover:scale-[1.03] transition-transform duration-300">
+          <img
+            src="{% static 'img/logo_sonetriz.webp' %}"
+            alt="Logo SONETRIZ"
+            class="w-9 h-9 object-contain"
+            loading="lazy"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+          />
+          <i class="fa-solid fa-wheat-awn text-white text-lg hidden"></i>
+        </div>
+
+        <!-- Texte -->
+        <div class="leading-tight">
+          <p class="text-sm font-extrabold tracking-tight text-sonet-dark group-hover:text-sonet-green transition-colors">
+            SONETRIZ
+          </p>
+          <p class="text-xs text-slate-500 -mt-0.5">Production & conditionnement de riz</p>
+        </div>
+      </a>
+
+      <!-- Desktop nav -->
+      <nav class="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-600">
+        <a href="#produits" class="hover:text-sonet-dark">Produits</a>
+        <a href="#process" class="hover:text-sonet-dark">Process</a>
+        <a href="#qualite" class="hover:text-sonet-dark">Qualité</a>
+        <a href="#temoignages" class="hover:text-sonet-dark">Avis</a>
+        <a href="#faq" class="hover:text-sonet-dark">FAQ</a>
+      </nav>
+
+      <!-- Actions -->
+      <div class="hidden lg:flex items-center gap-3">
+        <a href="#contact" class="px-4 py-2 rounded-xl border border-emerald-200 hover:bg-emerald-50 text-sm font-extrabold text-sonet-dark">
+          Contacter
+        </a>
+        <a href="#contact" class="px-4 py-2 rounded-xl bg-sonet-yellow text-sonet-dark shadow-sun hover:opacity-95 text-sm font-extrabold">
+          Obtenir un devis
+          <i class="fa-solid fa-arrow-right ml-2 text-xs"></i>
+        </a>
+      </div>
+
+      <!-- Mobile -->
+      <button class="lg:hidden w-11 h-11 rounded-xl border border-emerald-200 hover:bg-emerald-50"
+              @click="mobileOpen = !mobileOpen" aria-label="Menu">
+        <i class="fa-solid" :class="mobileOpen ? 'fa-xmark' : 'fa-bars'"></i>
+      </button>
+    </div>
+
+    <!-- Mobile menu -->
+    <div class="lg:hidden border-t border-emerald-100" x-show="mobileOpen" x-transition style="display:none">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 grid gap-3 text-sm font-extrabold text-sonet-dark">
+        <a href="#produits" @click="mobileOpen=false" class="py-2">Produits</a>
+        <a href="#process" @click="mobileOpen=false" class="py-2">Process</a>
+        <a href="#qualite" @click="mobileOpen=false" class="py-2">Qualité</a>
+        <a href="#temoignages" @click="mobileOpen=false" class="py-2">Avis</a>
+        <a href="#faq" @click="mobileOpen=false" class="py-2">FAQ</a>
+        <div class="pt-3 grid gap-2">
+          <a href="#contact" @click="mobileOpen=false" class="px-4 py-2 rounded-xl border border-emerald-200 text-center">Contacter</a>
+          <a href="#contact" @click="mobileOpen=false" class="px-4 py-2 rounded-xl bg-sonet-yellow text-sonet-dark text-center">Obtenir un devis</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden">
+    <div class="absolute inset-0">
+      <div class="absolute -top-24 -right-24 w-96 h-96 bg-sonet-light/45 blur-3xl rounded-full"></div>
+      <div class="absolute -bottom-28 -left-28 w-[34rem] h-[34rem] bg-sonet-yellow/25 blur-3xl rounded-full"></div>
+      <div class="absolute inset-0 bg-gradient-to-b from-sonet-cream via-white to-white bg-anim"></div>
+    </div>
+
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
+      <div class="grid lg:grid-cols-2 gap-10 items-center">
+
+        <!-- Left -->
+        <div class="anim-fadeup">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-emerald-100 shadow-sm text-xs font-extrabold text-sonet-dark">
+            <span class="w-2 h-2 rounded-full bg-sonet-yellow"></span>
+            Riz premium • Production locale • Traçabilité
+          </div>
+
+          <h1 class="mt-5 text-4xl sm:text-5xl font-extrabold tracking-tight text-sonet-dark">
+            Le riz SONETRIZ,
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-sonet-green to-sonet-lime">pur & constant</span>
+            — du champ à votre assiette.
+          </h1>
+
+          <p class="mt-5 text-base sm:text-lg text-slate-600 max-w-xl">
+            Production, transformation et conditionnement de riz. Une qualité stable, un goût régulier,
+            et une chaîne d’approvisionnement fiable pour ménages et entreprises.
+          </p>
+
+          <div class="mt-7 flex flex-col sm:flex-row gap-3">
+            <a href="#produits" class="px-5 py-3 rounded-2xl bg-sonet-dark text-white shadow-soft hover:opacity-95 font-extrabold text-sm text-center">
+              Découvrir nos produits
+              <i class="fa-solid fa-arrow-right ml-2 text-xs text-sonet-yellow"></i>
+            </a>
+            <a href="#qualite" class="px-5 py-3 rounded-2xl border border-emerald-200 bg-white hover:bg-emerald-50 font-extrabold text-sm text-center text-sonet-dark">
+              Nos engagements qualité
+            </a>
+          </div>
+
+          <div class="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div class="p-4 rounded-2xl bg-white border border-emerald-100 shadow-sm anim-glow">
+              <p class="text-xs text-slate-500">Taux de brisure</p>
+              <p class="text-lg font-extrabold text-sonet-dark"><span x-text="metrics.breakage"></span>%</p>
+              <p class="text-xs text-slate-500 mt-1">Contrôlé en sortie</p>
+            </div>
+            <div class="p-4 rounded-2xl bg-white border border-emerald-100 shadow-sm anim-glow" style="animation-delay:.4s">
+              <p class="text-xs text-slate-500">Capacité</p>
+              <p class="text-lg font-extrabold text-sonet-dark"><span x-text="metrics.capacity"></span> T/mois</p>
+              <p class="text-xs text-slate-500 mt-1">Production & stock</p>
+            </div>
+            <div class="p-4 rounded-2xl bg-white border border-emerald-100 shadow-sm anim-glow col-span-2 sm:col-span-1" style="animation-delay:.8s">
+              <p class="text-xs text-slate-500">Satisfaction</p>
+              <p class="text-lg font-extrabold text-sonet-dark"><span x-text="metrics.satisfaction"></span>/5</p>
+              <p class="text-xs text-slate-500 mt-1">Clients B2B & ménages</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right -->
+        <div class="relative" data-reveal="true">
+          <div class="rounded-3xl overflow-hidden border border-emerald-100 shadow-soft bg-white">
+            <div class="relative">
+              <img
+                src="{% static 'img/agrandi-aliment-de-base-en-bois-blanc.jpg' %}"
+                alt="Riz SONETRIZ"
+                class="w-full h-[360px] object-cover"
+                loading="lazy"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-sonet-dark/65 via-sonet-dark/10 to-transparent"></div>
+
+              <div class="absolute bottom-5 left-5 right-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                <div>
+                  <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 border border-white/50 text-xs font-extrabold text-sonet-dark">
+                    <span class="w-2 h-2 rounded-full bg-sonet-yellow"></span>
+                    Fraîcheur • Tri • Conditionnement
+                  </div>
+                  <p class="mt-3 text-xl sm:text-2xl font-extrabold text-white">
+                    Une qualité visible, un goût constant.
+                  </p>
+                  <p class="text-sm text-white/80 mt-1">
+                    Chaîne maîtrisée, lots traçables, livraisons fiables.
+                  </p>
+                </div>
+
+                <a href="#produits" class="px-4 py-2 rounded-xl bg-sonet-yellow text-sonet-dark font-extrabold shadow-sun hover:opacity-95 text-center">
+                  Voir les produits
+                  <i class="fa-solid fa-arrow-right ml-2 text-xs"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="hidden sm:block absolute -top-6 -left-6 anim-float">
+            <div class="px-4 py-3 rounded-2xl bg-white border border-emerald-100 shadow-soft flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-sonet-cream border border-emerald-100 flex items-center justify-center">
+                <i class="fa-solid fa-qrcode text-sonet-dark"></i>
+              </div>
+              <div>
+                <p class="text-xs text-slate-500">Traçabilité</p>
+                <p class="text-sm font-extrabold text-sonet-dark">Lot & QR (option)</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="hidden sm:block absolute -bottom-6 -right-6 anim-float" style="animation-delay:.8s">
+            <div class="px-4 py-3 rounded-2xl bg-white border border-emerald-100 shadow-soft flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-sonet-light/50 border border-emerald-100 flex items-center justify-center">
+                <i class="fa-solid fa-shield-halved text-sonet-dark"></i>
+              </div>
+              <div>
+                <p class="text-xs text-slate-500">Contrôle</p>
+                <p class="text-sm font-extrabold text-sonet-dark">Multi-points qualité</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="mt-14 lg:mt-18" data-reveal="true">
+        <p class="text-xs font-extrabold text-slate-400 tracking-widest uppercase">
+          Partenaires & clients (exemples)
+        </p>
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+          <template x-for="b in brands" :key="b">
+            <div class="py-3 px-4 rounded-2xl border border-emerald-100 bg-white text-slate-600 text-sm font-semibold text-center hover:shadow-sm transition">
+              <span x-text="b"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Qualité -->
+  <section id="qualite" class="py-16 lg:py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-2xl" data-reveal="true">
+        <p class="text-sm font-extrabold text-sonet-green">Qualité & Engagements</p>
+        <h2 class="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-sonet-dark">
+          Un riz premium, constant et contrôlé.
+        </h2>
+        <p class="mt-4 text-slate-600">
+          Chaque étape est pensée pour préserver la qualité, limiter les impuretés et garantir une cuisson homogène.
+        </p>
+      </div>
+
+      <div class="mt-10 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <template x-for="f in features" :key="f.title">
+          <div class="p-6 rounded-3xl border border-emerald-100 shadow-sm hover:shadow-soft transition bg-white"
+               data-reveal="true">
+            <div class="w-12 h-12 rounded-2xl bg-sonet-light/50 text-sonet-dark flex items-center justify-center">
+              <i class="fa-solid" :class="f.icon"></i>
+            </div>
+            <h3 class="mt-4 text-lg font-extrabold text-sonet-dark" x-text="f.title"></h3>
+            <p class="mt-2 text-sm text-slate-600" x-text="f.desc"></p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <template x-for="t in f.tags" :key="t">
+                <span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-sonet-cream text-sonet-dark border border-emerald-100" x-text="t"></span>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </section>
+
+  <!-- Produits -->
+  <section id="produits" class="py-16 lg:py-20 bg-sonet-mist">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6" data-reveal="true">
+        <div class="max-w-2xl">
+          <p class="text-sm font-extrabold text-sonet-green">Nos produits</p>
+          <h2 class="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-sonet-dark">
+            Des formats pour tous les usages.
+          </h2>
+          <p class="mt-4 text-slate-600">
+            Ménages, restaurants, hôtels, cantines, grossistes : choisissez votre conditionnement, nous assurons la régularité.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button class="px-4 py-2 rounded-xl text-sm font-extrabold border transition"
+                  :class="productTab==='b2c' ? 'bg-white border-emerald-200 text-sonet-dark' : 'bg-transparent border-emerald-200/60 text-slate-700 hover:bg-white/60'"
+                  @click="productTab='b2c'">
+            B2C
+          </button>
+          <button class="px-4 py-2 rounded-xl text-sm font-extrabold border transition"
+                  :class="productTab==='b2b' ? 'bg-white border-emerald-200 text-sonet-dark' : 'bg-transparent border-emerald-200/60 text-slate-700 hover:bg-white/60'"
+                  @click="productTab='b2b'">
+            B2B
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-10 grid lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+          <template x-for="card in (productTab==='b2c' ? productCardsB2C : productCardsB2B)" :key="card.title">
+            <div class="card-hover p-0 rounded-3xl bg-white border border-emerald-100 shadow-sm hover:shadow-soft transition overflow-hidden"
+                 data-reveal="true">
+              <div class="relative">
+                <img :src="card.image" :alt="card.title" class="w-full h-44 object-cover img-zoom" loading="lazy">
+                <div class="absolute inset-0 bg-gradient-to-t from-sonet-dark/55 via-transparent to-transparent"></div>
+                <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3">
+                  <span class="text-xs font-extrabold px-3 py-1 rounded-full bg-white/90 text-sonet-dark border border-white/50"
+                        x-text="card.badge"></span>
+                  <span class="text-xs font-extrabold px-3 py-1 rounded-full bg-sonet-yellow/90 text-sonet-dark border border-white/40">
+                    Premium
+                  </span>
+                </div>
+              </div>
+
+              <div class="p-6">
+                <p class="text-lg font-extrabold text-sonet-dark" x-text="card.title"></p>
+                <p class="text-sm text-slate-600 mt-1" x-text="card.desc"></p>
+
+                <div class="mt-5 flex flex-wrap gap-2">
+                  <template x-for="b in card.bullets" :key="b">
+                    <span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-sonet-cream text-sonet-dark border border-emerald-100">
+                      <i class="fa-solid fa-check mr-1 text-emerald-500"></i>
+                      <span x-text="b"></span>
+                    </span>
+                  </template>
+                </div>
+
+                <div class="mt-6 flex items-center justify-between">
+                  <p class="text-xs text-slate-500">
+                    <i class="fa-solid fa-boxes-stacked mr-1 text-emerald-500"></i>
+                    Conditionnement: <span class="font-extrabold text-sonet-dark" x-text="card.sizes"></span>
+                  </p>
+                  <button class="text-sm font-extrabold text-sonet-dark hover:opacity-80"
+                          @click="openQuote(card.title)">
+                    Demander un prix <i class="fa-solid fa-arrow-right ml-1 text-xs text-sonet-yellow"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div class="p-6 rounded-3xl bg-white border border-emerald-100 shadow-soft" data-reveal="true">
+          <p class="text-sm font-extrabold text-sonet-dark">Besoin d’un approvisionnement régulier ?</p>
+          <p class="mt-2 text-sm text-slate-600">
+            Contrats B2B, volumes planifiés, livraisons, options de marquage (private label).
+          </p>
+
+          <div class="mt-5 space-y-3">
+            <div class="p-4 rounded-2xl bg-sonet-cream border border-emerald-100 hover:shadow-sm transition">
+              <p class="text-xs text-slate-600">Option</p>
+              <p class="text-sm font-extrabold text-sonet-dark">Private label (marque distributeur)</p>
+            </div>
+            <div class="p-4 rounded-2xl bg-sonet-cream border border-emerald-100 hover:shadow-sm transition">
+              <p class="text-xs text-slate-600">Option</p>
+              <p class="text-sm font-extrabold text-sonet-dark">Livraison planifiée</p>
+            </div>
+            <div class="p-4 rounded-2xl bg-sonet-cream border border-emerald-100 hover:shadow-sm transition">
+              <p class="text-xs text-slate-600">Option</p>
+              <p class="text-sm font-extrabold text-sonet-dark">Contrôle lot & traçabilité</p>
+            </div>
+          </div>
+
+          <a href="#contact" class="mt-6 block px-5 py-3 rounded-2xl bg-sonet-dark text-white text-center font-extrabold shadow-soft hover:opacity-95">
+            Parlons de votre besoin
+          </a>
+
+          <div class="mt-6 border-t border-emerald-100 pt-5 text-xs text-slate-600">
+            <p class="font-extrabold text-sonet-dark mb-2">Contact rapide</p>
+            <p><i class="fa-solid fa-phone mr-2 text-emerald-600"></i> +225 XX XX XX XX</p>
+            <p class="mt-1"><i class="fa-solid fa-envelope mr-2 text-emerald-600"></i> contact@sonetriz.com</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Process -->
+  <section id="process" class="py-16 lg:py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-2xl" data-reveal="true">
+        <p class="text-sm font-extrabold text-sonet-green">Notre process</p>
+        <h2 class="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-sonet-dark">
+          Du champ au sac, chaque étape compte.
+        </h2>
+        <p class="mt-4 text-slate-600">
+          Une chaîne maîtrisée pour offrir un riz propre, calibré et stable en cuisson.
+        </p>
+      </div>
+
+      <div class="mt-10 grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <template x-for="(s, idx) in steps" :key="s.title">
+          <div class="p-6 rounded-3xl border border-emerald-100 shadow-sm hover:shadow-soft transition bg-white relative overflow-hidden"
+               data-reveal="true">
+            <div class="absolute -top-10 -right-10 w-28 h-28 bg-sonet-light/40 rounded-full"></div>
+            <div class="flex items-center justify-between">
+              <div class="w-12 h-12 rounded-2xl bg-sonet-yellow/20 text-sonet-dark flex items-center justify-center border border-emerald-100">
+                <i class="fa-solid" :class="s.icon"></i>
+              </div>
+              <span class="text-xs font-extrabold text-slate-400">Étape <span x-text="idx+1"></span></span>
+            </div>
+            <h3 class="mt-4 text-lg font-extrabold text-sonet-dark" x-text="s.title"></h3>
+            <p class="mt-2 text-sm text-slate-600" x-text="s.desc"></p>
+          </div>
+        </template>
+      </div>
+
+      <div class="mt-12 p-6 rounded-3xl bg-sonet-cream border border-emerald-100" data-reveal="true">
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="p-5 rounded-2xl bg-white border border-emerald-100 hover:shadow-sm transition">
+            <p class="text-xs text-slate-600">Délais moyens</p>
+            <p class="text-2xl font-extrabold mt-1 text-sonet-dark">24–72h</p>
+            <p class="text-sm text-slate-600 mt-1">Préparation & expédition</p>
+          </div>
+          <div class="p-5 rounded-2xl bg-white border border-emerald-100 hover:shadow-sm transition">
+            <p class="text-xs text-slate-600">Traçabilité</p>
+            <p class="text-2xl font-extrabold mt-1 text-sonet-dark">Lot + QR</p>
+            <p class="text-sm text-slate-600 mt-1">Suivi par batch</p>
+          </div>
+          <div class="p-5 rounded-2xl bg-white border border-emerald-100 hover:shadow-sm transition">
+            <p class="text-xs text-slate-600">Contrôles</p>
+            <p class="text-2xl font-extrabold mt-1 text-sonet-dark">Multi-points</p>
+            <p class="text-sm text-slate-600 mt-1">Humidité • impuretés • brisure</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section id="temoignages" class="py-16 lg:py-20 bg-sonet-mist">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6" data-reveal="true">
+        <div class="max-w-2xl">
+          <p class="text-sm font-extrabold text-sonet-green">Ils nous font confiance</p>
+          <h2 class="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-sonet-dark">
+            Une qualité qui se remarque.
+          </h2>
+          <p class="mt-4 text-slate-600">
+            Régularité, propreté, et livraison : nos clients apprécient la constance.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button class="w-10 h-10 rounded-xl bg-white border border-emerald-100 hover:bg-emerald-50 transition"
+                  @click="prevTestimonial()" aria-label="Précédent">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          <button class="w-10 h-10 rounded-xl bg-white border border-emerald-100 hover:bg-emerald-50 transition"
+                  @click="nextTestimonial()" aria-label="Suivant">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-10 grid lg:grid-cols-3 gap-6 items-stretch">
+        <div class="lg:col-span-2 p-8 rounded-3xl bg-white border border-emerald-100 shadow-soft" data-reveal="true">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <template x-for="i in 5" :key="i">
+                <i class="fa-solid fa-star text-sonet-yellow"></i>
+              </template>
+            </div>
+            <span class="text-xs font-extrabold px-3 py-1 rounded-full bg-sonet-light/40 text-sonet-dark border border-emerald-100">
+              B2B / B2C
+            </span>
+          </div>
+
+          <p class="mt-6 text-lg sm:text-xl font-semibold text-sonet-dark leading-relaxed"
+             x-text="testimonials[currentTestimonial].quote"></p>
+
+          <div class="mt-8 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sonet-dark to-sonet-green text-white flex items-center justify-center font-extrabold shadow-glow">
+                <span x-text="testimonials[currentTestimonial].initials"></span>
+              </div>
+              <div>
+                <p class="text-sm font-extrabold text-sonet-dark" x-text="testimonials[currentTestimonial].name"></p>
+                <p class="text-xs text-slate-500" x-text="testimonials[currentTestimonial].role"></p>
+              </div>
+            </div>
+
+            <div class="text-right">
+              <p class="text-xs text-slate-500">Point fort</p>
+              <p class="text-sm font-extrabold text-sonet-dark" x-text="testimonials[currentTestimonial].highlight"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4" data-reveal="true">
+          <template x-for="(t, i) in testimonials" :key="t.name">
+            <button @click="currentTestimonial=i"
+                    class="w-full text-left p-5 rounded-3xl border transition"
+                    :class="currentTestimonial===i ? 'bg-white border-emerald-100 shadow-soft' : 'bg-white/70 border-emerald-100/60 hover:bg-white'">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-2xl text-white flex items-center justify-center font-extrabold"
+                       :class="currentTestimonial===i ? 'bg-gradient-to-br from-sonet-dark to-sonet-green' : 'bg-sonet-dark'">
+                    <span x-text="t.initials"></span>
+                  </div>
+                  <div>
+                    <p class="text-sm font-extrabold text-sonet-dark" x-text="t.name"></p>
+                    <p class="text-xs text-slate-500" x-text="t.role"></p>
+                  </div>
+                </div>
+                <i class="fa-solid fa-arrow-right text-sonet-yellow"></i>
+              </div>
+              <p class="mt-3 text-sm text-slate-600 line-clamp-2" x-text="t.quote"></p>
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="py-16 lg:py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-2xl" data-reveal="true">
+        <p class="text-sm font-extrabold text-sonet-green">FAQ</p>
+        <h2 class="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-sonet-dark">
+          Questions fréquentes
+        </h2>
+        <p class="mt-4 text-slate-600">
+          Tout ce qu’il faut savoir pour commander et vous approvisionner.
+        </p>
+      </div>
+
+      <div class="mt-10 grid lg:grid-cols-2 gap-6">
+        <template x-for="(q, i) in faqs" :key="q.q">
+          <div class="p-6 rounded-3xl border border-emerald-100 bg-white shadow-sm"
+               x-data="{open:false}" data-reveal="true">
+            <button class="w-full flex items-start justify-between gap-4 text-left"
+                    @click="open=!open">
+              <div>
+                <p class="text-sm font-extrabold text-sonet-dark" x-text="q.q"></p>
+                <p class="text-xs text-slate-500 mt-1" x-text="q.hint"></p>
+              </div>
+              <div class="w-10 h-10 rounded-xl border border-emerald-100 flex items-center justify-center shrink-0 bg-sonet-cream">
+                <i class="fa-solid" :class="open ? 'fa-minus' : 'fa-plus'"></i>
+              </div>
+            </button>
+            <div x-show="open" x-transition class="mt-4 text-sm text-slate-600 leading-relaxed" x-text="q.a"></div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section id="contact" class="py-16 lg:py-20 bg-sonet-cream">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid lg:grid-cols-2 gap-8 items-start">
+
+        <div class="p-8 rounded-3xl bg-white border border-emerald-100 shadow-soft" data-reveal="true">
+          <p class="text-sm font-extrabold text-sonet-green">Contact & Devis</p>
+          <h2 class="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight text-sonet-dark">
+            Parlons de votre besoin.
+          </h2>
+          <p class="mt-4 text-slate-600">
+            Devis pour achat ponctuel ou contrat d’approvisionnement (B2B).
+          </p>
+
+          <div class="mt-6 grid sm:grid-cols-2 gap-4">
+            <div class="p-5 rounded-2xl bg-sonet-mist border border-emerald-100 hover:shadow-sm transition">
+              <p class="text-xs text-slate-600">Téléphone</p>
+              <p class="text-sm font-extrabold mt-1 text-sonet-dark">+225 XX XX XX XX</p>
+            </div>
+            <div class="p-5 rounded-2xl bg-sonet-mist border border-emerald-100 hover:shadow-sm transition">
+              <p class="text-xs text-slate-600">Email</p>
+              <p class="text-sm font-extrabold mt-1 text-sonet-dark">contact@sonetriz.com</p>
+            </div>
+            <div class="p-5 rounded-2xl bg-sonet-mist border border-emerald-100 hover:shadow-sm transition sm:col-span-2">
+              <p class="text-xs text-slate-600">Zone de livraison</p>
+              <p class="text-sm font-extrabold mt-1 text-sonet-dark">Côte d’Ivoire & sous-région (sur demande)</p>
+            </div>
+          </div>
+
+          <div class="mt-7 flex flex-wrap gap-2">
+            <span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-white border border-emerald-100 text-sonet-dark">
+              <i class="fa-solid fa-truck mr-1 text-emerald-600"></i> Livraison
+            </span>
+            <span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-white border border-emerald-100 text-sonet-dark">
+              <i class="fa-solid fa-tags mr-1 text-emerald-600"></i> Prix grossiste
+            </span>
+            <span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-white border border-emerald-100 text-sonet-dark">
+              <i class="fa-solid fa-qrcode mr-1 text-emerald-600"></i> Traçabilité
+            </span>
+            <span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-white border border-emerald-100 text-sonet-dark">
+              <i class="fa-solid fa-handshake mr-1 text-emerald-600"></i> Contrats B2B
+            </span>
+          </div>
+        </div>
+
+        <div class="p-8 rounded-3xl bg-white border border-emerald-100 shadow-soft" data-reveal="true">
+          <form @submit.prevent="submit()" class="space-y-4">
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label class="text-xs font-extrabold text-sonet-dark">Nom complet</label>
+                <input x-model="form.name" required
+                       class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40"
+                       placeholder="Votre nom"/>
+              </div>
+              <div>
+                <label class="text-xs font-extrabold text-sonet-dark">Téléphone</label>
+                <input x-model="form.phone" required
+                       class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40"
+                       placeholder="+225 ..."/>
+              </div>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label class="text-xs font-extrabold text-sonet-dark">Email</label>
+                <input type="email" x-model="form.email"
+                       class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40"
+                       placeholder="vous@exemple.com"/>
+              </div>
+              <div>
+                <label class="text-xs font-extrabold text-sonet-dark">Type de demande</label>
+                <select x-model="form.type"
+                        class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40">
+                  <option value="B2C">Achat particulier (B2C)</option>
+                  <option value="B2B">Approvisionnement entreprise (B2B)</option>
+                  <option value="GROS">Grossiste / revendeur</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label class="text-xs font-extrabold text-sonet-dark">Produit</label>
+                <select x-model="form.product"
+                        class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40">
+                  <template x-for="p in allProductNames" :key="p">
+                    <option :value="p" x-text="p"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-extrabold text-sonet-dark">Volume (kg)</label>
+                <input type="number" min="1" x-model="form.volume"
+                       class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40"
+                       placeholder="ex: 50"/>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-extrabold text-sonet-dark">Message</label>
+              <textarea x-model="form.message" rows="4"
+                        class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40"
+                        placeholder="Détails (livraison, fréquence, conditionnement, destination...)"></textarea>
+            </div>
+
+            <div class="flex items-start gap-3">
+              <input type="checkbox" required class="mt-1 w-4 h-4 rounded border-emerald-300"/>
+              <p class="text-xs text-slate-600">
+                J’accepte d’être contacté par SONETRIZ au sujet de cette demande.
+              </p>
+            </div>
+
+            <button class="w-full px-5 py-3 rounded-2xl bg-sonet-dark text-white font-extrabold shadow-soft hover:opacity-95">
+              Envoyer ma demande
+              <i class="fa-solid fa-paper-plane ml-2 text-sm text-sonet-yellow"></i>
+            </button>
+
+            <div x-show="toast.show" x-transition
+                 class="p-4 rounded-2xl border text-sm"
+                 :class="toast.type==='success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'">
+              <p class="font-extrabold" x-text="toast.title"></p>
+              <p class="mt-1" x-text="toast.message"></p>
+            </div>
+
+            <p class="text-xs text-slate-600">
+              Astuce: branche ce formulaire à ton backend (Django/Node/PHP) ou à un service email/WhatsApp.
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-sonet-dark text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center">
+              <i class="fa-solid fa-wheat-awn text-sonet-yellow"></i>
+            </div>
+            <div>
+              <p class="font-extrabold">SONETRIZ</p>
+              <p class="text-xs text-white/70">Production & conditionnement de riz</p>
+            </div>
+          </div>
+          <p class="mt-4 text-sm text-white/75">
+            Qualité, traçabilité, et régularité d’approvisionnement — pour les ménages et les professionnels.
+          </p>
+        </div>
+
+        <div>
+          <p class="font-extrabold">Navigation</p>
+          <div class="mt-4 space-y-2 text-sm text-white/75">
+            <a href="#produits" class="block hover:text-white">Produits</a>
+            <a href="#process" class="block hover:text-white">Process</a>
+            <a href="#qualite" class="block hover:text-white">Qualité</a>
+            <a href="#faq" class="block hover:text-white">FAQ</a>
+          </div>
+        </div>
+
+        <div>
+          <p class="font-extrabold">Contact</p>
+          <div class="mt-4 space-y-2 text-sm text-white/75">
+            <p><i class="fa-solid fa-phone mr-2 text-sonet-yellow"></i> +225 XX XX XX XX</p>
+            <p><i class="fa-solid fa-envelope mr-2 text-sonet-yellow"></i> contact@sonetriz.com</p>
+            <p><i class="fa-solid fa-location-dot mr-2 text-sonet-yellow"></i> Abidjan, Côte d’Ivoire</p>
+          </div>
+        </div>
+
+        <div>
+          <p class="font-extrabold">Réseaux</p>
+          <div class="mt-4 flex items-center gap-3">
+            <a href="#" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/15 flex items-center justify-center transition" aria-label="Facebook">
+              <i class="fa-brands fa-facebook-f"></i>
+            </a>
+            <a href="#" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/15 flex items-center justify-center transition" aria-label="Instagram">
+              <i class="fa-brands fa-instagram"></i>
+            </a>
+            <a href="#" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/15 flex items-center justify-center transition" aria-label="LinkedIn">
+              <i class="fa-brands fa-linkedin-in"></i>
+            </a>
+          </div>
+
+          <div class="mt-6 p-4 rounded-2xl bg-white/5 border border-white/10">
+            <p class="text-xs text-white/70">Newsletter</p>
+            <div class="mt-2 flex gap-2">
+              <input type="email" placeholder="Votre email"
+                     class="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/10 placeholder:text-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-white/20">
+              <button class="px-3 py-2 rounded-xl bg-sonet-yellow text-sonet-dark font-extrabold text-sm hover:opacity-95 transition">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/60">
+        <p>© <span x-text="new Date().getFullYear()"></span> SONETRIZ. Tous droits réservés.</p>
+        <div class="flex items-center gap-4">
+          <a href="#" class="hover:text-white">Mentions légales</a>
+          <a href="#" class="hover:text-white">Confidentialité</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Quote Modal -->
+  <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+       x-show="quote.open" x-transition.opacity
+       style="display:none">
+    <div class="absolute inset-0 bg-sonet-dark/60" @click="quote.open=false"></div>
+
+    <div class="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-soft border border-emerald-100 p-6 sm:p-8">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-extrabold text-sonet-green">Demande rapide</p>
+          <p class="text-xl font-extrabold text-sonet-dark mt-1">Devis / Commande</p>
+          <p class="text-sm text-slate-600 mt-1">
+            Produit: <span class="font-extrabold text-sonet-dark" x-text="quote.product"></span>
+          </p>
+        </div>
+        <button class="w-10 h-10 rounded-xl border border-emerald-200 hover:bg-emerald-50 transition"
+                @click="quote.open=false" aria-label="Fermer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="mt-6 grid gap-4">
+        <div>
+          <label class="text-xs font-extrabold text-sonet-dark">Téléphone</label>
+          <input x-model="quote.phone" placeholder="+225 ..."
+                 class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40"/>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs font-extrabold text-sonet-dark">Volume (kg)</label>
+            <input type="number" min="1" x-model="quote.volume"
+                   class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40"
+                   placeholder="ex: 25"/>
+          </div>
+          <div>
+            <label class="text-xs font-extrabold text-sonet-dark">Type</label>
+            <select x-model="quote.type"
+                    class="mt-1 w-full px-4 py-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/40">
+              <option value="B2C">B2C</option>
+              <option value="B2B">B2B</option>
+              <option value="GROS">Grossiste</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="w-full px-5 py-3 rounded-2xl bg-sonet-yellow text-sonet-dark font-extrabold shadow-sun hover:opacity-95 transition"
+                @click="quickQuote()">
+          Envoyer la demande
+          <i class="fa-solid fa-paper-plane ml-2"></i>
+        </button>
+
+        <p class="text-xs text-slate-600">
+          (Démo) Ici on affiche un message. Branche-le à ton backend pour envoyer email/WhatsApp/CRM.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function sonetrizLanding() {
+      return {
+        mobileOpen: false,
+
+        metrics: { breakage: 5, capacity: 120, satisfaction: 4.8 },
+
+        brands: ["Hôtels", "Restaurants", "Grossistes", "Cantines", "Supermarchés", "Institutions"],
+
+        productTab: "b2c",
+        productCardsB2C: [
+          {
+            title: "Riz Classique Premium",
+            badge: "B2C",
+            desc: "Riz propre, goût constant, idéal cuisine du quotidien.",
+            bullets: ["Faible impureté", "Cuisson stable", "Goût naturel"],
+            sizes: "1kg, 5kg",
+            image: "{% static 'img/appetissant-riz-sain-avec-des-legumes-en-plaque-blanche-sur-une-table-en-bois.jpg' %}"
+          },
+          {
+            title: "Riz Long Grain",
+            badge: "Premium",
+            desc: "Grain long sélectionné, présentation élégante à l’assiette.",
+            bullets: ["Grains réguliers", "Bonne tenue", "Idéal réception"],
+            sizes: "5kg, 25kg",
+            image: "{% static 'img/appetissant-riz-sain-avec-des-legumes-en-plaque-blanche-sur-une-table-en-bois.jpg' %}"
+          },
+          {
+            title: "Riz Parfumé",
+            badge: "Aromatique",
+            desc: "Parfum fin, parfait pour plats spéciaux.",
+            bullets: ["Arôme délicat", "Texture légère", "Expérience premium"],
+            sizes: "1kg, 5kg",
+            image: "{% static 'img/appetissant-riz-sain-avec-des-legumes-en-plaque-blanche-sur-une-table-en-bois.jpg' %}"
+          },
+          {
+            title: "Riz Économie",
+            badge: "Essentiel",
+            desc: "Option avantageuse pour familles et grands ménages.",
+            bullets: ["Bon rapport qualité/prix", "Stock facile", "Usage quotidien"],
+            sizes: "5kg, 10kg",
+            image: "{% static 'img/appetissant-riz-sain-avec-des-legumes-en-plaque-blanche-sur-une-table-en-bois.jpg' %}"
+          },
+        ],
+        productCardsB2B: [
+          {
+            title: "Approvisionnement Hôtels",
+            badge: "B2B",
+            desc: "Stabilité en cuisson, lots constants, livraisons planifiées.",
+            bullets: ["Contrat mensuel", "Qualité contrôlée", "Support dédié"],
+            sizes: "25kg, 50kg",
+            image: "{% static 'img/appetissant-riz-sain-avec-des-legumes-en-plaque-blanche-sur-une-table-en-bois.jpg' %}"
+          },
+          {
+            title: "Cantines & Institutions",
+            badge: "B2B",
+            desc: "Volumes réguliers avec options logistiques et calendrier.",
+            bullets: ["Volumes planifiés", "Délais maîtrisés", "Facturation pro"],
+            sizes: "25kg, 50kg",
+            image: "{% static 'img/appetissant-riz-sain-avec-des-legumes-en-plaque-blanche-sur-une-table-en-bois.jpg' %}"
+          },
+          {
+            title: "Grossistes & Revendeurs",
+            badge: "GROS",
+            desc: "Tarification adaptée, palettes, options de marquage.",
+            bullets: ["Prix grossiste", "Palette/lot", "Private label"],
+            sizes: "25kg, 50kg",
+            image: "{% static 'img/appetissant-riz-sain-avec-des-legumes-en-plaque-blanche-sur-une-table-en-bois.jpg' %}"
+          },
+          {
+            title: "Private Label",
+            badge: "Sur-mesure",
+            desc: "Nous conditionnons avec votre marque (selon MOQ).",
+            bullets: ["Design sac", "Lotage", "Contrôle qualité"],
+            sizes: "Selon demande",
+            image: "{% static 'img/appetissant-riz-sain-avec-des-legumes-en-plaque-blanche-sur-une-table-en-bois.jpg' %}"
+          },
+        ],
+
+        features: [
+          { icon: "fa-shield-halved", title: "Contrôle qualité", desc: "Contrôle multi-points: propreté, humidité, brisure et calibrage.", tags: ["Humidité", "Impuretés", "Brisure"] },
+          { icon: "fa-qrcode", title: "Traçabilité", desc: "Gestion par lots, suivi et historique pour une meilleure fiabilité.", tags: ["Lotage", "QR (option)", "Suivi"] },
+          { icon: "fa-leaf", title: "Production responsable", desc: "Méthodes optimisées pour réduire pertes et maintenir la qualité.", tags: ["Optimisation", "Durabilité", "Qualité"] },
+          { icon: "fa-industry", title: "Transformation maîtrisée", desc: "Séchage, décorticage, tri et conditionnement suivant standards.", tags: ["Tri", "Conditionnement", "Standard"] },
+          { icon: "fa-truck-fast", title: "Logistique B2B", desc: "Livraison planifiée, volumes réguliers et support client dédié.", tags: ["Livraison", "Contrats", "B2B"] },
+          { icon: "fa-bag-shopping", title: "Formats variés", desc: "Des sacs adaptés aux ménages comme aux entreprises.", tags: ["1kg", "5kg", "25kg/50kg"] },
+        ],
+
+        steps: [
+          { icon: "fa-seedling", title: "Sélection & récolte", desc: "Sélection des lots et récolte dans de bonnes conditions." },
+          { icon: "fa-sun", title: "Séchage", desc: "Séchage maîtrisé pour stabiliser l’humidité et préserver le grain." },
+          { icon: "fa-filter", title: "Décorticage & tri", desc: "Décorticage, tri, retrait des impuretés et calibrage." },
+          { icon: "fa-box", title: "Conditionnement", desc: "Mise en sac, lotage et préparation logistique." },
+        ],
+
+        testimonials: [
+          { name: "A. Kouamé", initials: "AK", role: "Gérant • Restaurant", highlight: "Cuisson régulière",
+            quote: "Depuis SONETRIZ, on a une cuisson plus constante et moins de pertes. La qualité est stable, et les livraisons sont fiables." },
+          { name: "M. Traoré", initials: "MT", role: "Grossiste • Distribution", highlight: "Lots constants",
+            quote: "Très bon produit pour la distribution. Les lots sont propres, et les clients reviennent. Bon support et réactivité." },
+          { name: "S. N’Guessan", initials: "SN", role: "Responsable • Cantine", highlight: "Approvisionnement",
+            quote: "Le suivi est sérieux et la qualité est au rendez-vous. On peut planifier sereinement les volumes chaque mois." },
+        ],
+        currentTestimonial: 0,
+
+        faqs: [
+          { q: "Quels formats proposez-vous ?", hint: "B2C et B2B", a: "Nous proposons des formats 1kg, 5kg pour le grand public, et 25kg/50kg pour B2B. Des formats sur demande sont possibles." },
+          { q: "Livrez-vous partout ?", hint: "CI & sous-région", a: "Oui, livraison en Côte d’Ivoire, et sous-région sur demande selon volumes et planning." },
+          { q: "Proposez-vous des prix grossistes ?", hint: "Oui", a: "Oui. Les prix dépendent du volume, du conditionnement et de la fréquence. Contactez-nous pour un devis." },
+          { q: "Pouvez-vous conditionner avec notre marque ?", hint: "Private label", a: "Oui, sous conditions de volume minimum (MOQ) et validation du packaging. Nous pouvons gérer le lotage." },
+          { q: "Comment garantissez-vous la qualité ?", hint: "Contrôles", a: "Contrôles à plusieurs étapes: tri, humidité, impuretés, calibrage et contrôle en sortie. Objectif: régularité." },
+          { q: "Quels délais pour une commande ?", hint: "24–72h", a: "Selon disponibilité stock et destination. En moyenne 24–72h pour préparation et expédition (B2B: planning)." },
+        ],
+
+        get allProductNames() {
+          const a = new Set([
+            ...this.productCardsB2C.map(p => p.title),
+            ...this.productCardsB2B.map(p => p.title),
+            "SONETRIZ Classique", "SONETRIZ Long Grain", "SONETRIZ Parfumé", "SONETRIZ B2B"
+          ]);
+          return Array.from(a);
+        },
+
+        form: { name: "", phone: "", email: "", type: "B2C", product: "Riz Classique Premium", volume: 25, message: "" },
+        toast: { show: false, type: "success", title: "", message: "" },
+
+        quote: { open: false, product: "", phone: "", volume: 25, type: "B2C" },
+
+        openQuote(productName) { this.quote.product = productName; this.quote.open = true; },
+
+        quickQuote() {
+          if (!this.quote.phone) {
+            this.toast = { show: true, type: "error", title: "Téléphone requis", message: "Ajoutez un numéro pour être rappelé rapidement." };
+            return;
+          }
+          this.quote.open = false;
+          this.toast = { show: true, type: "success", title: "Demande envoyée (démo)", message: "Branchez ce flux à votre backend pour envoyer email/WhatsApp/CRM." };
+          setTimeout(() => (this.toast.show = false), 4500);
+        },
+
+        submit() {
+          if (!this.form.name || !this.form.phone) {
+            this.toast = { show: true, type: "error", title: "Champs requis", message: "Nom et téléphone sont obligatoires." };
+            return;
+          }
+          this.toast = { show: true, type: "success", title: "Message envoyé (démo)", message: "Branchez le formulaire à votre backend pour traiter les demandes." };
+          setTimeout(() => (this.toast.show = false), 4500);
+          this.form.message = "";
+        },
+
+        nextTestimonial() { this.currentTestimonial = (this.currentTestimonial + 1) % this.testimonials.length; },
+        prevTestimonial() { this.currentTestimonial = (this.currentTestimonial - 1 + this.testimonials.length) % this.testimonials.length; },
+      }
+    }
+
+    // Reveal on scroll
+    document.addEventListener("DOMContentLoaded", () => {
+      const els = document.querySelectorAll("[data-reveal='true']");
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) e.target.classList.add("is-visible");
+        });
+      }, { threshold: 0.12 });
+      els.forEach(el => io.observe(el));
+    });
+  </script>
+</body>
+</html>

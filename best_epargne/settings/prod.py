@@ -43,6 +43,15 @@ DATABASES = {
     }
 }
 
+# ✅ URL media générée par Django
+# Doit donner: https://minio.ayo-group.com/bestepargne/...
+if AWS_S3_CUSTOM_DOMAIN:
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/"
+else:
+    # fallback (pas recommandé en prod)
+    MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
+
+
 # Redis / cache
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/1")
 CACHES["default"]["LOCATION"] = REDIS_URL

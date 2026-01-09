@@ -279,3 +279,7 @@ class LearnerCourseDetailView(APIView):
             ),
             status=status.HTTP_200_OK
         )
+
+
+class RizView(TemplateView):
+    template_name = "home/riz.html"

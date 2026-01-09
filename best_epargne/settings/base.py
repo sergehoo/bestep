@@ -243,21 +243,6 @@ AWS_S3_VERIFY = False
 
 AWS_S3_SIGNATURE_VERSION = "s3v4"
 AWS_DEFAULT_ACL = None
-
-# ✅ Si tu veux des liens publics (bucket public sur prefix), mets False
-# ✅ Si tu veux des liens signés, mets True
 AWS_QUERYSTRING_AUTH = os.getenv("MINIO_QUERYSTRING_AUTH", "0") == "1"
 
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-
-# ✅ URL media générée par Django
-# Doit donner: https://minio.ayo-group.com/bestepargne/...
-if AWS_S3_CUSTOM_DOMAIN:
-    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/"
-else:
-    # fallback (pas recommandé en prod)
-    MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
-
-# si tu veux utiliser storages comme backend default:
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-
