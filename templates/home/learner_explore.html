@@ -5,11 +5,14 @@
 {% block title %}best-épargne — Explorer les cours{% endblock %}
 {% block topbar_subtitle %}Explorer{% endblock %}
 
+{# ✅ Topbar: on s’appuie sur un Alpine Store global ($store.explore.filters) #}
 {% block topbar_search %}
-  <input x-model.debounce.300ms="filters.q"
-         @input="loadExplore()"
-         placeholder="Rechercher un cours…"
-         class="w-full px-4 py-2 rounded-xl border border-be-ink-100/70 bg-white/80 dark:bg-white/5">
+  <input
+    x-data="{ f: $store.explore.filters }"
+    x-model.debounce.300ms="f.q"
+    @input="$store.explore.emit(true)"
+    placeholder="Rechercher un cours…"
+    class="w-full px-4 py-2 rounded-xl border border-be-ink-100/70 bg-white/80 dark:bg-white/5">
 {% endblock %}
 
 {% block topbar_actions %}
@@ -33,7 +36,7 @@
 
 {% block content %}
 <section class="space-y-6"
-         x-data="exploreApp({
+         x-data="window.exploreApp({
            endpoints: {
              me: '{% url "api_learner_me" %}',
              explore: '{% url "api_learner_courses_explore" %}',
@@ -57,7 +60,7 @@
       </div>
 
       <div class="flex gap-2">
-        <button @click="loadExplore()"
+        <button @click="loadExplore(false)"
                 class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
           Actualiser
         </button>
@@ -74,8 +77,8 @@
               <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </span>
-          <input x-model.debounce.300ms="filters.q"
-                 @input="loadExplore()"
+          <input x-model.debounce.300ms="$store.explore.filters.q"
+                 @input="$store.explore.emit(true)"
                  placeholder="Ex: Excel, Budget, Investissement…"
                  class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm focus:outline-none focus:ring-4 focus:ring-be-sky-200/60"/>
         </div>
@@ -83,7 +86,7 @@
 
       <div class="md:col-span-2">
         <label class="text-xs font-semibold text-be-ink-600">Type</label>
-        <select x-model="filters.type" @change="loadExplore()"
+        <select x-model="$store.explore.filters.type" @change="$store.explore.emit(true)"
                 class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
           <option value="">Tous</option>
           <option value="CERTIFIANTE">Certifiante</option>
@@ -95,7 +98,7 @@
 
       <div class="md:col-span-2">
         <label class="text-xs font-semibold text-be-ink-600">Pricing</label>
-        <select x-model="filters.pricing" @change="loadExplore()"
+        <select x-model="$store.explore.filters.pricing" @change="$store.explore.emit(true)"
                 class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
           <option value="">Tous</option>
           <option value="FREE">Gratuit</option>
@@ -106,7 +109,7 @@
 
       <div class="md:col-span-3">
         <label class="text-xs font-semibold text-be-ink-600">Trier</label>
-        <select x-model="filters.sort" @change="loadExplore()"
+        <select x-model="$store.explore.filters.sort" @change="$store.explore.emit(true)"
                 class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
           <option value="recent">Récents</option>
           <option value="popular">Populaires</option>
@@ -156,75 +159,162 @@
     </div>
 
     <div class="p-4 sm:p-5">
+
+      <!-- Loading skeleton -->
       <template x-if="loading.explore">
-        <div class="text-sm text-be-ink-500">Chargement…</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <template x-for="i in 9" :key="i">
+            <div class="rounded-2xl border border-be-ink-100 bg-white overflow-hidden">
+              <div class="aspect-[16/9] bg-be-ink-50 animate-pulse"></div>
+              <div class="p-4 space-y-3">
+                <div class="h-4 bg-be-ink-50 rounded animate-pulse w-5/6"></div>
+                <div class="h-3 bg-be-ink-50 rounded animate-pulse w-4/6"></div>
+                <div class="h-3 bg-be-ink-50 rounded animate-pulse w-full"></div>
+                <div class="h-9 bg-be-ink-50 rounded-xl animate-pulse w-full mt-2"></div>
+              </div>
+            </div>
+          </template>
+        </div>
       </template>
 
       <template x-if="!loading.explore && courses.length===0">
         <div class="text-sm text-be-ink-500">Aucun cours trouvé.</div>
       </template>
 
-      <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <!-- Udemy-like grid cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <template x-for="c in courses" :key="c.id">
-          <div class="rounded-2xl border border-be-ink-100 bg-white p-4 hover:bg-be-ink-50/40 transition">
-            <div class="flex items-start gap-3">
-              <div class="w-16 h-12 rounded-xl bg-be-ink-50 border border-be-ink-100 overflow-hidden shrink-0">
-                <img x-show="c.thumbnail_url" :src="c.thumbnail_url" class="w-full h-full object-cover" alt="">
-                <div x-show="!c.thumbnail_url" class="w-full h-full flex items-center justify-center text-[11px] text-be-ink-400">No img</div>
+          <div class="group rounded-2xl border border-be-ink-100 bg-white overflow-hidden hover:shadow-soft transition"
+               :class="c.is_enrolled ? 'ring-1 ring-emerald-200/60' : ''">
+
+            <!-- Thumbnail -->
+            <div class="relative aspect-[16/9] bg-be-ink-50 overflow-hidden">
+              <img x-show="c.thumbnail_url"
+                   :src="c.thumbnail_url"
+                   class="w-full h-full object-cover group-hover:scale-[1.03] transition duration-200"
+                   alt="">
+              <div x-show="!c.thumbnail_url" class="w-full h-full flex items-center justify-center text-xs text-be-ink-400">
+                No image
               </div>
 
-              <div class="min-w-0 flex-1">
-                <div class="font-semibold truncate" x-text="c.title"></div>
-                <div class="text-xs text-be-ink-500 mt-1 truncate" x-text="c.subtitle || ''"></div>
+              <!-- Badges -->
+              <div class="absolute top-3 left-3 flex flex-wrap gap-2">
+                <span x-show="c.is_popular"
+                      class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-be-sun-500 text-white">
+                  <i class="fas fa-star mr-1"></i>Populaire
+                </span>
 
-                <div class="mt-2 flex flex-wrap gap-2 text-[11px]">
-                  <span class="px-2 py-0.5 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700"
-                        x-text="c.course_type || '—'"></span>
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-white/85 border-be-ink-100 text-be-ink-800"
+                      x-text="c.level_label || c.level || 'Niveau'"></span>
 
-                  <span class="px-2 py-0.5 rounded-full border"
-                        :class="(c.pricing_type==='PAID') ? 'bg-be-sun-50 border-be-sun-200 text-be-sun-800'
-                               : (c.pricing_type==='FREE') ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                               : 'bg-be-ink-50 border-be-ink-100 text-be-ink-700'"
-                        x-text="pricingLabel(c)"></span>
+                <span x-show="c.company_only"
+                      class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-50 border border-purple-200 text-purple-700">
+                  <i class="fas fa-building mr-1"></i>Entreprise
+                </span>
+              </div>
 
-                  <span class="px-2 py-0.5 rounded-full border bg-be-ink-50 border-be-ink-100 text-be-ink-700"
-                        x-show="c.enrolled_count!=null">
+              <!-- Bottom chips -->
+              <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/85 border border-be-ink-100 text-be-ink-700"
+                        x-text="c.category_name || '—'"></span>
+
+                  <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold"
+                        :class="(c.pricing_type==='PAID') ? 'bg-be-sun-50 border border-be-sun-200 text-be-sun-800'
+                               : (c.pricing_type==='FREE') ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                               : 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'"
+                        x-text="pricingChip(c)"></span>
+                </div>
+
+                <button class="w-9 h-9 rounded-xl bg-white/90 border border-be-ink-100 hover:bg-be-ink-50 transition text-be-ink-700"
+                        @click="openDetail(c)"
+                        title="Détails">
+                  <i class="fas fa-info-circle"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-4">
+              <div class="font-semibold text-sm leading-snug line-clamp-2" x-text="c.title"></div>
+              <div class="text-xs text-be-ink-500 mt-1 line-clamp-2" x-text="c.subtitle || ''"></div>
+
+              <div class="mt-3 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 min-w-0">
+                  <div class="w-8 h-8 rounded-xl bg-be-ink-50 border border-be-ink-100 flex items-center justify-center text-[11px] font-bold text-be-ink-700"
+                       x-text="(c.instructor_initials || (c.instructor_name||'F')[0] || 'F')"></div>
+                  <div class="min-w-0">
+                    <div class="text-[12px] font-semibold truncate" x-text="c.instructor_name || 'Formateur'"></div>
+                    <div class="text-[11px] text-be-ink-500 truncate">
+                      <span x-text="c.course_type_label || c.course_type || ''"></span>
+                      <span x-show="c.published_at" class="text-be-ink-400"> • </span>
+                      <span x-show="c.published_at" x-text="formatDateShort(c.published_at)"></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="text-right shrink-0">
+                  <div class="text-[12px] font-extrabold text-be-ink-900"
+                       x-show="(c.pricing_type!=='FREE' && Number(c.price||0)>0)"
+                       x-text="fmtMoney(c.price) + ' ' + moneyCur(c.currency)"></div>
+
+                  <div class="text-[12px] font-extrabold text-emerald-700"
+                       x-show="(c.pricing_type==='FREE' || Number(c.price||0)===0)">
+                    Gratuit
+                  </div>
+
+                  <div class="text-[11px] text-be-ink-500" x-text="'/ ' + (c.price_period || 'cours')"></div>
+                </div>
+              </div>
+
+              <div class="mt-3 flex items-center justify-between text-[11px] text-be-ink-500">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1 text-be-sun-700 font-semibold">
+                    ★ <span x-text="Number(c.rating||0).toFixed(1)"></span>
+                  </span>
+                  <span class="text-be-ink-300">•</span>
+                  <span class="inline-flex items-center gap-1" x-show="c.enrolled_count!=null">
                     👥 <span x-text="c.enrolled_count"></span>
                   </span>
+                </div>
 
-                  <span class="px-2 py-0.5 rounded-full border bg-be-ink-50 border-be-ink-100 text-be-ink-700"
-                        x-show="c.rating_avg!=null">
-                    ★ <span x-text="(c.rating_avg||0).toFixed(1)"></span>
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1" x-show="c.duration">
+                    <i class="far fa-clock"></i> <span x-text="c.duration"></span>
                   </span>
                 </div>
-
-                <div class="mt-3 flex items-center justify-between gap-2">
-                  <div class="text-[11px] text-be-ink-500 truncate" x-text="c.instructor_name || ''"></div>
-                  <div class="text-[11px] text-be-ink-500" x-text="(c.lessons_count ?? 0) + ' leçons'"></div>
-                </div>
-
-                <div class="mt-3 flex gap-2">
-                  <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
-                          @click="openDetail(c)">
-                    Détails
-                  </button>
-
-                  <button class="px-3 py-2 rounded-xl text-xs font-semibold"
-                          :class="c.is_enrolled ? 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'
-                                               : 'bg-be-sky-600 text-white hover:bg-be-sky-700 shadow-soft'"
-                          :disabled="loading.enrollId===c.id || c.is_enrolled"
-                          @click="enroll(c)">
-                    <template x-if="c.is_enrolled">
-                      <span>Déjà inscrit</span>
-                    </template>
-                    <template x-if="!c.is_enrolled">
-                      <span x-show="loading.enrollId!==c.id">S’inscrire</span>
-                    </template>
-                    <span x-show="loading.enrollId===c.id">Inscription…</span>
-                  </button>
-                </div>
-
               </div>
+
+              <div class="mt-4 flex gap-2">
+                <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                        @click="openDetail(c)">
+                  Détails
+                </button>
+
+                <button class="flex-1 px-3 py-2 rounded-xl text-xs font-semibold transition"
+                        :class="c.is_enrolled ? 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'
+                                             : 'bg-be-sky-600 text-white hover:bg-be-sky-700 shadow-soft'"
+                        :disabled="loading.enrollId===c.id || c.is_enrolled"
+                        @click="enroll(c)">
+                  <template x-if="c.is_enrolled">
+                    <span>Déjà inscrit</span>
+                  </template>
+                  <template x-if="!c.is_enrolled">
+                    <span x-show="loading.enrollId!==c.id">S’inscrire</span>
+                  </template>
+                  <span x-show="loading.enrollId===c.id">Inscription…</span>
+                </button>
+              </div>
+
+              <div class="mt-3 flex items-center justify-between text-[11px] text-be-ink-500">
+                <a x-show="c.preview_url" :href="c.preview_url" class="hover:underline">
+                  Aperçu
+                </a>
+                <a x-show="c.detail_url" :href="c.detail_url" class="hover:underline">
+                  Page cours
+                </a>
+              </div>
+
             </div>
           </div>
         </template>
@@ -235,6 +325,7 @@
   <!-- Detail Modal -->
   <div x-show="modals.detail" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/40" @click="closeDetail()"></div>
+
     <div class="relative w-full max-w-3xl rounded-2xl bg-white border border-be-ink-100 shadow-soft overflow-hidden">
       <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
         <div class="font-semibold" x-text="detail?.title || 'Détails du cours'"></div>
@@ -248,23 +339,92 @@
 
         <template x-if="!loading.detail && detail">
           <div class="grid md:grid-cols-12 gap-4">
-            <div class="md:col-span-4">
-              <div class="aspect-[4/3] rounded-2xl overflow-hidden border border-be-ink-100 bg-be-ink-50">
+            <div class="md:col-span-5">
+              <div class="aspect-[16/9] rounded-2xl overflow-hidden border border-be-ink-100 bg-be-ink-50">
                 <img x-show="detail.thumbnail_url" :src="detail.thumbnail_url" class="w-full h-full object-cover" alt="">
                 <div x-show="!detail.thumbnail_url" class="w-full h-full flex items-center justify-center text-sm text-be-ink-400">No image</div>
               </div>
+
+              <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+                <span class="px-2 py-0.5 rounded-full border bg-be-ink-50 border-be-ink-100 text-be-ink-700"
+                      x-text="detail.category_name || '—'"></span>
+                <span class="px-2 py-0.5 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700"
+                      x-text="detail.course_type_label || detail.course_type || '—'"></span>
+                <span class="px-2 py-0.5 rounded-full border"
+                      :class="(detail.pricing_type==='PAID') ? 'bg-be-sun-50 border-be-sun-200 text-be-sun-800'
+                             : (detail.pricing_type==='FREE') ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                             : 'bg-be-ink-50 border-be-ink-100 text-be-ink-700'"
+                      x-text="pricingLabel(detail)"></span>
+              </div>
+
+              <div class="mt-3 text-sm">
+                <div class="font-semibold text-be-ink-900" x-text="detail.instructor_name || 'Formateur'"></div>
+                <div class="text-xs text-be-ink-500 mt-1">
+                  <span x-text="detail.level_label || detail.level || ''"></span>
+                  <span x-show="detail.published_at" class="text-be-ink-400"> • </span>
+                  <span x-show="detail.published_at" x-text="formatDateShort(detail.published_at)"></span>
+                </div>
+              </div>
+
+              <div class="mt-3 grid grid-cols-2 gap-3 text-[12px] text-be-ink-600">
+                <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
+                  <span>Inscrits</span>
+                  <span class="font-semibold text-be-ink-900" x-text="detail.enrolled_count ?? 0"></span>
+                </div>
+                <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
+                  <span>Note</span>
+                  <span class="font-semibold text-be-ink-900" x-text="Number(detail.rating||0).toFixed(1)"></span>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <a x-show="detail.preview_video_url"
+                   :href="detail.preview_video_url"
+                   target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold">
+                  <i class="fas fa-circle-play text-be-sky-600"></i> Vidéo de prévisualisation
+                </a>
+              </div>
             </div>
-            <div class="md:col-span-8">
+
+            <div class="md:col-span-7">
               <div class="text-sm font-semibold" x-text="detail.title"></div>
               <div class="text-xs text-be-ink-500 mt-1" x-text="detail.subtitle || ''"></div>
 
-              <div class="mt-3 text-sm text-be-ink-700 whitespace-pre-wrap" x-text="detail.description || ''"></div>
+              <div class="mt-4 text-sm text-be-ink-700 whitespace-pre-wrap" x-text="detail.description || ''"></div>
 
-              <div class="mt-4 flex flex-wrap gap-2 text-[11px]">
-                <span class="px-2 py-0.5 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700"
-                      x-text="detail.course_type || '—'"></span>
-                <span class="px-2 py-0.5 rounded-full border bg-be-ink-50 border-be-ink-100 text-be-ink-700"
-                      x-text="pricingLabel(detail)"></span>
+              <div class="mt-4 grid sm:grid-cols-2 gap-3 text-[12px] text-be-ink-600">
+                <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
+                  <span>Prix</span>
+                  <span class="font-semibold text-be-ink-900">
+                    <span x-show="detail.pricing_type==='FREE' || Number(detail.price||0)===0" class="text-emerald-700">Gratuit</span>
+                    <span x-show="detail.pricing_type!=='FREE' && Number(detail.price||0)>0"
+                          x-text="fmtMoney(detail.price) + ' ' + moneyCur(detail.currency)"></span>
+                  </span>
+                </div>
+                <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
+                  <span>Période</span>
+                  <span class="font-semibold text-be-ink-900" x-text="detail.price_period || 'cours'"></span>
+                </div>
+                <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
+                  <span>Statut</span>
+                  <span class="font-semibold text-be-ink-900" x-text="detail.status || '—'"></span>
+                </div>
+                <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
+                  <span>Durée</span>
+                  <span class="font-semibold text-be-ink-900" x-text="detail.duration || '—'"></span>
+                </div>
+              </div>
+
+              <div class="mt-4 flex flex-wrap gap-2">
+                <a x-show="detail.detail_url" :href="detail.detail_url"
+                   class="px-4 py-2.5 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold">
+                  Voir la page cours
+                </a>
+                <a x-show="detail.preview_url" :href="detail.preview_url"
+                   class="px-4 py-2.5 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold">
+                  Aperçu
+                </a>
               </div>
             </div>
           </div>
@@ -292,208 +452,38 @@
 {% endblock %}
 
 {% block extra_js %}
- 
+
 <script>
-/** IMPORTANT: on expose la fonction pour Alpine */
-window.learnerApp = function(cfg) {
-  return {
-    endpoints: cfg.endpoints || {},
-
-    activeTab: "courses",
-
-    // ✅ évite “me is not defined”
-    me: { full_name: "", email: "", initials: "A" },
-
-    // ✅ évite “filters is not defined”
-    filters: { q: "", status: "" },
-
-    kpis: [],
-    enrollments: [],
-    notifications: [],
-    payments: [],
-
-    loading: {
-      me: false, kpis: false, enrollments: false,
-      notifications: false, payments: false,
-      progress: false,
-    },
-
-    toast: { show: false, title: "", message: "" },
-
-    drawers: { progress: false },
-    progress: { title:"", course_id:null, progress_percent:null, completed_lessons:0, total_lessons:null, lessons:[] },
-
-    init() {
-      this.loadMe();
-      this.loadKpis();
-      this.loadEnrollments();
-    },
-
-    showToast(title, message) {
-      this.toast = { show: true, title, message };
-      setTimeout(() => this.toast.show = false, 3500);
-    },
-
-    getCsrf() {
-      const m = document.cookie.match(/csrftoken=([^;]+)/);
-      return m ? m[1] : "";
-    },
-
-    async apiGet(url) {
-      const res = await fetch(url, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
-      if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
-      return await res.json();
-    },
-
-    async apiPost(url, payload) {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "X-CSRFToken": this.getCsrf(),
-        },
-        credentials: "same-origin",
-        body: JSON.stringify(payload || {})
+/**
+ * ✅ Alpine Store global:
+ * - Résout "filters is not defined" (topbar et page partagent les mêmes filtres)
+ * - Permet de déclencher un refresh depuis n'importe où via $store.explore.emit(true)
+ */
+document.addEventListener('alpine:init', () => {
+  Alpine.store('explore', {
+    filters: { q: "", type: "", pricing: "", sort: "recent" },
+    _listeners: [],
+    on(fn){ this._listeners.push(fn); },
+    emit(reset=true){
+      this._listeners.forEach(fn => {
+        try { fn({ reset }); } catch(e) { console.error(e); }
       });
-
-      if (!res.ok) {
-        let detail = "";
-        try { detail = JSON.stringify(await res.json()); } catch(e) {}
-        throw new Error(`POST ${url} -> ${res.status} ${detail}`);
-      }
-      return await res.json();
-    },
-
-    fmtMoney(v) {
-      return Number(v || 0).toLocaleString("fr-FR");
-    },
-
-    formatDate(dt) {
-      if (!dt) return "—";
-      try { return new Date(dt).toLocaleString("fr-FR"); }
-      catch(e){ return String(dt); }
-    },
-
-    async loadMe() {
-      try {
-        this.loading.me = true;
-        const data = await this.apiGet(this.endpoints.me);
-        const initials = (data.full_name || data.email || "A")
-          .split(" ").filter(Boolean).slice(0,2).map(x => x[0].toUpperCase()).join("");
-        this.me = { ...this.me, ...data, initials: initials || "A" };
-
-        // utile si tu veux réutiliser ailleurs
-        window.__beLearnerMe = this.me;
-      } catch (e) {
-        console.error(e);
-      } finally {
-        this.loading.me = false;
-      }
-    },
-
-    async loadKpis() {
-      try {
-        this.loading.kpis = true;
-        const data = await this.apiGet(this.endpoints.kpis);
-
-        const enrolled = data.enrollments?.total ?? "—";
-        const completed = data.enrollments?.completed ?? "—";
-        const avgProg = data.progress?.avg_percent ?? null;
-        const avgRate = data.reviews?.avg_rating_given ?? null;
-
-        this.kpis = [
-          { key:"enrolled", label:"Cours inscrits", value: enrolled, hint:"Total inscriptions", tone:"sky", icon:"📚" },
-          { key:"completed", label:"Cours terminés", value: completed, hint:"Complétés", tone:"sun", icon:"✅" },
-          { key:"progress", label:"Progression moyenne", value: (avgProg==null ? "—" : Math.round(avgProg)+"%"), hint:"Moyenne leçons", tone:"sky", icon:"📈" },
-          { key:"rating", label:"Note donnée", value: (avgRate==null ? "—" : Number(avgRate).toFixed(1)), hint:"Moyenne de vos avis", tone:"sun", icon:"⭐" },
-        ];
-      } catch (e) {
-        console.error(e);
-      } finally {
-        this.loading.kpis = false;
-      }
-    },
-
-    buildEnrollmentsUrl() {
-      const u = new URL(this.endpoints.enrollments, window.location.origin);
-      if (this.filters.q) u.searchParams.set("q", this.filters.q);
-      if (this.filters.status) u.searchParams.set("status", this.filters.status);
-      return u.toString();
-    },
-
-    async loadEnrollments() {
-      try {
-        this.loading.enrollments = true;
-        const data = await this.apiGet(this.buildEnrollmentsUrl());
-        this.enrollments = data.results || data || [];
-      } catch (e) {
-        console.error(e);
-        this.showToast("Erreur", "Impossible de charger vos cours.");
-      } finally {
-        this.loading.enrollments = false;
-      }
-    },
-
-    async loadNotifications() {
-      try {
-        this.loading.notifications = true;
-        const data = await this.apiGet(this.endpoints.notifications);
-        this.notifications = data.results || data || [];
-      } catch (e) {
-        console.error(e);
-        this.showToast("Erreur", "Impossible de charger les notifications.");
-      } finally {
-        this.loading.notifications = false;
-      }
-    },
-
-    async loadPayments() {
-      try {
-        this.loading.payments = true;
-        const data = await this.apiGet(this.endpoints.payments);
-        this.payments = data.results || data || [];
-      } catch (e) {
-        console.error(e);
-        this.showToast("Erreur", "Impossible de charger les paiements.");
-      } finally {
-        this.loading.payments = false;
-      }
-    },
-
-    async openProgress(courseId, title) {
-      this.progress = { title: title || "", course_id: courseId, progress_percent:null, completed_lessons:0, total_lessons:null, lessons:[] };
-      this.drawers.progress = true;
-      this.loading.progress = true;
-
-      try {
-        // ton endpoint: /api/learner/courses/<id>/progress/
-        const url = (this.endpoints.courseProgress) ? this.endpoints.courseProgress(courseId) : `/api/learner/courses/${courseId}/progress/`;
-        const data = await this.apiGet(url);
-        this.progress = { ...this.progress, ...data, title: title || this.progress.title };
-      } catch (e) {
-        console.error(e);
-        this.showToast("Erreur", "Impossible de charger la progression.");
-      } finally {
-        this.loading.progress = false;
-      }
-    },
-
-    closeProgress() { this.drawers.progress = false; },
-  }
-};
+    }
+  });
+});
 </script>
 
 <script>
-function exploreApp(cfg){
+/**
+ * ✅ expose en global pour éviter "this.loadMe is not a function" dû au scope / ordre de chargement
+ */
+window.exploreApp = function(cfg){
   return {
-    endpoints: cfg.endpoints,
+    endpoints: (cfg && cfg.endpoints) ? cfg.endpoints : {},
 
     me: {},
     courses: [],
     meta: { count: 0, limit: 24, offset: 0 },
-
-    filters: { q:"", type:"", pricing:"", sort:"recent" },
 
     loading: { me:false, explore:false, enrollId:null, detail:false },
     toast: { show:false, title:"", message:"" },
@@ -501,6 +491,12 @@ function exploreApp(cfg){
     detail: null,
 
     init(){
+      // 🔗 bind store
+      const store = Alpine.store('explore');
+      // register listener (topbar & filters trigger this)
+      store.on(({reset}) => this.loadExplore(!!reset));
+
+      // première charge
       this.loadMe();
       this.loadExplore(true);
     },
@@ -540,6 +536,39 @@ function exploreApp(cfg){
       return await res.json();
     },
 
+    fmtMoney(v){
+      return Number(v || 0).toLocaleString("fr-FR");
+    },
+
+    moneyCur(cur){
+      if (!cur) return "XOF";
+      return (cur === "XOF") ? "FCFA" : cur;
+    },
+
+    formatDateShort(dt){
+      if (!dt) return "—";
+      try { return new Date(dt).toLocaleDateString("fr-FR", { year:"numeric", month:"short", day:"2-digit" }); }
+      catch(e){ return String(dt); }
+    },
+
+    // ✅ Chip court (Udemy-like)
+    pricingChip(c){
+      const p = c.pricing_type;
+      if (p === "FREE" || Number(c.price||0) === 0) return "Gratuit";
+      if (p === "HYBRID") return "Hybride";
+      return "Payant";
+    },
+
+    // ✅ Label plus détaillé
+    pricingLabel(c){
+      const p = c.pricing_type;
+      if (p === "FREE" || Number(c.price||0) === 0) return "Gratuit";
+      if (p === "HYBRID"){
+        return `Hybride • ${this.fmtMoney(c.price)} ${this.moneyCur(c.currency)}`;
+      }
+      return `Payant • ${this.fmtMoney(c.price)} ${this.moneyCur(c.currency)}`;
+    },
+
     async loadMe(){
       try{
         this.loading.me = true;
@@ -547,34 +576,76 @@ function exploreApp(cfg){
         const initials = (data.full_name || data.email || "A")
           .split(" ").filter(Boolean).slice(0,2).map(x=>x[0].toUpperCase()).join("");
         this.me = { ...data, initials };
-        // petit hack pour que topbar_user puisse réutiliser
         window.__beLearnerMe = this.me;
-      } catch(e){ console.error(e); }
-      finally{ this.loading.me = false; }
+      } catch(e){
+        console.error(e);
+      } finally {
+        this.loading.me = false;
+      }
     },
 
     buildExploreUrl(resetOffset=false){
+      const store = Alpine.store('explore');
+      const f = store.filters || { q:"", type:"", pricing:"", sort:"recent" };
+
       const u = new URL(this.endpoints.explore, window.location.origin);
-      if (this.filters.q) u.searchParams.set("q", this.filters.q);
-      if (this.filters.type) u.searchParams.set("type", this.filters.type);
-      if (this.filters.pricing) u.searchParams.set("pricing", this.filters.pricing);
-      if (this.filters.sort) u.searchParams.set("sort", this.filters.sort);
+      if (f.q) u.searchParams.set("q", f.q);
+      if (f.type) u.searchParams.set("type", f.type);
+      if (f.pricing) u.searchParams.set("pricing", f.pricing);
+      if (f.sort) u.searchParams.set("sort", f.sort);
 
       u.searchParams.set("limit", String(this.meta.limit || 24));
       u.searchParams.set("offset", String(resetOffset ? 0 : (this.meta.offset || 0)));
       return u.toString();
     },
 
+    sortClient(list){
+      const store = Alpine.store('explore');
+      const s = (store.filters && store.filters.sort) ? store.filters.sort : "recent";
+      const arr = [...(list || [])];
+
+      if (s === "popular"){
+        return arr.sort((a,b)=>{
+          const ap = a.is_popular ? 1 : 0;
+          const bp = b.is_popular ? 1 : 0;
+          if (bp !== ap) return bp - ap;
+          return (Number(b.enrolled_count||0) - Number(a.enrolled_count||0));
+        });
+      }
+      if (s === "rating"){
+        return arr.sort((a,b)=> (Number(b.rating||0) - Number(a.rating||0)));
+      }
+      if (s === "price_asc"){
+        return arr.sort((a,b)=> (Number(a.price||0) - Number(b.price||0)));
+      }
+      if (s === "price_desc"){
+        return arr.sort((a,b)=> (Number(b.price||0) - Number(a.price||0)));
+      }
+      // recent
+      return arr.sort((a,b)=>{
+        const da = new Date(a.published_at || 0).getTime() || 0;
+        const db = new Date(b.published_at || 0).getTime() || 0;
+        return db - da;
+      });
+    },
+
     async loadExplore(resetOffset=false){
       try{
         this.loading.explore = true;
+
+        if (resetOffset) this.meta.offset = 0;
+
         const data = await this.apiGet(this.buildExploreUrl(resetOffset));
-        this.courses = data.results || [];
+        const results = data.results || [];
+
+        this.courses = this.sortClient(results);
+
         this.meta = {
-          count: data.count ?? this.courses.length,
+          count: (typeof data.total === "number") ? data.total : (data.count ?? this.courses.length),
           limit: data.limit ?? (this.meta.limit || 24),
           offset: data.offset ?? (resetOffset ? 0 : (this.meta.offset || 0)),
         };
+
       } catch(e){
         console.error(e);
         this.showToast("Erreur", "Impossible de charger les cours publiés.");
@@ -588,18 +659,11 @@ function exploreApp(cfg){
       this.meta.offset = this.meta.offset + this.meta.limit;
       this.loadExplore(false);
     },
+
     prevPage(){
       if (this.meta.offset <= 0) return;
       this.meta.offset = Math.max(0, this.meta.offset - this.meta.limit);
       this.loadExplore(false);
-    },
-
-    pricingLabel(c){
-      const p = c.pricing_type;
-      if (p === "FREE") return "Gratuit";
-      if (p === "HYBRID") return "Hybride";
-      const price = Number(c.price || 0).toLocaleString("fr-FR");
-      return `Payant • ${price} ${c.currency || "XOF"}`;
     },
 
     async enroll(course){
@@ -609,7 +673,6 @@ function exploreApp(cfg){
         await this.apiPost(this.endpoints.enroll(course.id), {});
         this.showToast("Succès", "Inscription effectuée.");
 
-        // mets à jour localement
         this.courses = this.courses.map(x => x.id===course.id ? ({...x, is_enrolled:true}) : x);
         if (this.detail && this.detail.id === course.id) this.detail = { ...this.detail, is_enrolled:true };
 
@@ -622,14 +685,12 @@ function exploreApp(cfg){
     },
 
     async openDetail(course){
-      // si tu veux un détail “live”
       this.modals.detail = true;
       this.detail = { ...course };
       this.loading.detail = true;
 
       try{
         const data = await this.apiGet(this.endpoints.courseDetail(course.id));
-        // si ton endpoint detail ne renvoie pas thumbnail_url etc, on garde fallback
         this.detail = { ...this.detail, ...data };
       } catch(e){
         console.error(e);
@@ -645,4 +706,5 @@ function exploreApp(cfg){
   }
 }
 </script>
+
 {% endblock %}

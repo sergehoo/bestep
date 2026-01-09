@@ -97,7 +97,7 @@ class OrganisationDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView)
     allowed_roles = ("COMPANY_ADMIN",)
 
 
-class AdminDashboard(LoginRequiredMixin, TemplateView):
+class AdminDashboard(LoginRequiredMixin,RoleRequiredMixin, TemplateView):
     template_name = "home/admin_dash.html"
 
     def dispatch(self, request, *args, **kwargs):
