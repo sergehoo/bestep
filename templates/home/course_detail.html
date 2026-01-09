@@ -1,0 +1,1161 @@
+{% load static %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <title>Best-Épargne • Détails du cours</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    :root{
+      --primary-blue:#4A90E2;
+      --primary-yellow:#FFD166;
+      --light-blue:#E8F4FD;
+      --success-green:#2ECC71;
+    }
+
+    /* shimmer */
+    @keyframes shimmer{0%{background-position:-600px 0;} 100%{background-position:600px 0;}}
+    .skeleton{
+      background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 37%,#f1f5f9 63%);
+      background-size:1200px 100%;
+      animation:shimmer 1.2s infinite linear;
+    }
+
+    /* subtle entrance */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .fade-up{animation:fadeUp .45s ease-out both;}
+
+    /* clamp */
+    .line-clamp-1{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
+    .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .line-clamp-3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+
+    /* sticky "udemy-like" card shadow */
+    .sticky-card{box-shadow:0 24px 60px rgba(2,6,23,.14);}
+  </style>
+</head>
+
+<body class="bg-gray-50 text-slate-900">
+
+<!-- NAV (reuse ton style) -->
+<nav class="bg-white shadow-md sticky top-0 z-50">
+  <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center space-x-2">
+      <a href="/" class="flex items-center space-x-2">
+        <div class="w-10 h-10 rounded-lg bg-white flex items-center justify-center">
+          <img src="{% static 'img/logo_img.png' %}" width="70" height="auto" alt="Best-Épargne">
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-blue-600">Best-<span class="text-yellow-500">Épargne</span></h1>
+          <p class="text-xs text-gray-500 -mt-1">Apprentissage financier</p>
+        </div>
+      </a>
+    </div>
+
+    <div class="hidden md:flex space-x-8">
+      <a href="/#cours" class="text-gray-600 hover:text-blue-600 transition">Catalogue</a>
+      <a href="/#features" class="text-gray-600 hover:text-blue-600 transition">Fonctionnalités</a>
+      <a href="/#faq" class="text-gray-600 hover:text-blue-600 transition">FAQ</a>
+    </div>
+
+    <div class="flex items-center space-x-3">
+      {% if user.is_authenticated %}
+        <a href="{% url 'learner_dashboard' %}"
+           class="hidden md:inline-flex px-4 py-2 rounded-lg bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition">
+          <i class="fas fa-gauge-high mr-2"></i>Tableau de bord
+        </a>
+        <a href="{% url 'account_logout' %}"
+           class="px-4 py-2 rounded-lg text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition">
+          <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
+        </a>
+      {% else %}
+        <a href="{% url 'account_login' %}" class="px-4 py-2 rounded-lg text-blue-600 hover:bg-blue-50 transition">
+          <i class="fas fa-sign-in-alt mr-2"></i>Connexion
+        </a>
+        <a href="{% url 'account_signup' %}"
+           class="px-4 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold shadow hover:shadow-lg transition">
+          <i class="fas fa-user-plus mr-2"></i>S'inscrire
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<!-- HEADER HERO (Udemy-like: bande sombre) -->
+<header class="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-900 text-white">
+  <div class="container mx-auto px-4 py-10 md:py-12">
+    <div class="grid lg:grid-cols-12 gap-10 items-start">
+      <!-- Left: hero -->
+      <div class="lg:col-span-8">
+        <!-- breadcrumbs -->
+        <div class="text-sm text-slate-300 flex items-center gap-2">
+          <a href="/" class="hover:text-white">Accueil</a>
+          <span class="opacity-60">/</span>
+          <a href="/#cours" class="hover:text-white">Cours</a>
+          <span class="opacity-60">/</span>
+          <span id="crumb-title" class="line-clamp-1">Détails</span>
+        </div>
+
+        <!-- skeleton hero -->
+        <div id="hero-skel" class="mt-5 space-y-4">
+          <div class="h-9 w-11/12 skeleton rounded"></div>
+          <div class="h-5 w-9/12 skeleton rounded"></div>
+          <div class="flex flex-wrap gap-3 pt-2">
+            <div class="h-6 w-24 skeleton rounded-full"></div>
+            <div class="h-6 w-28 skeleton rounded-full"></div>
+            <div class="h-6 w-36 skeleton rounded-full"></div>
+          </div>
+        </div>
+
+        <!-- real hero -->
+        <div id="hero" class="hidden mt-5 fade-up">
+          <h1 id="title" class="text-3xl md:text-4xl font-extrabold leading-tight"></h1>
+          <p id="subtitle" class="mt-3 text-slate-200 text-lg"></p>
+
+          <div class="mt-4 flex flex-wrap items-center gap-3 text-sm">
+            <span class="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
+              <i class="fas fa-star text-yellow-400"></i>
+              <span class="font-semibold" id="rating">—</span>
+              <span class="text-slate-300" id="ratingCount"></span>
+            </span>
+            <span class="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
+              <i class="fas fa-users text-slate-200"></i>
+              <span class="font-semibold" id="enrolledCount">0</span>
+              <span class="text-slate-300">inscrits</span>
+            </span>
+            <span class="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
+              <i class="far fa-clock text-slate-200"></i>
+              <span class="font-semibold" id="duration">—</span>
+            </span>
+            <span class="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
+              <i class="fas fa-signal text-slate-200"></i>
+              <span class="font-semibold" id="levelLabel">Niveau</span>
+            </span>
+          </div>
+
+          <div class="mt-4 text-sm text-slate-300">
+            Créé par <span class="text-white font-semibold" id="instructorName">Formateur</span>
+            <span class="mx-2 opacity-60">•</span>
+            <span id="publishedAt">—</span>
+            <span class="mx-2 opacity-60">•</span>
+            <span id="categoryName">—</span>
+          </div>
+
+          <div class="mt-5 flex flex-wrap gap-2" id="heroBadges"></div>
+        </div>
+      </div>
+
+      <!-- Right: sticky card placeholder space (the actual card is in MAIN to allow sticky below hero on desktop) -->
+      <div class="hidden lg:block lg:col-span-4"></div>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="container mx-auto px-4 py-8 md:py-10">
+  <div class="grid lg:grid-cols-12 gap-10">
+
+    <!-- Left column: content -->
+    <section class="lg:col-span-8">
+
+      <!-- mobile card (shows on small screens) -->
+      <div class="lg:hidden -mt-16 mb-6">
+        <div id="mobile-card-skel" class="bg-white border border-gray-200 rounded-2xl overflow-hidden sticky-card">
+          <div class="aspect-[16/9] skeleton"></div>
+          <div class="p-5 space-y-3">
+            <div class="h-10 skeleton rounded-xl"></div>
+            <div class="h-10 skeleton rounded-xl"></div>
+            <div class="h-5 skeleton rounded w-1/2"></div>
+          </div>
+        </div>
+
+        <div id="mobile-card" class="hidden bg-white border border-gray-200 rounded-2xl overflow-hidden sticky-card fade-up">
+          <div class="relative">
+            <div class="aspect-[16/9] bg-gray-100" id="mobileMedia"></div>
+            <button id="mobilePlayBtn"
+                    class="hidden absolute inset-0 m-auto w-14 h-14 rounded-full bg-white/95 text-slate-900 shadow flex items-center justify-center hover:scale-[1.03] transition">
+              <i class="fas fa-play text-lg"></i>
+            </button>
+          </div>
+          <div class="p-5">
+            <div class="flex items-end justify-between gap-4">
+              <div>
+                <div class="text-sm text-gray-500">Prix</div>
+                <div id="mobilePrice" class="text-2xl font-extrabold"></div>
+                <div id="mobilePriceHint" class="text-xs text-gray-500 mt-1"></div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-gray-500">Accès</div>
+                <div id="mobileAccess" class="text-sm font-semibold text-slate-900">—</div>
+              </div>
+            </div>
+
+            <a id="mobileCta" href="#"
+               class="mt-4 block text-center px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold hover:shadow-lg transition">
+              S'inscrire
+            </a>
+
+            <button id="mobileWishlist"
+                    class="mt-3 w-full px-5 py-3 rounded-xl border border-gray-200 font-semibold text-gray-700 hover:bg-gray-50 transition">
+              <i class="far fa-heart mr-2"></i>Ajouter à la liste
+            </button>
+
+            <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div class="flex items-center gap-2 text-gray-600"><i class="fas fa-infinity"></i> Accès illimité</div>
+              <div class="flex items-center gap-2 text-gray-600"><i class="fas fa-certificate"></i> Certificat</div>
+              <div class="flex items-center gap-2 text-gray-600"><i class="fas fa-mobile-screen"></i> Mobile</div>
+              <div class="flex items-center gap-2 text-gray-600"><i class="fas fa-file-arrow-down"></i> Ressources</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs / sections (Udemy-like) -->
+      <div class="bg-white border border-gray-200 rounded-2xl p-5 md:p-6">
+        <div class="flex flex-wrap gap-2">
+          <button data-tab="overview" class="tab-btn px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold text-sm">
+            Aperçu
+          </button>
+          <button data-tab="content" class="tab-btn px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">
+            Contenu
+          </button>
+          <button data-tab="instructor" class="tab-btn px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">
+            Formateur
+          </button>
+          <button data-tab="reviews" class="tab-btn px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">
+            Avis
+          </button>
+        </div>
+
+        <!-- Overview -->
+        <div id="tab-overview" class="tab-panel mt-6">
+          <h2 class="text-xl font-extrabold text-slate-900">Ce que vous allez apprendre</h2>
+
+          <div id="learn-skel" class="mt-4 grid md:grid-cols-2 gap-3">
+            <div class="h-12 skeleton rounded-xl"></div>
+            <div class="h-12 skeleton rounded-xl"></div>
+            <div class="h-12 skeleton rounded-xl"></div>
+            <div class="h-12 skeleton rounded-xl"></div>
+          </div>
+
+          <ul id="learn-list" class="hidden mt-4 grid md:grid-cols-2 gap-3 text-sm text-gray-700"></ul>
+
+          <h3 class="mt-8 text-lg font-extrabold text-slate-900">Description</h3>
+          <div id="desc-skel" class="mt-3 space-y-2">
+            <div class="h-4 skeleton rounded"></div>
+            <div class="h-4 skeleton rounded w-11/12"></div>
+            <div class="h-4 skeleton rounded w-10/12"></div>
+          </div>
+
+          <div id="desc-wrap" class="hidden mt-3 text-gray-700 leading-relaxed">
+            <p id="desc" class="whitespace-pre-line"></p>
+
+            <button id="descMoreBtn" class="mt-3 text-blue-700 font-semibold hover:text-blue-800">
+              Afficher plus <i class="fas fa-chevron-down ml-1 text-xs"></i>
+            </button>
+          </div>
+
+          <div id="desc-full" class="hidden mt-4 text-gray-700 leading-relaxed whitespace-pre-line"></div>
+
+          <h3 class="mt-8 text-lg font-extrabold text-slate-900">Prérequis</h3>
+          <ul id="req-list" class="mt-3 space-y-2 text-sm text-gray-700">
+            <li class="flex items-start gap-2"><i class="fas fa-check text-green-600 mt-1"></i> Aucune connaissance avancée requise.</li>
+            <li class="flex items-start gap-2"><i class="fas fa-check text-green-600 mt-1"></i> Un smartphone ou ordinateur connecté.</li>
+          </ul>
+
+          <h3 class="mt-8 text-lg font-extrabold text-slate-900">Pour qui ?</h3>
+          <ul id="who-list" class="mt-3 space-y-2 text-sm text-gray-700">
+            <li class="flex items-start gap-2"><i class="fas fa-bullseye text-blue-600 mt-1"></i> Particuliers voulant mieux gérer leur budget.</li>
+            <li class="flex items-start gap-2"><i class="fas fa-bullseye text-blue-600 mt-1"></i> Professionnels & entrepreneurs.</li>
+          </ul>
+        </div>
+
+        <!-- Content -->
+        <div id="tab-content" class="tab-panel hidden mt-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-extrabold text-slate-900">Contenu du cours</h2>
+              <p class="text-sm text-gray-500 mt-1">Sections, leçons, ressources et quiz (si disponibles).</p>
+            </div>
+            <button id="expandAll"
+                    class="px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">
+              Tout développer
+            </button>
+          </div>
+
+          <div id="content-skel" class="mt-5 space-y-3">
+            <div class="h-14 skeleton rounded-2xl"></div>
+            <div class="h-14 skeleton rounded-2xl"></div>
+            <div class="h-14 skeleton rounded-2xl"></div>
+          </div>
+
+          <div id="curriculum" class="hidden mt-5 space-y-3"></div>
+
+          <div class="mt-6 text-sm text-gray-500">
+            <i class="fas fa-circle-info mr-2"></i>
+            Si tu ajoutes plus tard sections/lessons côté API, cette zone se remplira automatiquement.
+          </div>
+        </div>
+
+        <!-- Instructor -->
+        <div id="tab-instructor" class="tab-panel hidden mt-6">
+          <h2 class="text-xl font-extrabold text-slate-900">Votre formateur</h2>
+
+          <div id="instr-skel" class="mt-5 flex gap-4 items-start">
+            <div class="w-16 h-16 rounded-full skeleton"></div>
+            <div class="flex-1 space-y-2">
+              <div class="h-5 skeleton rounded w-1/3"></div>
+              <div class="h-4 skeleton rounded w-1/2"></div>
+              <div class="h-4 skeleton rounded w-10/12"></div>
+            </div>
+          </div>
+
+          <div id="instr" class="hidden mt-5 flex gap-4 items-start">
+            <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+              <span id="instrInitials" class="text-blue-700 font-extrabold text-lg">F</span>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <h3 id="instrName" class="text-lg font-extrabold text-slate-900"></h3>
+                <span id="instrBadge" class="hidden px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">
+                  Vérifié
+                </span>
+              </div>
+              <p id="instrBio" class="text-gray-600 mt-1 text-sm">
+                Expert Best-Épargne • Pédagogie orientée résultats • Cas concrets
+              </p>
+
+              <div class="mt-4 grid sm:grid-cols-3 gap-3 text-sm">
+                <div class="rounded-2xl border border-gray-200 p-4">
+                  <div class="text-gray-500 text-xs">Note moyenne</div>
+                  <div class="text-lg font-extrabold mt-1"><i class="fas fa-star text-yellow-500 mr-1"></i><span id="instrRating">—</span></div>
+                </div>
+                <div class="rounded-2xl border border-gray-200 p-4">
+                  <div class="text-gray-500 text-xs">Apprenants</div>
+                  <div class="text-lg font-extrabold mt-1"><span id="instrStudents">—</span></div>
+                </div>
+                <div class="rounded-2xl border border-gray-200 p-4">
+                  <div class="text-gray-500 text-xs">Cours</div>
+                  <div class="text-lg font-extrabold mt-1"><span id="instrCourses">—</span></div>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <a href="/#cours" class="inline-flex items-center gap-2 text-blue-700 font-semibold hover:text-blue-800">
+                  Voir d'autres cours <i class="fas fa-arrow-right text-xs"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reviews -->
+        <div id="tab-reviews" class="tab-panel hidden mt-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-extrabold text-slate-900">Avis des apprenants</h2>
+              <p class="text-sm text-gray-500 mt-1">Les avis apparaîtront ici si tu exposes un endpoint reviews.</p>
+            </div>
+            <button class="px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">
+              Laisser un avis
+            </button>
+          </div>
+
+          <div class="mt-5 grid md:grid-cols-3 gap-4">
+            <div class="md:col-span-1 rounded-2xl border border-gray-200 p-4">
+              <div class="text-sm text-gray-500">Note globale</div>
+              <div class="mt-2 flex items-end gap-2">
+                <div id="reviewRatingBig" class="text-4xl font-extrabold text-slate-900">—</div>
+                <div class="text-sm text-gray-500 pb-1">/ 5</div>
+              </div>
+              <div class="mt-2 text-yellow-600">
+                <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i>
+              </div>
+              <div id="reviewCount" class="mt-2 text-sm text-gray-500">— avis</div>
+            </div>
+
+            <div class="md:col-span-2 rounded-2xl border border-gray-200 p-4">
+              <div class="text-sm font-semibold text-slate-900">Distribution</div>
+              <div class="mt-4 space-y-2">
+                <div class="flex items-center gap-3 text-sm">
+                  <div class="w-10 text-gray-600">5★</div>
+                  <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-yellow-500" style="width: 72%"></div></div>
+                  <div class="w-10 text-gray-500 text-right">72%</div>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                  <div class="w-10 text-gray-600">4★</div>
+                  <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-yellow-500" style="width: 18%"></div></div>
+                  <div class="w-10 text-gray-500 text-right">18%</div>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                  <div class="w-10 text-gray-600">3★</div>
+                  <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-yellow-500" style="width: 7%"></div></div>
+                  <div class="w-10 text-gray-500 text-right">7%</div>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                  <div class="w-10 text-gray-600">2★</div>
+                  <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-yellow-500" style="width: 2%"></div></div>
+                  <div class="w-10 text-gray-500 text-right">2%</div>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                  <div class="w-10 text-gray-600">1★</div>
+                  <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-yellow-500" style="width: 1%"></div></div>
+                  <div class="w-10 text-gray-500 text-right">1%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 space-y-4">
+            <div class="rounded-2xl border border-gray-200 p-4 bg-gray-50">
+              <div class="flex items-start justify-between">
+                <div class="font-semibold text-slate-900">Apprenant</div>
+                <div class="text-yellow-600 text-sm"><i class="fas fa-star"></i> 5.0</div>
+              </div>
+              <p class="text-sm text-gray-700 mt-2 line-clamp-3">
+                Très clair, pratique et immédiatement applicable. J’ai amélioré mon suivi d’épargne dès la première semaine.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Related courses -->
+      <div class="mt-8 bg-white border border-gray-200 rounded-2xl p-5 md:p-6">
+        <div class="flex items-center justify-between gap-4">
+          <h2 class="text-xl font-extrabold text-slate-900">Cours similaires</h2>
+          <a href="/#cours" class="text-blue-700 font-semibold hover:text-blue-800">Voir tout</a>
+        </div>
+
+        <!-- state -->
+        <div id="related-state" class="mt-5">
+          <div id="related-skel" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="rounded-2xl border border-gray-200 overflow-hidden">
+              <div class="aspect-[16/9] skeleton"></div>
+              <div class="p-4 space-y-2">
+                <div class="h-4 skeleton rounded w-10/12"></div>
+                <div class="h-3 skeleton rounded w-7/12"></div>
+                <div class="h-9 skeleton rounded-xl w-full mt-2"></div>
+              </div>
+            </div>
+            <div class="rounded-2xl border border-gray-200 overflow-hidden hidden sm:block">
+              <div class="aspect-[16/9] skeleton"></div>
+              <div class="p-4 space-y-2">
+                <div class="h-4 skeleton rounded w-10/12"></div>
+                <div class="h-3 skeleton rounded w-7/12"></div>
+                <div class="h-9 skeleton rounded-xl w-full mt-2"></div>
+              </div>
+            </div>
+            <div class="rounded-2xl border border-gray-200 overflow-hidden hidden lg:block">
+              <div class="aspect-[16/9] skeleton"></div>
+              <div class="p-4 space-y-2">
+                <div class="h-4 skeleton rounded w-10/12"></div>
+                <div class="h-3 skeleton rounded w-7/12"></div>
+                <div class="h-9 skeleton rounded-xl w-full mt-2"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="related-empty" class="hidden rounded-2xl border border-gray-200 p-4 bg-gray-50 text-gray-700">
+            Aucun cours similaire trouvé pour le moment.
+          </div>
+
+          <div id="related-error" class="hidden rounded-2xl border border-red-200 p-4 bg-red-50 text-red-700">
+            Impossible de charger les cours similaires.
+          </div>
+        </div>
+
+        <!-- results -->
+        <div id="related-grid" class="hidden mt-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+    </section>
+
+    <!-- Right column: sticky card (desktop Udemy-like) -->
+    <aside class="lg:col-span-4 hidden lg:block -mt-28">
+      <div id="desk-card-skel" class="bg-white border border-gray-200 rounded-2xl overflow-hidden sticky top-24 sticky-card">
+        <div class="aspect-[16/9] skeleton"></div>
+        <div class="p-5 space-y-3">
+          <div class="h-12 skeleton rounded-xl"></div>
+          <div class="h-12 skeleton rounded-xl"></div>
+          <div class="h-5 skeleton rounded w-1/2"></div>
+          <div class="h-5 skeleton rounded w-7/12"></div>
+        </div>
+      </div>
+
+      <div id="desk-card" class="hidden bg-white border border-gray-200 rounded-2xl overflow-hidden sticky top-24 sticky-card fade-up">
+        <div class="relative">
+          <div class="aspect-[16/9] bg-gray-100" id="deskMedia"></div>
+          <button id="deskPlayBtn"
+                  class="hidden absolute inset-0 m-auto w-14 h-14 rounded-full bg-white/95 text-slate-900 shadow flex items-center justify-center hover:scale-[1.03] transition">
+            <i class="fas fa-play text-lg"></i>
+          </button>
+        </div>
+
+        <div class="p-5">
+          <div class="flex items-end justify-between gap-4">
+            <div>
+              <div class="text-sm text-gray-500">Prix</div>
+              <div id="deskPrice" class="text-3xl font-extrabold"></div>
+              <div id="deskPriceHint" class="text-xs text-gray-500 mt-1"></div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-gray-500">Accès</div>
+              <div id="deskAccess" class="text-sm font-semibold text-slate-900">—</div>
+            </div>
+          </div>
+
+          <a id="deskCta" href="#"
+             class="mt-4 block text-center px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold hover:shadow-lg transition">
+            S'inscrire
+          </a>
+
+          <button id="deskWishlist"
+                  class="mt-3 w-full px-5 py-3 rounded-xl border border-gray-200 font-semibold text-gray-700 hover:bg-gray-50 transition">
+            <i class="far fa-heart mr-2"></i>Ajouter à la liste
+          </button>
+
+          <div class="mt-5 border-t pt-4 space-y-2 text-sm text-gray-700">
+            <div class="flex items-center gap-2"><i class="fas fa-infinity text-gray-500"></i> Accès illimité</div>
+            <div class="flex items-center gap-2"><i class="fas fa-certificate text-gray-500"></i> Certificat de fin</div>
+            <div class="flex items-center gap-2"><i class="fas fa-mobile-screen text-gray-500"></i> Sur mobile & ordinateur</div>
+            <div class="flex items-center gap-2"><i class="fas fa-file-arrow-down text-gray-500"></i> Ressources téléchargeables</div>
+          </div>
+
+          <div class="mt-4 text-xs text-gray-500">
+            <i class="fas fa-shield-halved mr-2"></i>Paiement sécurisé • Accès immédiat
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<!-- simple modal video preview -->
+<div id="videoModal" class="hidden fixed inset-0 z-[80]">
+  <div class="absolute inset-0 bg-black/60"></div>
+  <div class="relative max-w-4xl mx-auto px-4 py-10">
+    <div class="bg-white rounded-2xl overflow-hidden shadow-2xl">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <div class="font-semibold text-slate-900">Prévisualisation</div>
+        <button id="closeVideo" class="w-10 h-10 rounded-xl hover:bg-gray-100 transition">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+      <div class="bg-black">
+        <iframe id="videoFrame" class="w-full aspect-video" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- data -->
+<script>
+  // IMPORTANT: si ta vue CourseDetailPageView passe "course_id" dans le context, c'est bon.
+  const courseId = {{ course_id|default:0 }};
+  const IS_AUTH = {{ user.is_authenticated|yesno:"true,false" }};
+
+  // ✅ Base path detail landinghome (pour corriger les liens slug /courses/<slug>/)
+  const LANDING_DETAIL_BASE = "/landinghome/courses/";
+</script>
+
+<script>
+  // ---------- helpers ----------
+  function money(amount, currency) {
+    const n = Number(amount || 0);
+    const cur = currency || "XOF";
+    if (cur === "XOF") return n.toLocaleString("fr-FR") + " FCFA";
+    return n.toLocaleString("fr-FR") + " " + cur;
+  }
+
+  function safeText(s) {
+    return String(s ?? "");
+  }
+
+  function isoToFR(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("fr-FR", { year:"numeric", month:"long", day:"2-digit" });
+  }
+
+  // ✅ FIX: ton détail landing est /landinghome/courses/<id>/
+  function getIdFromPath(){
+    // supporte: /landinghome/courses/602/ et fallback /courses/602/
+    let m = window.location.pathname.match(/\/landinghome\/courses\/(\d+)\//);
+    if (m) return Number(m[1]);
+    m = window.location.pathname.match(/\/courses\/(\d+)\//);
+    return m ? Number(m[1]) : null;
+  }
+
+  function setHTML(el, html){ if(el) el.innerHTML = html; }
+  function setText(el, txt){ if(el) el.textContent = txt; }
+
+  function badge(label, cls){
+    return `<span class="px-3 py-1 rounded-full text-[11px] font-semibold ${cls}">${label}</span>`;
+  }
+
+  function firstInitials(name){
+    name = (name||"").trim();
+    if(!name) return "F";
+    const parts = name.split(/\s+/).filter(Boolean);
+    if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  function embedMedia(targetEl, thumbnailUrl, fallbackGradientClass, iconClass){
+    if(!targetEl) return;
+    const thumb = thumbnailUrl ? `
+      <img src="${thumbnailUrl}" alt="" class="w-full h-full object-cover" loading="lazy"
+           onerror="this.onerror=null; this.style.display='none';">
+    ` : "";
+
+    const fallback = `
+      <div class="absolute inset-0 flex items-center justify-center">
+        <i class="${iconClass || 'fas fa-graduation-cap'} text-white text-5xl"></i>
+      </div>
+    `;
+
+    targetEl.className = "relative aspect-[16/9] overflow-hidden " + (thumbnailUrl ? "bg-gray-100" : ("bg-gradient-to-r " + (fallbackGradientClass || "from-blue-600 to-blue-500")));
+    targetEl.innerHTML = `
+      ${thumb}
+      ${thumbnailUrl ? "" : fallback}
+      <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent"></div>
+    `;
+
+    if(thumbnailUrl){
+      setTimeout(() => {
+        const img = targetEl.querySelector("img");
+        if(img && img.style.display === "none"){
+          targetEl.className = "relative aspect-[16/9] overflow-hidden bg-gradient-to-r " + (fallbackGradientClass || "from-blue-600 to-blue-500");
+          targetEl.innerHTML = `
+            ${fallback}
+            <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent"></div>
+          `;
+        }
+      }, 250);
+    }
+  }
+
+  function setCta(ctaEl, label, url){
+    if(!ctaEl) return;
+    ctaEl.textContent = label;
+    ctaEl.href = url || "#";
+  }
+
+  // ---------- tabs ----------
+  function setupTabs(){
+    const btns = document.querySelectorAll(".tab-btn");
+    const panels = {
+      overview: document.getElementById("tab-overview"),
+      content: document.getElementById("tab-content"),
+      instructor: document.getElementById("tab-instructor"),
+      reviews: document.getElementById("tab-reviews")
+    };
+
+    btns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tab = btn.getAttribute("data-tab");
+        btns.forEach(b => {
+          const isActive = b === btn;
+          b.classList.toggle("bg-slate-900", isActive);
+          b.classList.toggle("text-white", isActive);
+          b.classList.toggle("border", !isActive);
+          b.classList.toggle("border-gray-200", !isActive);
+          b.classList.toggle("text-gray-700", !isActive);
+          b.classList.toggle("hover:bg-gray-50", !isActive);
+        });
+        Object.keys(panels).forEach(k => panels[k]?.classList.toggle("hidden", k !== tab));
+      });
+    });
+  }
+
+  // ---------- video modal ----------
+  function openVideo(url){
+    const modal = document.getElementById("videoModal");
+    const frame = document.getElementById("videoFrame");
+    if(!modal || !frame) return;
+    frame.src = url;
+    modal.classList.remove("hidden");
+  }
+  function closeVideo(){
+    const modal = document.getElementById("videoModal");
+    const frame = document.getElementById("videoFrame");
+    if(!modal || !frame) return;
+    frame.src = "";
+    modal.classList.add("hidden");
+  }
+  document.getElementById("closeVideo")?.addEventListener("click", closeVideo);
+  document.getElementById("videoModal")?.addEventListener("click", (e) => {
+    if(e.target?.id === "videoModal") closeVideo();
+  });
+
+  // ---------- curriculum fallback ----------
+  function buildCurriculumFromText(description){
+    const txt = (description || "").trim();
+    if(!txt) return [];
+
+    const lines = txt.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    const bullets = [];
+    lines.forEach(l => {
+      const parts = l.split(/•|·|-\s+/).map(x => x.trim()).filter(Boolean);
+      parts.forEach(p => {
+        if(p.length >= 8 && p.length <= 120) bullets.push(p);
+      });
+    });
+
+    const items = bullets.length ? bullets.slice(0, 12) : [txt.slice(0, 140) + (txt.length>140 ? "…" : "")];
+    const chunks = [];
+    const perSection = 4;
+    for(let i=0;i<items.length;i+=perSection){
+      chunks.push(items.slice(i, i+perSection));
+    }
+
+    return chunks.map((lessons, idx) => ({
+      title: `Section ${idx+1}`,
+      lessons: lessons.map((t) => ({ title: t, type: "Leçon", duration: "—" }))
+    }));
+  }
+
+  function renderCurriculum(sections){
+    const wrap = document.getElementById("curriculum");
+    const skel = document.getElementById("content-skel");
+    if(!wrap || !skel) return;
+
+    skel.classList.add("hidden");
+    wrap.classList.remove("hidden");
+
+    if(!sections?.length){
+      wrap.innerHTML = `
+        <div class="rounded-2xl border border-gray-200 p-4 bg-gray-50 text-gray-700">
+          Aucun contenu détaillé n’est encore publié pour ce cours.
+        </div>
+      `;
+      return;
+    }
+
+    wrap.innerHTML = sections.map((sec, i) => {
+      const lessonHtml = (sec.lessons||[]).map(ls => `
+        <div class="flex items-start justify-between gap-4 py-2">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-slate-900 truncate">
+              <i class="far fa-circle-play text-gray-400 mr-2"></i>${safeText(ls.title)}
+            </div>
+            <div class="text-xs text-gray-500 mt-0.5">${safeText(ls.type || "Leçon")}</div>
+          </div>
+          <div class="text-xs text-gray-500 shrink-0">${safeText(ls.duration || "—")}</div>
+        </div>
+      `).join("");
+
+      return `
+        <details class="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+          <summary class="cursor-pointer select-none px-4 py-4 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="font-extrabold text-slate-900">${safeText(sec.title || ("Section " + (i+1)))}</div>
+              <div class="text-xs text-gray-500 mt-1">${(sec.lessons?.length || 0)} leçons</div>
+            </div>
+            <i class="fas fa-chevron-down text-gray-400"></i>
+          </summary>
+          <div class="px-4 pb-4 border-t">
+            ${lessonHtml}
+          </div>
+        </details>
+      `;
+    }).join("");
+  }
+
+  // ---------- learn list fallback ----------
+  function buildLearnList(course){
+    const outcomes = course.learning_outcomes || course.outcomes || null;
+    if(Array.isArray(outcomes) && outcomes.length){
+      return outcomes.slice(0, 8);
+    }
+    const lvl = (course.level || "").toLowerCase();
+    const isAdv = lvl === "advanced";
+    const isInter = lvl === "intermediate";
+    const base = [
+      "Construire un budget simple et efficace",
+      "Mettre en place une stratégie d’épargne durable",
+      "Comprendre les erreurs financières courantes",
+      "Suivre vos dépenses et optimiser vos objectifs"
+    ];
+    const plus = isAdv ? [
+      "Structurer un plan d’investissement et gérer le risque",
+      "Analyser vos performances et ajuster votre stratégie",
+      "Mettre en place des indicateurs (KPI) personnels"
+    ] : isInter ? [
+      "Automatiser votre épargne et planifier vos échéances",
+      "Évaluer des opportunités et prioriser vos choix",
+      "Améliorer votre discipline financière"
+    ] : [
+      "Créer des habitudes d’épargne dès la première semaine",
+      "Éviter les pièges et gagner en confiance",
+      "Appliquer des méthodes simples au quotidien"
+    ];
+    return [...base, ...plus].slice(0, 8);
+  }
+
+  // ============== RELATED COURSES (FIXED) ==============
+  function getExploreEndpoint() {
+    // explore API
+    if (window.BE?.exploreUrl) return window.BE.exploreUrl;
+    return "/landinghome/public/courses/"; // ✅ ton endpoint explore
+  }
+
+  function normalizeExploreResponse(data){
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.results)) return data.results;
+    if (data && Array.isArray(data.courses)) return data.courses;
+    return [];
+  }
+
+  // ✅ FIX CENTRAL: forcer le lien vers /landinghome/courses/<id>/
+  function normalizeDetailUrl(course){
+    const u = (course?.detail_url || course?.preview_url || "").trim();
+
+    // si l'API renvoie déjà le bon path
+    if (u.startsWith(LANDING_DETAIL_BASE)) return u;
+
+    // si l'API renvoie un slug du type /courses/<slug>/ => on ignore et on reconstruit
+    if (course?.id) return `${LANDING_DETAIL_BASE}${course.id}/`;
+
+    // fallback
+    return u || "#";
+  }
+
+  function renderMiniCourseCard(course) {
+    const title = course.title || "Cours";
+    const subtitle = course.subtitle || "";
+    const instructor = course.instructor_name || course.instructor?.full_name || "Formateur";
+    const rating = (typeof course.rating === "number") ? course.rating.toFixed(1) : (course.rating ?? "—");
+
+    const isFree = (course.pricing_type === "FREE") || Number(course.price) === 0;
+    const priceTxt = isFree ? "Gratuit" : money(course.price, course.currency);
+
+    // ✅ URL corrigée
+    const detailUrl = normalizeDetailUrl(course);
+
+    const thumb = course.thumbnail_url;
+
+    const cover = thumb
+      ? `<img src="${thumb}" class="w-full h-full object-cover" loading="lazy"
+              onerror="this.onerror=null; this.style.display='none'; this.parentElement.className='aspect-[16/9] bg-gradient-to-r from-blue-600 to-blue-500 flex items-center justify-center'; this.parentElement.innerHTML='<i class=&quot;fas fa-graduation-cap text-white text-4xl&quot;></i>';">`
+      : `<div class="w-full h-full flex items-center justify-center">
+          <i class="fas fa-graduation-cap text-white text-4xl"></i>
+        </div>`;
+
+    const coverWrapClass = thumb
+      ? "aspect-[16/9] bg-gray-100 overflow-hidden"
+      : "aspect-[16/9] bg-gradient-to-r from-blue-600 to-blue-500 overflow-hidden";
+
+    return `
+      <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden hover:shadow-lg transition">
+        <a href="${detailUrl}" class="block ${coverWrapClass}">${cover}</a>
+        <div class="p-4">
+          <a href="${detailUrl}" class="block">
+            <div class="font-extrabold text-slate-900 text-[14px] leading-snug line-clamp-2">${safeText(title)}</div>
+            ${subtitle ? `<div class="text-[12px] text-gray-600 mt-1 line-clamp-2">${safeText(subtitle)}</div>` : ""}
+          </a>
+
+          <div class="mt-3 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-[12px] text-gray-500 truncate">${safeText(instructor)}</div>
+              <div class="text-[12px] text-yellow-600 font-extrabold mt-1 flex items-center gap-1">
+                <i class="fas fa-star"></i> <span>${safeText(rating)}</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-[13px] font-extrabold ${isFree ? "text-green-700" : "text-slate-900"}">
+                ${safeText(priceTxt)}
+              </div>
+            </div>
+          </div>
+
+          <a href="${detailUrl}"
+             class="mt-3 block text-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold hover:shadow transition">
+            Voir
+          </a>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadRelatedCourses(currentCourse) {
+    const grid  = document.getElementById("related-grid");
+    const skel  = document.getElementById("related-skel");
+    const empty = document.getElementById("related-empty");
+    const error = document.getElementById("related-error");
+
+    if (!grid || !skel || !empty || !error) return;
+
+    skel.classList.remove("hidden");
+    grid.classList.add("hidden");
+    empty.classList.add("hidden");
+    error.classList.add("hidden");
+
+    try {
+      const endpoint = getExploreEndpoint();
+
+      const params = new URLSearchParams();
+      params.set("limit", "12");
+      params.set("offset", "0");
+
+      // Explore: q / type / pricing
+      if (currentCourse.category_name) {
+        params.set("q", currentCourse.category_name);
+      } else if (currentCourse.course_type) {
+        params.set("type", currentCourse.course_type);
+      }
+
+      const url = `${endpoint}?${params.toString()}`;
+      const res = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error(`Explore HTTP ${res.status}`);
+
+      const data = await res.json();
+      const items = normalizeExploreResponse(data);
+
+      const results = items
+        .filter(x => x && Number(x.id) !== Number(currentCourse.id))
+        .slice(0, 6);
+
+      skel.classList.add("hidden");
+
+      if (!results.length) {
+        empty.classList.remove("hidden");
+        return;
+      }
+
+      grid.innerHTML = results.map(renderMiniCourseCard).join("");
+      grid.classList.remove("hidden");
+
+    } catch (e) {
+      console.error("related courses error:", e);
+      skel.classList.add("hidden");
+      error.classList.remove("hidden");
+      error.innerHTML = `
+        <div class="font-semibold">Impossible de charger les cours similaires.</div>
+        <div class="text-sm mt-1 opacity-90">Détail : ${safeText(e.message || e)}</div>
+      `;
+    }
+  }
+
+  // ---------- main loader ----------
+  async function loadCourse(){
+    const id = courseId || getIdFromPath();
+    if(!id) return;
+
+    const url = IS_AUTH ? `/api/learner/courses/${id}/` : `/api/public/courses/${id}/`;
+
+    try{
+      const res = await fetch(url, {headers:{Accept:"application/json"}});
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      const c = await res.json();
+
+      // ✅ charge les related après avoir reçu le cours courant
+      loadRelatedCourses(c);
+
+      document.title = `Best-Épargne • ${c.title || "Cours"}`;
+      setText(document.getElementById("crumb-title"), c.title || "Détails");
+      setText(document.getElementById("title"), c.title || "Cours");
+      setText(document.getElementById("subtitle"), c.subtitle || "");
+
+      const ratingVal = (typeof c.rating === "number") ? c.rating : (typeof c.rating_avg === "number" ? c.rating_avg : null);
+      setText(document.getElementById("rating"), ratingVal != null ? ratingVal.toFixed(1) : "—");
+      const rc = Number(c.rating_count || 0);
+      setText(document.getElementById("ratingCount"), rc ? `(${rc.toLocaleString("fr-FR")} avis)` : "");
+      setText(document.getElementById("enrolledCount"), Number(c.enrolled_count || 0).toLocaleString("fr-FR"));
+      setText(document.getElementById("duration"), c.duration || "—");
+      setText(document.getElementById("levelLabel"), c.level_label || c.level || "Niveau");
+
+      setText(document.getElementById("instructorName"), c.instructor_name || c.instructor?.full_name || "Formateur");
+      // tu affichais published_at comme "mise à jour" -> ok
+      setText(document.getElementById("publishedAt"), c.published_at ? `Dernière mise à jour : ${isoToFR(c.published_at)}` : "—");
+      setText(document.getElementById("categoryName"), c.category_name || "—");
+
+      const badges = [];
+      if(c.course_type_label || c.course_type) badges.push(badge(safeText(c.course_type_label || c.course_type), "bg-white/10 text-white"));
+      if(c.pricing_type_label || c.pricing_type) badges.push(badge(safeText(c.pricing_type_label || c.pricing_type), "bg-white/10 text-white"));
+      if(c.company_only) badges.push(badge("Entreprise", "bg-purple-500/20 text-purple-100"));
+      if(c.is_popular) badges.push(badge("Populaire", "bg-yellow-500 text-white"));
+      setHTML(document.getElementById("heroBadges"), badges.join(""));
+
+      setText(document.getElementById("desc"), c.description || "");
+      setText(document.getElementById("desc-full"), c.description || "");
+
+      const learn = buildLearnList(c);
+      const learnList = document.getElementById("learn-list");
+      if(learnList){
+        learnList.innerHTML = learn.map(x => `
+          <li class="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-xl p-3">
+            <i class="fas fa-check text-green-600 mt-0.5"></i>
+            <span>${safeText(x)}</span>
+          </li>
+        `).join("");
+      }
+      document.getElementById("learn-skel")?.classList.add("hidden");
+      document.getElementById("learn-list")?.classList.remove("hidden");
+
+      document.getElementById("desc-skel")?.classList.add("hidden");
+      document.getElementById("desc-wrap")?.classList.remove("hidden");
+
+      const instrName = c.instructor_name || c.instructor?.full_name || "Formateur";
+      setText(document.getElementById("instrName"), instrName);
+      setText(document.getElementById("instrInitials"), c.instructor_initials || firstInitials(instrName));
+      setText(document.getElementById("instrRating"), ratingVal != null ? ratingVal.toFixed(1) : "—");
+      setText(document.getElementById("instrStudents"), Number(c.enrolled_count || 0).toLocaleString("fr-FR"));
+      setText(document.getElementById("instrCourses"), c.instructor_courses_count != null ? String(c.instructor_courses_count) : "—");
+      document.getElementById("instr-skel")?.classList.add("hidden");
+      document.getElementById("instr")?.classList.remove("hidden");
+
+      setText(document.getElementById("reviewRatingBig"), ratingVal != null ? ratingVal.toFixed(1) : "—");
+      setText(document.getElementById("reviewCount"), rc ? `${rc.toLocaleString("fr-FR")} avis` : "— avis");
+
+      const gradient = c.color_gradient || "from-blue-600 to-blue-500";
+      const icon = c.icon || "fas fa-graduation-cap";
+      embedMedia(document.getElementById("deskMedia"), c.thumbnail_url, gradient, icon);
+      embedMedia(document.getElementById("mobileMedia"), c.thumbnail_url, gradient, icon);
+
+      const previewVideoUrl = c.preview_video_url || "";
+      const canVideo = !!previewVideoUrl;
+      const deskPlay = document.getElementById("deskPlayBtn");
+      const mobPlay = document.getElementById("mobilePlayBtn");
+      if(canVideo){
+        deskPlay?.classList.remove("hidden");
+        mobPlay?.classList.remove("hidden");
+        deskPlay?.addEventListener("click", () => openVideo(previewVideoUrl));
+        mobPlay?.addEventListener("click", () => openVideo(previewVideoUrl));
+      }
+
+      const isFree = (c.pricing_type === "FREE") || Number(c.price) === 0;
+      const priceText = isFree ? "Gratuit" : money(c.price, c.currency);
+      const period = c.price_period ? ` / ${c.price_period}` : "";
+      setText(document.getElementById("deskPrice"), priceText);
+      setText(document.getElementById("mobilePrice"), priceText);
+      setText(document.getElementById("deskPriceHint"), isFree ? "Accès immédiat" : ("Paiement unique" + period));
+      setText(document.getElementById("mobilePriceHint"), isFree ? "Accès immédiat" : ("Paiement unique" + period));
+
+      setText(document.getElementById("deskAccess"), c.is_enrolled ? "Déjà inscrit" : (isFree ? "Gratuit" : "Immédiat"));
+      setText(document.getElementById("mobileAccess"), c.is_enrolled ? "Déjà inscrit" : (isFree ? "Gratuit" : "Immédiat"));
+
+      // ✅ FIX: on force le detail landinghome par défaut
+      const defaultDetail = `${LANDING_DETAIL_BASE}${id}/`;
+      const detailUrl = (c.detail_url && c.detail_url.trim()) ? c.detail_url : defaultDetail;
+      const enrollUrl = c.enroll_url || detailUrl;
+      const continueUrl = c.continue_url || detailUrl;
+      const previewUrl = c.preview_url || detailUrl;
+
+      let label = "Voir le cours";
+      let href = previewUrl;
+
+      if(c.is_enrolled && continueUrl){
+        label = "Continuer";
+        href = continueUrl;
+      } else if (IS_AUTH && enrollUrl){
+        label = "S'inscrire";
+        href = enrollUrl;
+      } else {
+        label = "Voir le cours";
+        href = previewUrl;
+      }
+
+      setCta(document.getElementById("deskCta"), label, href);
+      setCta(document.getElementById("mobileCta"), label, href);
+
+      const sections = c.sections || c.curriculum || null;
+      const curriculum = Array.isArray(sections) && sections.length ? sections : buildCurriculumFromText(c.description);
+      renderCurriculum(curriculum);
+
+      document.getElementById("hero-skel")?.classList.add("hidden");
+      document.getElementById("hero")?.classList.remove("hidden");
+
+      document.getElementById("desk-card-skel")?.classList.add("hidden");
+      document.getElementById("desk-card")?.classList.remove("hidden");
+
+      document.getElementById("mobile-card-skel")?.classList.add("hidden");
+      document.getElementById("mobile-card")?.classList.remove("hidden");
+
+      const moreBtn = document.getElementById("descMoreBtn");
+      const descWrap = document.getElementById("desc-wrap");
+      const full = document.getElementById("desc-full");
+      if(moreBtn && descWrap && full){
+        let expanded = false;
+        if((c.description || "").length < 260){
+          moreBtn.classList.add("hidden");
+        } else {
+          descWrap.style.maxHeight = "240px";
+          descWrap.style.overflow = "hidden";
+          moreBtn.addEventListener("click", () => {
+            expanded = !expanded;
+            if(expanded){
+              descWrap.classList.add("hidden");
+              full.classList.remove("hidden");
+              moreBtn.innerHTML = `Afficher moins <i class="fas fa-chevron-up ml-1 text-xs"></i>`;
+              full.insertAdjacentElement("beforebegin", moreBtn);
+            } else {
+              full.classList.add("hidden");
+              descWrap.classList.remove("hidden");
+              moreBtn.innerHTML = `Afficher plus <i class="fas fa-chevron-down ml-1 text-xs"></i>`;
+              descWrap.appendChild(moreBtn);
+            }
+          });
+        }
+      }
+
+      function wish(btn){
+        if(!btn) return;
+        btn.addEventListener("click", () => {
+          const liked = btn.getAttribute("data-liked") === "1";
+          btn.setAttribute("data-liked", liked ? "0" : "1");
+          btn.innerHTML = liked
+            ? `<i class="far fa-heart mr-2"></i>Ajouter à la liste`
+            : `<i class="fas fa-heart mr-2 text-rose-600"></i>Ajouté`;
+        });
+      }
+      wish(document.getElementById("deskWishlist"));
+      wish(document.getElementById("mobileWishlist"));
+
+    }catch(e){
+      console.error(e);
+      const heroSkel = document.getElementById("hero-skel");
+      if(heroSkel){
+        heroSkel.innerHTML = `
+          <div class="bg-white/10 border border-white/10 rounded-2xl p-5 text-slate-200">
+            <div class="font-extrabold text-white text-lg">Impossible de charger ce cours</div>
+            <div class="mt-2 text-sm text-slate-300">Veuillez réessayer plus tard.</div>
+            <div class="mt-2 text-xs text-slate-300 opacity-90">Détail : ${safeText(e.message || e)}</div>
+            <a href="/#cours" class="inline-flex mt-4 items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-900 font-semibold">
+              Retour au catalogue <i class="fas fa-arrow-right text-xs"></i>
+            </a>
+          </div>
+        `;
+      }
+    }
+  }
+
+  // init
+  document.addEventListener("DOMContentLoaded", () => {
+    setupTabs();
+    loadCourse();
+
+    document.getElementById("expandAll")?.addEventListener("click", () => {
+      document.querySelectorAll("#curriculum details").forEach(d => d.open = true);
+    });
+  });
+</script>
+
+</body>
+</html>

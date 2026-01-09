@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction, IntegrityError
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
@@ -1149,11 +1150,68 @@ def _safe_get(obj, attr, default=""):
         return default
 
 
+# def _course_to_dict(course, request=None, is_enrolled=False, enrolled_at=None):
+#     """
+#     Normalise la réponse: n'explose pas si certains champs n'existent pas encore.
+#     """
+#     # thumbnail_url: si tu as ImageField "thumbnail" et MEDIA_URL servi
+#     thumb_url = ""
+#     try:
+#         if getattr(course, "thumbnail", None):
+#             thumb_url = course.thumbnail.url
+#     except Exception:
+#         thumb_url = ""
+#
+#     price = _safe_get(course, "price", 0) or 0
+#     currency = _safe_get(course, "currency", "XOF") or "XOF"
+#
+#     return {
+#         "id": course.id,
+#         "title": _safe_get(course, "title", ""),
+#         "subtitle": _safe_get(course, "subtitle", ""),
+#         "description": _safe_get(course, "description", ""),
+#         "course_type": _safe_get(course, "course_type", None),
+#         "pricing_type": _safe_get(course, "pricing_type", "PAID"),
+#         "price": price,
+#         "currency": currency,
+#         "status": _safe_get(course, "status", None),
+#         "thumbnail_url": thumb_url,
+#         "preview_video_url": _safe_get(course, "preview_video_url", ""),
+#         "instructor": {
+#             "id": getattr(getattr(course, "instructor", None), "id", None),
+#             "full_name": _safe_get(getattr(course, "instructor", None), "full_name", "") or _safe_get(
+#                 getattr(course, "instructor", None), "email", ""),
+#         },
+#         # métriques optionnelles si existantes
+#         "rating_avg": _safe_get(course, "rating_avg", None),
+#         "rating_count": _safe_get(course, "rating_count", None),
+#         "enrolled_count": _safe_get(course, "enrolled_count", None),
+#
+#         # learner
+#         "is_enrolled": bool(is_enrolled),
+#         "enrolled_at": enrolled_at,
+#     }
+def _initials(name: str) -> str:
+    name = (name or "").strip()
+    if not name:
+        return "F"
+    parts = [p for p in name.split() if p]
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return (parts[0][0] + parts[1][0]).upper()
+
+def _iso(dt):
+    if not dt:
+        return None
+    try:
+        return dt.isoformat()
+    except Exception:
+        return None
 def _course_to_dict(course, request=None, is_enrolled=False, enrolled_at=None):
     """
-    Normalise la réponse: n'explose pas si certains champs n'existent pas encore.
+    Normalise la réponse: compatible avec le front (cards + detail page).
     """
-    # thumbnail_url: si tu as ImageField "thumbnail" et MEDIA_URL servi
+    # thumbnail_url
     thumb_url = ""
     try:
         if getattr(course, "thumbnail", None):
@@ -1164,33 +1222,118 @@ def _course_to_dict(course, request=None, is_enrolled=False, enrolled_at=None):
     price = _safe_get(course, "price", 0) or 0
     currency = _safe_get(course, "currency", "XOF") or "XOF"
 
+    # instructor
+    instr = getattr(course, "instructor", None)
+    instructor_name = (
+        _safe_get(instr, "full_name", "") or
+        f"{getattr(instr, 'first_name', '')} {getattr(instr, 'last_name', '')}".strip() or
+        _safe_get(instr, "email", "") or
+        "Formateur"
+    )
+    instructor_initials = _initials(instructor_name)
+
+    # URLs (✅ clé pour activer la vue détails)
+    detail_url = ""
+    try:
+        detail_url = reverse("course_detail", args=[course.id])  # page HTML /courses/<id>/
+    except Exception:
+        detail_url = f"/courses/{course.id}/"
+
+    # preview = même chose par défaut
+    preview_url = detail_url
+
+    # enroll/continue (optionnel, si tu as des routes dédiées)
+    enroll_url = detail_url
+    continue_url = detail_url
+    try:
+        enroll_url = reverse("course_enroll", args=[course.id])
+    except Exception:
+        pass
+    try:
+        continue_url = reverse("course_learn", args=[course.id])
+    except Exception:
+        pass
+
+    # dates
+    published_at = _safe_get(course, "published_at", None) or _safe_get(course, "created_at", None)
+    updated_at = _safe_get(course, "updated_at", None)
+
+    # labels (si tu as des get_FOO_display() / properties)
+    course_type_label = ""
+    try:
+        course_type_label = course.get_course_type_display()
+    except Exception:
+        course_type_label = str(_safe_get(course, "course_type", "") or "")
+
+    pricing_type_label = ""
+    try:
+        pricing_type_label = course.get_pricing_type_display()
+    except Exception:
+        pricing_type_label = str(_safe_get(course, "pricing_type", "") or "")
+
+    level = _safe_get(course, "level", "") or ""
+    level_label = ""
+    try:
+        level_label = course.get_level_display()
+    except Exception:
+        level_label = level
+
+    # category
+    category = getattr(course, "category", None)
+    category_name = _safe_get(category, "name", "") if category else ""
+
+    # rating compat: ton front lit course.rating (pas rating_avg)
+    rating_avg = _safe_get(course, "rating_avg", None)
+    rating = rating_avg if rating_avg is not None else _safe_get(course, "rating", None)
+
     return {
         "id": course.id,
         "title": _safe_get(course, "title", ""),
         "subtitle": _safe_get(course, "subtitle", ""),
         "description": _safe_get(course, "description", ""),
         "course_type": _safe_get(course, "course_type", None),
+        "course_type_label": course_type_label,
         "pricing_type": _safe_get(course, "pricing_type", "PAID"),
+        "pricing_type_label": pricing_type_label,
         "price": price,
         "currency": currency,
         "status": _safe_get(course, "status", None),
         "thumbnail_url": thumb_url,
         "preview_video_url": _safe_get(course, "preview_video_url", ""),
+
+        # ✅ pour tes cartes Udemy-like
+        "detail_url": detail_url,
+        "preview_url": preview_url,
+        "enroll_url": enroll_url,
+        "continue_url": continue_url if is_enrolled else None,
+
+        # dates (le front utilise published_at)
+        "published_at": _iso(published_at),
+        "updated_at": _iso(updated_at),
+        "price_period": _safe_get(course, "price_period", "cours"),
+
+        # category (ton front lit category_name)
+        "category_name": category_name,
+
+        # instructor (ton front lit instructor_name / initials)
         "instructor": {
-            "id": getattr(getattr(course, "instructor", None), "id", None),
-            "full_name": _safe_get(getattr(course, "instructor", None), "full_name", "") or _safe_get(
-                getattr(course, "instructor", None), "email", ""),
+            "id": getattr(instr, "id", None),
+            "full_name": instructor_name,
         },
-        # métriques optionnelles si existantes
-        "rating_avg": _safe_get(course, "rating_avg", None),
+        "instructor_name": instructor_name,
+        "instructor_initials": instructor_initials,
+
+        # rating compat (ton front lit rating)
+        "rating_avg": rating_avg,
         "rating_count": _safe_get(course, "rating_count", None),
-        "enrolled_count": _safe_get(course, "enrolled_count", None),
+        "rating": rating,
+
+        "enrolled_count": _safe_get(course, "enrolled_count", 0) or 0,
 
         # learner
         "is_enrolled": bool(is_enrolled),
-        "enrolled_at": enrolled_at,
+        "enrolled_at": _iso(enrolled_at),
     }
-
 
 class LearnerExploreCoursesView(APIView):
     """

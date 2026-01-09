@@ -173,6 +173,66 @@ class PublicExploreCoursesView(APIView):
             "courses": serializer.data,  # compat front actuel
         })
 
+class CourseDetailPageView(TemplateView):
+    template_name = "home/course_detail.html"
+
+class PublicCourseDetailView(APIView):
+    """
+    GET /api/public/courses/<course_id>/
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, course_id: int):
+        course = (
+            Course.objects
+            .select_related("instructor", "category")
+            .filter(id=course_id)
+            .first()
+        )
+        if not course:
+            return Response({"detail": "Cours introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        if course.status != Course.Status.PUBLISHED:
+            return Response({"detail": "Cours non disponible."}, status=status.HTTP_403_FORBIDDEN)
+
+        # ✅ pas d'enrollment pour public
+        return Response(
+            _course_to_dict(course, request=request, is_enrolled=False, enrolled_at=None),
+            status=status.HTTP_200_OK
+        )
+
+class PublicCourseRelatedView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, course_id: int):
+        try:
+            limit = int(request.query_params.get("limit") or 6)
+        except ValueError:
+            limit = 6
+        limit = max(1, min(limit, 12))
+
+        course = (
+            Course.objects.select_related("category", "instructor")
+            .filter(id=course_id, status=Course.Status.PUBLISHED)
+            .first()
+        )
+        if not course:
+            return Response({"detail": "Cours introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        qs = Course.objects.select_related("category", "instructor").filter(status=Course.Status.PUBLISHED).exclude(id=course.id)
+
+        # ✅ similarité: même catégorie si possible, sinon même type
+        if course.category_id:
+            qs = qs.filter(category_id=course.category_id)
+        else:
+            qs = qs.filter(course_type=course.course_type)
+
+        # ✅ tri Udemy-like: plus récents d'abord
+        qs = qs.order_by("-updated_at", "-id")[:limit]
+
+        data = [ _course_to_dict(c, request=request) for c in qs ]
+        return Response({"count": len(data), "results": data})
+
 
 class LearnerExploreCoursesView(APIView):
     """

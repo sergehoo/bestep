@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}best-épargne — Espace Apprenant{% endblock %}
-{% block topbar_subtitle %}Espace Apprenant{% endblock %}
+{% block topbar_subtitle %} Espace Apprenant {% endblock %}
 
 {% block topbar_search %}
   <div class="relative w-full">
@@ -12,8 +12,7 @@
               stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </span>
-    <input
-      x-model.debounce.300ms="$store.learner.filters.q"
+    <input  x-model.debounce.300ms="$store.learner.filters.q"
       @input="$store.learner.loadEnrollments()"
       placeholder="Rechercher un cours…"
       class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100/70 dark:border-white/10
@@ -63,8 +62,8 @@
   <div class="rounded-2xl border border-be-ink-100/70 bg-white/80 dark:bg-white/5 shadow-soft p-5">
     <div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-be-sky-500 to-be-sky-700 text-white flex items-center justify-center shadow-ring overflow-hidden">
-          <img src="{% static 'img/logo-2.png' %}" class="w-9 h-9 object-contain" alt="logo">
+        <div class="w-11 h-11 rounded-2xl  to-be-sky-700 text-white flex items-center justify-center shadow-ring overflow-hidden">
+          <img src="{% static 'img/logo_img.png' %}" class="w-9 h-9 object-contain" alt="logo">
         </div>
         <div>
           <div class="text-sm font-semibold">Dashboard Apprenant</div>
