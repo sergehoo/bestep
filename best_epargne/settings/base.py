@@ -234,7 +234,8 @@ AWS_S3_ENDPOINT_URL = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
 
 # ✅ Domaine public (Traefik) pour que le navigateur charge les médias
 # Exemple: MINIO_PUBLIC_DOMAIN=minio.ayo-group.com
-AWS_S3_CUSTOM_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "")
+# AWS_S3_CUSTOM_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "")
+AWS_S3_CUSTOM_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://", "")
 
 # SSL côté URL publique
 AWS_S3_URL_PROTOCOL = "https:"  # Traefik termine en https
@@ -246,3 +247,4 @@ AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = os.getenv("MINIO_QUERYSTRING_AUTH", "0") == "1"
 
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/"
