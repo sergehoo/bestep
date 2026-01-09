@@ -46,7 +46,7 @@ urlpatterns = [
                   path("dashboard/business/", OrganisationDashboard.as_view(), name="business_dashboard"),
                   path("dashboard/admin/", AdminDashboard.as_view(), name="admin_dashboard"),
                   path("", HomeView.as_view(), name="home"),
-                  path("sonetriz", RizView.as_view(), name="sonetriz"),
+
               ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
