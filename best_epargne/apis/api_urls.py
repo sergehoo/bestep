@@ -89,7 +89,7 @@ urlpatterns = [
     path("learner/courses/", LearnerExploreCoursesView.as_view(), name="api_learner_courses_explore"),
     path("learner/courses/<int:course_id>/enroll/", LearnerEnrollView.as_view(), name="api_learner_enroll"),
 
-path("learner/courses/<int:course_id>/outline/", LearnerCourseOutlineView.as_view(), name="api_learner_course_outline"),
+    path("learner/courses/<int:course_id>/outline/", LearnerCourseOutlineView.as_view(), name="api_learner_course_outline"),
     path("learner/courses/<int:course_id>/continue/", LearnerContinueView.as_view(), name="api_learner_continue"),
 
     path("learner/courses/<int:course_id>/lessons/<int:lesson_id>/state/", LearnerLessonStateView.as_view(), name="api_learner_lesson_state"),

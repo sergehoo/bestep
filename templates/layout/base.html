@@ -2,986 +2,741 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Best-Épargne - Plateforme e-Learning Premium</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Best-Épargne - Plateforme e-Learning Premium</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <style>
-        * {
-            font-family: 'Inter', sans-serif;
-        }
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    :root {
+      --primary-blue:#2563eb;      /* blue-600 */
+      --primary-yellow:#f59e0b;    /* amber-500 */
+      --light-blue:#eff6ff;        /* blue-50 */
+      --success-green:#16a34a;     /* green-600 */
+    }
 
-        :root {
-            --primary-blue: #4A90E2;
-            --primary-yellow: #FFD166;
-            --light-blue: #E8F4FD;
-            --success-green: #2ECC71;
-        }
+    /* clamp */
+    .line-clamp-2 {
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .line-clamp-3 {
+      display:-webkit-box;
+      -webkit-line-clamp:3;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
 
-        .sidebar-active {
-            background: #E8F4FD;
-            border-left: 4px solid #4A90E2;
-            color: #4A90E2;
-            font-weight: 600;
-        }
+    /* smooth hover like udemy */
+    .ud-card {
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .ud-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 18px 50px rgba(0,0,0,.12);
+    }
 
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+    /* thumbnail container */
+    .thumb {
+      background: linear-gradient(120deg, #1d4ed8, #2563eb);
+    }
 
-        .animate-fade-in-up {
-            animation: fadeInUp .6s ease-out forwards;
-        }
-
-        .animate-delay-1 {
-            animation-delay: .2s;
-        }
-
-        .animate-delay-2 {
-            animation-delay: .4s;
-        }
-
-        .animate-delay-3 {
-            animation-delay: .6s;
-        }
-
-        .hover-lift {
-            transition: transform .3s ease, box-shadow .3s ease;
-        }
-
-        .hover-lift:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, .1);
-        }
-
-        .stat-counter {
-            font-variant-numeric: tabular-nums;
-        }
-
-        .line-clamp-3 {
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-    </style>
+    /* subtle scrollbar for horizontal carousels (optional) */
+    .hide-scrollbar::-webkit-scrollbar { height: 8px; }
+    .hide-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 10px; }
+    .hide-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  </style>
 </head>
 
-<body class="bg-gray-50">
+<body class="bg-white text-gray-900">
 
-<!-- NAV -->
-<nav class="bg-white shadow-md sticky top-0 z-50">
-    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-        <div class="flex items-center space-x-2">
-            <a href="/" class="flex items-center space-x-2">
-                <div class="w-10 h-10 rounded-lg bg-white flex items-center justify-center">
-                    <span class="text-white font-bold text-xl"><img src="{% static 'img/logo_img.png' %}" width="70"
-                                                                    height="auto"></span>
-                </div>
-                <div>
-                    <h1 class="text-2xl font-bold text-blue-600">Best-<span class="text-yellow-500">Épargne</span></h1>
-                    <p class="text-xs text-gray-500 -mt-1">Apprentissage financier</p>
-                </div>
-            </a>
+<!-- TOP NAV (Udemy-like) -->
+<header class="sticky top-0 z-50 bg-white border-b border-gray-200">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+    <!-- Brand -->
+    <a href="/" class="flex items-center gap-2 shrink-0">
+      <img src="{% static 'img/logo_img.png' %}" alt="Best-Épargne" class="h-9 w-auto">
+      <div class="leading-tight hidden sm:block">
+        <div class="text-lg font-extrabold text-blue-600">
+          Best-<span class="text-amber-500">Épargne</span>
         </div>
+        <div class="text-[11px] text-gray-500 -mt-1">Apprentissage financier</div>
+      </div>
+    </a>
 
-        <div class="hidden md:flex space-x-8">
-            <a href="#" class="text-blue-600 font-semibold border-b-2 border-blue-600 pb-1">Accueil</a>
-            <a href="#features" class="text-gray-600 hover:text-blue-600 transition">Fonctionnalités</a>
-            {#        <a href="#apprenant" class="text-gray-600 hover:text-blue-600 transition">Apprenants</a>#}
-            {#        <a href="#entreprise" class="text-gray-600 hover:text-blue-600 transition">Entreprises</a>#}
-            <a href="#formateur" class="text-gray-600 hover:text-blue-600 transition">Bénéficiaires</a>
-            <a href="#cours" class="text-gray-600 hover:text-blue-600 transition">Cours</a>
-            <a href="#faq" class="text-gray-600 hover:text-blue-600 transition">FAQ</a>
-        </div>
+    <!-- Categories (optional) -->
+    <button class="hidden md:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-gray-100 text-sm font-medium">
+      <i class="fa-solid fa-grid-2 text-gray-500"></i>
+      Catégories
+    </button>
 
-        <div class="flex items-center space-x-4">
-            {% if user.is_authenticated %}
-                <div class="hidden md:flex items-center space-x-4">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-blue-400 flex items-center justify-center">
-                <span class="text-white font-semibold text-sm">
-                  {{ user.first_name|first|default:user.get_username|first|upper }}
-                </span>
-                        </div>
-                        <div class="text-sm">
-                            <div class="font-semibold">
-                                {% if user.first_name %}{{ user.first_name }} {{ user.last_name|default:"" }}{% else %}
-                                    {{ user.get_username }}{% endif %}
-                            </div>
-                            <div class="text-xs text-gray-500">
-                                {% if user.userprofile.is_instructor %}
-                                    Formateur{% elif user.userprofile.is_enterprise %}Entreprise{% else %}
-                                    Apprenant{% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="h-6 w-px bg-gray-300"></div>
-                    <a href="{% url 'account_logout' %}"
-                       class="px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
-                    </a>
-                </div>
-            {% else %}
-                <div class="hidden md:flex items-center space-x-4">
-                    <a href="{% url 'account_login' %}"
-                       class="px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
-                        <i class="fas fa-sign-in-alt mr-2"></i>Connexion
-                    </a>
-                    <a href="{% url 'account_signup' %}"
-                       class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition flex items-center">
-                        <i class="fas fa-user-plus mr-2"></i>S'inscrire
-                    </a>
-                </div>
-            {% endif %}
-
-            <button id="mobile-menu-btn" class="md:hidden text-gray-700">
-                <i class="fas fa-bars text-xl"></i>
-            </button>
-        </div>
+    <!-- Search -->
+    <div class="flex-1">
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+        <input id="filter-q" type="text"
+               placeholder="Rechercher un cours (budget, épargne, investissement...)"
+               class="w-full pl-11 pr-4 py-2.5 rounded-full border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200">
+      </div>
     </div>
 
-    <div id="mobile-menu" class="md:hidden hidden bg-white px-4 py-3 border-t">
-        <div class="flex flex-col space-y-3">
-            <a href="#" class="text-blue-600 font-semibold py-2">Accueil</a>
-            <a href="#features" class="text-gray-600 py-2">Fonctionnalités</a>
-            {#        <a href="#apprenant" class="text-gray-600 py-2">Apprenants</a>#}
-            {#        <a href="#entreprise" class="text-gray-600 py-2">Entreprises</a>#}
-            <a href="#formateur" class="text-gray-600 py-2">Bénéficiaires</a>
-            <a href="#cours" class="text-gray-600 py-2">Cours</a>
-            <a href="#faq" class="text-gray-600 py-2">FAQ</a>
+    <!-- Right actions -->
+    <div class="flex items-center gap-2">
+      <a href="#cours" class="hidden lg:inline-flex px-3 py-2 rounded-full hover:bg-gray-100 text-sm font-medium">
+        Cours
+      </a>
+      <a href="#faq" class="hidden lg:inline-flex px-3 py-2 rounded-full hover:bg-gray-100 text-sm font-medium">
+        FAQ
+      </a>
 
-            {% if user.is_authenticated %}
-                <div class="border-t pt-3">
-                    <a href="{% url 'account_logout' %}" class="text-blue-600 py-2 block">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
-                    </a>
-                </div>
-            {% else %}
-                <div class="border-t pt-3">
-                    <a href="{% url 'account_login' %}" class="text-blue-600 py-2 block">
-                        <i class="fas fa-sign-in-alt mr-2"></i>Connexion
-                    </a>
-                    <a href="{% url 'account_signup' %}"
-                       class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-4 py-2 rounded-lg font-medium w-full text-center block mt-2">
-                        <i class="fas fa-user-plus mr-2"></i>S'inscrire
-                    </a>
-                </div>
-            {% endif %}
-        </div>
+      {% if user.is_authenticated %}
+        <a href="{% url 'account_logout' %}"
+           class="hidden md:inline-flex px-4 py-2 rounded-full border border-gray-200 hover:bg-gray-50 text-sm font-semibold">
+          <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
+        </a>
+        <a href="{% url 'learner_dashboard' %}"
+           class="inline-flex px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
+          Tableau de bord
+        </a>
+      {% else %}
+        <a href="{% url 'account_login' %}"
+           class="hidden md:inline-flex px-4 py-2 rounded-full border border-gray-200 hover:bg-gray-50 text-sm font-semibold">
+          Connexion
+        </a>
+        <a href="{% url 'account_signup' %}"
+           class="inline-flex px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
+          S'inscrire
+        </a>
+      {% endif %}
+
+      <button id="mobile-menu-btn" class="md:hidden px-3 py-2 rounded-full hover:bg-gray-100">
+        <i class="fas fa-bars"></i>
+      </button>
     </div>
-</nav>
+  </div>
 
-<!-- HERO -->
-<section class="bg-gradient-to-r from-blue-50 to-blue-100 py-12 md:py-20 overflow-hidden">
-    <div class="container mx-auto px-4">
-        <div class="flex flex-col md:flex-row items-center">
-            <div class="md:w-1/2 mb-10 md:mb-0 animate-fade-in-up">
-                <h1 class="text-4xl md:text-5xl font-bold text-gray-800 leading-tight">
-                    Devenez expert en <span class="text-blue-600">gestion financière</span>
-                </h1>
-                <p class="text-gray-600 text-lg mt-6 mb-8">
-                    Formations certifiantes par des experts, pour particuliers, entreprises et professionnels.
-                </p>
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="md:hidden hidden border-t bg-white">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-2">
+      <a href="#cours" class="px-3 py-2 rounded-lg hover:bg-gray-100">Cours</a>
+      <a href="#faq" class="px-3 py-2 rounded-lg hover:bg-gray-100">FAQ</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'learner_dashboard' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100">Tableau de bord</a>
+        <a href="{% url 'account_logout' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100 text-blue-600">Déconnexion</a>
+      {% else %}
+        <a href="{% url 'account_login' %}" class="px-3 py-2 rounded-lg hover:bg-gray-100">Connexion</a>
+        <a href="{% url 'account_signup' %}" class="px-3 py-2 rounded-lg bg-blue-600 text-white text-center font-semibold">S'inscrire</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
 
-                <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                    <a href="#cours"
-                       class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-3 rounded-lg font-semibold shadow-md hover:shadow-lg transition flex items-center justify-center hover-lift">
-                        <i class="fas fa-play-circle mr-2"></i> Découvrir les cours
-                    </a>
-                    <a href="{% url 'account_signup' %}"
-                       class="bg-white text-blue-600 border border-blue-600 px-6 py-3 rounded-lg font-semibold shadow-sm hover:shadow transition flex items-center justify-center hover-lift">
-                        <i class="fas fa-rocket mr-2"></i> Essai gratuit 14 jours
-                    </a>
+<!-- HERO (clean, Udemy-ish) -->
+<section class="bg-gradient-to-b from-blue-50 to-white">
+  <div class="max-w-7xl mx-auto px-4 py-12 md:py-16">
+    <div class="grid md:grid-cols-2 gap-10 items-center">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-blue-100 text-blue-700 text-xs font-semibold">
+          <i class="fa-solid fa-shield-halved"></i>
+          Plateforme e-learning premium
+        </div>
+        <h1 class="mt-4 text-4xl md:text-5xl font-extrabold tracking-tight text-gray-900">
+          Devenez expert en <span class="text-blue-600">gestion financière</span>
+        </h1>
+        <p class="mt-4 text-gray-600 text-lg max-w-xl">
+          Formations certifiantes, supports, quiz et suivi complet pour particuliers, entreprises et professionnels.
+        </p>
+
+        <div class="mt-6 flex flex-col sm:flex-row gap-3">
+          <a href="#cours"
+             class="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">
+            <i class="fas fa-play-circle mr-2"></i> Découvrir les cours
+          </a>
+          <a href="{% url 'account_signup' %}"
+             class="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white border border-gray-200 text-gray-900 font-semibold hover:bg-gray-50">
+            <i class="fas fa-rocket mr-2 text-blue-600"></i> Essai gratuit 14 jours
+          </a>
+        </div>
+
+        <div class="mt-8 grid grid-cols-3 gap-5">
+          <div class="bg-white border border-gray-200 rounded-2xl p-4">
+            <p class="text-2xl font-extrabold text-blue-600 stat-counter" data-target="12457">0</p>
+            <p class="text-xs text-gray-500">Apprenants certifiés</p>
+          </div>
+          <div class="bg-white border border-gray-200 rounded-2xl p-4">
+            <p class="text-2xl font-extrabold text-amber-500 stat-counter" data-target="528">0</p>
+            <p class="text-xs text-gray-500">Entreprises partenaires</p>
+          </div>
+          <div class="bg-white border border-gray-200 rounded-2xl p-4">
+            <p class="text-2xl font-extrabold text-green-600 stat-counter" data-target="187">0</p>
+            <p class="text-xs text-gray-500">Experts formateurs</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative">
+        <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-lg">
+          {% if user.is_authenticated %}
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm text-gray-500">Bon retour</div>
+                <div class="text-xl font-extrabold text-gray-900">
+                  {{ user.first_name|default:user.get_username }} 👋
                 </div>
-
-                <div class="mt-12 grid grid-cols-3 gap-6 text-center">
-                    <div>
-                        <p class="text-3xl font-bold text-blue-600 stat-counter" data-target="12457">0</p>
-                        <p class="text-gray-600 text-sm">Apprenants certifiés</p>
-                    </div>
-                    <div>
-                        <p class="text-3xl font-bold text-yellow-500 stat-counter" data-target="528">0</p>
-                        <p class="text-gray-600 text-sm">Entreprises partenaires</p>
-                    </div>
-                    <div>
-                        <p class="text-3xl font-bold text-green-500 stat-counter" data-target="187">0</p>
-                        <p class="text-gray-600 text-sm">Experts formateurs</p>
-                    </div>
-                </div>
+              </div>
+              <div class="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                {{ user.first_name|first|default:user.get_username|first|upper }}
+              </div>
+            </div>
+            <div class="mt-6 rounded-2xl bg-blue-50 border border-blue-100 p-5">
+              <div class="font-semibold text-gray-900">Reprenez votre apprentissage</div>
+              <p class="text-sm text-gray-600 mt-1">Accédez à votre tableau de bord et continuez vos cours.</p>
+              <a href="{% url 'learner_dashboard' %}"
+                 class="mt-4 inline-flex items-center justify-center w-full px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">
+                Aller au tableau de bord
+              </a>
+            </div>
+          {% else %}
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm text-gray-500">Démo</div>
+                <div class="text-xl font-extrabold text-gray-900">Tableau de bord apprenant</div>
+              </div>
+              <div class="w-12 h-12 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                BE
+              </div>
             </div>
 
-            <div class="md:w-1/2 flex justify-center animate-fade-in-up animate-delay-1">
-                <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md hover-lift">
-                    {% if user.is_authenticated %}
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-xl font-bold text-gray-800">Bon
-                                retour, {{ user.first_name|default:user.get_username }}!</h3>
-                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <span class="text-blue-600 font-bold">
-                    {{ user.first_name|first|default:user.get_username|first|upper }}
-                  </span>
-                            </div>
-                        </div>
-
-                        <div class="text-center py-6">
-                            <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                                <i class="fas fa-book-open text-blue-600 text-2xl"></i>
-                            </div>
-                            <h4 class="text-lg font-semibold text-gray-800 mb-2">Reprenez votre apprentissage</h4>
-                            <p class="text-gray-600 mb-4">Accédez à votre tableau de bord et continuez vos cours</p>
-                            <a href="{% url 'learner_dashboard' %}"
-                               class="inline-block bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-lg font-medium">
-                                Aller au tableau de bord
-                            </a>
-                        </div>
-                    {% else %}
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-xl font-bold text-gray-800">Tableau de bord apprenant</h3>
-                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                <span class="text-blue-600 font-bold">JD</span>
-                            </div>
-                        </div>
-
-                        <div class="mb-6">
-                            <div class="flex justify-between mb-2">
-                                <p class="text-gray-700">Progression globale</p>
-                                <p class="text-blue-600 font-bold">68%</p>
-                            </div>
-                            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-blue-500 to-green-400"
-                                     style="width: 68%"></div>
-                            </div>
-                        </div>
-
-                        <a href="{% url 'account_signup' %}"
-                           class="w-full mt-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg transition block text-center">
-                            Rejoindre la plateforme
-                        </a>
-                    {% endif %}
-                </div>
+            <div class="mt-6">
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Progression globale</span>
+                <span class="font-bold text-blue-600">68%</span>
+              </div>
+              <div class="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-blue-600 to-green-400" style="width: 68%"></div>
+              </div>
+              <a href="{% url 'account_signup' %}"
+                 class="mt-6 inline-flex items-center justify-center w-full px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">
+                Rejoindre la plateforme
+              </a>
             </div>
+          {% endif %}
         </div>
+
+        <div class="absolute -z-10 -top-8 -right-8 w-40 h-40 rounded-full bg-blue-200 blur-2xl opacity-60"></div>
+        <div class="absolute -z-10 -bottom-10 -left-10 w-52 h-52 rounded-full bg-amber-200 blur-2xl opacity-50"></div>
+      </div>
     </div>
+  </div>
 </section>
 
-<!-- LOGOS -->
-<section class="py-10 bg-white border-b">
-    <div class="container mx-auto px-4">
-        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-                <h3 class="text-lg font-semibold text-gray-800">Ils nous font confiance</h3>
-                <p class="text-sm text-gray-500">Banques, fintechs, cabinets & PME partenaires</p>
-            </div>
-            <div class="grid grid-cols-3 sm:grid-cols-5 gap-4 w-full md:w-auto opacity-80">
-                <div class="h-10 bg-gray-100 rounded-lg"></div>
-                <div class="h-10 bg-gray-100 rounded-lg"></div>
-                <div class="h-10 bg-gray-100 rounded-lg"></div>
-                <div class="h-10 bg-gray-100 rounded-lg hidden sm:block"></div>
-                <div class="h-10 bg-gray-100 rounded-lg hidden sm:block"></div>
-            </div>
+<!-- CATALOGUE -->
+<section id="cours" class="bg-white">
+  <div class="max-w-7xl mx-auto px-4 py-12">
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-6">
+      <div>
+        <h2 class="text-3xl font-extrabold text-gray-900">Explorez les cours</h2>
+        <p class="text-gray-600 mt-2">Un affichage inspiré Udemy : thumbnail, note, prix et badges.</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div class="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700">
+          <i class="fas fa-layer-group mr-2 text-blue-600"></i>
+          <span id="courses-count">0</span> cours
         </div>
+        <button id="reset-filters"
+                class="px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition">
+          <i class="fas fa-rotate-left mr-2"></i>Réinitialiser
+        </button>
+      </div>
     </div>
-</section>
 
-<!-- HOW IT WORKS -->
-<section class="py-16 bg-gray-50">
-    <div class="container mx-auto px-4">
-        <div class="text-center mb-12">
-            <h2 class="text-3xl font-bold text-gray-800">
-                Comment ça marche <span class="text-blue-600">en 3 étapes</span>
-            </h2>
-            <p class="text-gray-600 mt-2 max-w-2xl mx-auto">
-                Une expérience d’apprentissage guidée, adaptée aux particuliers, entreprises et formateurs.
-            </p>
+    <!-- Filters row -->
+    <div class="bg-white border border-gray-200 rounded-2xl p-4 md:p-5 shadow-sm mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+        <!-- q is already in header; keep hidden but synced -->
+        <div class="lg:col-span-2 hidden lg:block">
+          <label class="text-xs font-semibold text-gray-600">Recherche</label>
+          <div class="mt-1 relative">
+            <i class="fas fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input id="filter-q-2" type="text" placeholder="Titre, description…"
+                   class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
+          </div>
         </div>
 
-        <div class="grid md:grid-cols-3 gap-8">
-            <div class="bg-white rounded-2xl p-8 shadow hover-lift border border-gray-100">
-                <div class="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center mb-5">
-                    <i class="fas fa-magnifying-glass text-blue-600 text-xl"></i>
-                </div>
-                <h3 class="text-xl font-bold text-gray-800">1) Explorez</h3>
-                <p class="text-gray-600 mt-2">Recherchez un cours par thème, niveau, prix, popularité.</p>
-            </div>
-
-            <div class="bg-white rounded-2xl p-8 shadow hover-lift border border-gray-100">
-                <div class="w-14 h-14 rounded-xl bg-yellow-100 flex items-center justify-center mb-5">
-                    <i class="fas fa-circle-play text-yellow-600 text-xl"></i>
-                </div>
-                <h3 class="text-xl font-bold text-gray-800">2) Apprenez</h3>
-                <p class="text-gray-600 mt-2">Vidéos, quiz, supports, progression, rappels et objectifs.</p>
-            </div>
-
-            <div class="bg-white rounded-2xl p-8 shadow hover-lift border border-gray-100">
-                <div class="w-14 h-14 rounded-xl bg-green-100 flex items-center justify-center mb-5">
-                    <i class="fas fa-award text-green-600 text-xl"></i>
-                </div>
-                <h3 class="text-xl font-bold text-gray-800">3) Validez</h3>
-                <p class="text-gray-600 mt-2">Badges, certificats, parcours recommandés, suivi entreprise.</p>
-            </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Niveau</label>
+          <select id="filter-level"
+                  class="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <option value="">Tous</option>
+            <option value="beginner">Débutant</option>
+            <option value="intermediate">Intermédiaire</option>
+            <option value="advanced">Avancé</option>
+          </select>
         </div>
+
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Type</label>
+          <select id="filter-type"
+                  class="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <option value="">Tous</option>
+            <option value="PERSONAL">Particulier</option>
+            <option value="BUSINESS">Entreprise</option>
+            <option value="PRO">Professionnel</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Tarif</label>
+          <select id="filter-pricing"
+                  class="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <option value="">Tous</option>
+            <option value="FREE">Gratuit</option>
+            <option value="PAID">Payant</option>
+            <option value="HYBRID">Hybride</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Mes cours</label>
+          <select id="filter-mine"
+                  class="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  {% if not user.is_authenticated %}disabled{% endif %}>
+            <option value="0">Tous</option>
+            <option value="1">Seulement inscrits</option>
+          </select>
+          {% if not user.is_authenticated %}
+            <p class="text-[11px] text-gray-500 mt-1">Connectez-vous pour filtrer vos cours</p>
+          {% endif %}
+        </div>
+
+        <div class="flex items-end">
+          <button id="apply-filters"
+                  class="w-full px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 shadow-sm">
+            <i class="fas fa-filter mr-2"></i>Filtrer
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div class="text-sm text-gray-500">
+          <i class="fas fa-circle-info mr-2"></i>
+          Astuce : recherche dans l’en-tête + filtres ici.
+        </div>
+
+        <div class="flex gap-2">
+          <button id="sort-pop"
+                  class="px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-semibold">
+            <i class="fa-solid fa-arrow-trend-up mr-2 text-blue-600"></i>Populaires
+          </button>
+          <button id="sort-new"
+                  class="px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-semibold">
+            <i class="fa-solid fa-clock mr-2 text-blue-600"></i>Nouveaux
+          </button>
+        </div>
+      </div>
     </div>
-</section>
 
-<!-- FEATURES -->
-<section id="features" class="py-16 bg-white">
-    <div class="container mx-auto px-4">
-        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800">
-                    Une expérience <span class="text-blue-600">premium</span>
-                </h2>
-                <p class="text-gray-600 mt-2 max-w-2xl">
-                    Tout ce qu’il faut pour apprendre vite, bien, et suivre l’impact (apprenant, entreprise, formateur).
-                </p>
-            </div>
-            <div class="flex gap-3">
-                <div class="px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-sm font-medium">
-                    <i class="fas fa-shield-halved mr-2"></i>Sécurisé
-                </div>
-                <div class="px-4 py-2 rounded-xl bg-green-50 text-green-700 text-sm font-medium">
-                    <i class="fas fa-chart-line mr-2"></i>Analytique
-                </div>
-                <div class="px-4 py-2 rounded-xl bg-yellow-50 text-yellow-700 text-sm font-medium">
-                    <i class="fas fa-star mr-2"></i>Certifiant
-                </div>
-            </div>
-        </div>
+    <!-- grid (Udemy-like) -->
+    <div id="courses-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
 
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div class="rounded-2xl border border-gray-100 p-6 hover-lift">
-                <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
-                    <i class="fas fa-bullseye text-blue-600"></i>
-                </div>
-                <h4 class="font-semibold text-gray-800">Parcours & objectifs</h4>
-                <p class="text-sm text-gray-600 mt-1">Parcours par métier, niveau et ambition (épargne, investissement,
-                    budget).</p>
-            </div>
-
-            <div class="rounded-2xl border border-gray-100 p-6 hover-lift">
-                <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center mb-4">
-                    <i class="fas fa-clipboard-check text-green-600"></i>
-                </div>
-                <h4 class="font-semibold text-gray-800">Quiz & validations</h4>
-                <p class="text-sm text-gray-600 mt-1">Quiz, devoirs, scoring, et prérequis par chapitre.</p>
-            </div>
-
-            <div class="rounded-2xl border border-gray-100 p-6 hover-lift">
-                <div class="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center mb-4">
-                    <i class="fas fa-award text-yellow-600"></i>
-                </div>
-                <h4 class="font-semibold text-gray-800">Certificats</h4>
-                <p class="text-sm text-gray-600 mt-1">Certificats téléchargeables et partageables.</p>
-            </div>
-
-            <div class="rounded-2xl border border-gray-100 p-6 hover-lift">
-                <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center mb-4">
-                    <i class="fas fa-users-gear text-purple-600"></i>
-                </div>
-                <h4 class="font-semibold text-gray-800">Gestion entreprise</h4>
-                <p class="text-sm text-gray-600 mt-1">Équipes, cohortes, budgets, rapports exportables.</p>
-            </div>
-
-            <div class="rounded-2xl border border-gray-100 p-6 hover-lift">
-                <div class="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center mb-4">
-                    <i class="fas fa-hand-holding-dollar text-rose-600"></i>
-                </div>
-                <h4 class="font-semibold text-gray-800">Monétisation formateur</h4>
-                <p class="text-sm text-gray-600 mt-1">Vente de cours, performance, revenus, avis et stats.</p>
-            </div>
-
-            <div class="rounded-2xl border border-gray-100 p-6 hover-lift">
-                <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
-                    <i class="fas fa-bell text-slate-700"></i>
-                </div>
-                <h4 class="font-semibold text-gray-800">Rappels & notifications</h4>
-                <p class="text-sm text-gray-600 mt-1">Relances, objectifs hebdo, alertes quiz.</p>
-            </div>
-        </div>
+    <!-- loading -->
+    <div id="courses-state" class="text-center py-10 hidden">
+      <div class="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600 mb-3"></div>
+      <p class="text-gray-600">Chargement des cours…</p>
     </div>
-</section>
 
-<!-- ESPACES -->
-<section class="py-16 bg-white">
-    <div class="container mx-auto px-4">
-        <h2 class="text-3xl font-bold text-center text-gray-800 mb-12">
-            Une plateforme <span class="text-blue-600">complète</span> pour tous vos besoins
-        </h2>
-
-        <div class="grid md:grid-cols-3 gap-8">
-            <div id="apprenant"
-                 class="bg-gradient-to-br from-blue-50 to-white rounded-2xl shadow-lg p-8 border border-blue-100 hover-lift">
-                <div class="w-16 h-16 rounded-xl bg-gradient-to-r from-blue-500 to-blue-400 flex items-center justify-center mb-6">
-                    <i class="fas fa-user-graduate text-white text-2xl"></i>
-                </div>
-                <h3 class="text-2xl font-bold text-gray-800 mb-4">Espace Apprenant</h3>
-                <p class="text-gray-600 mb-6">Parcours personnalisés, progression, certifications et communauté.</p>
-                <ul class="space-y-3 mb-8">
-                    <li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-3"></i><span>Dashboard de progression</span>
-                    </li>
-                    <li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-3"></i><span>Cours recommandés</span>
-                    </li>
-                    <li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-3"></i><span>Certificats</span>
-                    </li>
-                </ul>
-                {% if not user.is_authenticated %}
-                    <a href="{% url 'account_signup' %}?role=learner"
-                       class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition block text-center">
-                        S'inscrire comme apprenant
-                    </a>
-                {% else %}
-                    <a href="{% url 'learner_dashboard' %}"
-                       class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition block text-center">
-                        Accéder à mon espace
-                    </a>
-                {% endif %}
-            </div>
-
-            <div id="entreprise"
-                 class="bg-gradient-to-br from-yellow-50 to-white rounded-2xl shadow-lg p-8 border border-yellow-100 hover-lift">
-                <div class="w-16 h-16 rounded-xl bg-gradient-to-r from-yellow-500 to-yellow-400 flex items-center justify-center mb-6">
-                    <i class="fas fa-building text-white text-2xl"></i>
-                </div>
-                <h3 class="text-2xl font-bold text-gray-800 mb-4">Espace Entreprise</h3>
-                <p class="text-gray-600 mb-6">Formez vos équipes et suivez les compétences.</p>
-                <ul class="space-y-3 mb-8">
-                    <li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-3"></i><span>Dashboard analytique</span>
-                    </li>
-                    <li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-3"></i><span>Gestion des équipes</span>
-                    </li>
-                    <li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-3"></i><span>Rapports exportables</span>
-                    </li>
-                </ul>
-
-                {% if not user.is_authenticated %}
-                    <a href="{% url 'account_signup' %}?role=enterprise"
-                       class="bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition block text-center">
-                        S'inscrire comme entreprise
-                    </a>
-                {% else %}
-                    <a href="{% url 'learner_dashboard' %}"
-                       class="bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition block text-center">
-                        Accéder à l'espace entreprise
-                    </a>
-                {% endif %}
-            </div>
-
-            <div id="formateur"
-                 class="bg-gradient-to-br from-green-50 to-white rounded-2xl shadow-lg p-8 border border-green-100 hover-lift">
-                <div class="w-16 h-16 rounded-xl bg-gradient-to-r from-green-500 to-green-400 flex items-center justify-center mb-6">
-                    <i class="fas fa-chalkboard-teacher text-white text-2xl"></i>
-                </div>
-                <h3 class="text-2xl font-bold text-gray-800 mb-4">Espace Formateur</h3>
-                <p class="text-gray-600 mb-6">Créez, publiez et suivez vos performances.</p>
-                <ul class="space-y-3 mb-8">
-                    <li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-3"></i><span>Création avancée</span>
-                    </li>
-                    <li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-3"></i><span>Analytique</span>
-                    </li>
-                    <li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-3"></i><span>Paiements & rapports</span>
-                    </li>
-                </ul>
-
-                {% if not user.is_authenticated %}
-                    <a href="{% url 'account_signup' %}?role=instructor"
-                       class="bg-gradient-to-r from-green-500 to-green-400 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition block text-center">
-                        Devenir formateur
-                    </a>
-                {% else %}
-                    <a href="{% url 'learner_dashboard' %}"
-                       class="bg-gradient-to-r from-green-500 to-green-400 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition block text-center">
-                        Accéder à l'espace formateur
-                    </a>
-                {% endif %}
-            </div>
-        </div>
+    <div class="text-center mt-8">
+      <button id="load-more"
+              class="hidden mx-auto px-8 py-3 rounded-xl bg-white border border-gray-200 text-gray-800 hover:bg-gray-50 font-semibold">
+        <i class="fas fa-plus mr-2"></i>Charger plus
+      </button>
     </div>
-</section>
-
-<!-- CATALOGUE (SEARCH + FILTERS + PAGINATION) -->
-<section id="cours" class="py-16 bg-gray-50">
-    <div class="container mx-auto px-4">
-        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-8">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800">
-                    Catalogue de <span class="text-blue-600">cours</span>
-                </h2>
-                <p class="text-gray-600 mt-2">Recherchez, filtrez et explorez les cours publiés.</p>
-            </div>
-
-            <div class="flex items-center gap-3">
-                <div class="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-600">
-                    <i class="fas fa-layer-group mr-2 text-blue-600"></i>
-                    <span id="courses-count">0</span> cours
-                </div>
-                <button id="reset-filters"
-                        class="px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 transition">
-                    <i class="fas fa-rotate-left mr-2"></i>Réinitialiser
-                </button>
-            </div>
-        </div>
-
-        <div class="bg-white border border-gray-200 rounded-2xl p-4 md:p-5 shadow-sm mb-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
-                <div class="lg:col-span-2">
-                    <label class="text-xs font-medium text-gray-600">Recherche</label>
-                    <div class="mt-1 relative">
-                        <i class="fas fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                        <input id="filter-q" type="text" placeholder="Titre, description, sous-titre…"
-                               class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="text-xs font-medium text-gray-600">Niveau</label>
-                    <select id="filter-level"
-                            class="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                        <option value="">Tous</option>
-                        <option value="beginner">Débutant</option>
-                        <option value="intermediate">Intermédiaire</option>
-                        <option value="advanced">Avancé</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="text-xs font-medium text-gray-600">Type</label>
-                    <select id="filter-type"
-                            class="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                        <option value="">Tous</option>
-                        <option value="PERSONAL">Particulier</option>
-                        <option value="BUSINESS">Entreprise</option>
-                        <option value="PRO">Professionnel</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="text-xs font-medium text-gray-600">Tarif</label>
-                    <select id="filter-pricing"
-                            class="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                        <option value="">Tous</option>
-                        <option value="FREE">Gratuit</option>
-                        <option value="PAID">Payant</option>
-                        <option value="HYBRID">Hybride</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="text-xs font-medium text-gray-600">Mes cours</label>
-                    <select id="filter-mine"
-                            class="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            {% if not user.is_authenticated %}disabled{% endif %}>
-                        <option value="0">Tous</option>
-                        <option value="1">Seulement inscrits</option>
-                    </select>
-                    {% if not user.is_authenticated %}
-                        <p class="text-[11px] text-gray-500 mt-1">Connectez-vous pour filtrer vos cours</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div class="text-sm text-gray-500">
-                    <i class="fas fa-circle-info mr-2"></i>
-                    Astuce : tapez un mot-clé puis choisissez un niveau pour affiner.
-                </div>
-                <div class="flex gap-2">
-                    <button id="apply-filters"
-                            class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-medium shadow hover:shadow-lg transition">
-                        <i class="fas fa-filter mr-2"></i>Filtrer
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div id="courses-container" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
-
-        <div id="courses-state" class="text-center py-10 hidden">
-            <div class="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mb-3"></div>
-            <p class="text-gray-600">Chargement des cours…</p>
-        </div>
-
-        <div class="text-center mt-10">
-            <button id="load-more"
-                    class="hidden mx-auto px-8 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 transition">
-                <i class="fas fa-plus mr-2"></i>Charger plus
-            </button>
-        </div>
-    </div>
+  </div>
 </section>
 
 <!-- FAQ -->
-<section id="faq" class="py-16 bg-gray-50">
-    <div class="container mx-auto px-4">
-        <div class="text-center mb-10">
-            <h2 class="text-3xl font-bold text-gray-800">FAQ</h2>
-            <p class="text-gray-600 mt-2">Les questions fréquentes sur Best-Épargne.</p>
-        </div>
-
-        <div class="max-w-3xl mx-auto space-y-4">
-            <details class="bg-white border border-gray-200 rounded-2xl p-5">
-                <summary class="cursor-pointer font-semibold text-gray-800">Les cours sont-ils certifiants ?</summary>
-                <p class="text-gray-600 mt-2">Oui, selon le cours. Les certificats sont disponibles à la fin des
-                    validations.</p>
-            </details>
-
-            <details class="bg-white border border-gray-200 rounded-2xl p-5">
-                <summary class="cursor-pointer font-semibold text-gray-800">Puis-je former mes équipes ?</summary>
-                <p class="text-gray-600 mt-2">Oui, l’espace entreprise permet de gérer des cohortes, suivre les progrès
-                    et exporter des rapports.</p>
-            </details>
-
-            <details class="bg-white border border-gray-200 rounded-2xl p-5">
-                <summary class="cursor-pointer font-semibold text-gray-800">Comment devenir formateur ?</summary>
-                <p class="text-gray-600 mt-2">Inscrivez-vous en mode formateur, puis publiez vos cours et suivez vos
-                    performances.</p>
-            </details>
-        </div>
+<section id="faq" class="py-16 bg-gray-50 border-t">
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="text-center mb-10">
+      <h2 class="text-3xl font-extrabold text-gray-900">FAQ</h2>
+      <p class="text-gray-600 mt-2">Les questions fréquentes sur Best-Épargne.</p>
     </div>
+
+    <div class="max-w-3xl mx-auto space-y-4">
+      <details class="bg-white border border-gray-200 rounded-2xl p-5">
+        <summary class="cursor-pointer font-semibold text-gray-900">Les cours sont-ils certifiants ?</summary>
+        <p class="text-gray-600 mt-2">Oui, selon le cours. Les certificats sont disponibles à la fin des validations.</p>
+      </details>
+
+      <details class="bg-white border border-gray-200 rounded-2xl p-5">
+        <summary class="cursor-pointer font-semibold text-gray-900">Puis-je former mes équipes ?</summary>
+        <p class="text-gray-600 mt-2">Oui, l’espace entreprise permet de gérer des cohortes, suivre les progrès et exporter des rapports.</p>
+      </details>
+
+      <details class="bg-white border border-gray-200 rounded-2xl p-5">
+        <summary class="cursor-pointer font-semibold text-gray-900">Comment devenir formateur ?</summary>
+        <p class="text-gray-600 mt-2">Inscrivez-vous en mode formateur, puis publiez vos cours et suivez vos performances.</p>
+      </details>
+    </div>
+  </div>
 </section>
 
-<!-- FOOTER (simple) -->
-<footer class="bg-gradient-to-r from-blue-900 to-blue-800 text-white pt-10 pb-8">
-    <div class="container mx-auto px-4">
-        <div class="border-t border-blue-700 pt-6 flex flex-col md:flex-row justify-between items-center">
-            <p class="text-blue-300 text-sm mb-4 md:mb-0">© 2026 Best-Épargne. Tous droits réservés.</p>
-            <div class="flex space-x-6">
-                <a href="#" class="text-blue-300 hover:text-white text-sm">Mentions légales</a>
-                <a href="#" class="text-blue-300 hover:text-white text-sm">Confidentialité</a>
-                <a href="#" class="text-blue-300 hover:text-white text-sm">CGU</a>
-            </div>
-        </div>
+<footer class="bg-gray-950 text-white">
+  <div class="max-w-7xl mx-auto px-4 py-10">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-4 border-t border-white/10 pt-6">
+      <p class="text-white/60 text-sm">© 2026 Best-Épargne. Tous droits réservés.</p>
+      <div class="flex gap-6 text-sm">
+        <a href="#" class="text-white/60 hover:text-white">Mentions légales</a>
+        <a href="#" class="text-white/60 hover:text-white">Confidentialité</a>
+        <a href="#" class="text-white/60 hover:text-white">CGU</a>
+      </div>
     </div>
+  </div>
 </footer>
 
-<!-- Exposer les URLs côté JS (CORRIGÉ) -->
+<!-- Exposer les URLs côté JS -->
 <script>
-    window.BE = {
-        isAuth: {% if user.is_authenticated %}true{% else %}false{% endif %},
-        // endpoint public (landing visiteurs)
-        exploreUrl: "{% url 'landing_public_courses_explore' %}",
-        // endpoint connecté (retourne is_enrolled etc.)
-        learnerExploreUrl: "{% url 'api_learner_courses_explore' %}"
-    };
+  window.BE = {
+    isAuth: {% if user.is_authenticated %}true{% else %}false{% endif %},
+    exploreUrl: "{% url 'landing_public_courses_explore' %}",
+    learnerExploreUrl: "{% url 'api_learner_courses_explore' %}"
+  };
 </script>
 
 <script>
-    // Menu mobile
-    document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
-        const menu = document.getElementById('mobile-menu');
-        menu.classList.toggle('hidden');
-    });
+  // Menu mobile
+  document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
+    document.getElementById('mobile-menu')?.classList.toggle('hidden');
+  });
 
-    // Animation des compteurs
-    function animateCounter(element) {
-        const target = parseInt(element.getAttribute('data-target') || "0", 10);
-        const duration = 2000;
-        const step = target / (duration / 16);
-        let current = 0;
+  // Animation compteurs
+  function animateCounter(element) {
+    const target = parseInt(element.getAttribute('data-target') || "0", 10);
+    const duration = 1400;
+    const step = Math.max(1, target / (duration / 16));
+    let current = 0;
 
-        const timer = setInterval(() => {
-            current += step;
-            if (current >= target) {
-                current = target;
-                clearInterval(timer);
-            }
-            element.textContent = Math.floor(current).toLocaleString('fr-FR');
-        }, 16);
-    }
+    const timer = setInterval(() => {
+      current += step;
+      if (current >= target) { current = target; clearInterval(timer); }
+      element.textContent = Math.floor(current).toLocaleString('fr-FR');
+    }, 16);
+  }
 
-    document.addEventListener('DOMContentLoaded', function () {
-        const counters = document.querySelectorAll('.stat-counter');
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    animateCounter(entry.target);
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, {threshold: 0.5});
-
-        counters.forEach(counter => observer.observe(counter));
-    });
+  document.addEventListener('DOMContentLoaded', function () {
+    const counters = document.querySelectorAll('.stat-counter');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) { animateCounter(entry.target); observer.unobserve(entry.target); }
+      });
+    }, {threshold: 0.4});
+    counters.forEach(counter => observer.observe(counter));
+  });
 </script>
 
-<!-- CATALOGUE JS (COMPLET & CORRIGÉ) -->
+<!-- CATALOGUE JS (Udemy-like cards + thumbnails) -->
 <script>
-    const state = {
-        limit: 9,
-        offset: 0,
-        loading: false,
-        hasMore: true,
-        lastQueryKey: "",
-    };
+  const state = {
+    limit: 12,
+    offset: 0,
+    loading: false,
+    hasMore: true,
+    lastQueryKey: "",
+    sort: "" // "popular" | "new"
+  };
 
-    const els = {
-        container: document.getElementById("courses-container"),
-        count: document.getElementById("courses-count"),
-        loading: document.getElementById("courses-state"),
-        loadMore: document.getElementById("load-more"),
-        apply: document.getElementById("apply-filters"),
-        reset: document.getElementById("reset-filters"),
-        q: document.getElementById("filter-q"),
-        level: document.getElementById("filter-level"),
-        type: document.getElementById("filter-type"),
-        pricing: document.getElementById("filter-pricing"),
-        mine: document.getElementById("filter-mine"),
-    };
+  const els = {
+    container: document.getElementById("courses-container"),
+    count: document.getElementById("courses-count"),
+    loading: document.getElementById("courses-state"),
+    loadMore: document.getElementById("load-more"),
+    apply: document.getElementById("apply-filters"),
+    reset: document.getElementById("reset-filters"),
+    q: document.getElementById("filter-q"),
+    q2: document.getElementById("filter-q-2"),
+    level: document.getElementById("filter-level"),
+    type: document.getElementById("filter-type"),
+    pricing: document.getElementById("filter-pricing"),
+    mine: document.getElementById("filter-mine"),
+    sortPop: document.getElementById("sort-pop"),
+    sortNew: document.getElementById("sort-new"),
+  };
 
-    function debounce(fn, delay = 300) {
-        let t = null;
-        return (...args) => {
-            clearTimeout(t);
-            t = setTimeout(() => fn(...args), delay);
-        };
-    }
+  // keep header search synced with filter search (optional)
+  if (els.q && els.q2) {
+    els.q2.value = els.q.value || "";
+    els.q.addEventListener("input", () => els.q2.value = els.q.value);
+    els.q2.addEventListener("input", () => els.q.value = els.q2.value);
+  }
 
-    function getEndpoint() {
-        // si connecté, on préfère l'endpoint learner (is_enrolled, continue_url etc.)
-        if (window.BE?.isAuth && window.BE?.learnerExploreUrl) return window.BE.learnerExploreUrl;
-        return window.BE?.exploreUrl || "#";
-    }
+  function debounce(fn, delay = 300) {
+    let t = null;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+  }
 
-    function showLoading(show) {
-        els.loading.classList.toggle("hidden", !show);
-    }
+  function getEndpoint() {
+    if (window.BE?.isAuth && window.BE?.learnerExploreUrl) return window.BE.learnerExploreUrl;
+    return window.BE?.exploreUrl || "#";
+  }
 
-    function renderSkeleton(count = 6) {
-        const items = Array.from({length: count}).map(() => `
-        <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          <div class="h-40 bg-gray-100 animate-pulse"></div>
-          <div class="p-6 space-y-3">
-            <div class="h-4 bg-gray-100 rounded animate-pulse w-3/4"></div>
-            <div class="h-4 bg-gray-100 rounded animate-pulse w-1/2"></div>
-            <div class="h-3 bg-gray-100 rounded animate-pulse w-full"></div>
-            <div class="h-10 bg-gray-100 rounded-xl animate-pulse w-full mt-2"></div>
-          </div>
+  function showLoading(show) { els.loading.classList.toggle("hidden", !show); }
+
+  function renderSkeleton(count = 8) {
+    const items = Array.from({length: count}).map(() => `
+      <div class="border border-gray-200 rounded-2xl overflow-hidden bg-white">
+        <div class="h-28 md:h-36 bg-gray-100 animate-pulse"></div>
+        <div class="p-3 space-y-2">
+          <div class="h-4 bg-gray-100 rounded animate-pulse w-5/6"></div>
+          <div class="h-3 bg-gray-100 rounded animate-pulse w-2/3"></div>
+          <div class="h-3 bg-gray-100 rounded animate-pulse w-1/2"></div>
+          <div class="h-8 bg-gray-100 rounded-xl animate-pulse w-full mt-2"></div>
         </div>
-      `).join("");
-        els.container.innerHTML = items;
+      </div>
+    `).join("");
+    els.container.innerHTML = items;
+  }
+
+  function buildParams({resetOffset = false} = {}) {
+    const q = (els.q?.value || "").trim();
+    const level = (els.level.value || "").trim();
+    const type = (els.type.value || "").trim();
+    const pricing = (els.pricing.value || "").trim();
+    const mine = (els.mine?.value || "0").trim();
+
+    if (resetOffset) { state.offset = 0; state.hasMore = true; }
+
+    const params = new URLSearchParams();
+    params.set("limit", String(state.limit));
+    params.set("offset", String(state.offset));
+
+    if (q) params.set("q", q);
+    if (type) params.set("type", type);
+    if (pricing) params.set("pricing", pricing);
+    if (level) params.set("level", level);
+
+    if (state.sort) params.set("sort", state.sort); // backend optional
+    if (window.BE?.isAuth && mine === "1") params.set("mine", "1");
+
+    return params;
+  }
+
+  function safeNumber(n, fallback = 0) {
+    const x = Number(n);
+    return Number.isFinite(x) ? x : fallback;
+  }
+
+  function starsHtml(rating) {
+    const r = Math.max(0, Math.min(5, safeNumber(rating, 0)));
+    const full = Math.floor(r);
+    const half = (r - full) >= 0.5 ? 1 : 0;
+    const empty = 5 - full - half;
+
+    const star = (cls) => `<i class="${cls} text-amber-500"></i>`;
+    return `
+      <span class="inline-flex items-center gap-[2px]">
+        ${Array.from({length: full}).map(()=>star("fa-solid fa-star")).join("")}
+        ${half ? star("fa-solid fa-star-half-stroke") : ""}
+        ${Array.from({length: empty}).map(()=>star("fa-regular fa-star")).join("")}
+      </span>
+    `;
+  }
+
+  function getThumbnail(course) {
+    // supports multiple field names
+    // recommended: thumbnail_url
+    const u =
+      course.thumbnail_url ||
+      course.thumbnail ||
+      course.cover_url ||
+      course.image_url ||
+      course.cover ||
+      "";
+
+    return (typeof u === "string" && u.trim()) ? u.trim() : "";
+  }
+
+  function priceBlock(course) {
+    const isFree = (course.pricing_type === "FREE") || safeNumber(course.price, 0) === 0;
+    if (isFree) {
+      return `<div class="text-[15px] font-extrabold text-gray-900">Gratuit</div>`;
     }
+    const price = safeNumber(course.price, 0).toLocaleString('fr-FR');
+    const oldPrice = safeNumber(course.old_price, 0);
+    const old = oldPrice > 0 ? `<span class="text-xs text-gray-400 line-through ml-2">${oldPrice.toLocaleString('fr-FR')} FCFA</span>` : "";
+    return `<div class="text-[15px] font-extrabold text-gray-900">${price} FCFA ${old}</div>`;
+  }
 
-    function buildParams({resetOffset = false} = {}) {
-        const q = (els.q.value || "").trim();
-        const level = (els.level.value || "").trim();
-        const type = (els.type.value || "").trim();
-        const pricing = (els.pricing.value || "").trim();
-        const mine = (els.mine?.value || "0").trim();
+  function badgeHtml(course) {
+    const badges = [];
+    if (course.is_bestseller) badges.push(`<span class="px-2 py-1 rounded bg-amber-500 text-white text-[11px] font-bold">Bestseller</span>`);
+    if (course.is_popular) badges.push(`<span class="px-2 py-1 rounded bg-gray-900 text-white text-[11px] font-bold">Populaire</span>`);
+    if (course.level_label) badges.push(`<span class="px-2 py-1 rounded bg-blue-50 text-blue-700 text-[11px] font-semibold border border-blue-100">${course.level_label}</span>`);
+    return badges.length ? `<div class="absolute top-3 left-3 flex flex-wrap gap-2">${badges.join("")}</div>` : "";
+  }
 
-        if (resetOffset) {
-            state.offset = 0;
-            state.hasMore = true;
-        }
+  function renderCourseCard(course) {
+    const thumb = getThumbnail(course);
+    const title = course.title || "Cours";
+    const instructor = course.instructor_name || "Formateur";
+    const rating = safeNumber(course.rating, course.avg_rating ?? 0);
+    const reviews = safeNumber(course.reviews_count, course.reviews ?? 0);
+    const enrolled = safeNumber(course.enrolled_count, 0);
 
-        const params = new URLSearchParams();
-        params.set("limit", String(state.limit));
-        params.set("offset", String(state.offset));
+    const ctaLabel = course.is_enrolled ? "Continuer" : (window.BE?.isAuth ? "S'inscrire" : "Voir");
+    const ctaUrl = course.is_enrolled
+      ? (course.continue_url || course.detail_url || "#")
+      : (window.BE?.isAuth ? (course.enroll_url || course.detail_url || "#") : (course.preview_url || course.detail_url || "#"));
 
-        if (q) params.set("q", q);
-        if (type) params.set("type", type);
-        if (pricing) params.set("pricing", pricing);
-        if (level) params.set("level", level);
-
-        // mine uniquement si connecté
-        if (window.BE?.isAuth && mine === "1") params.set("mine", "1");
-
-        return params;
-    }
-
-    function badge(label, color = "blue") {
-        const map = {
-            blue: "bg-blue-100 text-blue-700",
-            green: "bg-green-100 text-green-700",
-            yellow: "bg-yellow-100 text-yellow-700",
-            slate: "bg-slate-100 text-slate-700",
-            purple: "bg-purple-100 text-purple-700",
-            rose: "bg-rose-100 text-rose-700",
-        };
-        return `<span class="px-3 py-1 rounded-full text-xs font-semibold ${map[color] || map.blue}">${label}</span>`;
-    }
-
-    function renderCourseCard(course) {
-        const levelLabel = course.level_label || course.level || "Niveau";
-        const levelColor = course.level_color || "blue";
-
-        const priceHtml = (course.pricing_type === "FREE" || course.price === 0)
-            ? `<div class="text-right">
-         <p class="text-lg font-bold text-green-600">Gratuit</p>
-         <p class="text-xs text-gray-500">Accès immédiat</p>
-       </div>`
-            : `<div class="text-right">
-         <p class="text-lg font-bold text-blue-600">
-            ${Number(course.price).toLocaleString('fr-FR')} FCFA
-         </p>
-         <p class="text-xs text-gray-500"> / ${course.price_period || "cours"}</p>
-       </div>`;
-        const coverHtml = course.cover_url
-            ? `<div class="h-44" style="background-image:url('${course.cover_url}'); background-size:cover; background-position:center;"></div>`
-            : `<div class="h-44 bg-gradient-to-r ${course.color_gradient || "from-blue-600 to-blue-500"} flex items-center justify-center">
-             <i class="${course.icon || "fas fa-book-open"} text-white text-5xl"></i>
-           </div>`;
-
-        const ctaLabel = course.is_enrolled ? "Continuer" : (window.BE?.isAuth ? "S'inscrire" : "Voir le programme");
-        const ctaUrl = course.is_enrolled
-            ? (course.continue_url || course.detail_url || "#")
-            : (window.BE?.isAuth ? (course.enroll_url || course.detail_url || "#") : (course.preview_url || course.detail_url || "#"));
-
-        const desc = (course.description || "");
-        const shortDesc = desc.length > 160 ? (desc.slice(0, 160) + "…") : desc;
-
-        return `
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover-lift">
+    return `
+      <article class="ud-card bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <a href="${ctaUrl}" class="block">
           <div class="relative">
-            ${coverHtml}
-
-            <div class="absolute top-4 left-4 flex gap-2">
-              ${course.is_popular ? `<span class="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500 text-white"><i class="fas fa-star mr-1"></i>Populaire</span>` : ""}
-              ${badge(levelLabel, levelColor)}
-            </div>
+            ${badgeHtml(course)}
+            ${thumb
+              ? `<div class="aspect-[16/9] bg-gray-100">
+                   <img src="${thumb}" alt="${title.replaceAll('"','&quot;')}"
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                        onerror="this.onerror=null; this.style.display='none'; this.parentElement.classList.add('thumb'); this.parentElement.innerHTML = '<div class=\\'w-full h-full flex items-center justify-center text-white\\'><i class=\\'fa-solid fa-book-open text-3xl\\'></i></div>';">
+                 </div>`
+              : `<div class="aspect-[16/9] thumb flex items-center justify-center text-white">
+                   <i class="fa-solid fa-book-open text-3xl"></i>
+                 </div>`
+            }
           </div>
 
-          <div class="p-6">
-            <h3 class="text-lg font-bold text-gray-800 leading-snug">${course.title || "Cours"}</h3>
-            ${course.subtitle ? `<p class="text-sm text-gray-500 mt-1">${course.subtitle}</p>` : ""}
+          <div class="p-3">
+            <h3 class="text-sm md:text-[15px] font-extrabold text-gray-900 leading-snug line-clamp-2">${title}</h3>
+            <p class="text-[12px] text-gray-600 mt-1">${instructor}</p>
 
-            <p class="text-gray-600 text-sm mt-3 line-clamp-3">${shortDesc}</p>
-
-            <div class="mt-5 flex items-center justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-${course.instructor_color || "blue"}-100 flex items-center justify-center">
-                  <span class="text-${course.instructor_color || "blue"}-700 font-bold">${course.instructor_initials || "BE"}</span>
-                </div>
-                <div>
-                  <p class="text-sm font-semibold text-gray-800">${course.instructor_name || "Formateur"}</p>
-                  <p class="text-xs text-gray-500">${course.instructor_title || "Expert"}</p>
-                </div>
-              </div>
-              ${priceHtml}
+            <div class="mt-1 flex items-center gap-2">
+              <span class="text-sm font-bold text-amber-600">${rating ? rating.toFixed(1) : "—"}</span>
+              ${starsHtml(rating)}
+              <span class="text-[12px] text-gray-500">(${reviews.toLocaleString('fr-FR')})</span>
             </div>
 
-            <div class="mt-5 pt-5 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
-              <div class="flex items-center"><i class="far fa-clock mr-2"></i>${course.duration || "—"}</div>
-              <div class="flex items-center"><i class="fas fa-users mr-2"></i>${(course.enrolled_count || 0).toLocaleString('fr-FR')}</div>
-              <div class="flex items-center text-green-600"><i class="fas fa-star mr-1"></i>${course.rating ?? "—"}</div>
+            <div class="mt-1 text-[12px] text-gray-500">
+              ${enrolled ? `${enrolled.toLocaleString('fr-FR')} apprenants` : "—"}
+              ${course.duration ? ` • ${course.duration}` : ""}
             </div>
 
-            <a href="${ctaUrl}"
-               class="block w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white text-center font-medium hover:shadow-lg transition">
-              ${ctaLabel}
-            </a>
+            <div class="mt-2 flex items-center justify-between gap-2">
+              ${priceBlock(course)}
+              <span class="text-[11px] px-2 py-1 rounded-full bg-gray-50 border border-gray-200 text-gray-600 font-semibold">
+                ${ctaLabel}
+              </span>
+            </div>
           </div>
-        </div>
-      `;
-    }
+        </a>
+      </article>
+    `;
+  }
 
-    async function fetchCourses({reset = false} = {}) {
-        if (state.loading) return;
-        if (!state.hasMore && !reset) return;
+  async function fetchCourses({reset = false} = {}) {
+    if (state.loading) return;
+    if (!state.hasMore && !reset) return;
 
-        state.loading = true;
+    state.loading = true;
 
-        if (reset) renderSkeleton(6);
-        else showLoading(true);
+    if (reset) renderSkeleton(8);
+    else showLoading(true);
 
-        const params = buildParams({resetOffset: reset});
-        const queryKey = params.toString();
-        state.lastQueryKey = queryKey;
+    const params = buildParams({resetOffset: reset});
+    const queryKey = params.toString();
+    state.lastQueryKey = queryKey;
 
-        try {
-            const url = `${getEndpoint()}?${params.toString()}`;
-            const res = await fetch(url, {headers: {"Accept": "application/json"}});
+    try {
+      const url = `${getEndpoint()}?${params.toString()}`;
+      const res = await fetch(url, { headers: {"Accept":"application/json"} });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}`);
-            }
+      const data = await res.json();
+      if (state.lastQueryKey !== queryKey) return;
 
-            const data = await res.json();
+      const results = data.results || data.courses || [];
+      const total = (typeof data.count === "number") ? data.count : results.length;
 
-            // ignorer les réponses anciennes si une nouvelle requête a été lancée
-            if (state.lastQueryKey !== queryKey) return;
+      if (reset) els.container.innerHTML = "";
+      els.count.textContent = String(total);
 
-            const results = data.results || data.courses || [];
-            const total = (typeof data.count === "number") ? data.count : results.length;
-
-            if (reset) els.container.innerHTML = "";
-            els.count.textContent = String(total);
-
-            if (!results.length && reset) {
-                els.container.innerHTML = `
-            <div class="col-span-3 text-center py-12">
-              <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-face-frown text-gray-500 text-2xl"></i>
-              </div>
-              <h4 class="text-lg font-semibold text-gray-800 mb-2">Aucun cours trouvé</h4>
-              <p class="text-gray-600">Essayez un autre mot-clé ou modifiez les filtres.</p>
+      if (!results.length && reset) {
+        els.container.innerHTML = `
+          <div class="col-span-2 md:col-span-3 lg:col-span-4 text-center py-12">
+            <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-face-frown text-gray-500 text-2xl"></i>
             </div>
-          `;
-            } else {
-                els.container.insertAdjacentHTML("beforeend", results.map(renderCourseCard).join(""));
-            }
+            <h4 class="text-lg font-extrabold text-gray-900 mb-2">Aucun cours trouvé</h4>
+            <p class="text-gray-600">Essayez un autre mot-clé ou modifiez les filtres.</p>
+          </div>
+        `;
+      } else {
+        els.container.insertAdjacentHTML("beforeend", results.map(renderCourseCard).join(""));
+      }
 
-            state.offset += state.limit;
-            state.hasMore = state.offset < total;
+      state.offset += state.limit;
+      state.hasMore = state.offset < total;
+      els.loadMore.classList.toggle("hidden", !state.hasMore);
 
-            els.loadMore.classList.toggle("hidden", !state.hasMore);
-        } catch (e) {
-            console.error("fetchCourses error:", e);
-
-            if (reset) {
-                els.container.innerHTML = `
-            <div class="col-span-3 text-center py-12">
-              <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
-              </div>
-              <h4 class="text-lg font-semibold text-gray-800 mb-2">Erreur de chargement</h4>
-              <p class="text-gray-600">Impossible de charger les cours. Réessayez plus tard.</p>
+    } catch (e) {
+      console.error("fetchCourses error:", e);
+      if (reset) {
+        els.container.innerHTML = `
+          <div class="col-span-2 md:col-span-3 lg:col-span-4 text-center py-12">
+            <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
             </div>
-          `;
-            }
-        } finally {
-            showLoading(false);
-            state.loading = false;
-        }
+            <h4 class="text-lg font-extrabold text-gray-900 mb-2">Erreur de chargement</h4>
+            <p class="text-gray-600">Impossible de charger les cours. Réessayez plus tard.</p>
+          </div>
+        `;
+      }
+    } finally {
+      showLoading(false);
+      state.loading = false;
     }
+  }
 
-    function resetFilters() {
-        els.q.value = "";
-        els.level.value = "";
-        els.type.value = "";
-        els.pricing.value = "";
-        if (els.mine && !els.mine.disabled) els.mine.value = "0";
-        state.offset = 0;
-        state.hasMore = true;
-        fetchCourses({reset: true});
-    }
+  function resetFilters() {
+    if (els.q) els.q.value = "";
+    if (els.q2) els.q2.value = "";
+    els.level.value = "";
+    els.type.value = "";
+    els.pricing.value = "";
+    if (els.mine && !els.mine.disabled) els.mine.value = "0";
+    state.sort = "";
+    fetchCourses({reset: true});
+  }
 
-    const autoSearch = debounce(() => fetchCourses({reset: true}), 350);
+  const autoSearch = debounce(() => fetchCourses({reset: true}), 350);
 
-    document.addEventListener("DOMContentLoaded", () => {
-        fetchCourses({reset: true});
+  document.addEventListener("DOMContentLoaded", () => {
+    fetchCourses({reset: true});
 
-        els.apply.addEventListener("click", () => fetchCourses({reset: true}));
-        els.reset.addEventListener("click", resetFilters);
-        els.loadMore.addEventListener("click", () => fetchCourses({reset: false}));
+    // search (header)
+    els.q?.addEventListener("input", autoSearch);
+    els.q2?.addEventListener("input", autoSearch);
 
-        els.q.addEventListener("input", autoSearch);
+    els.apply?.addEventListener("click", () => fetchCourses({reset: true}));
+    els.reset?.addEventListener("click", resetFilters);
+    els.loadMore?.addEventListener("click", () => fetchCourses({reset: false}));
 
-        [els.level, els.type, els.pricing, els.mine].forEach(el => {
-            if (!el) return;
-            el.addEventListener("change", () => fetchCourses({reset: true}));
-        });
+    [els.level, els.type, els.pricing, els.mine].forEach(el => {
+      if (!el) return;
+      el.addEventListener("change", () => fetchCourses({reset: true}));
     });
+
+    // sort buttons (backend optional; still useful if your API supports it)
+    els.sortPop?.addEventListener("click", () => { state.sort = "popular"; fetchCourses({reset:true}); });
+    els.sortNew?.addEventListener("click", () => { state.sort = "new"; fetchCourses({reset:true}); });
+  });
 </script>
+
 </body>
 </html>
