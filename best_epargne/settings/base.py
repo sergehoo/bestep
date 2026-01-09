@@ -231,20 +231,26 @@ AWS_S3_REGION_NAME = os.getenv("MINIO_REGION", "us-east-1")
 
 # ✅ Endpoint interne (réseau docker) pour que Django upload sur MinIO
 AWS_S3_ENDPOINT_URL = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
+MINIO_PUBLIC_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://", "")
 
 # ✅ Domaine public (Traefik) pour que le navigateur charge les médias
 # Exemple: MINIO_PUBLIC_DOMAIN=minio.ayo-group.com
 # AWS_S3_CUSTOM_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "")
-AWS_S3_CUSTOM_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://", "")
+# AWS_S3_CUSTOM_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://", "")
+
+AWS_S3_CUSTOM_DOMAIN = f"{MINIO_PUBLIC_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}"
 
 # SSL côté URL publique
 AWS_S3_URL_PROTOCOL = "https:"  # Traefik termine en https
 AWS_S3_USE_SSL = False          # IMPORTANT: Django parle à MinIO en http interne
 AWS_S3_VERIFY = False
+AWS_S3_ADDRESSING_STYLE = "path"
 
 AWS_S3_SIGNATURE_VERSION = "s3v4"
 AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = os.getenv("MINIO_QUERYSTRING_AUTH", "0") == "1"
 
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/"
+
+# MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/"
+MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
