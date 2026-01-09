@@ -90,7 +90,7 @@ services:
       - "traefik.http.routers.best-minio-console.entrypoints=websecure"
       - "traefik.http.routers.best-minio-console.tls=true"
       - "traefik.http.routers.best-minio-console.service=best-minio-console"
-      -
+
       - "traefik.http.middlewares.minio-console-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
       - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers"
 
