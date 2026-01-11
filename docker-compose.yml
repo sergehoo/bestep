@@ -218,7 +218,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: best_epargne_celery
     restart: unless-stopped
     env_file: [.env]
     environment:
@@ -237,7 +236,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: best_epargne_celery_beat
     restart: unless-stopped
     env_file: [.env]
     environment:
