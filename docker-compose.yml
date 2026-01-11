@@ -143,7 +143,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: best_epargne_init
     restart: "no"
     env_file: [.env]
     environment:
@@ -169,7 +168,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bestweb
     restart: unless-stopped
     env_file: [.env]
     environment:
