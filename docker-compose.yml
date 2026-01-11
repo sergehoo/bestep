@@ -71,9 +71,8 @@ services:
   # -------------------------
   # Redis
   # -------------------------
-  best_epargne_redis:
+  bestredis:
     image: redis:7-alpine
-    container_name: best_epargne_redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -154,7 +153,7 @@ services:
     depends_on:
       bestDB:
         condition: service_healthy
-      redis:
+      bestredis:
         condition: service_healthy
       minio:
         condition: service_healthy
