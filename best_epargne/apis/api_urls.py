@@ -10,7 +10,8 @@ from best_epargne.apis.views import CategoryViewSet, CourseViewSet, InstructorCo
     MediaSignedGetView, InstructorMediaListView, LearnerMeView, LearnerKpisView, LearnerEnrollmentsView, \
     LearnerCourseDetailView, LearnerCourseProgressView, LearnerNotificationsView, LearnerPaymentsView, \
     LearnerProgressView, LearnerExploreCoursesView, LearnerEnrollView, LearnerCourseOutlineView, LearnerContinueView, \
-    LearnerLessonStateView, LearnerLessonProgressUpdateView, LearnerSetCurrentLessonView
+    LearnerLessonStateView, LearnerLessonProgressUpdateView, LearnerSetCurrentLessonView, LearnerCoursePlayerDataView, \
+    LearnerMediaSignedGetView
 # from catalog.api.views import CourseViewSet, CategoryViewSet
 from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
 from organizations.api import CompanyMembersViewSet
@@ -82,6 +83,9 @@ urlpatterns = [
     path("learner/courses/<int:course_id>/progress/", LearnerCourseProgressView.as_view(),
          name="api_learner_course_progress"),
 
+    path("learner/player/<int:course_id>/", LearnerCoursePlayerDataView.as_view(), name="api_learner_player"),
+    path("learner/media/<uuid:asset_id>/signed/", LearnerMediaSignedGetView.as_view(),
+         name="api_learner_media_signed"),
 
     path("learner/notifications/", LearnerNotificationsView.as_view(), name="api_learner_notifications"),
     path("learner/payments/", LearnerPaymentsView.as_view(), name="api_learner_payments"),

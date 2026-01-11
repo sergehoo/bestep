@@ -736,13 +736,17 @@ class LearnerKpisView(LearnerBaseAPIView):
 class LearnerEnrollmentsView(LearnerBaseAPIView):
     """
     Liste des cours suivis par l'apprenant.
-    Paramètres: q, status, limit
+    Paramètres GET: q, status, limit
+
+    POST: inscription à un cours.
+    Payload: { "course_id": 123 }
     """
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         u = request.user
         q = (request.query_params.get("q") or "").strip()
-        status = (request.query_params.get("status") or "").strip()
+        status_param = (request.query_params.get("status") or "").strip()
         limit = int(request.query_params.get("limit") or 100)
 
         if Enrollment is None or Course is None:
@@ -750,10 +754,9 @@ class LearnerEnrollmentsView(LearnerBaseAPIView):
 
         qs = Enrollment.objects.filter(user=u).select_related("course").order_by("-id")
 
-        # filtre status enrollment si dispo
-        if status:
+        if status_param:
             try:
-                qs = qs.filter(status=status)
+                qs = qs.filter(status=status_param)
             except Exception:
                 pass
 
@@ -773,14 +776,17 @@ class LearnerEnrollmentsView(LearnerBaseAPIView):
             if not c:
                 continue
 
+            thumb = getattr(c, "thumbnail_url", None)
+            if not thumb and getattr(c, "thumbnail", None):
+                thumb = getattr(getattr(c, "thumbnail", None), "url", None)
+
             results.append({
                 "enrollment_id": e.id,
                 "course": {
                     "id": c.id,
                     "title": getattr(c, "title", "") or "",
                     "subtitle": getattr(c, "subtitle", "") or "",
-                    "thumbnail_url": getattr(c, "thumbnail_url", None) or getattr(c, "thumbnail", None) and getattr(
-                        getattr(c, "thumbnail", None), "url", None),
+                    "thumbnail_url": thumb,
                     "status": getattr(c, "status", None),
                     "pricing_type": getattr(c, "pricing_type", None),
                     "price": getattr(c, "price", None),
@@ -793,6 +799,68 @@ class LearnerEnrollmentsView(LearnerBaseAPIView):
 
         return Response({"count": qs.count(), "results": results})
 
+    def post(self, request):
+        if Enrollment is None or Course is None:
+            return Response(
+                {"detail": "Enrollment/Course non disponibles."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        raw_id = request.data.get("course_id") or request.data.get("id") or request.data.get("course")
+        try:
+            course_id = int(raw_id)
+        except Exception:
+            return Response({"detail": "course_id invalide."}, status=status.HTTP_400_BAD_REQUEST)
+
+        course = get_object_or_404(Course, id=course_id)
+
+        # Champs réels du modèle Enrollment
+        field_names = {f.name for f in Enrollment._meta.fields}
+
+        defaults = {}
+        # ⚠️ mets une valeur qui existe dans tes choices, sinon commente ce bloc
+        if "status" in field_names:
+            # essaie plusieurs constantes si tu en as
+            defaults["status"] = (
+                    getattr(Enrollment, "STATUS_ACTIVE", None)
+                    or getattr(Enrollment, "STATUS_ENROLLED", None)
+                    or getattr(Enrollment, "STATUS_PENDING", None)
+                    or "ACTIVE"  # <- à adapter si besoin
+            )
+        if "progress_percent" in field_names:
+            defaults["progress_percent"] = 0
+
+        # IMPORTANT: ne PAS setter created_at (souvent auto_now_add / non éditable)
+        # if "created_at" in field_names:  # ❌ évite
+        #     defaults["created_at"] = timezone.now()
+
+        try:
+            with transaction.atomic():
+                enrollment, created = Enrollment.objects.get_or_create(
+                    user=request.user,
+                    course=course,
+                    defaults=defaults
+                )
+        except IntegrityError:
+            # race condition: quelqu’un a créé entre temps
+            enrollment = Enrollment.objects.filter(user=request.user, course=course).first()
+            created = False
+
+        if not enrollment:
+            return Response(
+                {"detail": "Impossible de créer l'inscription."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {
+                "enrollment_id": enrollment.id,
+                "course_id": course.id,
+                "created": bool(created),
+                "detail": "Inscription effectuée." if created else "Déjà inscrit."
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
 
 # ---------- /api/learner/courses/<id>/ ----------
 class LearnerCourseDetailView(LearnerBaseAPIView):
@@ -1335,6 +1403,116 @@ def _course_to_dict(course, request=None, is_enrolled=False, enrolled_at=None):
         "enrolled_at": _iso(enrolled_at),
     }
 
+def _get_enrollment(user, course):
+    return Enrollment.objects.filter(user=user, course=course).first()
+def ensure_lesson_progress(enrollment, course):
+    """
+    Crée les LessonProgress manquants pour ce enrollment/course.
+    """
+    lessons_qs = Lesson.objects.filter(section__course=course).only("id")
+    lesson_ids = list(lessons_qs.values_list("id", flat=True))
+
+    existing = set(
+        LessonProgress.objects.filter(enrollment=enrollment, lesson_id__in=lesson_ids)
+        .values_list("lesson_id", flat=True)
+    )
+    missing = [lid for lid in lesson_ids if lid not in existing]
+    if missing:
+        LessonProgress.objects.bulk_create([
+            LessonProgress(
+                enrollment=enrollment,
+                lesson_id=lid,
+                progress_percent=0,
+                completed=False,
+                last_position_sec=0
+            )
+            for lid in missing
+        ], ignore_conflicts=True)
+class LearnerCoursePlayerDataView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, course_id: int):
+        course = get_object_or_404(Course, id=course_id)
+        enrollment = _get_enrollment(request.user, course)
+        if not enrollment:
+            return Response({"detail": "Inscription requise."}, status=status.HTTP_403_FORBIDDEN)
+
+        # sections + lessons
+        sections = CourseSection.objects.filter(course=course).prefetch_related("lessons").order_by("order")
+        lessons_qs = Lesson.objects.filter(section__course=course).select_related("section").order_by("section__order", "order")
+
+        # progress map
+        lesson_ids = list(lessons_qs.values_list("id", flat=True))
+        ensure_lesson_progress(enrollment, course)
+
+        prog = {
+            p.lesson_id: p
+            for p in LessonProgress.objects.filter(enrollment=enrollment, lesson_id__in=lesson_ids)
+        }
+
+        # current lesson = la première non complétée, sinon la dernière
+        current_lesson = None
+        for l in lessons_qs:
+            p = prog.get(l.id)
+            if p and not p.completed:
+                current_lesson = l
+                break
+        if current_lesson is None:
+            current_lesson = lessons_qs.first()
+
+        payload_sections = []
+        for s in sections:
+            s_lessons = []
+            for l in s.lessons.all().order_by("order"):
+                p = prog.get(l.id)
+                s_lessons.append({
+                    "id": l.id,
+                    "title": l.title,
+                    "lesson_type": l.lesson_type,
+                    "duration_sec": l.duration_sec,
+                    "is_preview": bool(l.is_preview),
+                    "progress_percent": int((p.progress_percent if p else 0) or 0),
+                    "completed": bool(p.completed) if p else False,
+                })
+
+            payload_sections.append({
+                "id": s.id,
+                "title": s.title,
+                "order": s.order,
+                "lessons": s_lessons
+            })
+
+        return Response({
+            "course": {"id": course.id, "title": course.title},
+            "current_lesson_id": current_lesson.id if current_lesson else None,
+            "sections": payload_sections
+        })
+    
+class LearnerMediaSignedGetView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, asset_id):
+        asset = get_object_or_404(MediaAsset, id=asset_id)
+
+        # Vérifier que l'apprenant a accès via une inscription
+        # On check si une Lesson de ce MediaAsset appartient à un Course où il est inscrit
+        lesson = Lesson.objects.filter(media_asset=asset).select_related("section__course").first()
+        if not lesson:
+            return Response({"detail": "Asset non attaché à une leçon."}, status=404)
+
+        course = lesson.section.course
+        enrollment = Enrollment.objects.filter(user=request.user, course=course).first()
+        if not enrollment and not lesson.is_preview:
+            return Response({"detail": "Inscription requise."}, status=403)
+
+        bucket = getattr(settings, "MINIO_BUCKET", None)
+        client = s3_client()
+        url = client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": bucket, "Key": asset.object_key},
+            ExpiresIn=60 * 10,
+        )
+        return Response({"url": url})
 class LearnerExploreCoursesView(APIView):
     """
     GET /api/learner/courses/

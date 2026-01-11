@@ -27,7 +27,6 @@
       --success-green:#2ECC71;
     }
 
-    /* shimmer */
     @keyframes shimmer{0%{background-position:-600px 0;} 100%{background-position:600px 0;}}
     .skeleton{
       background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 37%,#f1f5f9 63%);
@@ -35,23 +34,20 @@
       animation:shimmer 1.2s infinite linear;
     }
 
-    /* subtle entrance */
     @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
     .fade-up{animation:fadeUp .45s ease-out both;}
 
-    /* clamp */
     .line-clamp-1{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
     .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
     .line-clamp-3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
 
-    /* sticky "udemy-like" card shadow */
     .sticky-card{box-shadow:0 24px 60px rgba(2,6,23,.14);}
   </style>
 </head>
 
 <body class="bg-gray-50 text-slate-900">
 
-<!-- NAV (reuse ton style) -->
+<!-- NAV -->
 <nav class="bg-white shadow-md sticky top-0 z-50">
   <div class="container mx-auto px-4 py-3 flex justify-between items-center">
     <div class="flex items-center space-x-2">
@@ -95,13 +91,11 @@
   </div>
 </nav>
 
-<!-- HEADER HERO (Udemy-like: bande sombre) -->
+<!-- HERO -->
 <header class="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-900 text-white">
   <div class="container mx-auto px-4 py-10 md:py-12">
     <div class="grid lg:grid-cols-12 gap-10 items-start">
-      <!-- Left: hero -->
       <div class="lg:col-span-8">
-        <!-- breadcrumbs -->
         <div class="text-sm text-slate-300 flex items-center gap-2">
           <a href="/" class="hover:text-white">Accueil</a>
           <span class="opacity-60">/</span>
@@ -110,7 +104,6 @@
           <span id="crumb-title" class="line-clamp-1">Détails</span>
         </div>
 
-        <!-- skeleton hero -->
         <div id="hero-skel" class="mt-5 space-y-4">
           <div class="h-9 w-11/12 skeleton rounded"></div>
           <div class="h-5 w-9/12 skeleton rounded"></div>
@@ -121,7 +114,6 @@
           </div>
         </div>
 
-        <!-- real hero -->
         <div id="hero" class="hidden mt-5 fade-up">
           <h1 id="title" class="text-3xl md:text-4xl font-extrabold leading-tight"></h1>
           <p id="subtitle" class="mt-3 text-slate-200 text-lg"></p>
@@ -159,7 +151,6 @@
         </div>
       </div>
 
-      <!-- Right: sticky card placeholder space (the actual card is in MAIN to allow sticky below hero on desktop) -->
       <div class="hidden lg:block lg:col-span-4"></div>
     </div>
   </div>
@@ -169,10 +160,10 @@
 <main class="container mx-auto px-4 py-8 md:py-10">
   <div class="grid lg:grid-cols-12 gap-10">
 
-    <!-- Left column: content -->
+    <!-- LEFT -->
     <section class="lg:col-span-8">
 
-      <!-- mobile card (shows on small screens) -->
+      <!-- mobile card -->
       <div class="lg:hidden -mt-16 mb-6">
         <div id="mobile-card-skel" class="bg-white border border-gray-200 rounded-2xl overflow-hidden sticky-card">
           <div class="aspect-[16/9] skeleton"></div>
@@ -224,21 +215,13 @@
         </div>
       </div>
 
-      <!-- Tabs / sections (Udemy-like) -->
+      <!-- Tabs -->
       <div class="bg-white border border-gray-200 rounded-2xl p-5 md:p-6">
         <div class="flex flex-wrap gap-2">
-          <button data-tab="overview" class="tab-btn px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold text-sm">
-            Aperçu
-          </button>
-          <button data-tab="content" class="tab-btn px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">
-            Contenu
-          </button>
-          <button data-tab="instructor" class="tab-btn px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">
-            Formateur
-          </button>
-          <button data-tab="reviews" class="tab-btn px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">
-            Avis
-          </button>
+          <button data-tab="overview" class="tab-btn px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold text-sm">Aperçu</button>
+          <button data-tab="content" class="tab-btn px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">Contenu</button>
+          <button data-tab="instructor" class="tab-btn px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">Formateur</button>
+          <button data-tab="reviews" class="tab-btn px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold text-sm">Avis</button>
         </div>
 
         <!-- Overview -->
@@ -263,7 +246,6 @@
 
           <div id="desc-wrap" class="hidden mt-3 text-gray-700 leading-relaxed">
             <p id="desc" class="whitespace-pre-line"></p>
-
             <button id="descMoreBtn" class="mt-3 text-blue-700 font-semibold hover:text-blue-800">
               Afficher plus <i class="fas fa-chevron-down ml-1 text-xs"></i>
             </button>
@@ -441,7 +423,6 @@
           <a href="/#cours" class="text-blue-700 font-semibold hover:text-blue-800">Voir tout</a>
         </div>
 
-        <!-- state -->
         <div id="related-state" class="mt-5">
           <div id="related-skel" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div class="rounded-2xl border border-gray-200 overflow-hidden">
@@ -479,12 +460,11 @@
           </div>
         </div>
 
-        <!-- results -->
         <div id="related-grid" class="hidden mt-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
       </div>
     </section>
 
-    <!-- Right column: sticky card (desktop Udemy-like) -->
+    <!-- RIGHT -->
     <aside class="lg:col-span-4 hidden lg:block -mt-28">
       <div id="desk-card-skel" class="bg-white border border-gray-200 rounded-2xl overflow-hidden sticky top-24 sticky-card">
         <div class="aspect-[16/9] skeleton"></div>
@@ -545,7 +525,7 @@
   </div>
 </main>
 
-<!-- simple modal video preview -->
+<!-- video modal -->
 <div id="videoModal" class="hidden fixed inset-0 z-[80]">
   <div class="absolute inset-0 bg-black/60"></div>
   <div class="relative max-w-4xl mx-auto px-4 py-10">
@@ -565,11 +545,14 @@
 
 <!-- data -->
 <script>
-  // IMPORTANT: si ta vue CourseDetailPageView passe "course_id" dans le context, c'est bon.
   const courseId = {{ course_id|default:0 }};
   const IS_AUTH = {{ user.is_authenticated|yesno:"true,false" }};
 
-  // ✅ Base path detail landinghome (pour corriger les liens slug /courses/<slug>/)
+  // ✅ Page lecture (TemplateView)
+  // path("dashboard/learner/courses/<int:course_id>/", LearnerCoursePlayerView.as_view(), name="learner_course_player"),
+  const PLAYER_PAGE_BASE = "/dashboard/learner/courses/";
+
+  // Landing detail base (si besoin)
   const LANDING_DETAIL_BASE = "/landinghome/courses/";
 </script>
 
@@ -581,34 +564,24 @@
     if (cur === "XOF") return n.toLocaleString("fr-FR") + " FCFA";
     return n.toLocaleString("fr-FR") + " " + cur;
   }
-
-  function safeText(s) {
-    return String(s ?? "");
-  }
-
+  function safeText(s) { return String(s ?? ""); }
   function isoToFR(iso) {
     if (!iso) return "";
     const d = new Date(iso);
     if (isNaN(d.getTime())) return "";
     return d.toLocaleDateString("fr-FR", { year:"numeric", month:"long", day:"2-digit" });
   }
-
-  // ✅ FIX: ton détail landing est /landinghome/courses/<id>/
   function getIdFromPath(){
-    // supporte: /landinghome/courses/602/ et fallback /courses/602/
     let m = window.location.pathname.match(/\/landinghome\/courses\/(\d+)\//);
     if (m) return Number(m[1]);
     m = window.location.pathname.match(/\/courses\/(\d+)\//);
     return m ? Number(m[1]) : null;
   }
-
   function setHTML(el, html){ if(el) el.innerHTML = html; }
   function setText(el, txt){ if(el) el.textContent = txt; }
-
   function badge(label, cls){
     return `<span class="px-3 py-1 rounded-full text-[11px] font-semibold ${cls}">${label}</span>`;
   }
-
   function firstInitials(name){
     name = (name||"").trim();
     if(!name) return "F";
@@ -619,6 +592,7 @@
 
   function embedMedia(targetEl, thumbnailUrl, fallbackGradientClass, iconClass){
     if(!targetEl) return;
+
     const thumb = thumbnailUrl ? `
       <img src="${thumbnailUrl}" alt="" class="w-full h-full object-cover" loading="lazy"
            onerror="this.onerror=null; this.style.display='none';">
@@ -649,12 +623,6 @@
         }
       }, 250);
     }
-  }
-
-  function setCta(ctaEl, label, url){
-    if(!ctaEl) return;
-    ctaEl.textContent = label;
-    ctaEl.href = url || "#";
   }
 
   // ---------- tabs ----------
@@ -713,17 +681,13 @@
     const bullets = [];
     lines.forEach(l => {
       const parts = l.split(/•|·|-\s+/).map(x => x.trim()).filter(Boolean);
-      parts.forEach(p => {
-        if(p.length >= 8 && p.length <= 120) bullets.push(p);
-      });
+      parts.forEach(p => { if(p.length >= 8 && p.length <= 120) bullets.push(p); });
     });
 
     const items = bullets.length ? bullets.slice(0, 12) : [txt.slice(0, 140) + (txt.length>140 ? "…" : "")];
     const chunks = [];
     const perSection = 4;
-    for(let i=0;i<items.length;i+=perSection){
-      chunks.push(items.slice(i, i+perSection));
-    }
+    for(let i=0;i<items.length;i+=perSection){ chunks.push(items.slice(i, i+perSection)); }
 
     return chunks.map((lessons, idx) => ({
       title: `Section ${idx+1}`,
@@ -781,12 +745,12 @@
   // ---------- learn list fallback ----------
   function buildLearnList(course){
     const outcomes = course.learning_outcomes || course.outcomes || null;
-    if(Array.isArray(outcomes) && outcomes.length){
-      return outcomes.slice(0, 8);
-    }
+    if(Array.isArray(outcomes) && outcomes.length) return outcomes.slice(0, 8);
+
     const lvl = (course.level || "").toLowerCase();
     const isAdv = lvl === "advanced";
     const isInter = lvl === "intermediate";
+
     const base = [
       "Construire un budget simple et efficace",
       "Mettre en place une stratégie d’épargne durable",
@@ -806,37 +770,27 @@
       "Éviter les pièges et gagner en confiance",
       "Appliquer des méthodes simples au quotidien"
     ];
+
     return [...base, ...plus].slice(0, 8);
   }
 
-  // ============== RELATED COURSES (FIXED) ==============
+  // ============== RELATED COURSES ==============
   function getExploreEndpoint() {
-    // explore API
     if (window.BE?.exploreUrl) return window.BE.exploreUrl;
-    return "/landinghome/public/courses/"; // ✅ ton endpoint explore
+    return "/landinghome/public/courses/";
   }
-
   function normalizeExploreResponse(data){
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.results)) return data.results;
     if (data && Array.isArray(data.courses)) return data.courses;
     return [];
   }
-
-  // ✅ FIX CENTRAL: forcer le lien vers /landinghome/courses/<id>/
   function normalizeDetailUrl(course){
     const u = (course?.detail_url || course?.preview_url || "").trim();
-
-    // si l'API renvoie déjà le bon path
     if (u.startsWith(LANDING_DETAIL_BASE)) return u;
-
-    // si l'API renvoie un slug du type /courses/<slug>/ => on ignore et on reconstruit
     if (course?.id) return `${LANDING_DETAIL_BASE}${course.id}/`;
-
-    // fallback
     return u || "#";
   }
-
   function renderMiniCourseCard(course) {
     const title = course.title || "Cours";
     const subtitle = course.subtitle || "";
@@ -846,9 +800,7 @@
     const isFree = (course.pricing_type === "FREE") || Number(course.price) === 0;
     const priceTxt = isFree ? "Gratuit" : money(course.price, course.currency);
 
-    // ✅ URL corrigée
     const detailUrl = normalizeDetailUrl(course);
-
     const thumb = course.thumbnail_url;
 
     const cover = thumb
@@ -909,19 +861,15 @@
 
     try {
       const endpoint = getExploreEndpoint();
-
       const params = new URLSearchParams();
       params.set("limit", "12");
       params.set("offset", "0");
 
-      // Explore: q / type / pricing
-      if (currentCourse.category_name) {
-        params.set("q", currentCourse.category_name);
-      } else if (currentCourse.course_type) {
-        params.set("type", currentCourse.course_type);
-      }
+      if (currentCourse.category_name) params.set("q", currentCourse.category_name);
+      else if (currentCourse.course_type) params.set("type", currentCourse.course_type);
 
       const url = `${endpoint}?${params.toString()}`;
+
       const res = await fetch(url, { headers: { "Accept": "application/json" } });
       if (!res.ok) throw new Error(`Explore HTTP ${res.status}`);
 
@@ -953,19 +901,137 @@
     }
   }
 
+  // ============== CTA / INSCRIPTION / CONTINUER (FIX REFRESH) ==============
+  function playerPageUrl(courseId){
+    return `${PLAYER_PAGE_BASE}${courseId}/`;
+  }
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return null;
+  }
+  function getCsrfToken() { return getCookie("csrftoken"); }
+
+  function loginWithNext(nextUrl) {
+    const next = encodeURIComponent(nextUrl || (window.location.pathname + window.location.search));
+    window.location.href = `/accounts/login/?next=${next}`;
+  }
+
+  function lockButtons(btns, label){
+    btns.forEach(b => {
+      b.dataset.originalText = b.textContent;
+      b.classList.add("opacity-80", "pointer-events-none");
+      b.textContent = label || "Veuillez patienter…";
+    });
+  }
+  function unlockButtons(btns){
+    btns.forEach(b => {
+      b.classList.remove("opacity-80", "pointer-events-none");
+      b.textContent = b.dataset.originalText || b.textContent;
+    });
+  }
+
+  async function enrollCourseApi(courseId) {
+    const csrf = getCsrfToken();
+    if (!csrf) throw new Error("CSRF token introuvable (csrftoken).");
+
+    const res = await fetch("/api/learner/enrollments/", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrf
+      },
+      body: JSON.stringify({ course_id: courseId })
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      loginWithNext(playerPageUrl(courseId));
+      return { ok: false, data: null };
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `Erreur inscription (HTTP ${res.status})`);
+
+    return { ok: true, data };
+  }
+
+  // ✅ IMPORTANT : pour éviter le "refresh", on neutralise le comportement <a href="#">
+  // et on gère la navigation via JS uniquement.
+  function wireCtaButtons(mode, courseId) {
+    // 1) on récupère
+    const deskCta = document.getElementById("deskCta");
+    const mobileCta = document.getElementById("mobileCta");
+    const btns = [deskCta, mobileCta].filter(Boolean);
+
+    // 2) on remplace les noeuds pour supprimer tous anciens listeners (anti double-bind)
+    btns.forEach(btn => {
+      btn.setAttribute("href", "javascript:void(0)");
+      const clone = btn.cloneNode(true);
+      btn.replaceWith(clone);
+    });
+
+    // 3) on re-sélectionne après clone
+    const desk = document.getElementById("deskCta");
+    const mob  = document.getElementById("mobileCta");
+    const btns2 = [desk, mob].filter(Boolean);
+
+    // 4) label
+    if (mode === "continue") btns2.forEach(b => b.textContent = "Continuer");
+    else if (mode === "enroll") btns2.forEach(b => b.textContent = "S'inscrire");
+    else btns2.forEach(b => b.textContent = "Voir le cours");
+
+    // 5) click behavior
+    btns2.forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        // preview : on force login puis retour sur player
+        if (mode === "preview") {
+          return loginWithNext(playerPageUrl(courseId));
+        }
+
+        // continue : redirection directe vers la page lecture (TemplateView)
+        if (mode === "continue") {
+          window.location.href = playerPageUrl(courseId);
+          return;
+        }
+
+        // enroll : POST puis redirect player
+        if (mode === "enroll") {
+          if (!IS_AUTH) return loginWithNext(playerPageUrl(courseId));
+
+          lockButtons(btns2, "Inscription…");
+          try {
+            const r = await enrollCourseApi(courseId);
+            if (!r.ok) return;
+            window.location.href = playerPageUrl(courseId);
+          } catch (e) {
+            console.error(e);
+            unlockButtons(btns2);
+            alert(e.message || "Impossible de s'inscrire.");
+          }
+        }
+      }, { passive: false });
+    });
+  }
+
   // ---------- main loader ----------
   async function loadCourse(){
     const id = courseId || getIdFromPath();
     if(!id) return;
 
-    const url = IS_AUTH ? `/api/learner/courses/${id}/` : `/api/public/courses/${id}/`;
+    const apiUrl = IS_AUTH ? `/api/learner/courses/${id}/` : `/api/public/courses/${id}/`;
 
     try{
-      const res = await fetch(url, {headers:{Accept:"application/json"}});
+      const res = await fetch(apiUrl, {headers:{Accept:"application/json"}});
       if(!res.ok) throw new Error("HTTP " + res.status);
       const c = await res.json();
 
-      // ✅ charge les related après avoir reçu le cours courant
       loadRelatedCourses(c);
 
       document.title = `Best-Épargne • ${c.title || "Cours"}`;
@@ -982,7 +1048,6 @@
       setText(document.getElementById("levelLabel"), c.level_label || c.level || "Niveau");
 
       setText(document.getElementById("instructorName"), c.instructor_name || c.instructor?.full_name || "Formateur");
-      // tu affichais published_at comme "mise à jour" -> ok
       setText(document.getElementById("publishedAt"), c.published_at ? `Dernière mise à jour : ${isoToFR(c.published_at)}` : "—");
       setText(document.getElementById("categoryName"), c.category_name || "—");
 
@@ -1051,34 +1116,21 @@
       setText(document.getElementById("deskAccess"), c.is_enrolled ? "Déjà inscrit" : (isFree ? "Gratuit" : "Immédiat"));
       setText(document.getElementById("mobileAccess"), c.is_enrolled ? "Déjà inscrit" : (isFree ? "Gratuit" : "Immédiat"));
 
-      // ✅ FIX: on force le detail landinghome par défaut
-      const defaultDetail = `${LANDING_DETAIL_BASE}${id}/`;
-      const detailUrl = (c.detail_url && c.detail_url.trim()) ? c.detail_url : defaultDetail;
-      const enrollUrl = c.enroll_url || detailUrl;
-      const continueUrl = c.continue_url || detailUrl;
-      const previewUrl = c.preview_url || detailUrl;
-
-      let label = "Voir le cours";
-      let href = previewUrl;
-
-      if(c.is_enrolled && continueUrl){
-        label = "Continuer";
-        href = continueUrl;
-      } else if (IS_AUTH && enrollUrl){
-        label = "S'inscrire";
-        href = enrollUrl;
+      // ✅ CTA MODE (continue/enroll/preview)
+      if (c.is_enrolled) {
+        wireCtaButtons("continue", id);
+      } else if (IS_AUTH) {
+        wireCtaButtons("enroll", id);
       } else {
-        label = "Voir le cours";
-        href = previewUrl;
+        wireCtaButtons("preview", id);
       }
 
-      setCta(document.getElementById("deskCta"), label, href);
-      setCta(document.getElementById("mobileCta"), label, href);
-
+      // curriculum
       const sections = c.sections || c.curriculum || null;
       const curriculum = Array.isArray(sections) && sections.length ? sections : buildCurriculumFromText(c.description);
       renderCurriculum(curriculum);
 
+      // show blocks
       document.getElementById("hero-skel")?.classList.add("hidden");
       document.getElementById("hero")?.classList.remove("hidden");
 
@@ -1088,6 +1140,7 @@
       document.getElementById("mobile-card-skel")?.classList.add("hidden");
       document.getElementById("mobile-card")?.classList.remove("hidden");
 
+      // description expand
       const moreBtn = document.getElementById("descMoreBtn");
       const descWrap = document.getElementById("desc-wrap");
       const full = document.getElementById("desc-full");
@@ -1115,6 +1168,7 @@
         }
       }
 
+      // wishlist mock
       function wish(btn){
         if(!btn) return;
         btn.addEventListener("click", () => {

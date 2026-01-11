@@ -3,7 +3,7 @@ from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
 from django.db.models import Q
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
 from django.views.generic import TemplateView
 # from requests import Response
@@ -90,6 +90,11 @@ class LearnerExploreView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
 
 class LearnerCoursePlayerView(LoginRequiredMixin, TemplateView):
     template_name = "home/learner_course_player.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["course_id"] = self.kwargs.get("course_id")
+        return ctx
 
 
 class OrganisationDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
@@ -340,6 +345,23 @@ class LearnerCourseDetailView(APIView):
             status=status.HTTP_200_OK
         )
 
+class LearnerCoursePlayerPage(LoginRequiredMixin, TemplateView):
+    template_name = "home/course_player.html"
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        course_id = int(kwargs["course_id"])
+        course = get_object_or_404(Course, id=course_id)
+
+        enrollment = Enrollment.objects.filter(user=self.request.user, course=course).first()
+        if not enrollment:
+            # pas inscrit => retour détail cours (landing)
+            ctx["blocked"] = True
+            ctx["course_id"] = course.id
+            return ctx
+
+        ctx["blocked"] = False
+        ctx["course_id"] = course.id
+        return ctx
 class RizView(TemplateView):
     template_name = "home/riz.html"

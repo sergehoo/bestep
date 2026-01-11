@@ -1,133 +1,209 @@
 {% load static %}
 {% with m=mode|default:"desktop" %}
+
 <div
   x-data="learnerSidebar({
-    mode: '{{ m }}',
-    collapsed: (window.__beShell ? window.__beShell.sidebar.collapsed : false)
+    mode: '{{ m }}'
   })"
   x-init="init()"
   class="rounded-2.5xl border border-be-ink-100/70 dark:border-white/10
          bg-white/80 dark:bg-white/5 shadow-soft overflow-hidden"
 >
-  <!-- Brand / Header -->
+
+  <!-- Header -->
   <div class="p-4 border-b border-be-ink-100/70 dark:border-white/10">
     <div class="flex items-center gap-3">
-      <div class="w-16 h-11 rounded-2xl   to-be-sky-700 text-white flex items-center justify-center shadow-ring overflow-hidden">
+      <div class="w-14 h-11 rounded-2xl bg-gradient-to-br from-be-sky-500 to-be-sky-700
+                  text-white flex items-center justify-center shadow-ring overflow-hidden">
         <img src="{% static 'img/logo_img.png' %}" alt="logo" class="w-8 h-8 object-contain">
       </div>
 
       <div class="min-w-0" x-show="!collapsed || mode==='mobile'">
-        <div class="font-semibold truncate">Espace Apprenant</div>
+        <div class="font-extrabold tracking-tight truncate">Espace Apprenant</div>
         <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5 truncate">
-          Mes cours • progression • alerts
+          Mes cours • progression • alertes
         </div>
       </div>
 
-      <!-- collapse hint -->
+      <!-- Collapsed hint -->
       <div class="ml-auto" x-show="collapsed && mode==='desktop'">
-        <div class="text-[10px] text-be-ink-400 dark:text-white/50">—</div>
+        <div class="w-9 h-9 rounded-xl border border-be-ink-100/70 dark:border-white/10
+                    bg-white/70 dark:bg-white/5 flex items-center justify-center">
+          <svg class="w-4 h-4 text-be-ink-500 dark:text-white/60" viewBox="0 0 24 24" fill="none">
+            <path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 8v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Nav -->
   <nav class="p-2">
+
+    <!-- Group: learning -->
+    <div class="px-2 pt-2 pb-1" x-show="!collapsed || mode==='mobile'">
+      <div class="text-[11px] font-semibold text-be-ink-500 dark:text-white/60 uppercase tracking-wide">
+        Apprentissage
+      </div>
+    </div>
+
+    <!-- Dashboard -->
     <a href="{% url 'learner_dashboard' %}"
-       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition"
-       :class="isActive('learner_dashboard') ? 'bg-be-sky-50 dark:bg-white/10 border border-be-sky-200/70 dark:border-white/10'
-                                            : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+       data-route="dashboard"
+       :aria-current="isActive('dashboard') ? 'page' : null"
+       class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
+              focus:outline-none focus:ring-4 focus:ring-be-sky-200/60"
+       :class="linkClass('dashboard')"
+       :title="collapsed && mode==='desktop' ? 'Dashboard' : ''"
     >
       <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
-                   bg-white dark:bg-white/5">
-        <svg class="w-5 h-5 text-be-sky-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+                   bg-white dark:bg-white/5 group-hover:shadow-sm transition">
+        <svg class="w-5 h-5" :class="iconClass('dashboard')" viewBox="0 0 24 24" fill="none">
           <path d="M3 10.5 12 3l9 7.5V21a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 21v-10.5Z"
                 stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
           <path d="M9 22v-7h6v7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
         </svg>
       </span>
+
       <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
         <span class="block text-sm font-semibold truncate">Dashboard</span>
         <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">KPIs & résumé</span>
       </span>
+
+      <span class="absolute right-3 top-1/2 -translate-y-1/2"
+            x-show="isActive('dashboard')">
+        <span class="w-2 h-2 rounded-full bg-be-sky-600"></span>
+      </span>
     </a>
 
+    <!-- Mes cours -->
     <a href="#"
-       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1"
-       :class="isActive('my_courses') ? 'bg-be-sky-50 dark:bg-white/10 border border-be-sky-200/70 dark:border-white/10'
-                                      : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+       data-route="my_courses"
+       :aria-current="isActive('my_courses') ? 'page' : null"
+       class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1
+              focus:outline-none focus:ring-4 focus:ring-be-sky-200/60"
+       :class="linkClass('my_courses')"
+       :title="collapsed && mode==='desktop' ? 'Mes cours' : ''"
     >
       <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
-                   bg-white dark:bg-white/5">
-        <svg class="w-5 h-5 text-be-sky-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+                   bg-white dark:bg-white/5 group-hover:shadow-sm transition">
+        <svg class="w-5 h-5" :class="iconClass('my_courses')" viewBox="0 0 24 24" fill="none">
           <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
           <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </span>
+
       <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
         <span class="block text-sm font-semibold truncate">Mes cours</span>
         <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Inscriptions</span>
       </span>
+
+      <span class="absolute right-3 top-1/2 -translate-y-1/2"
+            x-show="isActive('my_courses')">
+        <span class="w-2 h-2 rounded-full bg-be-sky-600"></span>
+      </span>
     </a>
 
+    <!-- Progression -->
     <a href="#"
-       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1"
-       :class="isActive('progress') ? 'bg-be-sun-50 dark:bg-white/10 border border-be-sun-200/70 dark:border-white/10'
-                                    : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+       data-route="progress"
+       :aria-current="isActive('progress') ? 'page' : null"
+       class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1
+              focus:outline-none focus:ring-4 focus:ring-be-sky-200/60"
+       :class="linkClass('progress', 'sun')"
+       :title="collapsed && mode==='desktop' ? 'Progression' : ''"
     >
       <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
-                   bg-white dark:bg-white/5">
-        <svg class="w-5 h-5 text-be-sun-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+                   bg-white dark:bg-white/5 group-hover:shadow-sm transition">
+        <svg class="w-5 h-5" :class="iconClass('progress', 'sun')" viewBox="0 0 24 24" fill="none">
           <path d="M3 17l6-6 4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M14 7h7v7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </span>
+
       <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
         <span class="block text-sm font-semibold truncate">Progression</span>
         <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Leçons & complétion</span>
+      </span>
+
+      <span class="absolute right-3 top-1/2 -translate-y-1/2"
+            x-show="isActive('progress')">
+        <span class="w-2 h-2 rounded-full bg-be-sun-500"></span>
       </span>
     </a>
 
     <div class="my-3 border-t border-be-ink-100/70 dark:border-white/10"></div>
 
+    <!-- Group: account -->
+    <div class="px-2 pt-1 pb-1" x-show="!collapsed || mode==='mobile'">
+      <div class="text-[11px] font-semibold text-be-ink-500 dark:text-white/60 uppercase tracking-wide">
+        Compte
+      </div>
+    </div>
+
+    <!-- Notifications -->
     <a href="#"
-       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition"
-       :class="isActive('notifications') ? 'bg-be-ink-50 dark:bg-white/10 border border-be-ink-100/70 dark:border-white/10'
-                                          : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+       data-route="notifications"
+       :aria-current="isActive('notifications') ? 'page' : null"
+       class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
+              focus:outline-none focus:ring-4 focus:ring-be-sky-200/60"
+       :class="linkClass('notifications', 'ink')"
+       :title="collapsed && mode==='desktop' ? 'Notifications' : ''"
     >
       <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
-                   bg-white dark:bg-white/5">
-        <svg class="w-5 h-5 text-be-ink-700 dark:text-white" viewBox="0 0 24 24" fill="none">
-          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                   bg-white dark:bg-white/5 group-hover:shadow-sm transition">
+        <svg class="w-5 h-5" :class="iconClass('notifications', 'ink')" viewBox="0 0 24 24" fill="none">
+          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           <path d="M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </span>
+
       <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
         <span class="block text-sm font-semibold truncate">Notifications</span>
         <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Alertes & infos</span>
       </span>
 
+      <!-- Badge -->
       <span class="ml-auto text-[11px] px-2 py-1 rounded-full border border-be-ink-100 bg-white/70 dark:bg-white/5
                    text-be-ink-600 dark:text-white/70"
             x-show="(!collapsed || mode==='mobile') && badge.notifications !== null"
             x-text="badge.notifications"></span>
+
+      <!-- Collapsed: dot indicator -->
+      <span class="absolute right-3 top-1/2 -translate-y-1/2"
+            x-show="collapsed && mode==='desktop' && badge.notifications">
+        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+      </span>
     </a>
 
+    <!-- Paiements -->
     <a href="#"
-       class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1"
-       :class="isActive('payments') ? 'bg-be-sun-50 dark:bg-white/10 border border-be-sun-200/70 dark:border-white/10'
-                                    : 'hover:bg-be-ink-50/60 dark:hover:bg-white/10'"
+       data-route="payments"
+       :aria-current="isActive('payments') ? 'page' : null"
+       class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1
+              focus:outline-none focus:ring-4 focus:ring-be-sky-200/60"
+       :class="linkClass('payments', 'sun')"
+       :title="collapsed && mode==='desktop' ? 'Paiements' : ''"
     >
       <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10
-                   bg-white dark:bg-white/5">
-        <svg class="w-5 h-5 text-be-sun-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+                   bg-white dark:bg-white/5 group-hover:shadow-sm transition">
+        <svg class="w-5 h-5" :class="iconClass('payments', 'sun')" viewBox="0 0 24 24" fill="none">
           <path d="M21 7H3V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2Z" stroke="currentColor" stroke-width="2"/>
           <path d="M3 7v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7" stroke="currentColor" stroke-width="2"/>
           <path d="M7 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </span>
+
       <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
         <span class="block text-sm font-semibold truncate">Paiements</span>
         <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Historique</span>
+      </span>
+
+      <span class="absolute right-3 top-1/2 -translate-y-1/2"
+            x-show="isActive('payments')">
+        <span class="w-2 h-2 rounded-full bg-be-sun-500"></span>
       </span>
     </a>
 
@@ -136,30 +212,38 @@
     <!-- Quick actions -->
     <div class="p-2">
       <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white/70 dark:bg-white/5 p-3">
-        <div class="text-[11px] text-be-ink-500 dark:text-white/60" x-show="!collapsed || mode==='mobile'">
+        <div class="text-[11px] font-semibold text-be-ink-500 dark:text-white/60 uppercase tracking-wide"
+             x-show="!collapsed || mode==='mobile'">
           Actions rapides
         </div>
 
-        <div class="mt-2 grid gap-2" :class="(collapsed && mode==='desktop') ? 'grid-cols-1' : 'grid-cols-2'">
+        <div class="mt-2 grid gap-2"
+             :class="(collapsed && mode==='desktop') ? 'grid-cols-1' : 'grid-cols-2'">
+
           <a href="#"
              class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-xs font-semibold hover:bg-be-sky-700 transition text-center"
              :title="(collapsed && mode==='desktop') ? 'Explorer' : ''">
             <span x-show="!collapsed || mode==='mobile'">Explorer</span>
             <span x-show="collapsed && mode==='desktop'">🔎</span>
           </a>
+
           <a href="#"
-             class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold transition text-center"
+             class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50
+                    dark:bg-white/5 dark:hover:bg-white/10
+                    text-xs font-semibold transition text-center"
              :title="(collapsed && mode==='desktop') ? 'Support' : ''">
             <span x-show="!collapsed || mode==='mobile'">Support</span>
             <span x-show="collapsed && mode==='desktop'">💬</span>
           </a>
         </div>
 
-        <div class="mt-2 text-[11px] text-be-ink-500 dark:text-white/60" x-show="!collapsed || mode==='mobile'">
+        <div class="mt-2 text-[11px] text-be-ink-500 dark:text-white/60"
+             x-show="!collapsed || mode==='mobile'">
           Astuce : clique sur “Progression” pour voir les détails par leçon.
         </div>
       </div>
     </div>
+
   </nav>
 
   <!-- Footer -->
@@ -204,35 +288,70 @@
 function learnerSidebar(cfg){
   return {
     mode: cfg.mode || "desktop",
-    collapsed: !!cfg.collapsed,
+    collapsed: false,
 
     badge: {
-      notifications: null, // placeholder: tu peux remplir via API plus tard
+      notifications: null, // mets un chiffre plus tard si tu veux
     },
 
     init(){
-      // sync from shell events
+      // init collapsed from shell safely
+      this.collapsed = (window.__beShell && window.__beShell.sidebar)
+        ? !!window.__beShell.sidebar.collapsed
+        : false;
+
+      // sync from shell changes
       window.addEventListener("be:sidebar", (e)=>{
         if (this.mode === "desktop"){
           this.collapsed = !!(e.detail && e.detail.collapsed);
         }
       });
 
-      // Example: badge placeholder (si tu veux une api unread_count)
-      // this.badge.notifications = 0;
+      // Exemple: badge
+      // this.badge.notifications = 3;
     },
 
+    // Active route mapping: plus propre & évite les faux positifs
     isActive(key){
-      // mapping simple: tu peux lier à tes urls plus tard
-      const p = window.location.pathname || "";
-      if (key === "learner_dashboard") return p.includes("/student") || p.includes("/learner") || p.includes("/dashboard");
-      if (key === "my_courses") return p.includes("/courses") || p.includes("/enrollments");
-      if (key === "progress") return p.includes("/progress");
-      if (key === "notifications") return p.includes("/notifications");
-      if (key === "payments") return p.includes("/payments");
-      return false;
+      const p = (window.location.pathname || "").toLowerCase();
+
+      const rules = {
+        dashboard: ["/dashboard", "/learner/dashboard", "/student/dashboard"],
+        my_courses: ["/courses", "/enrollments", "/learner/courses", "/student/courses"],
+        progress: ["/progress", "/tracking", "/learner/progress"],
+        notifications: ["/notifications", "/alerts"],
+        payments: ["/payments", "/billing", "/invoices"]
+      };
+
+      const arr = rules[key] || [];
+      return arr.some(x => p.includes(x));
+    },
+
+    linkClass(key, tone){
+      const active = this.isActive(key);
+      const baseHover = "hover:bg-be-ink-50/60 dark:hover:bg-white/10";
+      if (!active) return baseHover;
+
+      if (tone === "sun"){
+        return "bg-be-sun-50 dark:bg-white/10 border border-be-sun-200/70 dark:border-white/10";
+      }
+      if (tone === "ink"){
+        return "bg-be-ink-50 dark:bg-white/10 border border-be-ink-100/70 dark:border-white/10";
+      }
+      // default sky
+      return "bg-be-sky-50 dark:bg-white/10 border border-be-sky-200/70 dark:border-white/10";
+    },
+
+    iconClass(key, tone){
+      const active = this.isActive(key);
+      if (!active) return "text-be-ink-600 dark:text-white/80";
+
+      if (tone === "sun") return "text-be-sun-700 dark:text-white";
+      if (tone === "ink") return "text-be-ink-800 dark:text-white";
+      return "text-be-sky-700 dark:text-white";
     }
   }
 }
 </script>
+
 {% endwith %}

@@ -5,6 +5,17 @@
 {% block topbar_subtitle %}Continuer{% endblock %}
 
 {% block content %}
+<!--
+  Udemy-like Course Player (Alpine.js)
+  - Sidebar curriculum (sticky, searchable, progress per lesson)
+  - Main player area (sticky header, prev/next, completion)
+  - Auto progress update:
+      * VIDEO mp4 => listens to timeupdate/ended and saves throttled
+      * TEXT => marks complete when scrolled near bottom (IntersectionObserver)
+      * FILE => marks complete when user clicks "Ouvrir" (optional)
+  - Updates UI instantly (optimistic) + refresh outline periodically
+-->
+
 <script id="player-config" type="application/json">
 {
   "courseId": {{ course_id|default:"null" }},
@@ -18,138 +29,426 @@
 }
 </script>
 
-<div class="grid lg:grid-cols-12 gap-4" x-data="coursePlayer()" x-init="init()">
+<style>
+  /* petites finitions "Udemy-like" */
+  .no-scrollbar::-webkit-scrollbar { width:0; height:0; }
+  .no-scrollbar { scrollbar-width:none; -ms-overflow-style:none; }
+</style>
 
-  <!-- LEFT: Outline -->
-  <aside class="lg:col-span-4 xl:col-span-3 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-    <div class="p-4 border-b border-be-ink-100">
-      <div class="text-sm font-semibold" x-text="course.title || 'Cours'"></div>
-      <div class="text-xs text-be-ink-500 mt-1">
-        Progression: <span class="font-semibold" x-text="progress.percent + '%'"></span>
-        • <span x-text="progress.completed_lessons"></span>/<span x-text="progress.total_lessons"></span>
-      </div>
-      <div class="mt-2 h-2 rounded-full bg-be-ink-100 overflow-hidden">
-        <div class="h-full rounded-full bg-be-sky-600" :style="`width:${progress.percent || 0}%`"></div>
-      </div>
-    </div>
+<div
+  class="relative"
+  x-data="coursePlayerUdemy()"
+  x-init="init()"
+>
 
-    <div class="p-4 space-y-4 overflow-auto no-scrollbar" style="max-height: calc(100vh - 210px)">
-      <template x-if="loading.outline">
-        <div class="text-sm text-be-ink-500">Chargement plan…</div>
-      </template>
-
-      <template x-for="s in sections" :key="s.id">
-        <div class="space-y-2">
-          <div class="text-xs font-semibold text-be-ink-700" x-text="s.title"></div>
-
-          <template x-for="l in s.lessons" :key="l.id">
-            <button
-              class="w-full text-left rounded-xl border px-3 py-2 flex items-center justify-between gap-2 hover:bg-be-ink-50"
-              :class="l.id===currentLessonId ? 'border-be-sky-300 bg-be-sky-50' : 'border-be-ink-100 bg-white'"
-              @click="openLesson(l.id)">
-              <div class="min-w-0">
-                <div class="text-sm font-semibold truncate" x-text="l.title"></div>
-                <div class="text-[11px] text-be-ink-500 mt-0.5">
-                  <span x-text="l.type"></span>
-                  <span class="ml-2" x-show="l.is_completed">• ✅ terminé</span>
-                </div>
-              </div>
-              <div class="text-xs font-semibold" x-text="(l.percent ?? 0) + '%'"></div>
-            </button>
-          </template>
-        </div>
-      </template>
-    </div>
-  </aside>
-
-  <!-- RIGHT: Player -->
-  <section class="lg:col-span-8 xl:col-span-9 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-    <div class="p-4 border-b border-be-ink-100 flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <div class="text-sm font-semibold truncate" x-text="lesson.title || 'Leçon'"></div>
-        <div class="text-xs text-be-ink-500 mt-1">
-          <span x-text="lesson.type || ''"></span>
-          <span class="ml-2">•</span>
-          <span class="ml-2">Progress: <span class="font-semibold" x-text="lessonProgress.percent + '%'"></span></span>
-        </div>
-      </div>
-
-      <div class="flex gap-2">
-        <button class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
-                @click="markCompleted()">
-          Marquer terminé
+  <!-- Top dark bar (Udemy vibe) -->
+  <div class="sticky top-0 z-40 bg-slate-950 text-white border-b border-white/10">
+    <div class="px-3 sm:px-5 py-3 flex items-center justify-between gap-3">
+      <div class="min-w-0 flex items-center gap-3">
+        <button
+          class="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15"
+          @click="ui.sidebarOpen = !ui.sidebarOpen"
+          aria-label="Ouvrir le plan"
+        >
+          <i class="fa-solid fa-bars"></i>
         </button>
-        <button class="px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold"
-                @click="nextLesson()">
-          Suivant →
+
+        <div class="min-w-0">
+          <div class="text-sm font-semibold truncate" x-text="course.title || 'Cours'"></div>
+          <div class="text-[11px] text-white/70 flex items-center gap-2">
+            <span x-text="lesson.title || 'Leçon'"></span>
+            <span class="opacity-60">•</span>
+            <span>Progression</span>
+            <span class="font-semibold" x-text="progress.percent + '%'"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button
+          class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold"
+          @click="refreshOutline(true)"
+          :disabled="loading.outline"
+        >
+          <i class="fa-solid fa-rotate mr-2"></i>Actualiser
         </button>
+
+        <div class="hidden sm:flex items-center gap-2">
+          <div class="w-44 h-2 rounded-full bg-white/10 overflow-hidden">
+            <div class="h-full bg-emerald-400 rounded-full transition-all duration-300" :style="`width:${progress.percent || 0}%`"></div>
+          </div>
+          <div class="text-[11px] text-white/70">
+            <span x-text="progress.completed_lessons"></span>/<span x-text="progress.total_lessons"></span>
+          </div>
+        </div>
       </div>
     </div>
+  </div>
 
-    <div class="p-5">
-      <template x-if="loading.lesson">
-        <div class="text-sm text-be-ink-500">Chargement leçon…</div>
-      </template>
+  <!-- Main layout -->
+  <div class="grid lg:grid-cols-12 gap-0">
 
-      <template x-if="!loading.lesson">
-        <div>
-          <!-- VIDEO -->
-          <template x-if="lesson.type==='VIDEO' && lesson.video_url">
-            <div class="rounded-2xl border border-be-ink-100 overflow-hidden">
-              <iframe class="w-full" style="height:420px" :src="lesson.video_url" allowfullscreen></iframe>
+    <!-- Sidebar overlay (mobile) -->
+    <div
+      class="lg:hidden fixed inset-0 z-40 bg-black/50"
+      x-show="ui.sidebarOpen"
+      x-transition.opacity
+      @click="ui.sidebarOpen = false"
+    ></div>
+
+    <!-- LEFT: Curriculum -->
+    <aside
+      class="lg:col-span-4 xl:col-span-3 bg-white border-r border-be-ink-100 lg:sticky lg:top-[56px] lg:h-[calc(100vh-56px)] z-50"
+      :class="ui.sidebarOpen ? 'fixed inset-y-0 left-0 w-[88%] max-w-sm shadow-2xl' : 'hidden lg:block'"
+      x-show="ui.sidebarOpen || window.innerWidth >= 1024"
+      x-transition
+    >
+      <!-- Sidebar header -->
+      <div class="p-4 border-b border-be-ink-100">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <div class="text-sm font-extrabold text-slate-900 truncate" x-text="course.title || 'Cours'"></div>
+            <div class="text-xs text-be-ink-500 mt-1">
+              <span class="font-semibold" x-text="progress.percent + '%'"></span>
+              • <span x-text="progress.completed_lessons"></span>/<span x-text="progress.total_lessons"></span>
+              <span class="ml-2" x-show="saving.any"><i class="fa-solid fa-cloud-arrow-up mr-1"></i>Sync…</span>
             </div>
-          </template>
+          </div>
 
-          <!-- FILE -->
-          <template x-if="lesson.type==='FILE' && lesson.file_url">
-            <a class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
-               :href="lesson.file_url" target="_blank">
-              📄 Ouvrir le fichier
-            </a>
-          </template>
-
-          <!-- TEXT -->
-          <template x-if="lesson.type==='TEXT'">
-            <div class="prose max-w-none">
-              <div x-html="lesson.content || '<p>Contenu vide.</p>'"></div>
-            </div>
-          </template>
+          <button class="lg:hidden w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                  @click="ui.sidebarOpen = false" aria-label="Fermer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
-      </template>
 
-      <div class="mt-6 rounded-2xl border border-be-ink-100 bg-be-ink-50/40 p-4">
-        <div class="text-xs font-semibold text-be-ink-700">Sauvegarde rapide</div>
-        <div class="text-xs text-be-ink-500 mt-1">Exemple : tu peux enregistrer un % manuellement.</div>
+        <div class="mt-3 h-2 rounded-full bg-be-ink-100 overflow-hidden">
+          <div class="h-full rounded-full bg-be-sky-600 transition-all duration-300" :style="`width:${progress.percent || 0}%`"></div>
+        </div>
+
+        <div class="mt-4">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 text-sm"></i>
+           <input
+  x-model.debounce.300ms="$store.learner.filters.q"
+  @input="$store.learner.loadEnrollments && $store.learner.loadEnrollments()"
+  placeholder="Rechercher un cours…"
+  class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100/70 dark:border-white/10
+         bg-white/80 dark:bg-white/5 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 text-sm"
+/>
+          </div>
+        </div>
 
         <div class="mt-3 flex items-center gap-2">
-          <input type="range" min="0" max="100" x-model="lessonProgress.percent" class="w-full">
-          <button class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold"
-                  @click="saveProgress(false)">
-            Enregistrer
+          <button
+            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-xs font-semibold"
+            @click="expandAll(true)"
+          >
+            Tout ouvrir
+          </button>
+          <button
+            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-xs font-semibold"
+            @click="expandAll(false)"
+          >
+            Tout fermer
           </button>
         </div>
       </div>
-    </div>
-  </section>
+
+      <!-- Sidebar content -->
+      <div class="p-3 overflow-auto no-scrollbar" style="height: calc(100% - 184px)">
+        <template x-if="loading.outline">
+          <div class="p-3 text-sm text-be-ink-500">Chargement du plan…</div>
+        </template>
+
+        <template x-if="!loading.outline && (!filteredSections().length)">
+          <div class="p-3 text-sm text-be-ink-500">Aucun résultat.</div>
+        </template>
+
+        <template x-for="s in filteredSections()" :key="s.id">
+          <div class="mb-3 rounded-2xl border border-be-ink-100 overflow-hidden">
+            <button
+              class="w-full px-3 py-3 flex items-center justify-between gap-3 bg-white hover:bg-be-ink-50"
+              @click="toggleSection(s.id)"
+            >
+              <div class="min-w-0 text-left">
+                <div class="text-xs font-extrabold text-slate-900 truncate" x-text="s.title"></div>
+                <div class="text-[11px] text-be-ink-500 mt-1">
+                  <span x-text="countCompleted(s)"></span>/<span x-text="(s.lessons||[]).length"></span> leçons terminées
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-down text-be-ink-400 transition"
+                 :class="ui.openSections[s.id] ? 'rotate-180' : ''"></i>
+            </button>
+
+            <div x-show="ui.openSections[s.id]" x-transition class="border-t border-be-ink-100 bg-white">
+              <template x-for="l in (s.lessons || [])" :key="l.id">
+                <button
+                  class="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-be-ink-50"
+                  :class="l.id===currentLessonId ? 'bg-be-sky-50' : ''"
+                  @click="openLesson(l.id)"
+                >
+                  <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                       :class="l.is_completed ? 'bg-emerald-100 text-emerald-700' : (l.id===currentLessonId ? 'bg-be-sky-100 text-be-sky-700' : 'bg-be-ink-50 text-be-ink-600')">
+                    <template x-if="l.type==='VIDEO'"><i class="fa-solid fa-circle-play"></i></template>
+                    <template x-if="l.type==='TEXT'"><i class="fa-solid fa-file-lines"></i></template>
+                    <template x-if="l.type==='QUIZ'"><i class="fa-solid fa-circle-question"></i></template>
+                    <template x-if="l.type==='LIVE'"><i class="fa-solid fa-tower-broadcast"></i></template>
+                    <template x-if="l.type==='FILE'"><i class="fa-solid fa-paperclip"></i></template>
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-semibold text-slate-900 truncate" x-text="l.title"></div>
+                    <div class="mt-1 flex items-center gap-2 text-[11px] text-be-ink-500">
+                      <span x-text="l.type"></span>
+                      <span class="opacity-60">•</span>
+                      <span x-text="(l.percent ?? 0) + '%'"></span>
+                      <span class="ml-1" x-show="l.is_completed">✅</span>
+                    </div>
+
+                    <div class="mt-2 h-1.5 rounded-full bg-be-ink-100 overflow-hidden">
+                      <div class="h-full rounded-full bg-be-sky-600 transition-all duration-300"
+                           :style="`width:${l.percent ?? 0}%`"></div>
+                    </div>
+                  </div>
+
+                  <div class="text-[11px] font-semibold text-be-ink-600 shrink-0">
+                    <span x-text="formatDuration(l.duration_sec)"></span>
+                  </div>
+                </button>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </aside>
+
+    <!-- RIGHT: Player -->
+    <section class="lg:col-span-8 xl:col-span-9 bg-white lg:sticky lg:top-[56px] lg:h-[calc(100vh-56px)]">
+      <!-- Player header (controls) -->
+      <div class="border-b border-be-ink-100 bg-white px-4 py-3 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <div class="text-sm font-extrabold text-slate-900 truncate" x-text="lesson.title || 'Leçon'"></div>
+          <div class="text-xs text-be-ink-500 mt-1 flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-be-ink-50 border border-be-ink-100">
+              <span class="font-semibold" x-text="lesson.type || ''"></span>
+            </span>
+            <span class="opacity-60">•</span>
+            <span>Progress:</span>
+            <span class="font-semibold" x-text="lessonProgress.percent + '%'"></span>
+            <span class="opacity-60">•</span>
+            <span x-show="lessonProgress.is_completed" class="text-emerald-700 font-semibold">✅ Terminé</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
+            @click="prevLesson()"
+            :disabled="!nav.prevId"
+          >
+            ← Préc.
+          </button>
+
+          <button
+            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
+            @click="toggleCompleted()"
+          >
+            <span x-show="!lessonProgress.is_completed">Marquer terminé</span>
+            <span x-show="lessonProgress.is_completed">Marquer non terminé</span>
+          </button>
+
+          <button
+            class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 text-sm font-semibold"
+            @click="nextLesson()"
+            :disabled="!nav.nextId"
+          >
+            Suivant →
+          </button>
+        </div>
+      </div>
+
+      <!-- Player body -->
+      <div class="p-4 lg:p-6 overflow-auto no-scrollbar" style="height: calc(100% - 58px)">
+        <!-- Loading -->
+        <template x-if="loading.lesson">
+          <div class="text-sm text-be-ink-500">Chargement leçon…</div>
+        </template>
+
+        <template x-if="!loading.lesson">
+          <div class="space-y-5">
+
+            <!-- VIDEO -->
+            <template x-if="lesson.type==='VIDEO' && lesson.video_url">
+              <div class="rounded-2xl border border-be-ink-100 overflow-hidden bg-black">
+                <!-- If mp4: use <video> to track progress -->
+                <template x-if="isMp4(lesson.video_url)">
+                  <video
+                    x-ref="videoEl"
+                    class="w-full"
+                    controls
+                    playsinline
+                    @timeupdate="onVideoTimeUpdate()"
+                    @ended="onVideoEnded()"
+                    @loadedmetadata="onVideoLoaded()"
+                    :src="lesson.video_url"
+                    style="max-height: 520px"
+                  ></video>
+                </template>
+
+                <!-- Else fallback iframe (no time tracking) -->
+                <template x-if="!isMp4(lesson.video_url)">
+                  <iframe
+                    class="w-full"
+                    style="height:520px"
+                    :src="lesson.video_url"
+                    allowfullscreen
+                  ></iframe>
+                </template>
+              </div>
+            </template>
+
+            <!-- FILE -->
+            <template x-if="lesson.type==='FILE' && lesson.file_url">
+              <div class="rounded-2xl border border-be-ink-100 p-4 bg-be-ink-50/40">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="text-sm font-extrabold text-slate-900">Ressource</div>
+                    <div class="text-xs text-be-ink-500 mt-1">Ouvre le document. Tu peux ensuite marquer terminé.</div>
+                  </div>
+                  <a
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
+                    :href="lesson.file_url"
+                    target="_blank"
+                    @click="onFileOpened()"
+                  >
+                    <i class="fa-solid fa-file-arrow-down"></i> Ouvrir
+                  </a>
+                </div>
+              </div>
+            </template>
+
+            <!-- TEXT -->
+            <template x-if="lesson.type==='TEXT'">
+              <div class="rounded-2xl border border-be-ink-100 p-5">
+                <div class="prose max-w-none">
+                  <div x-html="lesson.content || '<p>Contenu vide.</p>'"></div>
+                </div>
+
+                <!-- Sentinel for auto-complete on scroll -->
+                <div class="mt-8 pt-6 border-t border-be-ink-100">
+                  <div class="text-xs text-be-ink-500">
+                    Astuce: en arrivant en bas, la leçon peut se marquer comme terminée automatiquement.
+                  </div>
+                  <div x-ref="textEndSentinel" class="h-1 w-full"></div>
+                </div>
+              </div>
+            </template>
+
+            <!-- QUIZ / LIVE (placeholders) -->
+            <template x-if="lesson.type==='QUIZ'">
+              <div class="rounded-2xl border border-be-ink-100 p-5 bg-be-ink-50/40">
+                <div class="text-sm font-extrabold text-slate-900">Quiz</div>
+                <div class="text-xs text-be-ink-500 mt-1">
+                  Connecte ton UI de quiz ici (ou ouvre un lien).
+                </div>
+              </div>
+            </template>
+
+            <template x-if="lesson.type==='LIVE'">
+              <div class="rounded-2xl border border-be-ink-100 p-5 bg-be-ink-50/40">
+                <div class="text-sm font-extrabold text-slate-900">Session Live</div>
+                <div class="text-xs text-be-ink-500 mt-1">
+                  Ajoute l’URL de la session live / calendrier.
+                </div>
+              </div>
+            </template>
+
+            <!-- Lesson progress card (Udemy style: simple + auto) -->
+            <div class="rounded-2xl border border-be-ink-100 p-4">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-xs font-extrabold text-slate-900">Progression de cette leçon</div>
+                  <div class="text-xs text-be-ink-500 mt-1">
+                    Mise à jour auto (vidéo mp4 / lecture texte). Sinon tu peux ajuster manuellement.
+                  </div>
+                </div>
+                <div class="text-sm font-extrabold text-slate-900" x-text="lessonProgress.percent + '%'"></div>
+              </div>
+
+              <div class="mt-3 h-2 rounded-full bg-be-ink-100 overflow-hidden">
+                <div class="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                     :style="`width:${lessonProgress.percent || 0}%`"></div>
+              </div>
+
+              <div class="mt-4 flex items-center gap-2">
+                <input type="range" min="0" max="100" x-model.number="lessonProgress.percent" class="w-full">
+                <button
+                  class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold hover:opacity-90"
+                  @click="saveProgress(false, { force:true })"
+                >
+                  Enregistrer
+                </button>
+              </div>
+
+              <div class="mt-2 text-[11px] text-be-ink-500">
+                <span x-show="saving.lesson">Enregistrement…</span>
+                <span x-show="!saving.lesson && lastSavedAt">Dernière sauvegarde: <span x-text="lastSavedAt"></span></span>
+              </div>
+            </div>
+
+          </div>
+        </template>
+      </div>
+    </section>
+  </div>
 
 </div>
 
 <script>
-function coursePlayer(){
+function coursePlayerUdemy(){
   const cfg = JSON.parse(document.getElementById("player-config").textContent);
 
   return {
     courseId: cfg.courseId,
     api: cfg.api,
 
+    // state
     loading: { outline:true, lesson:true },
+    saving: { any:false, lesson:false },
+
     course: { id:null, title:"" },
     sections: [],
     progress: { percent:0, completed_lessons:0, total_lessons:0 },
 
     currentLessonId: null,
-    lesson: { id:null, title:"", type:"", video_url:null, file_url:null, content:null },
+    lesson: { id:null, title:"", type:"", video_url:null, file_url:null, content:null, duration_sec:null },
     lessonProgress: { percent:0, is_completed:false, last_position_seconds:0 },
+
+    nav: { prevId:null, nextId:null },
+    lastSavedAt: "",
+    ui: {
+      sidebarOpen: false,
+      search: "",
+      openSections: {}
+    },
+
+    // --- utils ---
+    formatDuration(sec){
+      const n = Number(sec || 0);
+      if (!n) return "—";
+      const m = Math.floor(n / 60);
+      const s = Math.floor(n % 60);
+      if (m <= 0) return `${s}s`;
+      return `${m}m ${String(s).padStart(2,"0")}s`;
+    },
+    isMp4(url){
+      const u = String(url || "").toLowerCase();
+      return u.includes(".mp4") || u.includes("content-type=video") || u.includes("video/mp4");
+    },
+    nowTime(){
+      const d = new Date();
+      return d.toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
+    },
 
     async apiGet(url){
       const res = await fetch(url, { headers:{ "Accept":"application/json" }, credentials:"same-origin" });
@@ -171,6 +470,7 @@ function coursePlayer(){
         body: JSON.stringify(payload || {}),
         credentials:"same-origin"
       });
+
       if (!res.ok){
         let d=""; try{ d = JSON.stringify(await res.json()); }catch(e){}
         throw new Error(`POST ${url} -> ${res.status} ${d}`);
@@ -178,34 +478,136 @@ function coursePlayer(){
       return await res.json();
     },
 
+    // --- init ---
     async init(){
+      // sidebar default open sections (first open)
       await this.loadOutline();
       await this.resolveContinueLesson();
-      if (this.currentLessonId) await this.loadLesson(this.currentLessonId);
+
+      if (this.currentLessonId){
+        await this.loadLesson(this.currentLessonId);
+        this.computeNav();
+      }
+
+      // periodic outline refresh (light)
+      this.startAutoRefreshOutline();
+
+      // mobile: close sidebar after choosing lesson
+      if (window.innerWidth < 1024) this.ui.sidebarOpen = false;
     },
 
+    startAutoRefreshOutline(){
+      // refresh all 30s if user is active on player
+      setInterval(() => {
+        this.refreshOutline(false).catch(()=>{});
+      }, 30000);
+    },
+
+    // --- outline ---
     async loadOutline(){
       try{
         this.loading.outline = true;
         const data = await this.apiGet(this.api.outline);
-        this.course = data.course;
-        this.sections = data.sections || [];
+
+        this.course = data.course || this.course;
+        this.sections = (data.sections || []).map(s => ({
+          ...s,
+          lessons: (s.lessons || []).map(l => ({
+            id: l.id,
+            title: l.title,
+            type: l.lesson_type || l.type || "",
+            duration_sec: l.duration_sec ?? null,
+            percent: l.progress_percent ?? l.percent ?? 0,
+            is_completed: !!(l.completed ?? l.is_completed),
+            is_preview: !!l.is_preview
+          }))
+        }));
+
         this.progress = data.progress || this.progress;
-        this.currentLessonId = data.current_lesson_id;
+        this.currentLessonId = data.current_lesson_id || this.currentLessonId;
+
+        // open sections state: keep existing; open first by default
+        if (!Object.keys(this.ui.openSections).length && this.sections.length){
+          this.ui.openSections[this.sections[0].id] = true;
+        }
       } finally {
         this.loading.outline = false;
       }
     },
 
-    async resolveContinueLesson(){
-      // si outline n'a pas current, on demande continue()
-      if (this.currentLessonId) return;
-      const data = await this.apiGet(this.api.continue);
-      this.currentLessonId = data.lesson_id;
+    async refreshOutline(showToast){
+      // avoid stacking refreshes
+      if (this.loading.outline) return;
+      await this.loadOutline();
+      this.computeNav();
+      if (showToast) this.lastSavedAt = this.nowTime();
     },
 
+    async resolveContinueLesson(){
+      // if outline doesn't have current, ask continue
+      if (this.currentLessonId) return;
+      const data = await this.apiGet(this.api.continue);
+      this.currentLessonId = data.lesson_id || null;
+    },
+
+    filteredSections(){
+      const q = (this.ui.search || "").trim().toLowerCase();
+      if (!q) return this.sections;
+
+      // filter lessons but keep section container if any match
+      return (this.sections || [])
+        .map(s => {
+          const lessons = (s.lessons || []).filter(l => {
+            return String(l.title || "").toLowerCase().includes(q)
+              || String(l.type || "").toLowerCase().includes(q);
+          });
+          return lessons.length ? { ...s, lessons } : null;
+        })
+        .filter(Boolean);
+    },
+
+    toggleSection(sectionId){
+      this.ui.openSections[sectionId] = !this.ui.openSections[sectionId];
+    },
+    expandAll(open){
+      (this.sections || []).forEach(s => { this.ui.openSections[s.id] = !!open; });
+    },
+    countCompleted(section){
+      return (section.lessons || []).filter(l => l.is_completed).length;
+    },
+
+    // --- navigation prev/next ---
+    flattenLessons(){
+      const out = [];
+      (this.sections || []).forEach(s => (s.lessons || []).forEach(l => out.push(l)));
+      return out;
+    },
+    computeNav(){
+      const list = this.flattenLessons();
+      const idx = list.findIndex(x => Number(x.id) === Number(this.currentLessonId));
+      this.nav.prevId = idx > 0 ? list[idx-1].id : null;
+      this.nav.nextId = (idx >= 0 && idx < list.length-1) ? list[idx+1].id : null;
+    },
+
+    async prevLesson(){
+      if (!this.nav.prevId) return;
+      await this.openLesson(this.nav.prevId);
+    },
+    async nextLesson(){
+      if (!this.nav.nextId) return;
+      await this.openLesson(this.nav.nextId);
+    },
+
+    // --- lesson open/load ---
     async openLesson(lessonId){
       this.currentLessonId = lessonId;
+
+      // optimistic: highlight immediately
+      this.computeNav();
+
+      // close mobile sidebar
+      if (window.innerWidth < 1024) this.ui.sidebarOpen = false;
+
       await this.apiPost(this.api.setCurrent, { lesson_id: lessonId });
       await this.loadLesson(lessonId);
     },
@@ -213,42 +615,221 @@ function coursePlayer(){
     async loadLesson(lessonId){
       try{
         this.loading.lesson = true;
+
+        // stop observers / handlers from previous lesson
+        this.teardownTextObserver();
+
         const url = `${this.api.lessonStateBase}${lessonId}/state/`;
         const data = await this.apiGet(url);
-        this.lesson = data.lesson;
-        this.lessonProgress = data.progress;
+
+        this.lesson = {
+          ...data.lesson,
+          type: data.lesson?.type || data.lesson?.lesson_type || data.lesson?.lessonType || data.lesson?.lesson_type || data.lesson?.lesson_type,
+          // normalize
+          video_url: data.lesson?.video_url || data.lesson?.videoUrl || data.lesson?.video,
+          file_url: data.lesson?.file_url || data.lesson?.fileUrl || data.lesson?.file,
+          content: data.lesson?.content || data.lesson?.text || data.lesson?.html,
+          duration_sec: data.lesson?.duration_sec ?? data.lesson?.duration ?? null
+        };
+
+        this.lessonProgress = {
+          percent: Number(data.progress?.percent ?? data.progress?.progress_percent ?? 0),
+          is_completed: !!(data.progress?.is_completed ?? data.progress?.completed),
+          last_position_seconds: Number(data.progress?.last_position_seconds ?? 0)
+        };
+
+        // Update sidebar "current lesson title/type" consistency
+        this.applyOptimisticToSidebar(lessonId, this.lessonProgress);
+
+        // Setup auto tracking depending on type
+        this.$nextTick(() => {
+          if (this.lesson.type === "TEXT") this.setupTextAutoComplete();
+          if (this.lesson.type === "VIDEO") this.seekVideoIfPossible();
+        });
+
       } finally {
         this.loading.lesson = false;
       }
     },
 
-    async saveProgress(markDone){
-      const url = `${this.api.lessonProgressBase}${this.currentLessonId}/progress/`;
-      const payload = {
-        percent: this.lessonProgress.percent,
-        last_position_seconds: this.lessonProgress.last_position_seconds,
-        is_completed: !!markDone
-      };
-      const data = await this.apiPost(url, payload);
+    // --- optimistic update (sidebar + global progress quick refresh) ---
+    applyOptimisticToSidebar(lessonId, prog){
+      (this.sections || []).forEach(s => {
+        (s.lessons || []).forEach(l => {
+          if (Number(l.id) === Number(lessonId)){
+            l.percent = Number(prog.percent ?? l.percent ?? 0);
+            l.is_completed = !!(prog.is_completed ?? l.is_completed);
+          }
+        });
+      });
+    },
 
-      // refresh outline (update badges + % global)
-      await this.loadOutline();
+    // --- progress saving ---
+    progressSaveTimer: null,
+    lastSentPercent: -1,
+    lastSentSecond: -1,
 
-      // si API propose next lesson
-      if (data.next_lesson_id){
-        this.currentLessonId = data.next_lesson_id;
-        await this.loadLesson(this.currentLessonId);
+    async saveProgress(markDone, opts){
+      const force = !!(opts && opts.force);
+      if (!this.currentLessonId) return;
+
+      const percent = Math.max(0, Math.min(100, Number(this.lessonProgress.percent || 0)));
+      const seconds = Math.max(0, Number(this.lessonProgress.last_position_seconds || 0));
+      const is_completed = !!markDone;
+
+      // throttle: only send if significant change unless force
+      const percentDelta = Math.abs(percent - (this.lastSentPercent < 0 ? percent : this.lastSentPercent));
+      const secondsDelta = Math.abs(seconds - (this.lastSentSecond < 0 ? seconds : this.lastSentSecond));
+
+      if (!force && !is_completed && percentDelta < 2 && secondsDelta < 10) return;
+
+      this.saving.lesson = true;
+      this.saving.any = true;
+
+      try{
+        const url = `${this.api.lessonProgressBase}${this.currentLessonId}/progress/`;
+        const payload = {
+          percent,
+          last_position_seconds: seconds,
+          is_completed
+        };
+
+        // optimistic UI
+        this.lessonProgress.percent = percent;
+        this.lessonProgress.is_completed = is_completed || this.lessonProgress.is_completed;
+        this.applyOptimisticToSidebar(this.currentLessonId, this.lessonProgress);
+
+        const data = await this.apiPost(url, payload);
+
+        // server may return normalized progress
+        if (data?.progress){
+          this.lessonProgress.percent = Number(data.progress.percent ?? this.lessonProgress.percent);
+          this.lessonProgress.is_completed = !!(data.progress.is_completed ?? this.lessonProgress.is_completed);
+          this.lessonProgress.last_position_seconds = Number(data.progress.last_position_seconds ?? this.lessonProgress.last_position_seconds);
+          this.applyOptimisticToSidebar(this.currentLessonId, this.lessonProgress);
+        }
+
+        // update trackers
+        this.lastSentPercent = this.lessonProgress.percent;
+        this.lastSentSecond = this.lessonProgress.last_position_seconds;
+        this.lastSavedAt = this.nowTime();
+
+        // refresh global progress occasionally (not every time)
+        // after completion, refresh to update counters & badges precisely
+        if (this.lessonProgress.is_completed) {
+          await this.refreshOutline(false);
+        } else {
+          // lightweight: refresh outline every ~3 saves
+          if (!this._saveCount) this._saveCount = 0;
+          this._saveCount += 1;
+          if (this._saveCount % 3 === 0) await this.refreshOutline(false);
+        }
+
+        // auto-go next if API gives next lesson id
+        if (data?.next_lesson_id){
+          this.nav.nextId = data.next_lesson_id;
+        }
+
+      } catch(e){
+        console.error(e);
+      } finally {
+        this.saving.lesson = false;
+        this.saving.any = false;
       }
     },
 
-    async markCompleted(){
+    async toggleCompleted(){
+      // if already completed -> allow uncomplete (set percent stays but mark false)
+      if (this.lessonProgress.is_completed){
+        this.lessonProgress.is_completed = false;
+        await this.saveProgress(false, { force:true });
+        return;
+      }
       this.lessonProgress.percent = 100;
-      await this.saveProgress(true);
+      this.lessonProgress.is_completed = true;
+      await this.saveProgress(true, { force:true });
     },
 
-    async nextLesson(){
-      // stratégie simple : marquer terminé -> next auto si dispo
-      await this.markCompleted();
+    // --- VIDEO auto tracking (mp4 only) ---
+    onVideoLoaded(){
+      // sync last position if available
+      this.seekVideoIfPossible();
+    },
+    seekVideoIfPossible(){
+      const v = this.$refs.videoEl;
+      if (!v) return;
+      const pos = Number(this.lessonProgress.last_position_seconds || 0);
+      if (pos > 2 && isFinite(pos)){
+        try { v.currentTime = pos; } catch(e){}
+      }
+    },
+
+    onVideoTimeUpdate(){
+      const v = this.$refs.videoEl;
+      if (!v || !v.duration || !isFinite(v.duration)) return;
+
+      const current = Math.floor(v.currentTime || 0);
+      const duration = Math.floor(v.duration || 0);
+      const percent = duration ? Math.floor((current / duration) * 100) : 0;
+
+      // keep in state
+      this.lessonProgress.last_position_seconds = current;
+      // do not jump to 100 until ended
+      this.lessonProgress.percent = Math.min(99, Math.max(this.lessonProgress.percent, percent));
+
+      // throttle network: save every ~10s or +5%
+      if (this.progressSaveTimer) return;
+      this.progressSaveTimer = setTimeout(async () => {
+        this.progressSaveTimer = null;
+        await this.saveProgress(false, { force:false });
+      }, 1200);
+    },
+
+    async onVideoEnded(){
+      this.lessonProgress.percent = 100;
+      this.lessonProgress.is_completed = true;
+      await this.saveProgress(true, { force:true });
+    },
+
+    // --- TEXT auto complete on scroll end ---
+    _textObserver: null,
+    setupTextAutoComplete(){
+      // already complete? nothing
+      if (this.lessonProgress.is_completed) return;
+
+      const sentinel = this.$refs.textEndSentinel;
+      if (!sentinel) return;
+
+      // when sentinel visible => mark 100% and save
+      this._textObserver = new IntersectionObserver(async (entries) => {
+        const hit = entries.some(e => e.isIntersecting);
+        if (!hit) return;
+
+        // optimistic
+        this.lessonProgress.percent = Math.max(this.lessonProgress.percent, 100);
+        this.lessonProgress.is_completed = true;
+        await this.saveProgress(true, { force:true });
+
+        // stop observer once done
+        this.teardownTextObserver();
+      }, { root: null, threshold: 0.6 });
+
+      this._textObserver.observe(sentinel);
+    },
+    teardownTextObserver(){
+      if (this._textObserver){
+        try { this._textObserver.disconnect(); } catch(e){}
+        this._textObserver = null;
+      }
+    },
+
+    // --- FILE: small helper: set percent when opened ---
+    async onFileOpened(){
+      // small optimistic bump if not completed
+      if (!this.lessonProgress.is_completed){
+        this.lessonProgress.percent = Math.max(this.lessonProgress.percent, 30);
+        await this.saveProgress(false, { force:false });
+      }
     }
   }
 }
