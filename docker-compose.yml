@@ -71,7 +71,7 @@ services:
   # -------------------------
   # Redis
   # -------------------------
-  redis:
+  best_epargne_redis:
     image: redis:7-alpine
     container_name: best_epargne_redis
     restart: unless-stopped
