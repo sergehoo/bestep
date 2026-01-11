@@ -89,7 +89,6 @@ services:
   # -------------------------
   minio:
     image: minio/minio:latest
-    container_name: best_epargne_minio
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
