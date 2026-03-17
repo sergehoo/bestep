@@ -100,7 +100,14 @@ services:
     depends_on:
       - bestminio
     networks:
-      - internal
+      internal:
+        aliases:
+          - minio
+          - bestminio
+      proxy:
+        aliases:
+          - minio
+          - bestminio
     entrypoint: >
       /bin/sh -c "
       until mc alias set local http://bestminio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin123}; do
