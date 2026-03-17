@@ -1,13 +1,8 @@
 {% load static %}
 {% with m=mode|default:"desktop" %}
 
-<div
-  x-data="learnerSidebar({
-    mode: '{{ m }}'
-  })"
-  x-init="init()"
-  class="rounded-2.5xl border border-be-ink-100/70 dark:border-white/10
-         bg-white/80 dark:bg-white/5 shadow-soft overflow-hidden"
+<div x-data="learnerSidebar({ mode: '{{ m }}'})"
+  x-init="init()" class="rounded-2.5xl border border-be-ink-100/70 dark:border-white/10 bg-white/80 dark:bg-white/5 shadow-soft overflow-hidden"
 >
 
   <!-- Header -->

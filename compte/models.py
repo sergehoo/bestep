@@ -73,7 +73,55 @@ class LearnerProfile(models.Model):
     def __str__(self):
         return f"LearnerProfile({self.user.email})"
 
+class LearnerKYC(models.Model):
+    class EducationLevel(models.TextChoices):
+        COLLEGE = "COLLEGE", "Collège"
+        LYCEE = "LYCEE", "Lycée"
+        BAC = "BAC", "Bac"
+        BTS_DUT = "BTS_DUT", "BTS/DUT"
+        LICENCE = "LICENCE", "Licence"
+        MASTER = "MASTER", "Master"
+        DOCTORAT = "DOCTORAT", "Doctorat"
+        AUTRE = "AUTRE", "Autre"
 
+    class Goal(models.TextChoices):
+        JOB = "JOB", "Trouver un emploi"
+        PROMOTION = "PROMOTION", "Évoluer / promotion"
+        ENTREPRENEUR = "ENTREPRENEUR", "Lancer un business"
+        SKILL = "SKILL", "Monter en compétences"
+        CERTIF = "CERTIF", "Obtenir une certification"
+        AUTRE = "AUTRE", "Autre"
+
+    class Availability(models.TextChoices):
+        LT2 = "LT2", "Moins de 2h / semaine"
+        H2_5 = "H2_5", "2 à 5h / semaine"
+        H5_10 = "H5_10", "5 à 10h / semaine"
+        GT10 = "GT10", "Plus de 10h / semaine"
+
+    user = models.OneToOneField("compte.User", on_delete=models.CASCADE, related_name="kyc")
+
+    # Orientation
+    education_level = models.CharField(max_length=20, choices=EducationLevel.choices, blank=True)
+    goal = models.CharField(max_length=20, choices=Goal.choices, blank=True)
+    domain_interest = models.CharField(max_length=120, blank=True)  # ex: Data, Finance, Dev...
+    job_title = models.CharField(max_length=120, blank=True)
+    availability = models.CharField(max_length=10, choices=Availability.choices, blank=True)
+
+    # Localisation / langue
+    country = models.CharField(max_length=80, blank=True, default="Côte d’Ivoire")
+    city = models.CharField(max_length=80, blank=True)
+    language = models.CharField(max_length=40, blank=True, default="Français")
+
+    # Consentements basiques (à garder simples)
+    accept_terms = models.BooleanField(default=False)
+    accept_marketing = models.BooleanField(default=False)
+    onboarding_level = models.CharField(max_length=30, blank=True)  # "Débutant/Intermédiaire/Avancé"
+    onboarding_profile = models.JSONField(default=dict, blank=True)  # {topics, strengths, weaknesses...}
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"LearnerKYC({self.user.email})"
 class InstructorProfile(models.Model):
     user = models.OneToOneField("compte.User", on_delete=models.CASCADE, related_name="instructor_profile")
     headline = models.CharField(max_length=160, blank=True)

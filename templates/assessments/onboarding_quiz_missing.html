@@ -1,0 +1,23 @@
+{# templates/assessments/onboarding_quiz_missing.html #}
+{% extends "account/_base.html" %}
+{% block head_title %}Onboarding indisponible{% endblock %}
+{% block content %}
+  <div class="mt-6 rounded-2xl border border-yellow-100 bg-yellow-50 p-5">
+    <div class="flex gap-3">
+      <div class="w-9 h-9 rounded-xl bg-yellow-100 flex items-center justify-center">
+        <i class="fas fa-triangle-exclamation text-yellow-800"></i>
+      </div>
+      <div class="text-sm text-yellow-900">
+        <div class="font-semibold">Onboarding indisponible</div>
+        <div class="mt-1">
+          Le quiz d’onboarding n’est pas encore configuré (Quiz actif avec <code>is_onboarding=True</code>).
+        </div>
+      </div>
+    </div>
+
+    <a href="{% url 'account_logout' %}"
+       class="mt-4 inline-flex items-center justify-center w-full py-3 rounded-2xl bg-white border border-yellow-200 text-yellow-900 font-semibold hover:bg-yellow-50 transition">
+      Se déconnecter
+    </a>
+  </div>
+{% endblock %}

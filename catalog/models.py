@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
+from tinymce.models import HTMLField
 
 User = get_user_model()
 
@@ -180,7 +181,7 @@ class Lesson(models.Model):
     duration_sec = models.PositiveIntegerField(default=0)
 
     # Contenu texte
-    content = models.TextField(blank=True)
+    content = HTMLField(blank=True)
 
     # (Legacy) si tu veux garder des URL externes (YouTube/Vimeo)
     video_url = models.URLField(blank=True)

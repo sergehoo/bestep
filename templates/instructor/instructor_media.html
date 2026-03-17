@@ -1,0 +1,159 @@
+{% extends "layout/admin_base.html" %}
+{% load static %}
+
+{% block title %}best-épargne — Bibliothèque média{% endblock %}
+{% block topbar_subtitle %}Médias instructeur{% endblock %}
+
+{% block content %}
+<div
+    x-data="instructorMediaPage({
+        endpoints: {
+            mediaList: '{% url "api_instructor_media" %}',
+            signedGet: (assetId) => `/api/media/${assetId}/signed/`
+        }
+    })"
+    x-init="init()"
+    class="space-y-6"
+>
+    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+        <div class="p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <div class="text-xs uppercase tracking-[0.18em] text-be-sky-700 font-semibold">Media library</div>
+                <h1 class="mt-2 text-2xl font-bold">Bibliothèque média</h1>
+                <p class="mt-2 text-sm text-be-ink-500">
+                    Tous les assets MinIO rattachés à votre compte instructeur.
+                </p>
+            </div>
+
+            <div class="flex gap-2">
+                <select x-model="kind" @change="loadMedia()"
+                        class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                    <option value="">Tous</option>
+                    <option value="video">Videos</option>
+                    <option value="audio">Audios</option>
+                    <option value="doc">Documents</option>
+                </select>
+
+                <button @click="loadMedia()"
+                        class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold transition">
+                    Actualiser
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+        <div class="overflow-auto no-scrollbar">
+            <table class="min-w-full text-sm">
+                <thead class="bg-be-ink-50/70 text-be-ink-600">
+                    <tr>
+                        <th class="text-left font-semibold px-4 py-3">Titre</th>
+                        <th class="text-left font-semibold px-4 py-3">Type</th>
+                        <th class="text-left font-semibold px-4 py-3">Content type</th>
+                        <th class="text-left font-semibold px-4 py-3">Taille</th>
+                        <th class="text-left font-semibold px-4 py-3">Créé le</th>
+                        <th class="text-right font-semibold px-4 py-3">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-if="loading">
+                        <tr>
+                            <td colspan="6" class="px-4 py-10 text-center text-be-ink-500">Chargement…</td>
+                        </tr>
+                    </template>
+
+                    <template x-if="!loading && media.length === 0">
+                        <tr>
+                            <td colspan="6" class="px-4 py-10 text-center text-be-ink-500">Aucun média trouvé.</td>
+                        </tr>
+                    </template>
+
+                    <template x-for="m in media" :key="m.id">
+                        <tr class="border-t border-be-ink-100 hover:bg-be-ink-50/50 transition">
+                            <td class="px-4 py-4">
+                                <div class="font-semibold" x-text="m.title || m.object_key"></div>
+                                <div class="text-xs text-be-ink-500 mt-1 font-mono" x-text="m.object_key"></div>
+                            </td>
+                            <td class="px-4 py-4">
+                                <span class="text-xs px-2.5 py-1 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700"
+                                      x-text="m.kind"></span>
+                            </td>
+                            <td class="px-4 py-4" x-text="m.content_type"></td>
+                            <td class="px-4 py-4" x-text="humanBytes(m.size)"></td>
+                            <td class="px-4 py-4" x-text="m.created_at || ''"></td>
+                            <td class="px-4 py-4 text-right">
+                                <button @click="openMedia(m)"
+                                        class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold transition">
+                                    Ouvrir
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function instructorMediaPage(cfg) {
+    return {
+        endpoints: cfg.endpoints,
+        media: [],
+        kind: "",
+        loading: false,
+
+        init() {
+            this.loadMedia();
+        },
+
+        async apiGet(url) {
+            const res = await fetch(url, {
+                headers: { "Accept": "application/json" },
+                credentials: "same-origin"
+            });
+            if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
+            return await res.json();
+        },
+
+        async loadMedia() {
+            try {
+                this.loading = true;
+                const u = new URL(this.endpoints.mediaList, window.location.origin);
+                if (this.kind) u.searchParams.set("kind", this.kind);
+                this.media = await this.apiGet(u.toString());
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async openMedia(m) {
+            try {
+                const resp = await this.apiGet(this.endpoints.signedGet(m.id));
+                if (resp.url) {
+                    window.open(resp.url, "_blank");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Impossible d’ouvrir le média.");
+            }
+        },
+
+        humanBytes(bytes) {
+            const b = Number(bytes || 0);
+            const u = ["B", "KB", "MB", "GB"];
+            let i = 0, v = b;
+            while (v >= 1024 && i < u.length - 1) {
+                v /= 1024;
+                i++;
+            }
+            return `${v.toFixed(i ? 1 : 0)} ${u[i]}`;
+        }
+    }
+}
+</script>
+{% endblock %}

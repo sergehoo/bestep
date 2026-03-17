@@ -1,0 +1,514 @@
+{% extends "layout/admin_base.html" %}
+{% load static %}
+
+{% block title %}best-épargne — Nouveau cours{% endblock %}
+{% block topbar_subtitle %}Création d’un cours{% endblock %}
+
+{% block topbar_actions %}
+<div class="flex items-center gap-2">
+    <a href="{% url 'instructor_courses' %}"
+       class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
+        ← Retour aux cours
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div
+    x-data="courseCreatePage({
+        endpoints: {
+            create: '{% url "api_instructor_course_create" %}'
+        }
+    })"
+    class="space-y-6"
+>
+    <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white/95 dark:bg-white/5 shadow-soft overflow-hidden">
+        <div class="p-6 lg:p-7 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+            <div class="min-w-0">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-be-sky-50 dark:bg-white/10 border border-be-sky-100 dark:border-white/10 text-be-sky-700 dark:text-white text-xs font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-be-sky-500"></span>
+                    Nouveau cours
+                </div>
+                <h1 class="mt-4 text-2xl lg:text-3xl font-bold tracking-tight text-be-ink-900 dark:text-white">
+                    <span x-text="form.title || 'Créer un nouveau programme'"></span>
+                </h1>
+                <p class="mt-2 text-sm text-be-ink-500 dark:text-white/60 max-w-3xl">
+                    Créez la fiche de base de votre cours, puis structurez vos sections, vos leçons et vos médias depuis le builder.
+                </p>
+
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <span class="px-3 py-1.5 rounded-full text-xs font-semibold border bg-be-sky-50 border-be-sky-200 text-be-sky-700">
+                        Brouillon
+                    </span>
+                    <span class="px-3 py-1.5 rounded-full text-xs font-semibold border"
+                          :class="pricingPill(form.pricing_type)">
+                        <span x-text="pricingLabel(form.pricing_type, form.price, 'XOF')"></span>
+                    </span>
+                    <span class="px-3 py-1.5 rounded-full text-xs font-semibold border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-be-ink-700 dark:text-white/80">
+                        Type : <span class="ml-1" x-text="courseTypeLabel(form.course_type)"></span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="w-full lg:w-[320px] shrink-0">
+                <div class="rounded-[24px] border border-be-sun-200 dark:border-white/10 bg-gradient-to-br from-be-sun-50 via-white to-be-sky-50 dark:from-white/5 dark:via-white/5 dark:to-white/10 p-4 shadow-soft">
+                    <div class="text-xs text-be-ink-500 dark:text-white/60">Préparation rapide</div>
+                    <div class="mt-3 space-y-3">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-be-ink-500 dark:text-white/60">Titre</span>
+                            <span class="font-semibold"
+                                  :class="form.title ? 'text-emerald-600' : 'text-rose-600'"
+                                  x-text="form.title ? 'OK' : 'Manquant'"></span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-be-ink-500 dark:text-white/60">Description</span>
+                            <span class="font-semibold"
+                                  :class="form.description ? 'text-emerald-600' : 'text-rose-600'"
+                                  x-text="form.description ? 'OK' : 'Manquant'"></span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-be-ink-500 dark:text-white/60">Thumbnail</span>
+                            <span class="font-semibold"
+                                  :class="thumbPreview ? 'text-emerald-600' : 'text-rose-600'"
+                                  x-text="thumbPreview ? 'OK' : 'Manquant'"></span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-be-ink-500 dark:text-white/60">Prix</span>
+                            <span class="font-semibold"
+                                  :class="isPriceValid() ? 'text-emerald-600' : 'text-rose-600'"
+                                  x-text="isPriceValid() ? 'OK' : 'À corriger'"></span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-xs text-be-ink-500 dark:text-white/60">
+                        Après création, vous pourrez ajouter les sections et les leçons dans le builder.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <template x-if="toast.show">
+        <div class="rounded-2xl border px-4 py-3 flex items-start justify-between gap-3"
+             :class="toast.type === 'error'
+                ? 'border-rose-200 bg-rose-50 text-rose-800'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-800'">
+            <div class="text-sm">
+                <div class="font-semibold" x-text="toast.title"></div>
+                <div class="mt-1 opacity-90" x-text="toast.message"></div>
+            </div>
+            <button @click="toast.show=false"
+                    class="px-2 py-1 rounded-lg border border-current/20 text-xs font-semibold">
+                OK
+            </button>
+        </div>
+    </template>
+
+    <div class="grid xl:grid-cols-12 gap-6">
+        <section class="xl:col-span-8 rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+            <div class="px-6 py-5 border-b border-be-ink-100 dark:border-white/10">
+                <h2 class="text-base font-semibold text-be-ink-900 dark:text-white">Informations du cours</h2>
+                <p class="mt-1 text-sm text-be-ink-500 dark:text-white/60">
+                    Renseignez les métadonnées essentielles pour créer une base solide et professionnelle.
+                </p>
+            </div>
+
+            <div class="p-6 space-y-6">
+                <div class="grid lg:grid-cols-2 gap-5">
+                    <div>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                            Titre du cours
+                        </label>
+                        <input x-model="form.title"
+                               type="text"
+                               class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10"
+                               placeholder="Ex: Comprendre l’épargne intelligente">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                            Sous-titre
+                        </label>
+                        <input x-model="form.subtitle"
+                               type="text"
+                               class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10"
+                               placeholder="Ajoutez une promesse claire et attractive">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                        Description
+                    </label>
+                    <textarea x-model="form.description"
+                              rows="8"
+                              class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10"
+                              placeholder="Présentez les objectifs, les résultats attendus, le public cible et les grands chapitres du cours."></textarea>
+                    <div class="mt-2 text-[11px] text-be-ink-500 dark:text-white/50">
+                        Une description détaillée améliore l’expérience utilisateur et la conversion.
+                    </div>
+                </div>
+
+                <div class="grid lg:grid-cols-3 gap-5">
+                    <div>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                            Type de cours
+                        </label>
+                        <select x-model="form.course_type"
+                                class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10">
+                            {% for value, label in course_type_choices %}
+                                <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                            Pricing
+                        </label>
+                        <select x-model="form.pricing_type"
+                                @change="onPricingChange()"
+                                class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10">
+                            {% for value, label in pricing_choices %}
+                                <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                            Prix
+                        </label>
+                        <div class="mt-2 relative">
+                            <input x-model="form.price"
+                                   type="number"
+                                   min="0"
+                                   step="0.01"
+                                   :disabled="form.pricing_type === 'FREE'"
+                                   class="w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                                   placeholder="0">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-be-ink-400 dark:text-white/40">
+                                XOF
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid lg:grid-cols-2 gap-5">
+                    <div>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                            Thumbnail du cours
+                        </label>
+
+                        <div class="mt-2 rounded-[24px] border border-dashed border-be-ink-200 dark:border-white/10 bg-be-ink-50/60 dark:bg-white/5 p-4">
+                            <div class="flex items-start gap-4">
+                                <div class="w-32 h-24 rounded-2xl overflow-hidden border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shrink-0">
+                                    <template x-if="thumbPreview">
+                                        <img :src="thumbPreview" alt="Thumbnail" class="w-full h-full object-cover">
+                                    </template>
+                                    <template x-if="!thumbPreview">
+                                        <div class="w-full h-full flex items-center justify-center text-[11px] text-be-ink-400 dark:text-white/40">
+                                            Aucune image
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <div class="min-w-0 flex-1">
+                                    <input type="file"
+                                           accept="image/*"
+                                           @change="handleThumbnail($event)"
+                                           class="block w-full text-sm text-be-ink-700 dark:text-white/80 file:mr-4 file:px-4 file:py-2.5 file:rounded-xl file:border-0 file:bg-be-sky-600 file:text-white file:text-sm file:font-semibold hover:file:bg-be-sky-700">
+                                    <div class="mt-2 text-[11px] text-be-ink-500 dark:text-white/50">
+                                        Format recommandé : 1280×720, visuel premium et cohérent avec votre branding.
+                                    </div>
+                                    <template x-if="form.thumbnailFile">
+                                        <div class="mt-2 text-xs font-medium text-be-ink-700 dark:text-white/80" x-text="form.thumbnailFile.name"></div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                            URL de preview vidéo
+                        </label>
+                        <input x-model="form.preview_video_url"
+                               type="url"
+                               class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10"
+                               placeholder="https://www.youtube.com/embed/...">
+                        <div class="mt-2 text-[11px] text-be-ink-500 dark:text-white/50">
+                            Optionnel. Ajoutez une bande-annonce ou une courte présentation vidéo.
+                        </div>
+
+                        <template x-if="form.preview_video_url">
+                            <div class="mt-4 rounded-[24px] overflow-hidden border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 aspect-video">
+                                <iframe class="w-full h-full"
+                                        :src="form.preview_video_url"
+                                        allow="autoplay; encrypted-media"
+                                        allowfullscreen></iframe>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-5 border-t border-be-ink-100 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="text-xs text-be-ink-500 dark:text-white/50">
+                    Le cours sera créé en brouillon et pourra ensuite être enrichi dans le builder.
+                </div>
+
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <button @click="resetForm()"
+                            type="button"
+                            class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
+                        Réinitialiser
+                    </button>
+                    <button @click="submit()"
+                            :disabled="loading.save"
+                            type="button"
+                            class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition disabled:opacity-60">
+                        <span x-show="!loading.save">Créer le cours</span>
+                        <span x-show="loading.save">Création...</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <aside class="xl:col-span-4 space-y-6">
+            <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                    <h3 class="text-sm font-semibold text-be-ink-900 dark:text-white">Checklist de démarrage</h3>
+                    <p class="mt-1 text-xs text-be-ink-500 dark:text-white/60">
+                        Vérifiez les éléments indispensables avant validation.
+                    </p>
+                </div>
+                <div class="p-5 space-y-3">
+                    <div class="flex items-center justify-between gap-3 text-sm">
+                        <span class="text-be-ink-600 dark:text-white/70">Titre renseigné</span>
+                        <span class="font-semibold" :class="form.title ? 'text-emerald-600' : 'text-rose-600'" x-text="form.title ? 'OK' : 'Manquant'"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3 text-sm">
+                        <span class="text-be-ink-600 dark:text-white/70">Description renseignée</span>
+                        <span class="font-semibold" :class="form.description ? 'text-emerald-600' : 'text-rose-600'" x-text="form.description ? 'OK' : 'Manquant'"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3 text-sm">
+                        <span class="text-be-ink-600 dark:text-white/70">Thumbnail</span>
+                        <span class="font-semibold" :class="thumbPreview ? 'text-emerald-600' : 'text-rose-600'" x-text="thumbPreview ? 'OK' : 'Manquant'"></span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3 text-sm">
+                        <span class="text-be-ink-600 dark:text-white/70">Prix cohérent</span>
+                        <span class="font-semibold"
+                              :class="isPriceValid() ? 'text-emerald-600' : 'text-rose-600'"
+                              x-text="isPriceValid() ? 'OK' : 'À corriger'"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="rounded-[28px] border border-be-sun-200 dark:border-white/10 bg-gradient-to-br from-be-sun-50 via-white to-be-sky-50 dark:from-white/5 dark:via-white/5 dark:to-white/10 shadow-soft overflow-hidden">
+                <div class="p-5">
+                    <div class="text-xs text-be-ink-500 dark:text-white/60">Prochaine étape</div>
+                    <div class="mt-1 text-lg font-semibold text-be-ink-900 dark:text-white">
+                        Construire votre contenu
+                    </div>
+                    <p class="mt-2 text-sm text-be-ink-600 dark:text-white/70">
+                        Une fois le cours créé, ajoutez vos sections, vos leçons, vos vidéos, vos documents et vos previews dans le builder instructeur.
+                    </p>
+
+                    <div class="mt-4 grid grid-cols-2 gap-2">
+                        <a href="{% url 'instructor_courses' %}"
+                           class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-center text-sm font-semibold hover:bg-be-ink-50 dark:hover:bg-white/10 transition">
+                            Mes cours
+                        </a>
+                        <a href="{% url 'instructor_dashboard' %}?tab=courses"
+                           class="px-3 py-2.5 rounded-xl bg-be-sky-600 text-white text-center text-sm font-semibold hover:bg-be-sky-700 transition">
+                            Dashboard
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function courseCreatePage(cfg) {
+    return {
+        endpoints: cfg.endpoints,
+
+        loading: {
+            save: false
+        },
+
+        toast: {
+            show: false,
+            title: "",
+            message: "",
+            type: "success"
+        },
+
+        form: {
+            title: "",
+            subtitle: "",
+            description: "",
+            course_type: "PROFESSIONNELLE",
+            pricing_type: "PAID",
+            price: 0,
+            preview_video_url: "",
+            thumbnailFile: null
+        },
+
+        thumbPreview: "",
+
+        getCsrf() {
+            const match = document.cookie.match(/csrftoken=([^;]+)/);
+            return match ? match[1] : "";
+        },
+
+        showToast(title, message, type = "success") {
+            this.toast = {show: true, title, message, type};
+            setTimeout(() => this.toast.show = false, 4000);
+        },
+
+        pricingLabel(type, price, currency = "XOF") {
+            if (type === "FREE") return "Gratuit";
+            if (type === "HYBRID") return "Hybride";
+            return `Payant • ${this.money(price)} ${currency}`;
+        },
+
+        pricingPill(type) {
+            if (type === "PAID") return "bg-be-sun-50 border-be-sun-200 text-be-sun-800";
+            if (type === "HYBRID") return "bg-be-sky-50 border-be-sky-200 text-be-sky-700";
+            return "bg-be-ink-50 border-be-ink-200 text-be-ink-700";
+        },
+
+        courseTypeLabel(type) {
+            const labels = {
+                PROFESSIONNELLE: "Professionnelle",
+                CERTIFIANTE: "Certifiante",
+                ACADEMIQUE: "Académique",
+                INTERNE: "Interne"
+            };
+            return labels[type] || type || "—";
+        },
+
+        money(value) {
+            return Number(value || 0).toLocaleString("fr-FR");
+        },
+
+        onPricingChange() {
+            if (this.form.pricing_type === "FREE") {
+                this.form.price = 0;
+            }
+        },
+
+        isPriceValid() {
+            if (this.form.pricing_type === "FREE") return true;
+            return Number(this.form.price || 0) > 0;
+        },
+
+        handleThumbnail(event) {
+            const file = event.target.files?.[0] || null;
+            this.form.thumbnailFile = file;
+
+            if (file) {
+                this.thumbPreview = URL.createObjectURL(file);
+            }
+        },
+
+        resetForm() {
+            this.form = {
+                title: "",
+                subtitle: "",
+                description: "",
+                course_type: "PROFESSIONNELLE",
+                pricing_type: "PAID",
+                price: 0,
+                preview_video_url: "",
+                thumbnailFile: null
+            };
+            this.thumbPreview = "";
+        },
+
+        validate() {
+            if (!this.form.title?.trim()) {
+                this.showToast("Validation", "Le titre du cours est obligatoire.", "error");
+                return false;
+            }
+
+            if (!this.form.description?.trim()) {
+                this.showToast("Validation", "La description du cours est obligatoire.", "error");
+                return false;
+            }
+
+            if (!this.isPriceValid()) {
+                this.showToast("Validation", "Le prix doit être supérieur à 0 pour un cours payant ou hybride.", "error");
+                return false;
+            }
+
+            return true;
+        },
+
+        async submit() {
+            if (!this.validate()) return;
+
+            try {
+                this.loading.save = true;
+
+                const fd = new FormData();
+                fd.append("title", this.form.title || "");
+                fd.append("subtitle", this.form.subtitle || "");
+                fd.append("description", this.form.description || "");
+                fd.append("course_type", this.form.course_type || "PROFESSIONNELLE");
+                fd.append("pricing_type", this.form.pricing_type || "PAID");
+                fd.append("price", this.form.pricing_type === "FREE" ? "0" : String(this.form.price || 0));
+                fd.append("preview_video_url", this.form.preview_video_url || "");
+
+                if (this.form.thumbnailFile) {
+                    fd.append("thumbnail", this.form.thumbnailFile);
+                }
+
+                const res = await fetch(this.endpoints.create, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": this.getCsrf(),
+                        "Accept": "application/json"
+                    },
+                    body: fd,
+                    credentials: "same-origin"
+                });
+
+                if (!res.ok) {
+                    let detail = "";
+                    try {
+                        detail = JSON.stringify(await res.json());
+                    } catch (e) {
+                        detail = `HTTP ${res.status}`;
+                    }
+                    throw new Error(detail);
+                }
+
+                const data = await res.json();
+
+                this.showToast("Succès", "Le cours a été créé avec succès.");
+
+                const courseId = data.id || data.pk;
+                if (courseId) {
+                    window.location.href = `/dashboard/instructor/courses/${courseId}/update/`;
+                    return;
+                }
+
+                this.resetForm();
+            } catch (error) {
+                console.error(error);
+                this.showToast("Erreur", "Impossible de créer le cours.", "error");
+            } finally {
+                this.loading.save = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

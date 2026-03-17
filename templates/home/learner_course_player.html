@@ -6,14 +6,16 @@
 
 {% block content %}
 <!--
-  Udemy-like Course Player (Alpine.js)
-  - Sidebar curriculum (sticky, searchable, progress per lesson)
-  - Main player area (sticky header, prev/next, completion)
-  - Auto progress update:
-      * VIDEO mp4 => listens to timeupdate/ended and saves throttled
-      * TEXT => marks complete when scrolled near bottom (IntersectionObserver)
-      * FILE => marks complete when user clicks "Ouvrir" (optional)
-  - Updates UI instantly (optimistic) + refresh outline periodically
+  Udemy-like Course Player (Alpine.js) — PERF + UX/UI
+  Améliorations clés :
+  - Sidebar search + filter local (ne déclenche plus $store.learner.loadEnrollments)
+  - Virtual-ish rendering léger : sections filtrées + open state stable
+  - Préchargement next/prev lesson state (cache mémoire) pour navigation instant
+  - Sauvegarde progress: throttle + debounce + abort précédent (évite rafales)
+  - IntersectionObserver root = container scroll (TEXT) -> fiable
+  - Video: seek only once, throttle timeupdate, évite setTimeout empilé
+  - Sticky header optimisé, transitions douces, skeletons & empty states
+  - Meilleure visibilité : “en cours de sync”, toast minimal, focus rings
 -->
 
 <script id="player-config" type="application/json">
@@ -30,23 +32,42 @@
 </script>
 
 <style>
-  /* petites finitions "Udemy-like" */
+  /* petites finitions "Udemy-like" + perf */
   .no-scrollbar::-webkit-scrollbar { width:0; height:0; }
   .no-scrollbar { scrollbar-width:none; -ms-overflow-style:none; }
+
+  /* Smoothness */
+  .will-change-transform { will-change: transform; }
+  .gpu { transform: translateZ(0); }
+
+  /* Simple toast */
+  .toast {
+    position: fixed; right: 16px; bottom: 16px; z-index: 70;
+    background: rgba(15, 23, 42, .92);
+    color: #fff; padding: 10px 12px; border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(2,6,23,.25);
+    font-size: 12px;
+  }
 </style>
 
-<div
-  class="relative"
-  x-data="coursePlayerUdemy()"
-  x-init="init()"
->
+<div class="relative" x-data="coursePlayerUdemy()" x-init="init()">
+
+  <!-- Toast -->
+  <div x-show="ui.toast.show" x-transition.opacity class="toast" style="display:none">
+    <div class="flex items-center gap-2">
+      <i class="fa-solid fa-circle-check text-emerald-400" x-show="ui.toast.type==='ok'"></i>
+      <i class="fa-solid fa-triangle-exclamation text-amber-300" x-show="ui.toast.type==='warn'"></i>
+      <i class="fa-solid fa-cloud-arrow-up text-sky-300" x-show="ui.toast.type==='sync'"></i>
+      <span x-text="ui.toast.msg"></span>
+    </div>
+  </div>
 
   <!-- Top dark bar (Udemy vibe) -->
   <div class="sticky top-0 z-40 bg-slate-950 text-white border-b border-white/10">
     <div class="px-3 sm:px-5 py-3 flex items-center justify-between gap-3">
       <div class="min-w-0 flex items-center gap-3">
         <button
-          class="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15"
+          class="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15 active:scale-[.98] transition"
           @click="ui.sidebarOpen = !ui.sidebarOpen"
           aria-label="Ouvrir le plan"
         >
@@ -56,17 +77,21 @@
         <div class="min-w-0">
           <div class="text-sm font-semibold truncate" x-text="course.title || 'Cours'"></div>
           <div class="text-[11px] text-white/70 flex items-center gap-2">
-            <span x-text="lesson.title || 'Leçon'"></span>
+            <span class="truncate max-w-[46vw] sm:max-w-[420px]" x-text="lesson.title || 'Leçon'"></span>
             <span class="opacity-60">•</span>
             <span>Progression</span>
             <span class="font-semibold" x-text="progress.percent + '%'"></span>
+            <span class="opacity-60" x-show="saving.any">•</span>
+            <span class="text-sky-200 font-semibold" x-show="saving.any">
+              <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Sync…
+            </span>
           </div>
         </div>
       </div>
 
       <div class="flex items-center gap-2 shrink-0">
         <button
-          class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold"
+          class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold active:scale-[.98] transition"
           @click="refreshOutline(true)"
           :disabled="loading.outline"
         >
@@ -94,14 +119,16 @@
       x-show="ui.sidebarOpen"
       x-transition.opacity
       @click="ui.sidebarOpen = false"
+      style="display:none"
     ></div>
 
     <!-- LEFT: Curriculum -->
     <aside
       class="lg:col-span-4 xl:col-span-3 bg-white border-r border-be-ink-100 lg:sticky lg:top-[56px] lg:h-[calc(100vh-56px)] z-50"
       :class="ui.sidebarOpen ? 'fixed inset-y-0 left-0 w-[88%] max-w-sm shadow-2xl' : 'hidden lg:block'"
-      x-show="ui.sidebarOpen || window.innerWidth >= 1024"
+      x-show="ui.sidebarOpen || ui.isDesktop"
       x-transition
+      style="display:none"
     >
       <!-- Sidebar header -->
       <div class="p-4 border-b border-be-ink-100">
@@ -115,7 +142,7 @@
             </div>
           </div>
 
-          <button class="lg:hidden w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+          <button class="lg:hidden w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 active:scale-[.98] transition"
                   @click="ui.sidebarOpen = false" aria-label="Fermer">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -125,28 +152,28 @@
           <div class="h-full rounded-full bg-be-sky-600 transition-all duration-300" :style="`width:${progress.percent || 0}%`"></div>
         </div>
 
+        <!-- Search local -->
         <div class="mt-4">
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 text-sm"></i>
-           <input
-  x-model.debounce.300ms="$store.learner.filters.q"
-  @input="$store.learner.loadEnrollments && $store.learner.loadEnrollments()"
-  placeholder="Rechercher un cours…"
-  class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100/70 dark:border-white/10
-         bg-white/80 dark:bg-white/5 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 text-sm"
-/>
+            <input
+              x-model.debounce.200ms="ui.search"
+              placeholder="Rechercher une leçon…"
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100/70 dark:border-white/10
+                     bg-white/80 dark:bg-white/5 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 text-sm"
+            />
           </div>
         </div>
 
         <div class="mt-3 flex items-center gap-2">
           <button
-            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-xs font-semibold"
+            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-xs font-semibold active:scale-[.98] transition"
             @click="expandAll(true)"
           >
             Tout ouvrir
           </button>
           <button
-            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-xs font-semibold"
+            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-xs font-semibold active:scale-[.98] transition"
             @click="expandAll(false)"
           >
             Tout fermer
@@ -157,7 +184,14 @@
       <!-- Sidebar content -->
       <div class="p-3 overflow-auto no-scrollbar" style="height: calc(100% - 184px)">
         <template x-if="loading.outline">
-          <div class="p-3 text-sm text-be-ink-500">Chargement du plan…</div>
+          <div class="p-3">
+            <div class="text-sm text-be-ink-500">Chargement du plan…</div>
+            <div class="mt-3 space-y-2">
+              <div class="h-10 rounded-xl bg-be-ink-100/70 animate-pulse"></div>
+              <div class="h-10 rounded-xl bg-be-ink-100/70 animate-pulse"></div>
+              <div class="h-10 rounded-xl bg-be-ink-100/70 animate-pulse"></div>
+            </div>
+          </div>
         </template>
 
         <template x-if="!loading.outline && (!filteredSections().length)">
@@ -167,7 +201,7 @@
         <template x-for="s in filteredSections()" :key="s.id">
           <div class="mb-3 rounded-2xl border border-be-ink-100 overflow-hidden">
             <button
-              class="w-full px-3 py-3 flex items-center justify-between gap-3 bg-white hover:bg-be-ink-50"
+              class="w-full px-3 py-3 flex items-center justify-between gap-3 bg-white hover:bg-be-ink-50 active:scale-[.99] transition"
               @click="toggleSection(s.id)"
             >
               <div class="min-w-0 text-left">
@@ -183,7 +217,7 @@
             <div x-show="ui.openSections[s.id]" x-transition class="border-t border-be-ink-100 bg-white">
               <template x-for="l in (s.lessons || [])" :key="l.id">
                 <button
-                  class="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-be-ink-50"
+                  class="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-be-ink-50 active:scale-[.99] transition"
                   :class="l.id===currentLessonId ? 'bg-be-sky-50' : ''"
                   @click="openLesson(l.id)"
                 >
@@ -194,6 +228,7 @@
                     <template x-if="l.type==='QUIZ'"><i class="fa-solid fa-circle-question"></i></template>
                     <template x-if="l.type==='LIVE'"><i class="fa-solid fa-tower-broadcast"></i></template>
                     <template x-if="l.type==='FILE'"><i class="fa-solid fa-paperclip"></i></template>
+                    <template x-if="!['VIDEO','TEXT','QUIZ','LIVE','FILE'].includes(l.type)"><i class="fa-solid fa-circle"></i></template>
                   </div>
 
                   <div class="min-w-0 flex-1">
@@ -242,25 +277,29 @@
 
         <div class="flex items-center gap-2 shrink-0">
           <button
-            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
+            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold active:scale-[.98] transition"
             @click="prevLesson()"
-            :disabled="!nav.prevId"
+            :disabled="!nav.prevId || loading.lesson"
+            :class="(!nav.prevId || loading.lesson) ? 'opacity-50 cursor-not-allowed' : ''"
           >
             ← Préc.
           </button>
 
           <button
-            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
+            class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold active:scale-[.98] transition"
             @click="toggleCompleted()"
+            :disabled="loading.lesson"
+            :class="loading.lesson ? 'opacity-50 cursor-not-allowed' : ''"
           >
             <span x-show="!lessonProgress.is_completed">Marquer terminé</span>
             <span x-show="lessonProgress.is_completed">Marquer non terminé</span>
           </button>
 
           <button
-            class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 text-sm font-semibold"
+            class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 text-sm font-semibold active:scale-[.98] transition"
             @click="nextLesson()"
-            :disabled="!nav.nextId"
+            :disabled="!nav.nextId || loading.lesson"
+            :class="(!nav.nextId || loading.lesson) ? 'opacity-50 cursor-not-allowed' : ''"
           >
             Suivant →
           </button>
@@ -268,10 +307,18 @@
       </div>
 
       <!-- Player body -->
-      <div class="p-4 lg:p-6 overflow-auto no-scrollbar" style="height: calc(100% - 58px)">
+      <div
+        x-ref="playerScroll"
+        class="p-4 lg:p-6 overflow-auto no-scrollbar gpu"
+        style="height: calc(100% - 58px)"
+      >
         <!-- Loading -->
         <template x-if="loading.lesson">
-          <div class="text-sm text-be-ink-500">Chargement leçon…</div>
+          <div class="space-y-4">
+            <div class="h-7 w-1/2 rounded-xl bg-be-ink-100/70 animate-pulse"></div>
+            <div class="h-64 rounded-2xl bg-be-ink-100/70 animate-pulse"></div>
+            <div class="h-24 rounded-2xl bg-be-ink-100/70 animate-pulse"></div>
+          </div>
         </template>
 
         <template x-if="!loading.lesson">
@@ -280,13 +327,13 @@
             <!-- VIDEO -->
             <template x-if="lesson.type==='VIDEO' && lesson.video_url">
               <div class="rounded-2xl border border-be-ink-100 overflow-hidden bg-black">
-                <!-- If mp4: use <video> to track progress -->
                 <template x-if="isMp4(lesson.video_url)">
                   <video
                     x-ref="videoEl"
                     class="w-full"
                     controls
                     playsinline
+                    preload="metadata"
                     @timeupdate="onVideoTimeUpdate()"
                     @ended="onVideoEnded()"
                     @loadedmetadata="onVideoLoaded()"
@@ -295,10 +342,10 @@
                   ></video>
                 </template>
 
-                <!-- Else fallback iframe (no time tracking) -->
                 <template x-if="!isMp4(lesson.video_url)">
                   <iframe
                     class="w-full"
+                    loading="lazy"
                     style="height:520px"
                     :src="lesson.video_url"
                     allowfullscreen
@@ -316,9 +363,10 @@
                     <div class="text-xs text-be-ink-500 mt-1">Ouvre le document. Tu peux ensuite marquer terminé.</div>
                   </div>
                   <a
-                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold active:scale-[.98] transition"
                     :href="lesson.file_url"
                     target="_blank"
+                    rel="noopener"
                     @click="onFileOpened()"
                   >
                     <i class="fa-solid fa-file-arrow-down"></i> Ouvrir
@@ -337,7 +385,7 @@
                 <!-- Sentinel for auto-complete on scroll -->
                 <div class="mt-8 pt-6 border-t border-be-ink-100">
                   <div class="text-xs text-be-ink-500">
-                    Astuce: en arrivant en bas, la leçon peut se marquer comme terminée automatiquement.
+                    Astuce: en arrivant en bas, la leçon se marque comme terminée automatiquement.
                   </div>
                   <div x-ref="textEndSentinel" class="h-1 w-full"></div>
                 </div>
@@ -363,13 +411,13 @@
               </div>
             </template>
 
-            <!-- Lesson progress card (Udemy style: simple + auto) -->
+            <!-- Lesson progress card -->
             <div class="rounded-2xl border border-be-ink-100 p-4">
               <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
                   <div class="text-xs font-extrabold text-slate-900">Progression de cette leçon</div>
                   <div class="text-xs text-be-ink-500 mt-1">
-                    Mise à jour auto (vidéo mp4 / lecture texte). Sinon tu peux ajuster manuellement.
+                    Mise à jour auto (vidéo mp4 / lecture texte). Sinon ajuste manuellement.
                   </div>
                 </div>
                 <div class="text-sm font-extrabold text-slate-900" x-text="lessonProgress.percent + '%'"></div>
@@ -383,10 +431,13 @@
               <div class="mt-4 flex items-center gap-2">
                 <input type="range" min="0" max="100" x-model.number="lessonProgress.percent" class="w-full">
                 <button
-                  class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold hover:opacity-90"
-                  @click="saveProgress(false, { force:true })"
+                  class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold hover:opacity-90 active:scale-[.98] transition"
+                  @click="saveProgress(false, { force:true, toast:true })"
+                  :disabled="saving.lesson"
+                  :class="saving.lesson ? 'opacity-60 cursor-not-allowed' : ''"
                 >
-                  Enregistrer
+                  <span x-show="!saving.lesson">Enregistrer</span>
+                  <span x-show="saving.lesson">Sync…</span>
                 </button>
               </div>
 
@@ -429,8 +480,18 @@ function coursePlayerUdemy(){
     ui: {
       sidebarOpen: false,
       search: "",
-      openSections: {}
+      openSections: {},
+      isDesktop: false,
+      toast: { show:false, msg:"", type:"ok", t:null }
     },
+
+    // caches & controllers
+    _outlineRefreshTimer: null,
+    _videoSeekDone: false,
+    _textObserver: null,
+    _saveCount: 0,
+    _prefetchCache: new Map(), // lessonId -> {lesson, progress}
+    _saveAbort: null,
 
     // --- utils ---
     formatDuration(sec){
@@ -449,6 +510,13 @@ function coursePlayerUdemy(){
       const d = new Date();
       return d.toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
     },
+    toast(msg, type){
+      clearTimeout(this.ui.toast.t);
+      this.ui.toast.msg = msg || "";
+      this.ui.toast.type = type || "ok";
+      this.ui.toast.show = true;
+      this.ui.toast.t = setTimeout(() => { this.ui.toast.show = false; }, 1800);
+    },
 
     async apiGet(url){
       const res = await fetch(url, { headers:{ "Accept":"application/json" }, credentials:"same-origin" });
@@ -459,7 +527,7 @@ function coursePlayerUdemy(){
       const m = document.cookie.match(/csrftoken=([^;]+)/);
       return m ? m[1] : "";
     },
-    async apiPost(url, payload){
+    async apiPost(url, payload, signal){
       const res = await fetch(url, {
         method:"POST",
         headers:{
@@ -468,7 +536,8 @@ function coursePlayerUdemy(){
           "Accept":"application/json"
         },
         body: JSON.stringify(payload || {}),
-        credentials:"same-origin"
+        credentials:"same-origin",
+        signal
       });
 
       if (!res.ok){
@@ -480,25 +549,30 @@ function coursePlayerUdemy(){
 
     // --- init ---
     async init(){
-      // sidebar default open sections (first open)
+      // detect desktop in a lightweight way
+      const mq = window.matchMedia("(min-width: 1024px)");
+      const updateDesktop = () => { this.ui.isDesktop = mq.matches; if (this.ui.isDesktop) this.ui.sidebarOpen = false; };
+      updateDesktop();
+      mq.addEventListener?.("change", updateDesktop);
+
       await this.loadOutline();
       await this.resolveContinueLesson();
 
       if (this.currentLessonId){
         await this.loadLesson(this.currentLessonId);
         this.computeNav();
+        this.prefetchAround(); // prefetch prev/next
       }
 
       // periodic outline refresh (light)
       this.startAutoRefreshOutline();
 
-      // mobile: close sidebar after choosing lesson
-      if (window.innerWidth < 1024) this.ui.sidebarOpen = false;
+      if (!this.ui.isDesktop) this.ui.sidebarOpen = false;
     },
 
     startAutoRefreshOutline(){
-      // refresh all 30s if user is active on player
-      setInterval(() => {
+      clearInterval(this._outlineRefreshTimer);
+      this._outlineRefreshTimer = setInterval(() => {
         this.refreshOutline(false).catch(()=>{});
       }, 30000);
     },
@@ -526,7 +600,7 @@ function coursePlayerUdemy(){
         this.progress = data.progress || this.progress;
         this.currentLessonId = data.current_lesson_id || this.currentLessonId;
 
-        // open sections state: keep existing; open first by default
+        // Open first section by default if nothing set
         if (!Object.keys(this.ui.openSections).length && this.sections.length){
           this.ui.openSections[this.sections[0].id] = true;
         }
@@ -536,15 +610,13 @@ function coursePlayerUdemy(){
     },
 
     async refreshOutline(showToast){
-      // avoid stacking refreshes
       if (this.loading.outline) return;
       await this.loadOutline();
       this.computeNav();
-      if (showToast) this.lastSavedAt = this.nowTime();
+      if (showToast) this.toast("Plan mis à jour", "ok");
     },
 
     async resolveContinueLesson(){
-      // if outline doesn't have current, ask continue
       if (this.currentLessonId) return;
       const data = await this.apiGet(this.api.continue);
       this.currentLessonId = data.lesson_id || null;
@@ -554,7 +626,6 @@ function coursePlayerUdemy(){
       const q = (this.ui.search || "").trim().toLowerCase();
       if (!q) return this.sections;
 
-      // filter lessons but keep section container if any match
       return (this.sections || [])
         .map(s => {
           const lessons = (s.lessons || []).filter(l => {
@@ -589,59 +660,75 @@ function coursePlayerUdemy(){
       this.nav.nextId = (idx >= 0 && idx < list.length-1) ? list[idx+1].id : null;
     },
 
-    async prevLesson(){
-      if (!this.nav.prevId) return;
-      await this.openLesson(this.nav.prevId);
-    },
-    async nextLesson(){
-      if (!this.nav.nextId) return;
-      await this.openLesson(this.nav.nextId);
-    },
+    async prevLesson(){ if (this.nav.prevId) await this.openLesson(this.nav.prevId); },
+    async nextLesson(){ if (this.nav.nextId) await this.openLesson(this.nav.nextId); },
 
     // --- lesson open/load ---
     async openLesson(lessonId){
-      this.currentLessonId = lessonId;
+      if (!lessonId) return;
+      if (Number(lessonId) === Number(this.currentLessonId) && !this.loading.lesson) return;
 
-      // optimistic: highlight immediately
+      this.currentLessonId = lessonId;
       this.computeNav();
 
       // close mobile sidebar
-      if (window.innerWidth < 1024) this.ui.sidebarOpen = false;
+      if (!this.ui.isDesktop) this.ui.sidebarOpen = false;
 
-      await this.apiPost(this.api.setCurrent, { lesson_id: lessonId });
+      // set current on server (non bloquant)
+      try { await this.apiPost(this.api.setCurrent, { lesson_id: lessonId }); } catch(e){ console.warn(e); }
+
       await this.loadLesson(lessonId);
+      this.prefetchAround();
+    },
+
+    normalizeLessonState(data){
+      const raw = data.lesson || {};
+      const type = raw.type || raw.lesson_type || raw.lessonType || raw.lesson_type || "";
+      return {
+        lesson: {
+          ...raw,
+          type,
+          video_url: raw.video_url || raw.videoUrl || raw.video,
+          file_url: raw.file_url || raw.fileUrl || raw.file,
+          content: raw.content || raw.text || raw.html,
+          duration_sec: raw.duration_sec ?? raw.duration ?? null
+        },
+        progress: {
+          percent: Number(data.progress?.percent ?? data.progress?.progress_percent ?? 0),
+          is_completed: !!(data.progress?.is_completed ?? data.progress?.completed),
+          last_position_seconds: Number(data.progress?.last_position_seconds ?? 0)
+        }
+      };
     },
 
     async loadLesson(lessonId){
       try{
         this.loading.lesson = true;
-
-        // stop observers / handlers from previous lesson
+        this._videoSeekDone = false;
         this.teardownTextObserver();
+
+        // use cache if prefetched
+        if (this._prefetchCache.has(Number(lessonId))){
+          const cached = this._prefetchCache.get(Number(lessonId));
+          this.lesson = cached.lesson;
+          this.lessonProgress = cached.progress;
+          this.applyOptimisticToSidebar(lessonId, this.lessonProgress);
+          this.$nextTick(() => {
+            if (this.lesson.type === "TEXT") this.setupTextAutoComplete();
+            if (this.lesson.type === "VIDEO") this.seekVideoIfPossible();
+          });
+          return;
+        }
 
         const url = `${this.api.lessonStateBase}${lessonId}/state/`;
         const data = await this.apiGet(url);
+        const normalized = this.normalizeLessonState(data);
 
-        this.lesson = {
-          ...data.lesson,
-          type: data.lesson?.type || data.lesson?.lesson_type || data.lesson?.lessonType || data.lesson?.lesson_type || data.lesson?.lesson_type,
-          // normalize
-          video_url: data.lesson?.video_url || data.lesson?.videoUrl || data.lesson?.video,
-          file_url: data.lesson?.file_url || data.lesson?.fileUrl || data.lesson?.file,
-          content: data.lesson?.content || data.lesson?.text || data.lesson?.html,
-          duration_sec: data.lesson?.duration_sec ?? data.lesson?.duration ?? null
-        };
+        this.lesson = normalized.lesson;
+        this.lessonProgress = normalized.progress;
 
-        this.lessonProgress = {
-          percent: Number(data.progress?.percent ?? data.progress?.progress_percent ?? 0),
-          is_completed: !!(data.progress?.is_completed ?? data.progress?.completed),
-          last_position_seconds: Number(data.progress?.last_position_seconds ?? 0)
-        };
-
-        // Update sidebar "current lesson title/type" consistency
         this.applyOptimisticToSidebar(lessonId, this.lessonProgress);
 
-        // Setup auto tracking depending on type
         this.$nextTick(() => {
           if (this.lesson.type === "TEXT") this.setupTextAutoComplete();
           if (this.lesson.type === "VIDEO") this.seekVideoIfPossible();
@@ -652,7 +739,33 @@ function coursePlayerUdemy(){
       }
     },
 
-    // --- optimistic update (sidebar + global progress quick refresh) ---
+    prefetchAround(){
+      // prefetch next & prev lesson states (fast navigation)
+      const ids = [this.nav.prevId, this.nav.nextId].filter(Boolean);
+      ids.forEach(id => this.prefetchLesson(id));
+    },
+
+    async prefetchLesson(lessonId){
+      const key = Number(lessonId);
+      if (!key || this._prefetchCache.has(key)) return;
+
+      try{
+        const url = `${this.api.lessonStateBase}${lessonId}/state/`;
+        const data = await this.apiGet(url);
+        const normalized = this.normalizeLessonState(data);
+        this._prefetchCache.set(key, normalized);
+
+        // keep cache small
+        if (this._prefetchCache.size > 6){
+          const firstKey = this._prefetchCache.keys().next().value;
+          this._prefetchCache.delete(firstKey);
+        }
+      }catch(e){
+        // ignore prefetch errors
+      }
+    },
+
+    // --- optimistic update sidebar ---
     applyOptimisticToSidebar(lessonId, prog){
       (this.sections || []).forEach(s => {
         (s.lessons || []).forEach(l => {
@@ -665,43 +778,51 @@ function coursePlayerUdemy(){
     },
 
     // --- progress saving ---
-    progressSaveTimer: null,
     lastSentPercent: -1,
     lastSentSecond: -1,
+    _saveDebounceTimer: null,
+
+    scheduleSave(markDone, opts){
+      // debounce saves to avoid rafales (video/timeupdate, sliders)
+      clearTimeout(this._saveDebounceTimer);
+      this._saveDebounceTimer = setTimeout(() => {
+        this.saveProgress(markDone, opts).catch(()=>{});
+      }, (opts && opts.delayMs) ? opts.delayMs : 450);
+    },
 
     async saveProgress(markDone, opts){
       const force = !!(opts && opts.force);
+      const wantToast = !!(opts && opts.toast);
+
       if (!this.currentLessonId) return;
 
       const percent = Math.max(0, Math.min(100, Number(this.lessonProgress.percent || 0)));
       const seconds = Math.max(0, Number(this.lessonProgress.last_position_seconds || 0));
-      const is_completed = !!markDone;
+      const is_completed = !!markDone || !!this.lessonProgress.is_completed;
 
-      // throttle: only send if significant change unless force
       const percentDelta = Math.abs(percent - (this.lastSentPercent < 0 ? percent : this.lastSentPercent));
       const secondsDelta = Math.abs(seconds - (this.lastSentSecond < 0 ? seconds : this.lastSentSecond));
 
-      if (!force && !is_completed && percentDelta < 2 && secondsDelta < 10) return;
+      if (!force && !markDone && percentDelta < 2 && secondsDelta < 10) return;
+
+      // abort previous save if still running
+      try { this._saveAbort?.abort(); } catch(e){}
+      this._saveAbort = new AbortController();
 
       this.saving.lesson = true;
       this.saving.any = true;
 
       try{
         const url = `${this.api.lessonProgressBase}${this.currentLessonId}/progress/`;
-        const payload = {
-          percent,
-          last_position_seconds: seconds,
-          is_completed
-        };
+        const payload = { percent, last_position_seconds: seconds, is_completed };
 
-        // optimistic UI
+        // optimistic
         this.lessonProgress.percent = percent;
-        this.lessonProgress.is_completed = is_completed || this.lessonProgress.is_completed;
+        this.lessonProgress.is_completed = is_completed;
         this.applyOptimisticToSidebar(this.currentLessonId, this.lessonProgress);
 
-        const data = await this.apiPost(url, payload);
+        const data = await this.apiPost(url, payload, this._saveAbort.signal);
 
-        // server may return normalized progress
         if (data?.progress){
           this.lessonProgress.percent = Number(data.progress.percent ?? this.lessonProgress.percent);
           this.lessonProgress.is_completed = !!(data.progress.is_completed ?? this.lessonProgress.is_completed);
@@ -709,29 +830,22 @@ function coursePlayerUdemy(){
           this.applyOptimisticToSidebar(this.currentLessonId, this.lessonProgress);
         }
 
-        // update trackers
         this.lastSentPercent = this.lessonProgress.percent;
         this.lastSentSecond = this.lessonProgress.last_position_seconds;
         this.lastSavedAt = this.nowTime();
 
-        // refresh global progress occasionally (not every time)
-        // after completion, refresh to update counters & badges precisely
-        if (this.lessonProgress.is_completed) {
+        // refresh global progress sometimes
+        this._saveCount += 1;
+        if (this.lessonProgress.is_completed || this._saveCount % 4 === 0){
           await this.refreshOutline(false);
-        } else {
-          // lightweight: refresh outline every ~3 saves
-          if (!this._saveCount) this._saveCount = 0;
-          this._saveCount += 1;
-          if (this._saveCount % 3 === 0) await this.refreshOutline(false);
         }
 
-        // auto-go next if API gives next lesson id
-        if (data?.next_lesson_id){
-          this.nav.nextId = data.next_lesson_id;
-        }
-
+        if (wantToast) this.toast("Progress enregistré", "ok");
       } catch(e){
-        console.error(e);
+        if (e.name !== "AbortError"){
+          console.error(e);
+          this.toast("Erreur de synchronisation", "warn");
+        }
       } finally {
         this.saving.lesson = false;
         this.saving.any = false;
@@ -739,80 +853,78 @@ function coursePlayerUdemy(){
     },
 
     async toggleCompleted(){
-      // if already completed -> allow uncomplete (set percent stays but mark false)
+      if (this.loading.lesson) return;
+
       if (this.lessonProgress.is_completed){
         this.lessonProgress.is_completed = false;
-        await this.saveProgress(false, { force:true });
+        // keep percent as-is, but sync state
+        await this.saveProgress(false, { force:true, toast:true });
         return;
       }
+
       this.lessonProgress.percent = 100;
       this.lessonProgress.is_completed = true;
-      await this.saveProgress(true, { force:true });
+      await this.saveProgress(true, { force:true, toast:true });
     },
 
     // --- VIDEO auto tracking (mp4 only) ---
     onVideoLoaded(){
-      // sync last position if available
       this.seekVideoIfPossible();
     },
     seekVideoIfPossible(){
       const v = this.$refs.videoEl;
-      if (!v) return;
+      if (!v || this._videoSeekDone) return;
       const pos = Number(this.lessonProgress.last_position_seconds || 0);
       if (pos > 2 && isFinite(pos)){
         try { v.currentTime = pos; } catch(e){}
       }
+      this._videoSeekDone = true;
     },
 
+    _videoTickLastSentAt: 0,
     onVideoTimeUpdate(){
       const v = this.$refs.videoEl;
       if (!v || !v.duration || !isFinite(v.duration)) return;
 
+      const now = Date.now();
+      // throttle: compute UI frequently, but schedule network saves at most each 2.5s
       const current = Math.floor(v.currentTime || 0);
       const duration = Math.floor(v.duration || 0);
       const percent = duration ? Math.floor((current / duration) * 100) : 0;
 
-      // keep in state
       this.lessonProgress.last_position_seconds = current;
-      // do not jump to 100 until ended
       this.lessonProgress.percent = Math.min(99, Math.max(this.lessonProgress.percent, percent));
 
-      // throttle network: save every ~10s or +5%
-      if (this.progressSaveTimer) return;
-      this.progressSaveTimer = setTimeout(async () => {
-        this.progressSaveTimer = null;
-        await this.saveProgress(false, { force:false });
-      }, 1200);
+      if (now - this._videoTickLastSentAt > 2500){
+        this._videoTickLastSentAt = now;
+        this.scheduleSave(false, { force:false, delayMs: 400 });
+      }
     },
 
     async onVideoEnded(){
       this.lessonProgress.percent = 100;
       this.lessonProgress.is_completed = true;
-      await this.saveProgress(true, { force:true });
+      await this.saveProgress(true, { force:true, toast:true });
     },
 
     // --- TEXT auto complete on scroll end ---
-    _textObserver: null,
     setupTextAutoComplete(){
-      // already complete? nothing
       if (this.lessonProgress.is_completed) return;
 
       const sentinel = this.$refs.textEndSentinel;
-      if (!sentinel) return;
+      const root = this.$refs.playerScroll; // important: observe inside scroll container
+      if (!sentinel || !root) return;
 
-      // when sentinel visible => mark 100% and save
       this._textObserver = new IntersectionObserver(async (entries) => {
         const hit = entries.some(e => e.isIntersecting);
         if (!hit) return;
 
-        // optimistic
-        this.lessonProgress.percent = Math.max(this.lessonProgress.percent, 100);
+        this.lessonProgress.percent = 100;
         this.lessonProgress.is_completed = true;
-        await this.saveProgress(true, { force:true });
+        await this.saveProgress(true, { force:true, toast:true });
 
-        // stop observer once done
         this.teardownTextObserver();
-      }, { root: null, threshold: 0.6 });
+      }, { root, threshold: 0.6 });
 
       this._textObserver.observe(sentinel);
     },
@@ -823,13 +935,12 @@ function coursePlayerUdemy(){
       }
     },
 
-    // --- FILE: small helper: set percent when opened ---
-    async onFileOpened(){
-      // small optimistic bump if not completed
-      if (!this.lessonProgress.is_completed){
-        this.lessonProgress.percent = Math.max(this.lessonProgress.percent, 30);
-        await this.saveProgress(false, { force:false });
-      }
+    // --- FILE helper ---
+    onFileOpened(){
+      if (this.lessonProgress.is_completed) return;
+      this.lessonProgress.percent = Math.max(this.lessonProgress.percent, 30);
+      this.scheduleSave(false, { force:false, delayMs: 400 });
+      this.toast("Ressource ouverte", "sync");
     }
   }
 }

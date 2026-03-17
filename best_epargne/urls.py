@@ -19,12 +19,15 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
-from formations.views import UserLoginView, InstructorDashboard, StudentDashboard, \
-    OrganisationDashboard, AdminDashboard, LearnerExploreView, LearnerCoursePlayerView, HomeView, RizView
+from formations.views import InstructorDashboard, StudentDashboard, \
+    OrganisationDashboard, AdminDashboard, LearnerExploreView, LearnerCoursePlayerView, HomeView, InstructorCourseView, \
+    InstructorCourseBuilderView, InstructorMediaLibraryView, InstructorCourseCreateView, InstructorCourseDetailView, \
+    InstructorCourseUpdateView
 
 urlpatterns = [
                   path('admin/', admin.site.urls),
                   path('account/', include('allauth.urls')),
+                  path("tinymce/", include("tinymce.urls")),
 
                   # marketplace
                   path("api/", include("best_epargne.apis.api_urls")),  # marketplace
@@ -32,11 +35,24 @@ urlpatterns = [
                   path("learn/", include("enrollments.urls")),  # player
                   path("company/", include("organizations.urls")),
                   path("landinghome/", include("formations.landing_urls")),
-
-                  path("login/", UserLoginView.as_view(), name="login"),
+                  path("reviews/", include("reviews.urls")),
+                  path("assessments/", include("assessments.urls")),
+                  # path("login/", UserLoginView.as_view(), name="login"),
                   # path("register/", register_view, name="register"),
 
                   path("dashboard/instructor/", InstructorDashboard.as_view(), name="instructor_dashboard"),
+                  path("dashboard/instructor/courses/", InstructorCourseView.as_view(), name="instructor_courses"),
+                  path("dashboard/instructor/courses/", InstructorCourseView.as_view(), name="instructor_courses"),
+                  path("dashboard/instructor/courses/<int:course_id>/builder/", InstructorCourseBuilderView.as_view(),
+                       name="instructor_course_builder"),
+                  path("dashboard/instructor/media/", InstructorMediaLibraryView.as_view(), name="instructor_media"),
+
+                  path("instructor/courses/create/page/", InstructorCourseCreateView.as_view(),
+                       name="instructor_course_create_page"),
+                  path("instructor/courses/<int:course_id>/detail/", InstructorCourseDetailView.as_view(),
+                       name="instructor_course_detail"),
+                  path("instructor/courses/<int:course_id>/edit/", InstructorCourseUpdateView.as_view(),
+                       name="instructor_course_update"),
 
                   path("dashboard/learner/", StudentDashboard.as_view(), name="learner_dashboard"),
                   path("dashboard/learner/explore/", LearnerExploreView.as_view(), name="learner_explore"),

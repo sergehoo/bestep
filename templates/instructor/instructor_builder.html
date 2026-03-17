@@ -1,0 +1,831 @@
+{% extends "layout/admin_base.html" %}
+{% load static %}
+
+{% block title %}best-épargne — Builder{% endblock %}
+{% block topbar_subtitle %}Builder de cours{% endblock %}
+
+{% block extra_head %}
+    <script src="{% static 'tinymce/tinymce.min.js' %}"></script>
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'instructor_courses' %}"
+   class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold transition">
+    ← Retour aux cours
+</a>
+{% endblock %}
+
+{% block content %}
+<div x-data="instructorBuilderPage({
+        courseId: {{ course.id }},
+        endpoints: {
+            courseDetail: (id) => `/api/instructor/courses/${id}/`,
+            courseSections: (id) => `/api/instructor/courses/${id}/sections/`,
+            createSection: (id) => `/api/instructor/courses/${id}/sections/create/`,
+            updateSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/update/`,
+            deleteSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/delete/`,
+            sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`,
+            createLesson: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/create/`,
+            updateLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/update/`,
+            deleteLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/delete/`,
+            uploadInit: '{% url "api_media_upload_init" %}',
+            uploadFinalize: '{% url "api_media_upload_finalize" %}',
+            mediaList: '{% url "api_instructor_media" %}',
+            signedGet: (assetId) => `/api/media/${assetId}/signed/`
+        }
+    })"
+    x-init="init()"
+    class="space-y-6"
+>
+    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+        <div class="p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <div class="text-xs uppercase tracking-[0.18em] text-be-sky-700 font-semibold">Builder</div>
+                <h1 class="mt-2 text-2xl font-bold">{{ course.title }}</h1>
+                <p class="mt-2 text-sm text-be-ink-500">
+                    Organisez vos sections, vos leçons et vos ressources pédagogiques.
+                </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <button @click="createSectionPrompt()"
+                        class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
+                    + Section
+                </button>
+                <button @click="openUploadDrawer()"
+                        class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold transition">
+                    Upload média
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="grid lg:grid-cols-12 gap-6">
+        <!-- SECTIONS -->
+        <div class="lg:col-span-4 rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100">
+                <div class="text-sm font-semibold">Sections</div>
+                <div class="text-xs text-be-ink-500 mt-1">Structure du cours.</div>
+            </div>
+
+            <div class="p-4 space-y-3">
+                <template x-if="loading.sections">
+                    <div class="text-sm text-be-ink-500">Chargement sections…</div>
+                </template>
+
+                <template x-for="s in sections" :key="s.id">
+                    <button @click="selectSection(s)"
+                            class="w-full text-left p-4 rounded-2xl border transition"
+                            :class="activeSection?.id === s.id ? 'bg-be-sky-50 border-be-sky-200 shadow-soft' : 'bg-white border-be-ink-100 hover:bg-be-ink-50'">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="font-semibold text-sm truncate" x-text="`${s.order}. ${s.title}`"></div>
+                                <div class="text-[11px] text-be-ink-500 mt-1">
+                                    <span x-text="s.lessons_count || 0"></span> leçon(s)
+                                </div>
+                            </div>
+                            <div class="flex gap-1">
+                                <button @click.stop="editSectionPrompt(s)"
+                                        class="px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-white text-[11px]">
+                                    Édit
+                                </button>
+                                <button @click.stop="deleteSection(s)"
+                                        class="px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-white text-[11px]">
+                                    Suppr
+                                </button>
+                            </div>
+                        </div>
+                    </button>
+                </template>
+
+                <template x-if="!loading.sections && sections.length === 0">
+                    <div class="text-sm text-be-ink-500">Aucune section.</div>
+                </template>
+            </div>
+        </div>
+
+        <!-- LESSONS -->
+        <div class="lg:col-span-8 rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-sm font-semibold">Leçons</div>
+                    <div class="text-xs text-be-ink-500 mt-1">
+                        <template x-if="activeSection">
+                            <span>Section active : <span class="font-semibold" x-text="activeSection.title"></span></span>
+                        </template>
+                        <template x-if="!activeSection">
+                            <span>Sélectionnez une section.</span>
+                        </template>
+                    </div>
+                </div>
+
+                <button @click="openLessonEditor()"
+                        :disabled="!activeSection"
+                        class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold shadow-soft transition disabled:opacity-50">
+                    + Leçon
+                </button>
+            </div>
+
+            <div class="p-5 space-y-3">
+                <template x-if="!activeSection">
+                    <div class="text-sm text-be-ink-500">Choisissez une section pour gérer les leçons.</div>
+                </template>
+
+                <template x-if="activeSection && loading.lessons">
+                    <div class="text-sm text-be-ink-500">Chargement leçons…</div>
+                </template>
+
+                <template x-for="l in lessons" :key="l.id">
+                    <div class="rounded-2xl border border-be-ink-100 bg-white p-4 hover:bg-be-ink-50/60 transition">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="font-semibold text-sm truncate" x-text="`${l.order}. ${l.title}`"></div>
+
+                                <div class="text-xs text-be-ink-500 mt-2">
+                                    Type :
+                                    <span class="font-semibold" x-text="l.lesson_type"></span>
+                                    <span x-show="l.duration_sec" class="ml-2">
+                                        • Durée : <span class="font-semibold" x-text="formatDuration(l.duration_sec)"></span>
+                                    </span>
+                                </div>
+
+                                <div x-show="l.content" class="text-xs text-be-ink-500 mt-2">
+                                    <span class="font-semibold">Contenu :</span>
+                                    <span x-text="stripHtml((l.content || '')).slice(0, 140) + (stripHtml((l.content || '')).length > 140 ? '…' : '')"></span>
+                                </div>
+
+                                <div x-show="l.media_asset" class="text-xs text-be-ink-500 mt-2">
+                                    Media :
+                                    <span class="font-mono text-[11px]" x-text="l.media_asset?.object_key || ''"></span>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <button @click="openLessonEditor(l)"
+                                        class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold transition">
+                                    Éditer
+                                </button>
+                                <button @click="deleteLesson(l)"
+                                        class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold transition">
+                                    Suppr
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="activeSection && !loading.lessons && lessons.length === 0">
+                    <div class="text-sm text-be-ink-500">Aucune leçon dans cette section.</div>
+                </template>
+            </div>
+        </div>
+    </section>
+
+    <!-- MODAL LESSON -->
+    <div x-show="modals.lesson" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="closeLessonModal()"></div>
+
+        <div class="relative w-full max-w-4xl rounded-[28px] bg-white border border-be-ink-100 shadow-soft overflow-hidden max-h-[92vh] flex flex-col">
+            <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between shrink-0">
+                <div class="font-semibold" x-text="lessonForm.id ? 'Modifier la leçon' : 'Créer une leçon'"></div>
+                <button @click="closeLessonModal()" class="w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50">✕</button>
+            </div>
+
+            <div class="p-5 space-y-4 overflow-y-auto">
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Titre</label>
+                        <input x-model="lessonForm.title"
+                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600">Type</label>
+                            <select x-model="lessonForm.lesson_type" @change="onLessonTypeChanged()"
+                                    class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                                <option value="VIDEO">VIDEO</option>
+                                <option value="TEXT">TEXT</option>
+                                <option value="FILE">FILE</option>
+                                <option value="QUIZ">QUIZ</option>
+                                <option value="LIVE">LIVE</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600">Durée (sec)</label>
+                            <input type="number" x-model="lessonForm.duration_sec"
+                                   class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" x-model="lessonForm.is_preview" class="rounded border-be-ink-200">
+                    <span class="text-sm text-be-ink-700">Leçon en preview</span>
+                </div>
+
+                <div x-show="lessonForm.lesson_type === 'TEXT'">
+                    <label class="text-xs font-semibold text-be-ink-600">Contenu</label>
+                    <div class="mt-1 rounded-2xl border border-be-ink-100 overflow-hidden">
+                        <textarea id="lesson-content-editor"
+                                  x-ref="lessonEditor"
+                                  x-model="lessonForm.content"
+                                  class="w-full min-h-[360px] px-4 py-3 text-sm border-0 focus:ring-0"></textarea>
+                    </div>
+                    <div class="text-[11px] text-be-ink-500 mt-2">
+                        Utilisez l’éditeur enrichi pour structurer votre contenu pédagogique.
+                    </div>
+                </div>
+
+                <div x-show="lessonForm.lesson_type !== 'TEXT'" class="grid sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Video URL</label>
+                        <input x-model="lessonForm.video_url"
+                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Media MinIO</label>
+                        <select x-model="lessonForm.media_asset_id"
+                                class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                            <option value="">— Aucun —</option>
+                            <template x-for="m in mediaLibrary" :key="m.id">
+                                <option :value="m.id" x-text="`${m.kind} • ${m.title || m.object_key}`"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-5 py-4 border-t border-be-ink-100 flex items-center justify-between shrink-0 bg-white">
+                <button @click="closeLessonModal()"
+                        class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold transition">
+                    Annuler
+                </button>
+
+                <button @click="saveLesson()"
+                        class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
+                    Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DRAWER UPLOAD -->
+    <div x-show="drawers.upload" x-transition.opacity class="fixed inset-0 z-50 flex justify-end">
+        <div class="absolute inset-0 bg-black/40" @click="drawers.upload = false"></div>
+
+        <div class="relative w-full max-w-xl h-full bg-white border-l border-be-ink-100 shadow-soft p-5 overflow-auto no-scrollbar">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="font-semibold">Upload MinIO</div>
+                    <div class="text-xs text-be-ink-500 mt-1">Ajoutez un média à votre bibliothèque.</div>
+                </div>
+                <button @click="drawers.upload = false" class="w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50">✕</button>
+            </div>
+
+            <div class="mt-5 space-y-4">
+                <div>
+                    <label class="text-xs font-semibold text-be-ink-600">Fichier</label>
+                    <input type="file" @change="handleFilePicked($event)" class="mt-1 w-full text-sm">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Kind</label>
+                        <select x-model="upload.kind"
+                                class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                            <option value="video">Video</option>
+                            <option value="audio">Audio</option>
+                            <option value="doc">Document</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Titre</label>
+                        <input x-model="upload.title"
+                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                    </div>
+                </div>
+
+                <div x-show="upload.progress > 0" class="rounded-2xl border border-be-ink-100 p-4">
+                    <div class="text-xs text-be-ink-500">Progression</div>
+                    <div class="mt-2 h-2 rounded-full bg-be-ink-100 overflow-hidden">
+                        <div class="h-full rounded-full bg-be-sky-600" :style="`width:${upload.progress}%`"></div>
+                    </div>
+                    <div class="text-[11px] text-be-ink-500 mt-2" x-text="upload.progress + '%'"></div>
+                </div>
+
+                <button @click="startUpload()"
+                        class="w-full px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
+                    Uploader
+                </button>
+
+                <template x-if="upload.error">
+                    <div class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3" x-text="upload.error"></div>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function instructorBuilderPage(cfg) {
+    return {
+        courseId: cfg.courseId,
+        endpoints: cfg.endpoints,
+
+        course: null,
+        sections: [],
+        lessons: [],
+        activeSection: null,
+        mediaLibrary: [],
+
+        loading: {
+            sections: false,
+            lessons: false,
+            upload: false,
+            saveLesson: false,
+        },
+
+        modals: {
+            lesson: false,
+        },
+
+        drawers: {
+            upload: false,
+        },
+
+        lessonForm: {
+            id: null,
+            title: "",
+            lesson_type: "VIDEO",
+            is_preview: false,
+            duration_sec: 0,
+            content: "",
+            video_url: "",
+            media_asset_id: "",
+        },
+
+        upload: {
+            file: null,
+            kind: "video",
+            title: "",
+            progress: 0,
+            error: "",
+            upload_id: null,
+            object_key: null,
+        },
+
+        init() {
+            this.loadCourse();
+            this.loadSections();
+        },
+
+        getCsrf() {
+            const m = document.cookie.match(/csrftoken=([^;]+)/);
+            return m ? m[1] : "";
+        },
+
+        stripHtml(value) {
+            const div = document.createElement("div");
+            div.innerHTML = value || "";
+            return div.textContent || div.innerText || "";
+        },
+
+        async apiGet(url) {
+            const res = await fetch(url, {
+                headers: { "Accept": "application/json" },
+                credentials: "same-origin"
+            });
+            if (!res.ok) {
+                throw new Error(`GET ${url} -> ${res.status}`);
+            }
+            return await res.json();
+        },
+
+        async apiPost(url, payload = {}) {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": this.getCsrf(),
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(payload),
+                credentials: "same-origin"
+            });
+
+            if (!res.ok) {
+                let detail = "";
+                try {
+                    detail = JSON.stringify(await res.json());
+                } catch (e) {}
+                throw new Error(`POST ${url} -> ${res.status} ${detail}`);
+            }
+
+            return await res.json();
+        },
+
+        async loadCourse() {
+            try {
+                this.course = await this.apiGet(this.endpoints.courseDetail(this.courseId));
+            } catch (e) {
+                console.error(e);
+            }
+        },
+
+        async loadSections() {
+            try {
+                this.loading.sections = true;
+                this.sections = await this.apiGet(this.endpoints.courseSections(this.courseId));
+
+                if (this.sections.length) {
+                    if (!this.activeSection) {
+                        await this.selectSection(this.sections[0]);
+                    } else {
+                        const stillExists = this.sections.find(s => s.id === this.activeSection.id);
+                        if (!stillExists) {
+                            await this.selectSection(this.sections[0]);
+                        }
+                    }
+                } else {
+                    this.activeSection = null;
+                    this.lessons = [];
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.loading.sections = false;
+            }
+        },
+
+        async selectSection(section) {
+            this.activeSection = section;
+            await this.loadLessons(section.id);
+        },
+
+        async loadLessons(sectionId) {
+            try {
+                this.loading.lessons = true;
+                this.lessons = await this.apiGet(this.endpoints.sectionLessons(this.courseId, sectionId));
+            } catch (e) {
+                console.error(e);
+                this.lessons = [];
+            } finally {
+                this.loading.lessons = false;
+            }
+        },
+
+        async createSectionPrompt() {
+            const title = prompt("Titre de la section ?");
+            if (!title || !title.trim()) return;
+
+            try {
+                await this.apiPost(this.endpoints.createSection(this.courseId), {
+                    title: title.trim()
+                });
+                await this.loadSections();
+            } catch (e) {
+                console.error(e);
+            }
+        },
+
+        async editSectionPrompt(section) {
+            const title = prompt("Nouveau titre ?", section.title);
+            if (!title || !title.trim()) return;
+
+            try {
+                await this.apiPost(this.endpoints.updateSection(this.courseId, section.id), {
+                    title: title.trim()
+                });
+                await this.loadSections();
+            } catch (e) {
+                console.error(e);
+            }
+        },
+
+        async deleteSection(section) {
+            if (!confirm("Supprimer cette section ?")) return;
+
+            try {
+                await this.apiPost(this.endpoints.deleteSection(this.courseId, section.id), {});
+                this.activeSection = null;
+                this.lessons = [];
+                await this.loadSections();
+            } catch (e) {
+                console.error(e);
+            }
+        },
+
+        async loadMediaLibrary(kind = "") {
+            try {
+                const url = new URL(this.endpoints.mediaList, window.location.origin);
+                if (kind) url.searchParams.set("kind", kind);
+                this.mediaLibrary = await this.apiGet(url.toString());
+            } catch (e) {
+                console.error(e);
+                this.mediaLibrary = [];
+            }
+        },
+
+        onLessonTypeChanged() {
+            const lt = this.lessonForm.lesson_type;
+
+            if (lt === "TEXT") {
+                this.$nextTick(() => {
+                    this.initTinyMCE();
+                });
+                return;
+            }
+
+            this.destroyTinyMCE();
+
+            if (lt === "VIDEO") {
+                this.loadMediaLibrary("video");
+            } else if (lt === "FILE") {
+                this.loadMediaLibrary("doc");
+            } else {
+                this.loadMediaLibrary("");
+            }
+        },
+
+        initTinyMCE() {
+            if (!window.tinymce) return;
+
+            const existing = tinymce.get("lesson-content-editor");
+            if (existing) {
+                existing.remove();
+            }
+
+            this.$nextTick(() => {
+                tinymce.init({
+                    selector: "#lesson-content-editor",
+                    height: 420,
+                    width: "100%",
+                    menubar: "file edit view insert format tools table help",
+                    branding: false,
+                    promotion: false,
+                    language: "fr_FR",
+                    plugins: [
+                        "advlist", "autolink", "lists", "link", "image", "charmap",
+                        "preview", "anchor", "searchreplace", "visualblocks",
+                        "fullscreen", "insertdatetime", "media", "table",
+                        "wordcount", "code", "help", "directionality",
+                        "pagebreak", "nonbreaking"
+                    ],
+                    toolbar: [
+                        "undo redo",
+                        "blocks fontfamily fontsize",
+                        "bold italic underline strikethrough",
+                        "forecolor backcolor",
+                        "alignleft aligncenter alignright alignjustify",
+                        "bullist numlist outdent indent",
+                        "link image media table",
+                        "removeformat code preview fullscreen"
+                    ].join(" | "),
+                    content_style: `
+                        body {
+                            font-family: Inter, Arial, sans-serif;
+                            font-size: 14px;
+                            line-height: 1.65;
+                            padding: 12px;
+                            color: #1e2536;
+                        }
+                    `,
+                    setup: (editor) => {
+                        editor.on("init", () => {
+                            editor.setContent(this.lessonForm.content || "");
+                        });
+
+                        const syncContent = () => {
+                            this.lessonForm.content = editor.getContent() || "";
+                        };
+
+                        editor.on("change input undo redo keyup setcontent", syncContent);
+                    }
+                });
+            });
+        },
+
+        destroyTinyMCE() {
+            if (!window.tinymce) return;
+            const editor = tinymce.get("lesson-content-editor");
+            if (editor) {
+                editor.remove();
+            }
+        },
+
+        syncEditorToModel() {
+            if (!window.tinymce) return;
+            const editor = tinymce.get("lesson-content-editor");
+            if (editor) {
+                this.lessonForm.content = editor.getContent() || "";
+            }
+        },
+
+        async openLessonEditor(lesson = null) {
+            if (!this.activeSection) return;
+
+            if (lesson) {
+                this.lessonForm = {
+                    id: lesson.id,
+                    title: lesson.title || "",
+                    lesson_type: lesson.lesson_type || "VIDEO",
+                    is_preview: !!lesson.is_preview,
+                    duration_sec: lesson.duration_sec || 0,
+                    content: lesson.content || "",
+                    video_url: lesson.video_url || "",
+                    media_asset_id: lesson.media_asset?.id || "",
+                };
+            } else {
+                this.lessonForm = {
+                    id: null,
+                    title: "",
+                    lesson_type: "VIDEO",
+                    is_preview: false,
+                    duration_sec: 0,
+                    content: "",
+                    video_url: "",
+                    media_asset_id: "",
+                };
+            }
+
+            this.modals.lesson = true;
+
+            this.$nextTick(() => {
+                this.onLessonTypeChanged();
+            });
+        },
+
+        closeLessonModal() {
+            this.syncEditorToModel();
+            this.destroyTinyMCE();
+            this.modals.lesson = false;
+        },
+
+        async saveLesson() {
+            if (!this.activeSection) return;
+
+            try {
+                this.loading.saveLesson = true;
+                this.syncEditorToModel();
+
+                const payload = { ...this.lessonForm };
+                if (!payload.media_asset_id) {
+                    payload.media_asset_id = null;
+                }
+
+                if (!payload.id) {
+                    await this.apiPost(
+                        this.endpoints.createLesson(this.courseId, this.activeSection.id),
+                        payload
+                    );
+                } else {
+                    await this.apiPost(
+                        this.endpoints.updateLesson(this.courseId, this.activeSection.id, payload.id),
+                        payload
+                    );
+                }
+
+                this.closeLessonModal();
+                await this.loadLessons(this.activeSection.id);
+                await this.loadSections();
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.loading.saveLesson = false;
+            }
+        },
+
+        async deleteLesson(lesson) {
+            if (!confirm("Supprimer cette leçon ?")) return;
+
+            try {
+                await this.apiPost(
+                    this.endpoints.deleteLesson(this.courseId, this.activeSection.id, lesson.id),
+                    {}
+                );
+                await this.loadLessons(this.activeSection.id);
+                await this.loadSections();
+            } catch (e) {
+                console.error(e);
+            }
+        },
+
+        openUploadDrawer() {
+            this.upload = {
+                file: null,
+                kind: "video",
+                title: "",
+                progress: 0,
+                error: "",
+                upload_id: null,
+                object_key: null,
+            };
+            this.drawers.upload = true;
+        },
+
+        handleFilePicked(ev) {
+            const f = ev.target.files?.[0];
+            if (!f) return;
+
+            this.upload.file = f;
+
+            if (f.type.startsWith("video/")) {
+                this.upload.kind = "video";
+            } else if (f.type.startsWith("audio/")) {
+                this.upload.kind = "audio";
+            } else {
+                this.upload.kind = "doc";
+            }
+        },
+
+        async startUpload() {
+            try {
+                this.upload.error = "";
+
+                if (!this.upload.file) {
+                    this.upload.error = "Choisissez un fichier.";
+                    return;
+                }
+
+                this.loading.upload = true;
+                this.upload.progress = 1;
+
+                const initResp = await this.apiPost(this.endpoints.uploadInit, {
+                    filename: this.upload.file.name,
+                    content_type: this.upload.file.type || "application/octet-stream",
+                    size: this.upload.file.size,
+                    kind: this.upload.kind,
+                    title: this.upload.title || ""
+                });
+
+                this.upload.upload_id = initResp.upload_id;
+                this.upload.object_key = initResp.object_key;
+
+                await this.putFile(initResp.upload_url, this.upload.file, initResp.headers || {});
+
+                await this.apiPost(this.endpoints.uploadFinalize, {
+                    upload_id: this.upload.upload_id,
+                    object_key: this.upload.object_key,
+                    kind: this.upload.kind,
+                    title: this.upload.title || "",
+                    content_type: this.upload.file.type || "application/octet-stream",
+                    size: this.upload.file.size,
+                    duration_seconds: null,
+                    bind: null
+                });
+
+                this.upload.progress = 100;
+                this.drawers.upload = false;
+                await this.loadMediaLibrary();
+            } catch (e) {
+                console.error(e);
+                this.upload.error = "Upload échoué.";
+            } finally {
+                this.loading.upload = false;
+            }
+        },
+
+        async putFile(uploadUrl, file, headers) {
+            await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("PUT", uploadUrl, true);
+
+                Object.entries(headers || {}).forEach(([k, v]) => {
+                    xhr.setRequestHeader(k, v);
+                });
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        this.upload.progress = Math.round((e.loaded / e.total) * 100);
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                    } else {
+                        reject(new Error(xhr.status));
+                    }
+                };
+
+                xhr.onerror = () => reject(new Error("network"));
+                xhr.send(file);
+            });
+        },
+
+        formatDuration(sec) {
+            sec = Number(sec || 0);
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+
+            if (m < 60) return `${m}m ${s}s`;
+
+            const h = Math.floor(m / 60);
+            const mm = m % 60;
+            return `${h}h ${mm}m`;
+        }
+    };
+}
+</script>
+{% endblock %}

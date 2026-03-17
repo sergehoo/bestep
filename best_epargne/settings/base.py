@@ -38,12 +38,12 @@ INSTALLED_APPS = [
     "rest_framework",
     'storages',
     "django.contrib.sites",
-
+    'django.contrib.humanize',
+    "tinymce",
     # Allauth
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-
     "compte",
     "organizations",
     'assessments',
@@ -61,10 +61,12 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     "allauth.account.middleware.AccountMiddleware",
+    "compte.middleware.OnboardingRequiredMiddleware",
 
 ]
 
@@ -91,8 +93,6 @@ WSGI_APPLICATION = 'best_epargne.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-
 
 
 AUTH_USER_MODEL = "compte.User"
@@ -175,13 +175,9 @@ CACHES = {
 # Connexion par email uniquement
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "first_name", "last_name", "password1*", "password2*"]
-
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None      # ✅ dit à allauth: pas de username
-# ACCOUNT_USERNAME_REQUIRED = False             # (legacy, mais ok si encore lu)
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_USER_MODEL_EMAIL_FIELD = "email"
-# ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
-# Email
 ACCOUNT_EMAIL_VERIFICATION = "optional"  # ou "mandatory" en prod
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
@@ -201,7 +197,6 @@ LOGOUT_REDIRECT_URL = "/account/login/"
 
 # Formulaires custom (optionnel mais recommandé)
 ACCOUNT_FORMS = {
-    # "login": "compte.forms.LoginForm",
     "signup": "compte.forms.CustomSignupForm",
 }
 # -------------
@@ -232,7 +227,8 @@ AWS_S3_REGION_NAME = os.getenv("MINIO_REGION", "us-east-1")
 
 # ✅ Endpoint interne (réseau docker) pour que Django upload sur MinIO
 AWS_S3_ENDPOINT_URL = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
-MINIO_PUBLIC_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://", "")
+MINIO_PUBLIC_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://",
+                                                                                                              "")
 
 # ✅ Domaine public (Traefik) pour que le navigateur charge les médias
 # Exemple: MINIO_PUBLIC_DOMAIN=minio.ayo-group.com
@@ -243,7 +239,7 @@ AWS_S3_CUSTOM_DOMAIN = f"{MINIO_PUBLIC_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}"
 
 # SSL côté URL publique
 AWS_S3_URL_PROTOCOL = "https:"  # Traefik termine en https
-AWS_S3_USE_SSL = False          # IMPORTANT: Django parle à MinIO en http interne
+AWS_S3_USE_SSL = False  # IMPORTANT: Django parle à MinIO en http interne
 AWS_S3_VERIFY = False
 AWS_S3_ADDRESSING_STYLE = "path"
 
@@ -255,3 +251,49 @@ DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 
 # MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/"
 MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+
+# TINYMCE_DEFAULT_CONFIG = {
+#     "height": 420,
+#     "width": "100%",
+#     "menubar": True,
+#     "plugins": "advlist autolink lists link image charmap preview anchor "
+#                "searchreplace visualblocks code fullscreen "
+#                "insertdatetime media table help wordcount",
+#     "toolbar": "undo redo | blocks | "
+#                "bold italic underline | forecolor backcolor | "
+#                "alignleft aligncenter alignright alignjustify | "
+#                "bullist numlist outdent indent | "
+#                "link image media table | code fullscreen preview",
+#     "branding": False,
+# }
+TINYMCE_DEFAULT_CONFIG = {
+    "height": 500,
+    "menubar": "file edit view insert format tools table help",
+
+    "plugins": (
+        "advlist autolink lists link image charmap preview anchor "
+        "searchreplace visualblocks code fullscreen "
+        "insertdatetime media table help wordcount directionality"
+    ),
+
+    "toolbar": (
+        "undo redo | blocks | "
+        "bold italic underline | forecolor backcolor | "
+        "alignleft aligncenter alignright alignjustify | "
+        "bullist numlist indent outdent | "
+        "link image media table | "
+        "code fullscreen preview"
+    ),
+
+    "block_formats": "Paragraphe=p; Titre 1=h1; Titre 2=h2; Titre 3=h3; Citation=blockquote",
+
+    "image_caption": True,
+    "image_title": True,
+
+    "quickbars_selection_toolbar": "bold italic | quicklink h2 h3 blockquote",
+    "quickbars_insert_toolbar": "image media table",
+
+    "language": "fr_FR",
+    "branding": False,
+}
+

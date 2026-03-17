@@ -1,0 +1,617 @@
+{% extends "layout/admin_base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}best-épargne — Mes cours{% endblock %}
+{% block topbar_subtitle %}Catalogue formateur{% endblock %}
+
+{% block topbar_search %}
+<form method="get" action="{% url 'instructor_courses' %}" class="w-full">
+    <div class="relative w-full">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/50">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </span>
+        <input
+            type="text"
+            name="q"
+            value="{{ filters.q }}"
+            placeholder="Rechercher un cours, un sous-titre, une description…"
+            class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100/70 dark:border-white/10
+                   bg-white/80 dark:bg-white/5
+                   focus:outline-none focus:ring-4 focus:ring-be-sky-200/60
+                   text-sm"
+        />
+    </div>
+
+    {% if filters.status %}<input type="hidden" name="status" value="{{ filters.status }}">{% endif %}
+    {% if filters.pricing %}<input type="hidden" name="pricing" value="{{ filters.pricing }}">{% endif %}
+    {% if filters.course_type %}<input type="hidden" name="course_type" value="{{ filters.course_type }}">{% endif %}
+    {% if filters.sort %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
+</form>
+{% endblock %}
+
+{% block topbar_actions %}
+<div class="flex items-center gap-2">
+    <a href="{% url 'instructor_course_create_page' %}"
+       class="hidden sm:inline-flex px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 transition text-sm font-semibold shadow-soft">
+        + Nouveau cours
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- HERO -->
+    <section class="rounded-[28px] border border-be-ink-100/80 dark:border-white/10
+                    bg-gradient-to-br from-white via-be-sky-50 to-be-sun-50
+                    dark:from-white/5 dark:via-white/5 dark:to-white/5
+                    shadow-soft overflow-hidden">
+        <div class="p-5 sm:p-7">
+            <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
+                <div class="max-w-3xl">
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
+                                bg-white/80 dark:bg-white/10 border border-be-ink-100/70 dark:border-white/10
+                                text-[11px] font-semibold uppercase tracking-[0.18em] text-be-sky-700 dark:text-white">
+                        Instructor LMS
+                    </div>
+                    <h1 class="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-be-ink-900 dark:text-white">
+                        Mes cours
+                    </h1>
+                    <p class="mt-2 text-sm sm:text-base text-be-ink-600 dark:text-white/70 max-w-2xl">
+                        Gérez votre catalogue de formation, surveillez la qualité de publication,
+                        accédez rapidement aux brouillons, aux cours publiés et aux contenus à corriger.
+                    </p>
+
+                    <div class="mt-5 flex flex-wrap gap-3">
+                        <a href="{% url 'instructor_course_create_page' %}"
+                           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-be-ink-900 text-white text-sm font-semibold hover:opacity-90 transition shadow-soft">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            Créer un cours
+                        </a>
+                        <a href="{% url 'instructor_dashboard' %}?tab=builder"
+                           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                <path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            Ouvrir le builder
+                        </a>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 min-w-[280px]">
+                    <div class="rounded-2xl bg-white dark:bg-white/5 border border-be-ink-100 dark:border-white/10 p-4 shadow-soft">
+                        <div class="text-xs text-be-ink-500 dark:text-white/50">Cours totaux</div>
+                        <div class="mt-2 text-2xl font-bold text-be-ink-900 dark:text-white">
+                            {{ kpis.total_courses }}
+                        </div>
+                    </div>
+                    <div class="rounded-2xl bg-white dark:bg-white/5 border border-be-ink-100 dark:border-white/10 p-4 shadow-soft">
+                        <div class="text-xs text-be-ink-500 dark:text-white/50">Publié</div>
+                        <div class="mt-2 text-2xl font-bold text-emerald-600">
+                            {{ kpis.published_courses }}
+                        </div>
+                    </div>
+                    <div class="rounded-2xl bg-white dark:bg-white/5 border border-be-ink-100 dark:border-white/10 p-4 shadow-soft">
+                        <div class="text-xs text-be-ink-500 dark:text-white/50">Brouillons</div>
+                        <div class="mt-2 text-2xl font-bold text-be-sky-700 dark:text-be-sky-300">
+                            {{ kpis.draft_courses }}
+                        </div>
+                    </div>
+                    <div class="rounded-2xl bg-white dark:bg-white/5 border border-be-ink-100 dark:border-white/10 p-4 shadow-soft">
+                        <div class="text-xs text-be-ink-500 dark:text-white/50">Complétion moyenne</div>
+                        <div class="mt-2 text-2xl font-bold text-be-ink-900 dark:text-white">
+                            {{ kpis.completion_avg }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- KPI GRID -->
+    <section class="grid sm:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
+        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50">Cours publiés</div>
+                    <div class="mt-1 text-2xl font-semibold">{{ kpis.published_courses }}</div>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12l4 4L19 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50">En validation</div>
+                    <div class="mt-1 text-2xl font-semibold">{{ kpis.review_courses }}</div>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 8v4l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50">Leçons</div>
+                    <div class="mt-1 text-2xl font-semibold">{{ kpis.total_lessons }}</div>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-be-sky-50 border border-be-sky-200 flex items-center justify-center text-be-sky-700">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                        <path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50">Médias</div>
+                    <div class="mt-1 text-2xl font-semibold">{{ kpis.total_media }}</div>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-fuchsia-50 border border-fuchsia-200 flex items-center justify-center text-fuchsia-700">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                        <path d="M4 7h16M4 17h16M6 7v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50">Inscrits</div>
+                    <div class="mt-1 text-2xl font-semibold">{{ kpis.enrolled_total }}</div>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                        <path d="M17 21a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M9 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft p-5">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50">Note moyenne</div>
+                    <div class="mt-1 text-2xl font-semibold">{{ kpis.rating_avg }}/5</div>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-be-sun-50 border border-be-sun-200 flex items-center justify-center text-be-sun-700">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MAIN LAYOUT -->
+    <section class="grid grid-cols-1 2xl:grid-cols-12 gap-6">
+        <!-- LEFT -->
+        <div class="2xl:col-span-8 space-y-6">
+
+            <!-- FILTERS -->
+            <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between gap-3">
+                    <div>
+                        <div class="text-sm font-semibold">Filtres du catalogue</div>
+                        <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">
+                            Affinez l’affichage selon le statut, le pricing et le type de cours.
+                        </div>
+                    </div>
+                    <a href="{% url 'instructor_courses' %}"
+                       class="px-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition">
+                        Réinitialiser
+                    </a>
+                </div>
+
+                <form method="get" action="{% url 'instructor_courses' %}" class="p-5">
+                    <div class="grid lg:grid-cols-6 gap-3">
+                        <div class="lg:col-span-2">
+                            <label class="text-xs font-semibold text-be-ink-600 dark:text-white/60">Recherche</label>
+                            <input type="text" name="q" value="{{ filters.q }}"
+                                   placeholder="Titre, sous-titre, description…"
+                                   class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"/>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600 dark:text-white/60">Statut</label>
+                            <select name="status" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm">
+                                <option value="">Tous</option>
+                                {% for value, label in status_choices %}
+                                    <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600 dark:text-white/60">Pricing</label>
+                            <select name="pricing" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm">
+                                <option value="">Tous</option>
+                                {% for value, label in pricing_choices %}
+                                    <option value="{{ value }}" {% if filters.pricing == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600 dark:text-white/60">Type</label>
+                            <select name="course_type" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm">
+                                <option value="">Tous</option>
+                                {% for value, label in course_type_choices %}
+                                    <option value="{{ value }}" {% if filters.course_type == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold text-be-ink-600 dark:text-white/60">Tri</label>
+                            <select name="sort" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm">
+                                {% for value, label in sort_choices %}
+                                    <option value="{{ value }}" {% if filters.sort == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button type="submit"
+                                class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
+                            Appliquer
+                        </button>
+                        <a href="{% url 'instructor_courses' %}"
+                           class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
+                            Effacer
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- COURSE LIST -->
+            <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <div class="text-sm font-semibold">Catalogue des cours</div>
+                        <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">
+                            {{ paginator.count }} cours trouvé{{ paginator.count|pluralize }}.
+                        </div>
+                    </div>
+                    <a href="{% url 'instructor_course_create_page' %}"
+                       class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold transition">
+                        + Ajouter un cours
+                    </a>
+                </div>
+
+                {% if courses %}
+                    <div class="divide-y divide-be-ink-100 dark:divide-white/10">
+                        {% for course in courses %}
+                            <div class="p-5 hover:bg-be-ink-50/50 dark:hover:bg-white/5 transition">
+                                <div class="flex flex-col xl:flex-row xl:items-center gap-4">
+                                    <div class="flex items-start gap-4 min-w-0 flex-1">
+                                        <div class="w-28 h-20 rounded-2xl overflow-hidden border border-be-ink-100 dark:border-white/10 bg-be-ink-50 dark:bg-white/5 shrink-0">
+                                            {% if course.thumbnail_url %}
+                                                <img src="{{ course.thumbnail_url }}" alt="{{ course.title }}" class="w-full h-full object-cover">
+                                            {% else %}
+                                                <div class="w-full h-full flex flex-col items-center justify-center text-[11px] text-be-ink-400 dark:text-white/40">
+                                                    <svg class="w-6 h-6 mb-1" viewBox="0 0 24 24" fill="none">
+                                                        <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                                    </svg>
+                                                    No cover
+                                                </div>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="min-w-0 flex-1">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <h3 class="text-base font-semibold truncate text-be-ink-900 dark:text-white">
+                                                    {{ course.title }}
+                                                </h3>
+
+                                                {% if course.status == "PUBLISHED" %}
+                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-700">
+                                                        Publié
+                                                    </span>
+                                                {% elif course.status == "REVIEW" %}
+                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-amber-50 border-amber-200 text-amber-700">
+                                                        En validation
+                                                    </span>
+                                                {% elif course.status == "ARCHIVED" %}
+                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-be-ink-50 border-be-ink-200 text-be-ink-700">
+                                                        Archivé
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700">
+                                                        Brouillon
+                                                    </span>
+                                                {% endif %}
+
+                                                {% if course.pricing_type == "FREE" %}
+                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-be-ink-50 border-be-ink-200 text-be-ink-700">
+                                                        Gratuit
+                                                    </span>
+                                                {% elif course.pricing_type == "HYBRID" %}
+                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700">
+                                                        Hybride
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-be-sun-50 border-be-sun-200 text-be-sun-800">
+                                                        {{ course.price|floatformat:0|intcomma }} {{ course.currency }}
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+
+                                            {% if course.subtitle %}
+                                                <p class="mt-1 text-sm text-be-ink-500 dark:text-white/50 truncate">
+                                                    {{ course.subtitle }}
+                                                </p>
+                                            {% endif %}
+
+                                            <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-be-ink-500 dark:text-white/50">
+                                                <span><strong class="text-be-ink-700 dark:text-white/80">{{ course.sections_count }}</strong> sections</span>
+                                                <span><strong class="text-be-ink-700 dark:text-white/80">{{ course.lessons_count }}</strong> leçons</span>
+                                                <span><strong class="text-be-ink-700 dark:text-white/80">{{ course.enrolled_count }}</strong> inscrits</span>
+                                                <span><strong class="text-be-ink-700 dark:text-white/80">{{ course.rating_avg }}</strong>/5 ({{ course.rating_count }})</span>
+                                                <span>Mis à jour <strong class="text-be-ink-700 dark:text-white/80">{{ course.updated_at_human }}</strong></span>
+                                            </div>
+
+                                            <div class="mt-3">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="h-2 w-44 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+                                                        <div class="h-full rounded-full bg-be-sky-600" style="width: {{ course.completion_rate }}%;"></div>
+                                                    </div>
+                                                    <div class="text-xs font-semibold text-be-ink-700 dark:text-white/80">
+                                                        {{ course.completion_rate }}%
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {% if course.issues %}
+                                                <div class="mt-3 flex flex-wrap gap-2">
+                                                    {% for issue in course.issues %}
+                                                        <span class="text-[11px] px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                                                            {{ issue }}
+                                                        </span>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <div class="flex flex-wrap xl:flex-col gap-2 xl:w-[170px]">
+                                      
+                                    
+                                    <a href="{% url 'instructor_course_builder' course.id %}"  class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold text-center transition">
+                                           Builder</a>
+                                        <a href="{% url 'instructor_course_update' course.id %}"
+   class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold text-center transition">
+    Éditer
+</a>
+                                        {% if course.preview_video_url %}
+                                            <a href="{{ course.preview_video_url }}" target="_blank"
+                                               class="px-4 py-2.5 rounded-xl border border-be-sky-100 bg-be-sky-50 text-be-sky-700 hover:bg-be-sky-100 text-sm font-semibold text-center transition">
+                                                Preview
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- PAGINATION -->
+                    {% if is_paginated %}
+                        <div class="px-5 py-4 border-t border-be-ink-100 dark:border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div class="text-xs text-be-ink-500 dark:text-white/50">
+                                Page {{ page_obj.number }} / {{ paginator.num_pages }}
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                {% if page_obj.has_previous %}
+                                    <a href="?page={{ page_obj.previous_page_number }}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.pricing %}&pricing={{ filters.pricing }}{% endif %}{% if filters.course_type %}&course_type={{ filters.course_type }}{% endif %}{% if filters.sort %}&sort={{ filters.sort }}{% endif %}"
+                                       class="px-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
+                                        Précédent
+                                    </a>
+                                {% endif %}
+
+                                <span class="px-3 py-2 rounded-xl bg-be-ink-900 text-white text-sm font-semibold">
+                                    {{ page_obj.number }}
+                                </span>
+
+                                {% if page_obj.has_next %}
+                                    <a href="?page={{ page_obj.next_page_number }}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.pricing %}&pricing={{ filters.pricing }}{% endif %}{% if filters.course_type %}&course_type={{ filters.course_type }}{% endif %}{% if filters.sort %}&sort={{ filters.sort }}{% endif %}"
+                                       class="px-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
+                                        Suivant
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="p-10 text-center">
+                        <div class="w-16 h-16 mx-auto rounded-2xl bg-be-ink-50 dark:bg-white/5 border border-be-ink-100 dark:border-white/10 flex items-center justify-center text-be-ink-400">
+                            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none">
+                                <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="mt-4 text-lg font-semibold text-be-ink-900 dark:text-white">Aucun cours trouvé</div>
+                        <p class="mt-2 text-sm text-be-ink-500 dark:text-white/50 max-w-md mx-auto">
+                            Aucun résultat ne correspond à vos filtres actuels, ou vous n’avez pas encore créé de cours.
+                        </p>
+                        <div class="mt-5 flex items-center justify-center gap-2">
+                            <a href="{% url 'instructor_courses' %}"
+                               class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
+                                Réinitialiser
+                            </a>
+                            <a href="{% url 'instructor_dashboard' %}?tab=courses&action=create"
+                               class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
+                                Créer un cours
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="2xl:col-span-4 space-y-6">
+
+            <!-- FEATURED -->
+            <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                    <div class="text-sm font-semibold">Top cours</div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">Meilleurs signaux de performance.</div>
+                </div>
+                <div class="p-5 space-y-3">
+                    {% if featured_courses %}
+                        {% for course in featured_courses %}
+                            <a href="{% url 'instructor_dashboard' %}?tab=builder&course={{ course.id }}"
+                               class="block rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 p-4 transition">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-semibold truncate">{{ course.title }}</div>
+                                        <div class="mt-1 text-[12px] text-be-ink-500 dark:text-white/50">
+                                            {{ course.enrolled_count }} inscrits • {{ course.rating_avg }}/5
+                                        </div>
+                                    </div>
+                                    <div class="text-xs font-semibold text-be-sky-700 dark:text-be-sky-300">
+                                        {{ course.completion_rate }}%
+                                    </div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-sm text-be-ink-500 dark:text-white/50">Aucune donnée disponible.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- DRAFTS -->
+            <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                    <div class="text-sm font-semibold">Brouillons récents</div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">Cours en cours de construction.</div>
+                </div>
+                <div class="p-5 space-y-3">
+                    {% if recent_drafts %}
+                        {% for course in recent_drafts %}
+                            <a href="{% url 'instructor_dashboard' %}?tab=courses&edit={{ course.id }}"
+                               class="block rounded-2xl border border-be-ink-100 dark:border-white/10 p-4 hover:bg-be-ink-50 dark:hover:bg-white/10 transition">
+                                <div class="text-sm font-semibold truncate">{{ course.title }}</div>
+                                <div class="mt-1 text-[12px] text-be-ink-500 dark:text-white/50">
+                                    {{ course.sections_count }} sections • {{ course.lessons_count }} leçons
+                                </div>
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-sm text-be-ink-500 dark:text-white/50">Aucun brouillon récent.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- NEED WORK -->
+            <div class="rounded-[28px] border border-rose-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-rose-100 dark:border-white/10">
+                    <div class="text-sm font-semibold">Cours à corriger</div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">Éléments manquants avant publication.</div>
+                </div>
+                <div class="p-5 space-y-3">
+                    {% if courses_needing_work %}
+                        {% for item in courses_needing_work %}
+                            <a href="{% url 'instructor_dashboard' %}?tab=courses&edit={{ item.id }}"
+                               class="block rounded-2xl border border-rose-100 bg-rose-50/60 hover:bg-rose-50 p-4 transition">
+                                <div class="text-sm font-semibold text-rose-800 truncate">{{ item.title }}</div>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    {% for issue in item.issues %}
+                                        <span class="text-[11px] px-2 py-1 rounded-full border border-rose-200 text-rose-700 bg-white">
+                                            {{ issue }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+                            Tous vos cours semblent prêts sur les éléments essentiels.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- RECENT MEDIA -->
+            <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                    <div class="text-sm font-semibold">Bibliothèque récente</div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">Derniers médias uploadés.</div>
+                </div>
+                <div class="p-5 space-y-3">
+                    {% if recent_media %}
+                        {% for media in recent_media %}
+                            <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-semibold truncate">
+                                            {% if media.title %}{{ media.title }}{% else %}{{ media.object_key }}{% endif %}
+                                        </div>
+                                        <div class="mt-1 text-[12px] text-be-ink-500 dark:text-white/50">
+                                            {{ media.kind|upper }} • {{ media.content_type }} • {{ media.size|intcomma }} octets
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-sm text-be-ink-500 dark:text-white/50">Aucun média récent.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- NOTIFICATIONS -->
+            <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-semibold">Notifications</div>
+                        <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">Dernières alertes liées à votre activité.</div>
+                    </div>
+                    <span class="text-[11px] px-2 py-1 rounded-full border border-be-ink-100 dark:border-white/10 bg-be-ink-50 dark:bg-white/5 text-be-ink-700 dark:text-white/80 font-semibold">
+                        {{ kpis.unread_notifications }} non lues
+                    </span>
+                </div>
+                <div class="p-5 space-y-3">
+                    {% if recent_notifications %}
+                        {% for notif in recent_notifications %}
+                            <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                                <div class="text-sm font-semibold">{{ notif.title }}</div>
+                                {% if notif.body %}
+                                    <div class="mt-1 text-[12px] text-be-ink-500 dark:text-white/50">
+                                        {{ notif.body|truncatechars:120 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-sm text-be-ink-500 dark:text-white/50">Aucune notification récente.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

@@ -5,6 +5,7 @@ import boto3
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction, IntegrityError
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -16,7 +17,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Q, Count, Max, Sum, Avg
+from django.db.models import Q, Count, Max, Sum, Avg, DecimalField, IntegerField
 from botocore.client import Config
 
 from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, Payment
@@ -119,7 +120,7 @@ except Exception:  # pragma: no cover
     Payout = None
 
 try:
-    from reviews.models import Review  # adapte si tu as un app reviews
+    from reviews.models import Review, CourseReview  # adapte si tu as un app reviews
 except Exception:  # pragma: no cover
     Review = None
 
@@ -172,65 +173,107 @@ class InstructorKpisView(APIView):
         since = timezone.now() - timedelta(days=days)
 
         courses_qs = Course.objects.filter(instructor=u)
+        course_ids = list(courses_qs.values_list("id", flat=True))
 
-        # ✅ KPIs fiables (ne cassent pas)
         total_courses = courses_qs.count()
         published_courses = courses_qs.filter(status=Course.Status.PUBLISHED).count()
         review_courses = courses_qs.filter(status=Course.Status.REVIEW).count()
         draft_courses = courses_qs.filter(status=Course.Status.DRAFT).count()
+        archived_courses = courses_qs.filter(status=Course.Status.ARCHIVED).count()
 
-        # ✅ Enrollments (si modèle dispo ET relation existe)
-        enrolled_total = 0
-        enrolled_recent = 0
-        try:
-            # suppose related_name="enrollments" sur Enrollment.course FK
-            enrolled_total = courses_qs.aggregate(c=Count("enrollments"))["c"] or 0
-            enrolled_recent = Course.objects.filter(
-                instructor=u,
-                enrollments__created_at__gte=since
-            ).aggregate(c=Count("enrollments"))["c"] or 0
-        except Exception:
-            # pas de modèle, pas de related_name, pas de created_at => on ne casse pas
-            enrolled_total = 0
-            enrolled_recent = 0
+        total_sections = CourseSection.objects.filter(course__instructor=u).count()
+        total_lessons = Lesson.objects.filter(section__course__instructor=u).count()
+        total_media = MediaAsset.objects.filter(owner=u).count()
+
+        enrollments_qs = Enrollment.objects.filter(course__instructor=u)
+        enrolled_total = enrollments_qs.count()
+        enrolled_recent = enrollments_qs.filter(enrolled_at__gte=since).count()
+        completed_enrollments = enrollments_qs.filter(status=Enrollment.Status.COMPLETED).count()
+        active_enrollments = enrollments_qs.filter(status=Enrollment.Status.ACTIVE).count()
+
+        reviews_qs = CourseReview.objects.filter(course__instructor=u, is_public=True)
+        rating_avg = reviews_qs.aggregate(
+            v=Coalesce(
+                Avg("rating", output_field=DecimalField(max_digits=5, decimal_places=2)),
+                0,
+                output_field=DecimalField(max_digits=5, decimal_places=2),
+            )
+        )["v"] or 0
+        rating_count = reviews_qs.count()
+
+        payments_qs = Payment.objects.filter(
+            course_id__in=course_ids,
+            status=Payment.Status.PAID
+        )
+
+        revenue_total = payments_qs.aggregate(
+            v=Coalesce(
+                Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
+                0,
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+        )["v"] or 0
+
+        revenue_recent = payments_qs.filter(created_at__gte=since).aggregate(
+            v=Coalesce(
+                Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
+                0,
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+        )["v"] or 0
+
+        completion_avg = LessonProgress.objects.filter(
+            enrollment__course__instructor=u
+        ).aggregate(
+            v=Coalesce(
+                Avg("progress_percent", output_field=IntegerField()),
+                0,
+                output_field=IntegerField(),
+            )
+        )["v"] or 0
+
+        unread_notifications = Notification.objects.filter(user=u, is_read=False).count()
 
         return Response({
             "range": f"{days}d",
-            "courses": {
-                "total": total_courses,
-                "published": published_courses,
-                "review": review_courses,
-                "draft": draft_courses,
-            },
-            "enrollments": {
-                "total": enrolled_total,
-                "recent": enrolled_recent,
-            },
+            "courses_count": total_courses,
+            "published_courses": published_courses,
+            "review_courses": review_courses,
+            "draft_courses": draft_courses,
+            "archived_courses": archived_courses,
+            "sections_count": total_sections,
+            "lessons_count": total_lessons,
+            "media_count": total_media,
+            "enrolled_total": enrolled_total,
+            "enrolled_recent": enrolled_recent,
+            "active_enrollments": active_enrollments,
+            "completed_enrollments": completed_enrollments,
+            "rating_avg": round(float(rating_avg), 1),
+            "rating_count": rating_count,
+            "revenue_total": revenue_total,
+            "revenue_month": revenue_recent,
+            "completion_avg": int(completion_avg),
+            "unread_notifications": unread_notifications,
         })
 
-
 class InstructorReviewsView(APIView):
-    """
-    Renvoie les avis liés aux cours du formateur.
-    Si tu n'as pas de modèle Review => []
-    """
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def get(self, request):
-        if Review is None:
-            return Response({"count": 0, "results": []})
-
         u = request.user
         q = (request.query_params.get("q") or "").strip()
         limit = int(request.query_params.get("limit") or 50)
 
-        qs = Review.objects.filter(course__instructor=u).select_related("course").order_by("-created_at")
+        qs = CourseReview.objects.filter(
+            course__instructor=u,
+            is_public=True
+        ).select_related("course", "user").order_by("-created_at")
 
         if q:
             qs = qs.filter(
                 Q(course__title__icontains=q) |
-                Q(user_name__icontains=q) |
-                Q(text__icontains=q)
+                Q(user__full_name__icontains=q) |
+                Q(comment__icontains=q)
             )
 
         data = []
@@ -238,11 +281,12 @@ class InstructorReviewsView(APIView):
             data.append({
                 "id": r.id,
                 "course_id": r.course_id,
-                "course_title": getattr(r.course, "title", ""),
-                "user_name": getattr(r, "user_name", None) or getattr(getattr(r, "user", None), "full_name", "") or "—",
-                "rating": float(getattr(r, "rating", 0) or 0),
-                "text": getattr(r, "text", "") or "",
-                "created_at": getattr(r, "created_at", None),
+                "course_title": r.course.title,
+                "user_name": r.user.full_name or r.user.email,
+                "rating": r.rating,
+                "comment": r.comment,
+                "created_at": r.created_at,
+                "created_at_human": r.created_at.strftime("%d/%m/%Y %H:%M"),
             })
 
         return Response({"count": qs.count(), "results": data})
@@ -278,31 +322,24 @@ class InstructorPayoutsView(APIView):
 
 
 class InstructorNotificationsView(APIView):
-    """
-    Notifications liées au formateur (ou globales).
-    Si pas de modèle Notification => []
-    """
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def get(self, request):
-        if Notification is None:
-            return Response({"count": 0, "results": []})
-
         u = request.user
         limit = int(request.query_params.get("limit") or 30)
 
-        # Hypothèse Notification: (user nullable, title, body, level, is_read, created_at)
-        qs = Notification.objects.filter(Q(user=u) | Q(user__isnull=True)).order_by("-created_at")
+        qs = Notification.objects.filter(user=u).order_by("-created_at")
 
         data = []
         for n in qs[:limit]:
             data.append({
                 "id": n.id,
-                "title": getattr(n, "title", "") or "",
-                "body": getattr(n, "body", "") or getattr(n, "desc", "") or "",
-                "level": getattr(n, "level", "info"),
-                "is_read": bool(getattr(n, "is_read", False)),
-                "created_at": getattr(n, "created_at", None),
+                "title": n.title,
+                "body": n.body,
+                "level": n.level,
+                "is_read": n.is_read,
+                "created_at": n.created_at,
+                "time": n.created_at.strftime("%d/%m/%Y %H:%M"),
             })
 
         return Response({"count": qs.count(), "results": data})
@@ -1787,10 +1824,6 @@ class LearnerCourseOutlineView(APIView):
 
 
 class LearnerContinueView(APIView):
-    """
-    GET /api/learner/courses/<course_id>/continue/
-    -> renvoie la leçon à ouvrir (current_lesson ou première non terminée)
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, course_id: int):
@@ -1804,30 +1837,32 @@ class LearnerContinueView(APIView):
 
         lessons = Lesson.objects.filter(section__course=course).order_by("section__order", "order", "id")
         if not lessons.exists():
-            return Response({"detail": "Cours vide (aucune leçon)."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Cours vide."}, status=status.HTTP_404_NOT_FOUND)
 
-        # 1) current_lesson si existe
         if enrollment.current_lesson_id:
             lesson = Lesson.objects.filter(id=enrollment.current_lesson_id, section__course=course).first()
             if lesson:
                 return Response({"lesson_id": lesson.id})
 
-        # 2) première leçon non terminée
         completed_ids = set(
-            LessonProgress.objects.filter(user=request.user, course=course, is_completed=True).values_list("lesson_id",
-                                                                                                           flat=True)
+            LessonProgress.objects.filter(
+                enrollment=enrollment,
+                lesson__section__course=course,
+                completed=True
+            ).values_list("lesson_id", flat=True)
         )
-        for l in lessons:
-            if l.id not in completed_ids:
-                enrollment.current_lesson = l
-                enrollment.save(update_fields=["current_lesson", "updated_at"])
-                return Response({"lesson_id": l.id})
 
-        # 3) sinon dernière leçon (cours terminé)
+        for lesson in lessons:
+            if lesson.id not in completed_ids:
+                enrollment.current_lesson = lesson
+                enrollment.save(update_fields=["current_lesson", "updated_at"])
+                return Response({"lesson_id": lesson.id})
+
         last = lessons.last()
         enrollment.current_lesson = last
         enrollment.status = Enrollment.Status.COMPLETED
-        enrollment.save(update_fields=["current_lesson", "status", "updated_at"])
+        enrollment.completed_at = timezone.now()
+        enrollment.save(update_fields=["current_lesson", "status", "completed_at", "updated_at"])
         return Response({"lesson_id": last.id, "course_completed": True})
 
 
@@ -1848,14 +1883,14 @@ class LearnerLessonStateView(APIView):
             "lesson": {
                 "id": lesson.id,
                 "title": lesson.title,
-                "type": getattr(lesson, "lesson_type", None),
-                "video_url": getattr(lesson, "video_url", None),
-                "file_url": getattr(lesson, "file_url", None),
-                "content": getattr(lesson, "content", None),
-                "duration_seconds": getattr(lesson, "duration_seconds", None),
+                "type": lesson.lesson_type,
+                "video_url": lesson.video_url,
+                "content": lesson.content,
+                "duration_seconds": lesson.duration_sec,
+                "media_asset_id": str(lesson.media_asset_id) if lesson.media_asset_id else None,
             },
             "progress": {
-                "percent": float(lp.progress_percent),
+                "percent": int(lp.progress_percent or 0),
                 "is_completed": bool(lp.completed),
                 "last_position_seconds": lp.last_position_sec,
                 "updated_at": lp.updated_at,

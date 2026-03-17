@@ -1,11 +1,23 @@
+from decimal import Decimal
+
 from allauth.account.forms import LoginForm
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
-from django.db.models import Q
+from django.core.paginator import Paginator
+from django.db import models
+
+from django.db.models import (
+    Avg, Count, Sum, Q,
+    IntegerField, DecimalField,
+)
+from django.db.models.functions import Coalesce
+from django.http import HttpResponsePermanentRedirect
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
+from django.utils import timezone
 from django.views.generic import TemplateView
+from faker.utils.text import slugify
 # from requests import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -14,12 +26,17 @@ from rest_framework.views import APIView
 
 from best_epargne.apis.serializers import PublicCourseSerializer
 from best_epargne.apis.views import _course_to_dict
-from catalog.models import Course
-from enrollments.models import Enrollment
+from catalog.models import Course, CourseSection, Lesson, MediaAsset, Payment, Notification
+from enrollments.models import Enrollment, LessonProgress
+from reviews.models import CourseReview
 
 
 # Create your views here.
 def _redirect_by_role(user):
+    # 🔐 Cas utilisateur non connecté
+    if not user or not user.is_authenticated:
+        return reverse("account_login")  # ou "home"
+
     if user.is_superuser or user.is_staff:
         return reverse("admin_dashboard")
 
@@ -30,13 +47,6 @@ def _redirect_by_role(user):
     return reverse("learner_dashboard")
 
 
-class UserLoginView(LoginView):
-    template_name = "allauth/../templates/account/login.html"
-    authentication_form = LoginForm
-    redirect_authenticated_user = True
-
-    def get_success_url(self):
-        return _redirect_by_role(self.request.user)
 
 
 class RoleRequiredMixin(UserPassesTestMixin):
@@ -55,11 +65,804 @@ class RoleRequiredMixin(UserPassesTestMixin):
         from django.shortcuts import redirect
         return redirect(_redirect_by_role(self.request.user))
 
+from decimal import Decimal
 
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
+from django.db import models
+from django.db.models import Q, Count, Avg
+from django.db.models.functions import Coalesce
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.views.generic import TemplateView
+
+from assessments.models import Quiz
+from catalog.models import Course, CourseSection, Lesson, MediaAsset
+from compte.models import InstructorProfile
+from enrollments.models import Enrollment, LessonProgress
+
+from reviews.models import CourseReview
+
+
+class InstructorBaseMixin(LoginRequiredMixin):
+    allowed_roles = ("INSTRUCTOR",)
+
+    def dispatch(self, request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return self.handle_no_permission()
+
+        user_role = getattr(user, "role", None)
+        if user_role not in self.allowed_roles:
+            raise Http404("Page introuvable.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_instructor_course(self, course_id=None):
+        cid = course_id or self.kwargs.get("course_id") or self.kwargs.get("pk")
+        return get_object_or_404(
+            Course.objects.select_related("category", "instructor"),
+            id=cid,
+            instructor=self.request.user
+        )
+
+    def _humanize_date(self, dt):
+        if not dt:
+            return "—"
+        now = timezone.now()
+        delta = now - dt
+
+        if delta.days == 0:
+            seconds = int(delta.total_seconds())
+            if seconds < 60:
+                return "à l’instant"
+            if seconds < 3600:
+                return f"il y a {seconds // 60} min"
+            return f"il y a {seconds // 3600} h"
+
+        if delta.days == 1:
+            return "hier"
+        if delta.days < 7:
+            return f"il y a {delta.days} jours"
+        return dt.strftime("%d/%m/%Y")
+
+    def _course_completion_avg(self, course):
+        return (
+            LessonProgress.objects.filter(enrollment__course=course)
+            .aggregate(
+                v=Coalesce(
+                    Avg("progress_percent", output_field=models.IntegerField()),
+                    0,
+                    output_field=models.IntegerField(),
+                )
+            )["v"]
+            or 0
+        )
+
+    def _course_thumbnail_url(self, course):
+        try:
+            return course.thumbnail.url if course.thumbnail else ""
+        except Exception:
+            return ""
+
+    def _course_issues(self, course, thumbnail_url=None):
+        thumbnail_url = thumbnail_url if thumbnail_url is not None else self._course_thumbnail_url(course)
+        issues = []
+
+        sections_count = getattr(course, "sections_count", None)
+        lessons_count = getattr(course, "lessons_count", None)
+
+        if sections_count is None:
+            sections_count = CourseSection.objects.filter(course=course).count()
+        if lessons_count is None:
+            lessons_count = Lesson.objects.filter(section__course=course).count()
+
+        if sections_count == 0:
+            issues.append("Aucune section")
+        if lessons_count == 0:
+            issues.append("Aucune leçon")
+        if course.pricing_type != Course.PricingType.FREE and Decimal(str(course.price or 0)) <= 0:
+            issues.append("Prix non défini")
+        if not thumbnail_url:
+            issues.append("Thumbnail manquant")
+
+        return issues
+
+    def _serialize_course_card(self, course):
+        thumbnail_url = self._course_thumbnail_url(course)
+        completion_rate = self._course_completion_avg(course)
+        issues = self._course_issues(course, thumbnail_url=thumbnail_url)
+
+        return {
+            "id": course.id,
+            "title": course.title,
+            "subtitle": course.subtitle or "",
+            "slug": course.slug,
+            "status": course.status,
+            "course_type": course.course_type,
+            "pricing_type": course.pricing_type,
+            "price": course.price,
+            "currency": course.currency,
+            "thumbnail_url": thumbnail_url,
+            "preview_video_url": course.preview_video_url or "",
+            "sections_count": getattr(course, "sections_count", 0),
+            "lessons_count": getattr(course, "lessons_count", 0),
+            "enrolled_count": getattr(course, "enrolled_count", 0),
+            "rating_avg": round(float(getattr(course, "rating_avg", 0) or 0), 1),
+            "rating_count": getattr(course, "rating_count", 0),
+            "completion_rate": int(completion_rate),
+            "updated_at": course.updated_at,
+            "updated_at_human": self._humanize_date(course.updated_at),
+            "published_at": course.published_at,
+            "published_at_human": self._humanize_date(course.published_at) if course.published_at else "—",
+            "issues": issues,
+            "needs_work": len(issues) > 0,
+            "builder_url": reverse("instructor_course_builder", kwargs={"course_id": course.id}),
+            "detail_url": reverse("instructor_course_detail", kwargs={"course_id": course.id}),
+            "edit_url": f'{reverse("instructor_dashboard")}?tab=courses&edit={course.id}',
+        }
 class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
-    template_name = "home/instructor_dash.html"
-    allowed_roles = ("INSTRUCTOR",)  # ou User.Role.INSTRUCTOR
+    template_name = "instructor/instructor_dash.html"
+    allowed_roles = ("INSTRUCTOR",)
 
+    def _month_bounds(self):
+        now = timezone.now()
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if start.month == 12:
+            next_month = start.replace(year=start.year + 1, month=1)
+        else:
+            next_month = start.replace(month=start.month + 1)
+        return now, start, next_month
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        now, month_start, next_month = self._month_bounds()
+
+        instructor_courses = Course.objects.filter(instructor=user)
+        course_ids = list(instructor_courses.values_list("id", flat=True))
+
+        # ---- KPI cours
+        total_courses = instructor_courses.count()
+        draft_courses = instructor_courses.filter(status=Course.Status.DRAFT).count()
+        review_courses = instructor_courses.filter(status=Course.Status.REVIEW).count()
+        published_courses = instructor_courses.filter(status=Course.Status.PUBLISHED).count()
+        archived_courses = instructor_courses.filter(status=Course.Status.ARCHIVED).count()
+
+        total_sections = CourseSection.objects.filter(course__instructor=user).count()
+        total_lessons = Lesson.objects.filter(section__course__instructor=user).count()
+        total_media = MediaAsset.objects.filter(owner=user).count()
+
+        # ---- KPI apprenants
+        enrollments_qs = Enrollment.objects.filter(course__instructor=user)
+        enrolled_total = enrollments_qs.count()
+        active_enrollments = enrollments_qs.filter(status=Enrollment.Status.ACTIVE).count()
+        completed_enrollments = enrollments_qs.filter(status=Enrollment.Status.COMPLETED).count()
+        canceled_enrollments = enrollments_qs.filter(status=Enrollment.Status.CANCELED).count()
+
+        # ---- KPI reviews
+        reviews_qs = CourseReview.objects.filter(course__instructor=user, is_public=True)
+        rating_avg = reviews_qs.aggregate(
+            v=Coalesce(
+                Avg("rating", output_field=DecimalField(max_digits=5, decimal_places=2)),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=5, decimal_places=2),
+            )
+        )["v"] or Decimal("0.00")
+        rating_count = reviews_qs.count()
+
+        # ---- Paiements / revenus
+        payments_qs = Payment.objects.filter(
+            course_id__in=course_ids,
+            status=Payment.Status.PAID
+        )
+
+        revenue_total = payments_qs.aggregate(
+            v=Coalesce(
+                Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+        )["v"] or Decimal("0.00")
+
+        revenue_month = payments_qs.filter(
+            paid_at__gte=month_start,
+            paid_at__lt=next_month
+        ).aggregate(
+            v=Coalesce(
+                Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
+        )["v"] or Decimal("0.00")
+
+        payments_count = payments_qs.count()
+
+        # ---- Progression globale
+        progress_qs = LessonProgress.objects.filter(enrollment__course__instructor=user)
+        completion_avg = progress_qs.aggregate(
+            v=Coalesce(
+                Avg("progress_percent", output_field=IntegerField()),
+                0,
+                output_field=IntegerField(),
+            )
+        )["v"] or 0
+
+        completed_lessons_count = progress_qs.filter(completed=True).count()
+
+        # ---- Cours enrichis
+        courses = (
+            instructor_courses
+            .annotate(
+                sections_count=Coalesce(
+                    Count("sections", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                lessons_count=Coalesce(
+                    Count("sections__lessons", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                enrolled_count=Coalesce(
+                    Count("enrollments", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                rating_avg=Coalesce(
+                    Avg(
+                        "reviews__rating",
+                        filter=Q(reviews__is_public=True),
+                        output_field=DecimalField(max_digits=5, decimal_places=2),
+                    ),
+                    Decimal("0.00"),
+                    output_field=DecimalField(max_digits=5, decimal_places=2),
+                ),
+                rating_count=Coalesce(
+                    Count("reviews", filter=Q(reviews__is_public=True), distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+            )
+            .order_by("-updated_at")
+        )
+
+        # ---- calcul completion_rate par cours
+        courses_list = []
+        for course in courses[:12]:
+            course_progress_avg = LessonProgress.objects.filter(
+                enrollment__course=course
+            ).aggregate(
+                v=Coalesce(
+                    Avg("progress_percent", output_field=IntegerField()),
+                    0,
+                    output_field=IntegerField(),
+                )
+            )["v"] or 0
+
+            courses_list.append({
+                "id": course.id,
+                "title": course.title,
+                "subtitle": course.subtitle,
+                "slug": course.slug,
+                "status": course.status,
+                "course_type": course.course_type,
+                "pricing_type": course.pricing_type,
+                "price": course.price,
+                "currency": course.currency,
+                "thumbnail_url": course.thumbnail.url if course.thumbnail else "",
+                "preview_video_url": course.preview_video_url,
+                "sections_count": course.sections_count,
+                "lessons_count": course.lessons_count,
+                "enrolled_count": course.enrolled_count,
+                "rating_avg": round(float(course.rating_avg or 0), 1),
+                "rating_count": course.rating_count,
+                "completion_rate": int(course_progress_avg),
+                "updated_at": course.updated_at,
+                "published_at": course.published_at,
+            })
+
+        top_courses = sorted(courses_list, key=lambda x: x["enrolled_count"], reverse=True)[:5]
+
+        recent_reviews = (
+            reviews_qs.select_related("course", "user")
+            .order_by("-created_at")[:8]
+        )
+
+        recent_payments = payments_qs.order_by("-paid_at", "-created_at")[:8]
+
+        notifications = Notification.objects.filter(user=user).order_by("-created_at")[:10]
+        unread_notifications = Notification.objects.filter(user=user, is_read=False).count()
+
+        courses_needing_work = []
+        for c in courses_list:
+            issues = []
+            if c["sections_count"] == 0:
+                issues.append("Aucune section")
+            if c["lessons_count"] == 0:
+                issues.append("Aucune leçon")
+            if c["pricing_type"] != "FREE" and Decimal(str(c["price"] or 0)) <= 0:
+                issues.append("Prix non défini")
+            if not c["thumbnail_url"]:
+                issues.append("Thumbnail manquant")
+
+            if issues:
+                courses_needing_work.append({
+                    "id": c["id"],
+                    "title": c["title"],
+                    "status": c["status"],
+                    "issues": issues,
+                })
+
+        recent_media = MediaAsset.objects.filter(owner=user).order_by("-created_at")[:8]
+
+        context.update({
+            "dashboard_now": now,
+            "kpis": {
+                "total_courses": total_courses,
+                "draft_courses": draft_courses,
+                "review_courses": review_courses,
+                "published_courses": published_courses,
+                "archived_courses": archived_courses,
+
+                "total_sections": total_sections,
+                "total_lessons": total_lessons,
+                "total_media": total_media,
+
+                "enrolled_total": enrolled_total,
+                "active_enrollments": active_enrollments,
+                "completed_enrollments": completed_enrollments,
+                "canceled_enrollments": canceled_enrollments,
+
+                "rating_avg": round(float(rating_avg), 1),
+                "rating_count": rating_count,
+
+                "revenue_total": revenue_total,
+                "revenue_month": revenue_month,
+                "payments_count": payments_count,
+
+                "completion_avg": int(completion_avg or 0),
+                "completed_lessons_count": completed_lessons_count,
+                "unread_notifications": unread_notifications,
+            },
+            "courses": courses_list,
+            "top_courses": top_courses,
+            "recent_reviews": recent_reviews,
+            "recent_payments": recent_payments,
+            "notifications": notifications,
+            "recent_media": recent_media,
+            "courses_needing_work": courses_needing_work,
+        })
+        return context
+
+class InstructorCourseView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
+    template_name = "instructor/instructor_courses.html"
+    allowed_roles = ("INSTRUCTOR",)
+
+    paginate_by = 12
+
+    def _safe_int(self, value, default=1):
+        try:
+            return int(value)
+        except Exception:
+            return default
+
+    def _humanize_date(self, dt):
+        if not dt:
+            return "—"
+        now = timezone.now()
+        delta = now - dt
+
+        if delta.days == 0:
+            seconds = int(delta.total_seconds())
+            if seconds < 60:
+                return "à l’instant"
+            if seconds < 3600:
+                return f"il y a {seconds // 60} min"
+            return f"il y a {seconds // 3600} h"
+
+        if delta.days == 1:
+            return "hier"
+        if delta.days < 7:
+            return f"il y a {delta.days} jours"
+        return dt.strftime("%d/%m/%Y")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # -----------------------------
+        # Query params / filtres
+        # -----------------------------
+        q = (self.request.GET.get("q") or "").strip()
+        status_filter = (self.request.GET.get("status") or "").strip()
+        pricing_filter = (self.request.GET.get("pricing") or "").strip()
+        type_filter = (self.request.GET.get("course_type") or "").strip()
+        sort = (self.request.GET.get("sort") or "recent").strip()
+        page_number = self._safe_int(self.request.GET.get("page"), 1)
+
+        # -----------------------------
+        # Base queryset
+        # -----------------------------
+        courses_qs = (
+            Course.objects.filter(instructor=user)
+            .select_related("category", "instructor")
+            .annotate(
+                sections_count=Coalesce(
+                    Count("sections", distinct=True),
+                    0,
+                    output_field=models.IntegerField(),
+                ),
+                lessons_count=Coalesce(
+                    Count("sections__lessons", distinct=True),
+                    0,
+                    output_field=models.IntegerField(),
+                ),
+                enrolled_count=Coalesce(
+                    Count("enrollments", distinct=True),
+                    0,
+                    output_field=models.IntegerField(),
+                ),
+                rating_avg=Coalesce(
+                    Avg(
+                        "reviews__rating",
+                        filter=Q(reviews__is_public=True),
+                        output_field=models.DecimalField(max_digits=5, decimal_places=2),
+                    ),
+                    Decimal("0.00"),
+                    output_field=models.DecimalField(max_digits=5, decimal_places=2),
+                ),
+                rating_count=Coalesce(
+                    Count("reviews", filter=Q(reviews__is_public=True), distinct=True),
+                    0,
+                    output_field=models.IntegerField(),
+                ),
+            )
+        )
+
+        # -----------------------------
+        # Filtres
+        # -----------------------------
+        if q:
+            courses_qs = courses_qs.filter(
+                Q(title__icontains=q) |
+                Q(subtitle__icontains=q) |
+                Q(description__icontains=q)
+            )
+
+        if status_filter:
+            courses_qs = courses_qs.filter(status=status_filter)
+
+        if pricing_filter:
+            courses_qs = courses_qs.filter(pricing_type=pricing_filter)
+
+        if type_filter:
+            courses_qs = courses_qs.filter(course_type=type_filter)
+
+        # -----------------------------
+        # Tri
+        # -----------------------------
+        if sort == "title":
+            courses_qs = courses_qs.order_by("title")
+        elif sort == "popular":
+            courses_qs = courses_qs.order_by("-enrolled_count", "-updated_at")
+        elif sort == "rating":
+            courses_qs = courses_qs.order_by("-rating_avg", "-rating_count", "-updated_at")
+        elif sort == "published":
+            courses_qs = courses_qs.order_by("-published_at", "-updated_at")
+        else:
+            courses_qs = courses_qs.order_by("-updated_at", "-created_at")
+
+        # -----------------------------
+        # KPIs globaux
+        # -----------------------------
+        instructor_courses = Course.objects.filter(instructor=user)
+
+        total_courses = instructor_courses.count()
+        draft_courses = instructor_courses.filter(status=Course.Status.DRAFT).count()
+        review_courses = instructor_courses.filter(status=Course.Status.REVIEW).count()
+        published_courses = instructor_courses.filter(status=Course.Status.PUBLISHED).count()
+        archived_courses = instructor_courses.filter(status=Course.Status.ARCHIVED).count()
+
+        total_sections = CourseSection.objects.filter(course__instructor=user).count()
+        total_lessons = Lesson.objects.filter(section__course__instructor=user).count()
+        total_media = MediaAsset.objects.filter(owner=user).count()
+
+        reviews_qs = CourseReview.objects.filter(course__instructor=user, is_public=True)
+        global_rating_avg = reviews_qs.aggregate(
+            v=Coalesce(
+                Avg("rating", output_field=models.DecimalField(max_digits=5, decimal_places=2)),
+                Decimal("0.00"),
+                output_field=models.DecimalField(max_digits=5, decimal_places=2),
+            )
+        )["v"] or Decimal("0.00")
+        global_rating_count = reviews_qs.count()
+
+        enrollments_qs = Enrollment.objects.filter(course__instructor=user)
+        enrolled_total = enrollments_qs.count()
+
+        completion_avg = LessonProgress.objects.filter(
+            enrollment__course__instructor=user
+        ).aggregate(
+            v=Coalesce(
+                Avg("progress_percent", output_field=models.IntegerField()),
+                0,
+                output_field=models.IntegerField(),
+            )
+        )["v"] or 0
+
+        unread_notifications = Notification.objects.filter(user=user, is_read=False).count()
+
+        # -----------------------------
+        # Préparer les cartes cours
+        # -----------------------------
+        courses_payload = []
+        courses_needing_work = []
+
+        for course in courses_qs:
+            course_progress_avg = LessonProgress.objects.filter(
+                enrollment__course=course
+            ).aggregate(
+                v=Coalesce(
+                    Avg("progress_percent", output_field=models.IntegerField()),
+                    0,
+                    output_field=models.IntegerField(),
+                )
+            )["v"] or 0
+
+            thumbnail_url = ""
+            try:
+                if course.thumbnail:
+                    thumbnail_url = course.thumbnail.url
+            except Exception:
+                thumbnail_url = ""
+
+            issues = []
+            if course.sections_count == 0:
+                issues.append("Aucune section")
+            if course.lessons_count == 0:
+                issues.append("Aucune leçon")
+            if course.pricing_type != Course.PricingType.FREE and Decimal(str(course.price or 0)) <= 0:
+                issues.append("Prix non défini")
+            if not thumbnail_url:
+                issues.append("Thumbnail manquant")
+
+            course_dict = {
+                "id": course.id,
+                "title": course.title,
+                "subtitle": course.subtitle or "",
+                "slug": course.slug,
+                "status": course.status,
+                "course_type": course.course_type,
+                "pricing_type": course.pricing_type,
+                "price": course.price,
+                "currency": course.currency,
+                "thumbnail_url": thumbnail_url,
+                "preview_video_url": course.preview_video_url or "",
+                "sections_count": course.sections_count,
+                "lessons_count": course.lessons_count,
+                "enrolled_count": course.enrolled_count,
+                "rating_avg": round(float(course.rating_avg or 0), 1),
+                "rating_count": course.rating_count,
+                "completion_rate": int(course_progress_avg),
+                "updated_at": course.updated_at,
+                "updated_at_human": self._humanize_date(course.updated_at),
+                "published_at": course.published_at,
+                "published_at_human": self._humanize_date(course.published_at) if course.published_at else "—",
+                "issues": issues,
+                "needs_work": len(issues) > 0,
+            }
+            courses_payload.append(course_dict)
+
+            if issues:
+                courses_needing_work.append({
+                    "id": course.id,
+                    "title": course.title,
+                    "status": course.status,
+                    "issues": issues,
+                })
+
+        # -----------------------------
+        # Pagination
+        # -----------------------------
+        paginator = Paginator(courses_payload, self.paginate_by)
+        page_obj = paginator.get_page(page_number)
+
+        # -----------------------------
+        # Segments utiles
+        # -----------------------------
+        featured_courses = sorted(
+            courses_payload,
+            key=lambda x: (x["enrolled_count"], x["rating_avg"], x["completion_rate"]),
+            reverse=True
+        )[:5]
+
+        recent_drafts = [c for c in courses_payload if c["status"] == Course.Status.DRAFT][:5]
+
+        recent_media = MediaAsset.objects.filter(owner=user).order_by("-created_at")[:8]
+        recent_notifications = Notification.objects.filter(user=user).order_by("-created_at")[:8]
+
+        # -----------------------------
+        # Context
+        # -----------------------------
+        context.update({
+            "side_active": "courses",
+            "page_title": "Mes cours",
+            "page_subtitle": "Gérez votre catalogue de formation, vos contenus et la qualité de publication.",
+
+            "filters": {
+                "q": q,
+                "status": status_filter,
+                "pricing": pricing_filter,
+                "course_type": type_filter,
+                "sort": sort,
+            },
+
+            "kpis": {
+                "total_courses": total_courses,
+                "draft_courses": draft_courses,
+                "review_courses": review_courses,
+                "published_courses": published_courses,
+                "archived_courses": archived_courses,
+                "total_sections": total_sections,
+                "total_lessons": total_lessons,
+                "total_media": total_media,
+                "enrolled_total": enrolled_total,
+                "rating_avg": round(float(global_rating_avg or 0), 1),
+                "rating_count": global_rating_count,
+                "completion_avg": int(completion_avg or 0),
+                "unread_notifications": unread_notifications,
+            },
+
+            "courses": page_obj.object_list,
+            "page_obj": page_obj,
+            "paginator": paginator,
+            "is_paginated": page_obj.has_other_pages(),
+
+            "featured_courses": featured_courses,
+            "recent_drafts": recent_drafts,
+            "courses_needing_work": courses_needing_work[:8],
+            "recent_media": recent_media,
+            "recent_notifications": recent_notifications,
+
+            "status_choices": Course.Status.choices,
+            "pricing_choices": Course.PricingType.choices,
+            "course_type_choices": Course.CourseType.choices,
+            "sort_choices": [
+                ("recent", "Plus récents"),
+                ("title", "Titre A-Z"),
+                ("popular", "Plus populaires"),
+                ("rating", "Mieux notés"),
+                ("published", "Récemment publiés"),
+            ],
+        })
+        return context
+
+class InstructorCourseCreateView(InstructorBaseMixin, TemplateView):
+    template_name = "instructor/instructor_course_create.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "side_active": "courses",
+            "page_title": "Créer un cours",
+            "page_subtitle": "Initialisez une nouvelle offre de formation et préparez sa structure.",
+            "status_choices": Course.Status.choices,
+            "pricing_choices": Course.PricingType.choices,
+            "course_type_choices": Course.CourseType.choices,
+        })
+        return context
+class InstructorCourseDetailView(InstructorBaseMixin, TemplateView):
+    template_name = "instructor/instructor_course_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        course = self.get_instructor_course()
+
+        course = (
+            Course.objects.filter(id=course.id, instructor=self.request.user)
+            .select_related("category", "instructor")
+            .annotate(
+                sections_count=Coalesce(Count("sections", distinct=True), 0, output_field=models.IntegerField()),
+                lessons_count=Coalesce(Count("sections__lessons", distinct=True), 0, output_field=models.IntegerField()),
+                enrolled_count=Coalesce(Count("enrollments", distinct=True), 0, output_field=models.IntegerField()),
+                rating_avg=Coalesce(
+                    Avg(
+                        "reviews__rating",
+                        filter=Q(reviews__is_public=True),
+                        output_field=models.DecimalField(max_digits=5, decimal_places=2),
+                    ),
+                    Decimal("0.00"),
+                    output_field=models.DecimalField(max_digits=5, decimal_places=2),
+                ),
+                rating_count=Coalesce(
+                    Count("reviews", filter=Q(reviews__is_public=True), distinct=True),
+                    0,
+                    output_field=models.IntegerField(),
+                ),
+            )
+            .first()
+        )
+
+        sections = (
+            CourseSection.objects.filter(course=course)
+            .annotate(
+                lessons_count=Coalesce(Count("lessons", distinct=True), 0, output_field=models.IntegerField())
+            )
+            .order_by("order")
+        )
+
+        lessons = Lesson.objects.filter(section__course=course).select_related("section", "media_asset").order_by(
+            "section__order", "order"
+        )
+
+        recent_reviews = (
+            CourseReview.objects.filter(course=course, is_public=True)
+            .select_related("user")
+            .order_by("-created_at")[:10]
+        )
+
+        enrollments = Enrollment.objects.filter(course=course).select_related("user").order_by("-enrolled_at")[:12]
+        progress_avg = self._course_completion_avg(course)
+        issues = self._course_issues(course)
+
+        context.update({
+            "side_active": "courses",
+            "course": self._serialize_course_card(course),
+            "course_obj": course,
+            "sections": sections,
+            "lessons": lessons,
+            "recent_reviews": recent_reviews,
+            "recent_enrollments": enrollments,
+            "progress_avg": int(progress_avg),
+            "issues": issues,
+            "page_title": course.title,
+            "page_subtitle": "Vue détaillée du cours, de ses contenus et de sa performance.",
+        })
+        return context
+class InstructorCourseUpdateView(InstructorBaseMixin, TemplateView):
+    template_name = "instructor/instructor_course_update.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        course = self.get_instructor_course()
+
+        context.update({
+            "side_active": "courses",
+            "course": course,
+            "course_card": self._serialize_course_card(course),
+            "page_title": f"Modifier — {course.title}",
+            "page_subtitle": "Mettez à jour les informations, le pricing et les éléments marketing du cours.",
+            "status_choices": Course.Status.choices,
+            "pricing_choices": Course.PricingType.choices,
+            "course_type_choices": Course.CourseType.choices,
+        })
+        return context
+class InstructorCourseBuilderView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
+    template_name = "instructor/instructor_builder.html"
+    allowed_roles = ("INSTRUCTOR",)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        course_id = self.kwargs.get("course_id")
+
+        course = get_object_or_404(Course, id=course_id, instructor=self.request.user)
+
+        context["side_active"] = "builder"
+        context["page_title"] = "Builder du cours"
+        context["course"] = course
+        return context
+
+class InstructorMediaLibraryView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
+    template_name = "instructor/instructor_media.html"
+    allowed_roles = ("INSTRUCTOR",)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["side_active"] = "media"
+        context["page_title"] = "Bibliothèque média"
+        return context
 
 class StudentDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "home/student_dash.html"
@@ -103,7 +906,7 @@ class OrganisationDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView)
 
 
 class AdminDashboard(LoginRequiredMixin,RoleRequiredMixin, TemplateView):
-    template_name = "home/admin_dash.html"
+    template_name = "home/../templates/instructor/admin_dash.html"
 
     def dispatch(self, request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser):
@@ -181,6 +984,26 @@ class PublicExploreCoursesView(APIView):
 class CourseDetailPageView(TemplateView):
     template_name = "home/course_detail.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        course_id = kwargs.get("course_id")
+        slug = kwargs.get("slug")
+
+        # 🔁 Si on arrive sur /landinghome/courses/<id>/ (sans slug),
+        # on redirige vers l’URL canonique /landinghome/courses/<slug>-<id>/
+        if course_id and not slug:
+            course = get_object_or_404(Course, id=course_id)
+            canon_slug = course.slug or slugify(course.title)
+            return HttpResponsePermanentRedirect(
+                reverse("course_public_page", kwargs={"slug": canon_slug, "course_id": course.id})
+            )
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["course_id"] = self.kwargs.get("course_id")
+        ctx["slug"] = self.kwargs.get("slug")  # ✅ plus de KeyError
+        return ctx
 class PublicCourseDetailView(APIView):
     """
     GET /api/public/courses/<course_id>/
@@ -363,5 +1186,3 @@ class LearnerCoursePlayerPage(LoginRequiredMixin, TemplateView):
         ctx["blocked"] = False
         ctx["course_id"] = course.id
         return ctx
-class RizView(TemplateView):
-    template_name = "home/riz.html"

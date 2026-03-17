@@ -11,6 +11,21 @@
 </head>
 
 <body class="min-h-screen bg-gradient-to-br from-sky-50 to-yellow-50">
+    <!-- Page background (responsive) -->
+  <div class="relative min-h-[calc(100vh-0px)] overflow-hidden">
+    <!-- Image -->
+    <div class="absolute inset-0">
+      <img src="{% static 'img/login_img_back.webp' %}" alt="" class="h-full w-full object-cover object-center" loading="lazy"/>
+      <!-- Overlay pour lisibilité -->
+      <div class="absolute inset-0 from-white/70 via-white/70 to-white/85"></div>
+      <!-- Petit effet “vignette” optionnel -->
+      <div class="absolute inset-0 ring-1 ring-black/5"></div>
+    </div>
+
+    <!-- Contenu (card) -->
+    <div class="relative z-10 mx-auto max-w-xl px-4 py-10 sm:py-14">
+      <div class="rounded-3xl  backdrop-blur-md border shadow-xl shadow-black/5 p-6 sm:p-8">
+        <!-- ✅ Ton contenu existant commence ici -->
   <div class="min-h-screen flex items-center justify-center px-4 py-10">
 
     <div class="w-full max-w-lg">
@@ -52,6 +67,10 @@
       </div>
     </div>
 
+  </div>
+         <!-- ✅ Ton contenu existant se termine ici -->
+      </div>
+    </div>
   </div>
 </body>
 </html>

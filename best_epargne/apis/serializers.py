@@ -1,4 +1,6 @@
+from django.urls import reverse
 from django.utils.timesince import timesince
+from faker.utils.text import slugify
 from rest_framework import serializers
 from catalog.models import Course, CourseSection, Lesson, Category, MediaAsset
 from commerce.models import OrderItem
@@ -351,11 +353,28 @@ class PublicCourseSerializer(serializers.ModelSerializer):
         return "cours"
 
     # ---------- URLs ----------
+    # def get_detail_url(self, obj):
+    #     return f"/courses/{obj.slug}/"  # ✅ mieux que id (slug existe)
+    #
+    # def get_preview_url(self, obj):
+    #     return f"/courses/{obj.slug}/"
+    #
+    # def get_enroll_url(self, obj):
+    #     return f"/courses/{obj.slug}/enroll/"
+
     def get_detail_url(self, obj):
-        return f"/courses/{obj.slug}/"  # ✅ mieux que id (slug existe)
+        slug = obj.slug or slugify(obj.title)
+        return reverse("course_public_page", kwargs={"slug": slug, "course_id": obj.id})
 
     def get_preview_url(self, obj):
-        return f"/courses/{obj.slug}/"
+        # identique au public detail (page HTML)
+        return self.get_detail_url(obj)
 
     def get_enroll_url(self, obj):
-        return f"/courses/{obj.slug}/enroll/"
+        # public: on renvoie vers signup/login (ou page détail)
+        request = self.context.get("request")
+        url = reverse("account_signup")
+        # optionnel : retour après inscription
+        if request:
+          return f"{url}?next={self.get_detail_url(obj)}"
+        return url

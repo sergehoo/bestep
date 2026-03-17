@@ -32,13 +32,8 @@ urlpatterns = [
     path("instructor/reviews/", InstructorReviewsView.as_view(), name="api_instructor_reviews"),
     path("instructor/payouts/", InstructorPayoutsView.as_view(), name="api_instructor_payouts"),
     path("instructor/notifications/", InstructorNotificationsView.as_view(), name="api_instructor_notifications"),
-    path(
-        "instructor/courses/",
-        CourseViewSet.as_view({"get": "my_courses"}),
-        name="api_instructor_courses",
-    ),
-    path(
-        "instructor/courses/create/",
+    path("instructor/courses/", CourseViewSet.as_view({"get": "my_courses"}),name="api_instructor_courses",),
+    path("instructor/courses/create/",
         CourseViewSet.as_view({"post": "create"}),
         name="api_instructor_course_create",
     ),

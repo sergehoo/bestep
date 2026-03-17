@@ -1,13 +1,14 @@
 {% extends "account/_base.html" %}
 {% load i18n static %}
 
+
 {% block head_title %}Connexion — Best-Épargne{% endblock %}
 
 {% block content %}
+
   <!-- Header premium -->
   <div class="text-center">
- 
-
+  
     <h1 class=" text-2xl font-extrabold text-gray-900 tracking-tight">
       Connexion
     </h1>
@@ -133,17 +134,17 @@
     </div>
 
     <!-- Small footer note -->
-    <div class="mt-2 rounded-2xl border border-gray-100 bg-gray-50 p-4">
-      <div class="flex gap-3">
-        <div class="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center">
-          <i class="fas fa-circle-info text-gray-600"></i>
-        </div>
-        <div class="text-xs text-gray-600 leading-relaxed">
-          <div class="font-semibold text-gray-800">Conseil</div>
-          Utilisez une adresse email valide. Pour protéger votre compte, évitez les mots de passe faibles.
-        </div>
-      </div>
-    </div>
+{#    <div class="mt-2 rounded-2xl border border-gray-100 bg-gray-50 p-4">#}
+{#      <div class="flex gap-3">#}
+{#        <div class="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center">#}
+{#          <i class="fas fa-circle-info text-gray-600"></i>#}
+{#        </div>#}
+{#        <div class="text-xs text-gray-600 leading-relaxed">#}
+{#          <div class="font-semibold text-gray-800">Conseil</div>#}
+{#          Utilisez une adresse email valide. Pour protéger votre compte, évitez les mots de passe faibles.#}
+{#        </div>#}
+{#      </div>#}
+{#    </div>#}
   </form>
 
   <!-- JS: show/hide password -->
@@ -193,4 +194,5 @@
       accent-color: #0284c7; /* sky-600 */
     }
   </style>
+
 {% endblock %}

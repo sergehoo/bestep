@@ -11,7 +11,10 @@ urlpatterns = [
     path("public/courses/", PublicExploreCoursesView.as_view(), name="landing_public_courses_explore"),
     path("courses/<int:course_id>/", CourseDetailPageView.as_view(), name="course_detail"),
 
-    path("public/courses/<int:course_id>/", PublicCourseDetailView.as_view(), name="api_public_course_detail"),
+    path("api/public/courses/<int:course_id>/", PublicCourseDetailView.as_view(), name="api_public_course_detail"),
+
+    path("courses/<slug:slug>-<int:course_id>/", CourseDetailPageView.as_view(),
+                       name="course_public_page"),
     path("public/courses/<int:course_id>/related/", PublicCourseRelatedView.as_view(), name="public_course_related"),
 
     path("learner/courses/", LearnerExploreCoursesView.as_view(), name="api_learner_courses_explore"),

@@ -4,8 +4,9 @@ from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import DetailView
 from django.shortcuts import get_object_or_404
+
+from catalog.models import Course
 from .models import Enrollment, LessonProgress
-from apps.catalog.models import Course, Lesson
 
 class CourseLearnView(LoginRequiredMixin, DetailView):
     template_name = "learn/course_learn.html"
