@@ -133,12 +133,12 @@ services:
         - "traefik.http.routers.best-minio-console.service=best-minio-console"
         - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers@docker,best-sec-headers@docker,best-compress@docker"
 
-        - "traefik.http.middlewares.minio-console-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
-        - "traefik.http.middlewares.best-sec-headers.headers.stsSeconds=31536000"
-        - "traefik.http.middlewares.best-sec-headers.headers.browserXssFilter=true"
-        - "traefik.http.middlewares.best-sec-headers.headers.contentTypeNosniff=true"
-        - "traefik.http.middlewares.best-sec-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
-        - "traefik.http.middlewares.best-compress.compress=true"
+#        - "traefik.http.middlewares.minio-console-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+#        - "traefik.http.middlewares.best-sec-headers.headers.stsSeconds=31536000"
+#        - "traefik.http.middlewares.best-sec-headers.headers.browserXssFilter=true"
+#        - "traefik.http.middlewares.best-sec-headers.headers.contentTypeNosniff=true"
+#        - "traefik.http.middlewares.best-sec-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+#        - "traefik.http.middlewares.best-compress.compress=true"
 
       healthcheck:
         test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
