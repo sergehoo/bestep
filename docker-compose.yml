@@ -88,6 +88,8 @@ services:
       - "traefik.http.middlewares.best-minio-sec-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
       - "traefik.http.middlewares.best-minio-compress.compress=true"
 
+
+
     # Healthcheck retiré ici pour éviter les faux négatifs liés aux outils absents
     # MinIO peut être parfaitement démarré même si curl/wget ne sont pas dans l'image
 
