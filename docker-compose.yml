@@ -102,8 +102,8 @@ services:
         echo 'Attente MinIO...';
         sleep 3;
       done &&
-      mc mb -p local/${MINIO_BUCKET:-bestepargne} || true &&
-      mc anonymous set none local/${MINIO_BUCKET:-bestepargne} || true
+      mc mb -p local/${MINIO_BUCKET} || true &&
+      mc anonymous set none local/${MINIO_BUCKET} || true
       "
     restart: "no"
 
@@ -131,9 +131,9 @@ services:
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
 
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://bestminio:9000}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
-      MINIO_BUCKET: ${MINIO_BUCKET:-bestepargne}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET}
 
       USE_X_FORWARDED_HOST: "true"
       SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
