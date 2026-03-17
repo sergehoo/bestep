@@ -226,7 +226,7 @@ AWS_STORAGE_BUCKET_NAME = os.getenv("MINIO_BUCKET", "bestepargne")
 AWS_S3_REGION_NAME = os.getenv("MINIO_REGION", "us-east-1")
 
 # ✅ Endpoint interne (réseau docker) pour que Django upload sur MinIO
-AWS_S3_ENDPOINT_URL = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
+AWS_S3_ENDPOINT_URL = os.getenv("MINIO_ENDPOINT", "http://bestminio:9000")
 MINIO_PUBLIC_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://",
                                                                                                               "")
 
