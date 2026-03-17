@@ -97,7 +97,7 @@ services:
 #      interval: 20s
 #      timeout: 5s
 #      retries: 10
-  minio:
+  bestminio:
     image: minio/minio:latest
     container_name: best_epargne_minio
     restart: unless-stopped
@@ -134,7 +134,7 @@ services:
       - "traefik.http.routers.best-minio-console.tls=true"
       - "traefik.http.routers.best-minio-console.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
       - "traefik.http.routers.best-minio-console.service=best-minio-console"
-      - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers@docker,best-minio-sec-headers@docker,best-minio-compress@docker"
+#      - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers@docker,best-minio-sec-headers@docker,best-minio-compress@docker"
 
       # Middlewares
       - "traefik.http.middlewares.minio-console-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
