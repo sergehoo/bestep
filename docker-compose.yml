@@ -77,7 +77,7 @@ services:
       - "traefik.http.routers.best-minio-console.tls=true"
       - "traefik.http.routers.best-minio-console.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
       - "traefik.http.routers.best-minio-console.service=best-minio-console"
-      - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers,best-minio-sec-headers,best-minio-compress"
+#      - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers,best-minio-sec-headers,best-minio-compress"
 
       - "traefik.http.middlewares.minio-console-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
       - "traefik.http.middlewares.best-minio-sec-headers.headers.stsSeconds=31536000"
