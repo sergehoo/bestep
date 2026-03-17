@@ -98,7 +98,7 @@ services:
       - internal
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://bestminio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin123}; do
+      until mc alias set local http://bestminio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}; do
         echo 'Attente MinIO...';
         sleep 3;
       done &&
