@@ -98,53 +98,57 @@ services:
 #      timeout: 5s
 #      retries: 10
   minio:
-      image: minio/minio:latest
-      container_name: best_epargne_minio
-      restart: unless-stopped
-      environment:
-        MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
-        MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
-        MINIO_SERVER_URL: https://${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}
-        MINIO_BROWSER_REDIRECT_URL: https://${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}
-      command: server /data --console-address ":9001"
-      volumes:
-        - minio_data:/data
-      networks:
-        - internal
-        - proxy
-      labels:
-        - "traefik.enable=true"
-        - "traefik.docker.network=proxy"
+    image: minio/minio:latest
+    container_name: best_epargne_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
+      MINIO_SERVER_URL: https://${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}
+      MINIO_BROWSER_REDIRECT_URL: https://${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
 
-        - "traefik.http.services.best-minio.loadbalancer.server.port=9000"
-        - "traefik.http.services.best-minio-console.loadbalancer.server.port=9001"
+      # Services
+      - "traefik.http.services.best-minio.loadbalancer.server.port=9000"
+      - "traefik.http.services.best-minio-console.loadbalancer.server.port=9001"
 
-        - "traefik.http.routers.best-minio.rule=Host(`${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}`)"
-        - "traefik.http.routers.best-minio.entrypoints=websecure"
-        - "traefik.http.routers.best-minio.tls=true"
-        - "traefik.http.routers.best-minio.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
-        - "traefik.http.routers.best-minio.service=best-minio"
-        - "traefik.http.routers.best-minio.middlewares=best-sec-headers@docker,best-compress@docker"
+      # Routers API
+      - "traefik.http.routers.best-minio.rule=Host(`${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}`)"
+      - "traefik.http.routers.best-minio.entrypoints=websecure"
+      - "traefik.http.routers.best-minio.tls=true"
+      - "traefik.http.routers.best-minio.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
+      - "traefik.http.routers.best-minio.service=best-minio"
+      - "traefik.http.routers.best-minio.middlewares=best-minio-sec-headers@docker,best-minio-compress@docker"
 
-        - "traefik.http.routers.best-minio-console.rule=Host(`${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}`)"
-        - "traefik.http.routers.best-minio-console.entrypoints=websecure"
-        - "traefik.http.routers.best-minio-console.tls=true"
-        - "traefik.http.routers.best-minio-console.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
-        - "traefik.http.routers.best-minio-console.service=best-minio-console"
-#        - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers@docker,best-sec-headers@docker,best-compress@docker"
+      # Routers Console
+      - "traefik.http.routers.best-minio-console.rule=Host(`${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}`)"
+      - "traefik.http.routers.best-minio-console.entrypoints=websecure"
+      - "traefik.http.routers.best-minio-console.tls=true"
+      - "traefik.http.routers.best-minio-console.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
+      - "traefik.http.routers.best-minio-console.service=best-minio-console"
+      - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers@docker,best-minio-sec-headers@docker,best-minio-compress@docker"
 
-        - "traefik.http.middlewares.minio-console-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
-        - "traefik.http.middlewares.best-sec-headers.headers.stsSeconds=31536000"
-        - "traefik.http.middlewares.best-sec-headers.headers.browserXssFilter=true"
-        - "traefik.http.middlewares.best-sec-headers.headers.contentTypeNosniff=true"
-        - "traefik.http.middlewares.best-sec-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
-        - "traefik.http.middlewares.best-compress.compress=true"
+      # Middlewares
+      - "traefik.http.middlewares.minio-console-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.best-minio-sec-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.best-minio-sec-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.best-minio-sec-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.best-minio-sec-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.best-minio-compress.compress=true"
 
-      healthcheck:
-        test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
-        interval: 20s
-        timeout: 5s
-        retries: 10
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
 
   createbucket:
     image: minio/mc:latest
