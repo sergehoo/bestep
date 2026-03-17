@@ -59,6 +59,7 @@ services:
       - minio_data:/data
     networks:
       - internal
+      - proxy
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
