@@ -146,21 +146,21 @@ services:
         timeout: 5s
         retries: 10
 
-      createbucket:
-        image: minio/mc:latest
-        container_name: best_epargne_minio_init
-        depends_on:
-          minio:
-            condition: service_healthy
-        networks:
-          - internal
-        entrypoint: >
-          /bin/sh -c "
-          mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin123} &&
-          mc mb -p local/${MINIO_BUCKET:-bestepargne} || true &&
-          mc anonymous set none local/${MINIO_BUCKET:-bestepargne} || true
-          "
-        restart: "no"
+  createbucket:
+    image: minio/mc:latest
+    container_name: best_epargne_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - internal
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin123} &&
+      mc mb -p local/${MINIO_BUCKET:-bestepargne} || true &&
+      mc anonymous set none local/${MINIO_BUCKET:-bestepargne} || true
+      "
+    restart: "no"
 
     # -------------------------
     # Django (Gunicorn)
