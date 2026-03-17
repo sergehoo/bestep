@@ -132,7 +132,7 @@ services:
       - "traefik.http.routers.best-minio-console.rule=Host(`${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}`)"
       - "traefik.http.routers.best-minio-console.entrypoints=websecure"
       - "traefik.http.routers.best-minio-console.tls=true"
-#      - "traefik.http.routers.best-minio-console.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
+      - "traefik.http.routers.best-minio-console.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
       - "traefik.http.routers.best-minio-console.service=best-minio-console"
       - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers@docker,best-minio-sec-headers@docker,best-minio-compress@docker"
 
@@ -145,7 +145,7 @@ services:
       - "traefik.http.middlewares.best-minio-compress.compress=true"
 
     healthcheck:
-      test: [ "CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1" ]
+      test: [ "CMD-SHELL", "wget -q -O - http://127.0.0.1:9000/minio/health/live >/dev/null 2>&1 || exit 1" ]
       interval: 20s
       timeout: 5s
       retries: 10
