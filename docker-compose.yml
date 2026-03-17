@@ -102,11 +102,9 @@ services:
     networks:
       internal:
         aliases:
-
           - bestminio
       proxy:
         aliases:
-          - minio
           - bestminio
     entrypoint: >
       /bin/sh -c "
