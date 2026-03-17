@@ -154,7 +154,7 @@ services:
     image: minio/mc:latest
     container_name: best_epargne_minio_init
     depends_on:
-      minio:
+      bestminio:
         condition: service_healthy
     networks:
       - internal
