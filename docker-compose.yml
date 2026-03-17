@@ -1,5 +1,3 @@
-name: best-epargne
-
 networks:
   proxy:
     external: true
@@ -11,31 +9,10 @@ volumes:
   redis_data:
   minio_data:
 
-x-common-env: &common_env
-  DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
-  DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
-
-  POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
-  POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
-  DB_HOST: ${DB_HOST:-bestDB}
-  DB_PORT: ${DB_PORT:-5432}
-
-  REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
-  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-
-  MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
-  MINIO_PUBLIC_DOMAIN: ${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}
-  MINIO_CONSOLE_DOMAIN: ${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}
-  MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
-  MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
-  MINIO_BUCKET: ${MINIO_BUCKET:-bestepargne}
-
-  USE_X_FORWARDED_HOST: "true"
-  SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
-
 services:
+  # -------------------------
+  # PostgreSQL
+  # -------------------------
   bestDB:
     image: postgres:16-alpine
     container_name: best_epargne_postgres
@@ -54,6 +31,9 @@ services:
       timeout: 5s
       retries: 10
 
+  # -------------------------
+  # Redis (broker celery)
+  # -------------------------
   redis:
     image: redis:7-alpine
     container_name: best_epargne_redis
@@ -64,233 +44,14 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "redis-cli", "PING"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
-    container_name: best_epargne_minio
-    restart: unless-stopped
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
-      MINIO_SERVER_URL: https://${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}
-      MINIO_BROWSER_REDIRECT_URL: https://${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-    networks:
-      - internal
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=proxy"
-
-      - "traefik.http.services.best-minio.loadbalancer.server.port=9000"
-      - "traefik.http.services.best-minio-console.loadbalancer.server.port=9001"
-
-      - "traefik.http.routers.best-minio.rule=Host(`${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}`)"
-      - "traefik.http.routers.best-minio.entrypoints=websecure"
-      - "traefik.http.routers.best-minio.tls=true"
-      - "traefik.http.routers.best-minio.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
-      - "traefik.http.routers.best-minio.service=best-minio"
-      - "traefik.http.routers.best-minio.middlewares=best-sec-headers@docker,best-compress@docker"
-
-      - "traefik.http.routers.best-minio-console.rule=Host(`${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}`)"
-      - "traefik.http.routers.best-minio-console.entrypoints=websecure"
-      - "traefik.http.routers.best-minio-console.tls=true"
-      - "traefik.http.routers.best-minio-console.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
-      - "traefik.http.routers.best-minio-console.service=best-minio-console"
-      - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers@docker,best-sec-headers@docker,best-compress@docker"
-
-      - "traefik.http.middlewares.minio-console-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
-      - "traefik.http.middlewares.best-sec-headers.headers.stsSeconds=31536000"
-      - "traefik.http.middlewares.best-sec-headers.headers.browserXssFilter=true"
-      - "traefik.http.middlewares.best-sec-headers.headers.contentTypeNosniff=true"
-      - "traefik.http.middlewares.best-sec-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
-      - "traefik.http.middlewares.best-compress.compress=true"
-
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-
-  createbucket:
-    image: minio/mc:latest
-    container_name: best_epargne_minio_init
-    depends_on:
-      minio:
-        condition: service_healthy
-    networks:
-      - internal
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin123} &&
-      mc mb -p local/${MINIO_BUCKET:-bestepargne} || true &&
-      mc anonymous set none local/${MINIO_BUCKET:-bestepargne} || true
-      "
-    restart: "no"
-
-  bestweb:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: bestweb
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      <<: *common_env
-      APP_PORT: ${APP_PORT:-8000}
-    depends_on:
-      bestDB:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      createbucket:
-        condition: service_completed_successfully
-    networks:
-      - internal
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=proxy"
-
-      - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST}`)"
-      - "traefik.http.routers.best-epargne.entrypoints=websecure"
-      - "traefik.http.routers.best-epargne.tls=true"
-      - "traefik.http.routers.best-epargne.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
-      - "traefik.http.routers.best-epargne.middlewares=best-sec-headers@docker,best-compress@docker"
-
-      - "traefik.http.services.best-epargne.loadbalancer.server.port=${APP_PORT:-8000}"
-
-      - "traefik.http.middlewares.best-sec-headers.headers.stsSeconds=31536000"
-      - "traefik.http.middlewares.best-sec-headers.headers.browserXssFilter=true"
-      - "traefik.http.middlewares.best-sec-headers.headers.contentTypeNosniff=true"
-      - "traefik.http.middlewares.best-sec-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
-      - "traefik.http.middlewares.best-compress.compress=true"
-
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${APP_PORT:-8000}/healthz || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 20
-
-    command: >
-      sh -c "
-      python manage.py migrate --noinput &&
-      python manage.py collectstatic --noinput &&
-      gunicorn best_epargne.wsgi:application
-      --bind 0.0.0.0:${APP_PORT:-8000}
-      --workers ${GUNICORN_WORKERS:-3}
-      --timeout ${GUNICORN_TIMEOUT:-120}
-      "
-
-  celery:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: best_epargne_celery
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      <<: *common_env
-    depends_on:
-      bestDB:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      bestweb:
-        condition: service_started
-    networks:
-      - internal
-    command: ["celery", "-A", "best_epargne.celery:app", "worker", "-l", "info"]
-
-  celery_beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: best_epargne_celery_beat
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      <<: *common_env
-    depends_on:
-      bestDB:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      bestweb:
-        condition: service_started
-    networks:
-      - internal
-    command: ["celery", "-A", "best_epargne.celery:app", "beat", "-l", "info"]
-
-#networks:
-#  proxy:
-#    external: true
-#  internal:
-#    driver: bridge
-#
-#volumes:
-#  postgres_data:
-#  redis_data:
-#  minio_data:
-#
-#services:
-#  # -------------------------
-#  # PostgreSQL
-#  # -------------------------
-#  bestDB:
-#    image: postgres:16-alpine
-#    container_name: best_epargne_postgres
-#    restart: unless-stopped
-#    environment:
-#      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
-#      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
-#    volumes:
-#      - postgres_data:/var/lib/postgresql/data
-#    networks:
-#      - internal
-#    healthcheck:
-#      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 -p 5432 || exit 1"]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 10
-#
-#  # -------------------------
-#  # Redis (broker celery)
-#  # -------------------------
-#  redis:
-#    image: redis:7-alpine
-#    container_name: best_epargne_redis
-#    restart: unless-stopped
-#    command: ["redis-server", "--appendonly", "yes"]
-#    volumes:
-#      - redis_data:/data
-#    networks:
-#      - internal
-#    healthcheck:
-#      test: ["CMD", "redis-cli", "ping"]
-#      interval: 10s
-#      timeout: 3s
-#      retries: 10
-#
-#  # -------------------------
-#  # MinIO (S3)
-#  # -------------------------
+  # -------------------------
+  # MinIO (S3)
+  # -------------------------
 #  minio:
 #    image: minio/minio:latest
 #    container_name: best_epargne_minio
@@ -336,148 +97,212 @@ services:
 #      interval: 20s
 #      timeout: 5s
 #      retries: 10
-#
-#  # -------------------------
-#  # Django (Gunicorn)
-#  # -------------------------
-#  bestweb:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#    container_name: bestweb
-#    restart: unless-stopped
-#    env_file:
-#      - .env
-#    environment:
-#      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
-#      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
-#      MINIO_PUBLIC_DOMAIN: ${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}
-#
-#      # ✅ DB (Django lit ces vars dans prod.py)
-#      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
-#      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
-#      DB_HOST: ${DB_HOST:-bestDB}
-#      DB_PORT: ${DB_PORT:-5432}
-#
-#      # Redis / Celery
-#      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
-#      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-#      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-#
-#      # MinIO / S3
-#      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
-#      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
-#      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
-#      MINIO_BUCKET: ${MINIO_BUCKET:-bestepargne}
-#
-#      # Proxy headers
-#      USE_X_FORWARDED_HOST: "true"
-#      SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
-#
-#    depends_on:
-#      bestDB:
-#        condition: service_healthy
-#      redis:
-#        condition: service_healthy
-#      minio:
-#        condition: service_healthy
-#
-#    networks:
-#      - internal
-#      - proxy
-#
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.docker.network=proxy"
-#      - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST}`)"
-#      - "traefik.http.routers.best-epargne.entrypoints=websecure"
-#      - "traefik.http.routers.best-epargne.tls=true"
-#      - "traefik.http.services.best-epargne.loadbalancer.server.port=${APP_PORT:-8000}"
-#
-#    command:
-#      [
-#        "sh","-c",
-#        "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn best_epargne.wsgi:application --bind 0.0.0.0:${APP_PORT:-8000} --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120}"
-#      ]
-#
-#  # -------------------------
-#  # Celery Worker
-#  # -------------------------
-#  celery:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#    container_name: best_epargne_celery
-#    restart: unless-stopped
-#    env_file:
-#      - .env
-#    environment:
-#      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
-#
-#      # ✅ DB identique à bestweb
-#      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
-#      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
-#      DB_HOST: ${DB_HOST:-bestDB}
-#      DB_PORT: ${DB_PORT:-5432}
-#
-#      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
-#      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-#      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-#
-#      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
-#      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
-#      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
-#      MINIO_BUCKET: ${MINIO_BUCKET:-bestepargne}
-#
-#    depends_on:
-#      bestDB:
-#        condition: service_healthy
-#      redis:
-#        condition: service_healthy
-#      bestweb:
-#        condition: service_started
-#
-#    networks:
-#      - internal
-#
-#    command: ["celery", "-A", "best_epargne.celery:app", "worker", "-l", "info"]
-#
-#  # -------------------------
-#  # Celery Beat
-#  # -------------------------
-#  celery_beat:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#    container_name: best_epargne_celery_beat
-#    restart: unless-stopped
-#    env_file:
-#      - .env
-#    environment:
-#      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
-#
-#      # ✅ DB identique à bestweb
-#      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
-#      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
-#      DB_HOST: ${DB_HOST:-bestDB}
-#      DB_PORT: ${DB_PORT:-5432}
-#
-#      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
-#      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-#      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-#
-#    depends_on:
-#      bestDB:
-#        condition: service_healthy
-#      redis:
-#        condition: service_healthy
-#      bestweb:
-#        condition: service_started
-#
-#    networks:
-#      - internal
-#
-#    command: ["celery", "-A", "best_epargne.celery:app", "beat", "-l", "info"]
+  minio:
+      image: minio/minio:latest
+      container_name: best_epargne_minio
+      restart: unless-stopped
+      environment:
+        MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+        MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
+        MINIO_SERVER_URL: https://${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}
+        MINIO_BROWSER_REDIRECT_URL: https://${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}
+      command: server /data --console-address ":9001"
+      volumes:
+        - minio_data:/data
+      networks:
+        - internal
+        - proxy
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=proxy"
+
+        - "traefik.http.services.best-minio.loadbalancer.server.port=9000"
+        - "traefik.http.services.best-minio-console.loadbalancer.server.port=9001"
+
+        - "traefik.http.routers.best-minio.rule=Host(`${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}`)"
+        - "traefik.http.routers.best-minio.entrypoints=websecure"
+        - "traefik.http.routers.best-minio.tls=true"
+        - "traefik.http.routers.best-minio.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
+        - "traefik.http.routers.best-minio.service=best-minio"
+        - "traefik.http.routers.best-minio.middlewares=best-sec-headers@docker,best-compress@docker"
+
+        - "traefik.http.routers.best-minio-console.rule=Host(`${MINIO_CONSOLE_DOMAIN:-minio-console.ayo-group.com}`)"
+        - "traefik.http.routers.best-minio-console.entrypoints=websecure"
+        - "traefik.http.routers.best-minio-console.tls=true"
+        - "traefik.http.routers.best-minio-console.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
+        - "traefik.http.routers.best-minio-console.service=best-minio-console"
+        - "traefik.http.routers.best-minio-console.middlewares=minio-console-headers@docker,best-sec-headers@docker,best-compress@docker"
+
+        - "traefik.http.middlewares.minio-console-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+        - "traefik.http.middlewares.best-sec-headers.headers.stsSeconds=31536000"
+        - "traefik.http.middlewares.best-sec-headers.headers.browserXssFilter=true"
+        - "traefik.http.middlewares.best-sec-headers.headers.contentTypeNosniff=true"
+        - "traefik.http.middlewares.best-sec-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+        - "traefik.http.middlewares.best-compress.compress=true"
+
+      healthcheck:
+        test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+        interval: 20s
+        timeout: 5s
+        retries: 10
+
+      createbucket:
+        image: minio/mc:latest
+        container_name: best_epargne_minio_init
+        depends_on:
+          minio:
+            condition: service_healthy
+        networks:
+          - internal
+        entrypoint: >
+          /bin/sh -c "
+          mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin123} &&
+          mc mb -p local/${MINIO_BUCKET:-bestepargne} || true &&
+          mc anonymous set none local/${MINIO_BUCKET:-bestepargne} || true
+          "
+        restart: "no"
+
+    # -------------------------
+    # Django (Gunicorn)
+    # -------------------------
+  bestweb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bestweb
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      MINIO_PUBLIC_DOMAIN: ${MINIO_PUBLIC_DOMAIN:-minio.ayo-group.com}
+
+      # ✅ DB (Django lit ces vars dans prod.py)
+      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
+      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
+      DB_HOST: ${DB_HOST:-bestDB}
+      DB_PORT: ${DB_PORT:-5432}
+
+      # Redis / Celery
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+
+      # MinIO / S3
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-bestepargne}
+
+      # Proxy headers
+      USE_X_FORWARDED_HOST: "true"
+      SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
+
+    depends_on:
+      bestDB:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+    networks:
+      - internal
+      - proxy
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST}`)"
+      - "traefik.http.routers.best-epargne.entrypoints=websecure"
+      - "traefik.http.routers.best-epargne.tls=true"
+      - "traefik.http.services.best-epargne.loadbalancer.server.port=${APP_PORT:-8000}"
+
+    command:
+      [
+        "sh","-c",
+        "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn best_epargne.wsgi:application --bind 0.0.0.0:${APP_PORT:-8000} --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120}"
+      ]
+
+  # -------------------------
+  # Celery Worker
+  # -------------------------
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: best_epargne_celery
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
+
+      # ✅ DB identique à bestweb
+      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
+      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
+      DB_HOST: ${DB_HOST:-bestDB}
+      DB_PORT: ${DB_PORT:-5432}
+
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-bestepargne}
+
+    depends_on:
+      bestDB:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      bestweb:
+        condition: service_started
+
+    networks:
+      - internal
+
+    command: ["celery", "-A", "best_epargne.celery:app", "worker", "-l", "info"]
+
+  # -------------------------
+  # Celery Beat
+  # -------------------------
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: best_epargne_celery_beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
+
+      # ✅ DB identique à bestweb
+      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
+      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
+      DB_HOST: ${DB_HOST:-bestDB}
+      DB_PORT: ${DB_PORT:-5432}
+
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+
+    depends_on:
+      bestDB:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      bestweb:
+        condition: service_started
+
+    networks:
+      - internal
+
+    command: ["celery", "-A", "best_epargne.celery:app", "beat", "-l", "info"]
