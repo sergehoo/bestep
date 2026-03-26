@@ -6,12 +6,12 @@ from django.db import models
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
+from django.utils.text import slugify
 
 
 class Quiz(models.Model):
     title = models.CharField(max_length=200)
 
-    # ✅ rendre optionnel pour quiz onboarding
     course = models.ForeignKey(
         "catalog.Course",
         on_delete=models.CASCADE,
@@ -19,6 +19,15 @@ class Quiz(models.Model):
         null=True,
         blank=True,
     )
+
+    section = models.ForeignKey(
+        "catalog.CourseSection",
+        on_delete=models.CASCADE,
+        related_name="quizzes",
+        null=True,
+        blank=True,
+    )
+
     lesson = models.OneToOneField(
         "catalog.Lesson",
         on_delete=models.SET_NULL,
@@ -27,17 +36,33 @@ class Quiz(models.Model):
         related_name="quiz",
     )
 
-    # ✅ nouveau : onboarding + actif + slug (pratique)
     slug = models.SlugField(max_length=80, unique=True, null=True, blank=True)
     is_onboarding = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
-    passing_score = models.PositiveIntegerField(default=70)  # %
+    passing_score = models.PositiveIntegerField(default=70)
     max_attempts = models.PositiveIntegerField(default=3)
+
+    class Meta:
+        ordering = ["title"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = slugify(self.title)[:70] or "quiz"
+            slug = base
+            i = 1
+            while Quiz.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                i += 1
+                slug = f"{base}-{i}"[:80]
+            self.slug = slug
+
+        if self.section and not self.course:
+            self.course = self.section.course
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title
-
 
 class Question(models.Model):
     class Topic(models.TextChoices):

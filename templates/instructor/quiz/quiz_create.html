@@ -1,0 +1,127 @@
+{% extends "layout/admin_base.html" %}
+{% load static %}
+
+{% block title %}best-épargne — Nouveau quiz{% endblock %}
+{% block topbar_subtitle %}Créer un quiz{% endblock %}
+
+{% block sidebar %}
+    {% include "partials/instructor_side.html" with side_active=side_active %}
+{% endblock %}
+
+{% block content %}
+<div x-data="quizCreatePage()" x-init="init()" class="space-y-6">
+    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+        <div class="p-6">
+            <div class="text-xs uppercase tracking-[0.18em] text-be-sky-700 font-semibold">Création</div>
+            <h1 class="mt-2 text-2xl font-bold">Créer un quiz</h1>
+            <p class="mt-2 text-sm text-be-ink-500">
+                Configurez le quiz puis ajoutez les questions.
+            </p>
+        </div>
+    </section>
+
+    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="text-xs font-semibold text-be-ink-600">Titre</label>
+                <input x-model="form.title" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-4">
+                <div>
+                    <label class="text-xs font-semibold text-be-ink-600">Cours</label>
+                    <select x-model="form.course_id" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
+                        <option value="">— Sélectionner —</option>
+                        <template x-for="c in courses" :key="c.id">
+                            <option :value="c.id" x-text="c.title"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-be-ink-600">Score de réussite</label>
+                    <input type="number" x-model="form.passing_score" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-be-ink-600">Max tentatives</label>
+                    <input type="number" x-model="form.max_attempts" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-be-ink-100 flex items-center justify-between">
+            <a href="{% url 'instructor_quiz_list_page' %}"
+               class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
+                Annuler
+            </a>
+
+            <button @click="saveQuiz()"
+                    class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
+                Créer
+            </button>
+        </div>
+    </section>
+</div>
+
+<script>
+function quizCreatePage() {
+    return {
+        courses: [],
+        form: {
+            title: "",
+            course_id: "",
+            passing_score: 70,
+            max_attempts: 3
+        },
+
+        async init() {
+            await this.loadCourses();
+        },
+
+        async apiGet(url) {
+            const res = await fetch(url, {headers: {"Accept":"application/json"}, credentials:"same-origin"});
+            if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
+            return await res.json();
+        },
+
+        async apiPost(url, payload={}) {
+            const m = document.cookie.match(/csrftoken=([^;]+)/);
+            const csrf = m ? m[1] : "";
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrf,
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(payload),
+                credentials: "same-origin"
+            });
+            if (!res.ok) throw new Error(`POST ${url} -> ${res.status}`);
+            return await res.json();
+        },
+
+        async loadCourses() {
+            const data = await this.apiGet("/api/instructor/courses/");
+            this.courses = data.results || data;
+        },
+
+        async saveQuiz() {
+            if (!this.form.course_id) return alert("Veuillez sélectionner un cours.");
+
+            const payload = {
+                title: this.form.title,
+                passing_score: this.form.passing_score,
+                max_attempts: this.form.max_attempts
+            };
+
+            const quiz = await this.apiPost(`/api/instructor/courses/${this.form.course_id}/sections/0/quiz/create/`, payload);
+            if (quiz?.id) {
+                window.location.href = `/dashboard/instructor/quizzes/${quiz.id}/`;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,405 @@
+{% extends "layout/admin_base.html" %}
+{% load static humanize %}
+
+{% block title %}best-épargne — {{ page_title }}{% endblock %}
+{% block topbar_subtitle %}Détail du cours{% endblock %}
+
+{% block topbar_actions %}
+<div class="flex items-center gap-2 flex-wrap">
+    <a href="{% url 'instructor_course_update' course_obj.id %}"
+       class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
+        Modifier
+    </a>
+    <a href="{% url 'instructor_course_builder' course_obj.id %}"
+       class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
+        Builder
+    </a>
+    <a href="{% url 'instructor_courses' %}"
+       class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold transition">
+        ← Retour
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- HERO -->
+    <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white/95 dark:bg-white/5 shadow-soft overflow-hidden">
+        <div class="p-6 lg:p-7 grid xl:grid-cols-12 gap-6">
+            <div class="xl:col-span-8 min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="px-3 py-1.5 rounded-full text-xs font-semibold border
+                        {% if course.status == 'PUBLISHED' %}
+                            bg-emerald-50 border-emerald-200 text-emerald-700
+                        {% elif course.status == 'REVIEW' %}
+                            bg-amber-50 border-amber-200 text-amber-700
+                        {% elif course.status == 'ARCHIVED' %}
+                            bg-be-ink-50 border-be-ink-200 text-be-ink-700
+                        {% else %}
+                            bg-be-sky-50 border-be-sky-200 text-be-sky-700
+                        {% endif %}">
+                        {{ course_obj.get_status_display }}
+                    </span>
+
+                    <span class="px-3 py-1.5 rounded-full text-xs font-semibold border
+                        {% if course.pricing_type == 'PAID' %}
+                            bg-be-sun-50 border-be-sun-200 text-be-sun-800
+                        {% elif course.pricing_type == 'HYBRID' %}
+                            bg-be-sky-50 border-be-sky-200 text-be-sky-700
+                        {% else %}
+                            bg-be-ink-50 border-be-ink-200 text-be-ink-700
+                        {% endif %}">
+                        {{ course_obj.get_pricing_type_display }}
+                        {% if course.pricing_type != 'FREE' %}
+                            • {{ course_obj.price|floatformat:0|intcomma }} {{ course_obj.currency }}
+                        {% endif %}
+                    </span>
+
+                    <span class="px-3 py-1.5 rounded-full text-xs font-semibold border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-be-ink-700 dark:text-white/80">
+                        {{ course_obj.get_course_type_display }}
+                    </span>
+
+                    {% if course_obj.category %}
+                    <span class="px-3 py-1.5 rounded-full text-xs font-semibold border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-be-ink-700 dark:text-white/80">
+                        {{ course_obj.category.name }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                <h1 class="mt-4 text-2xl lg:text-3xl font-bold tracking-tight text-be-ink-900 dark:text-white">
+                    {{ course_obj.title }}
+                </h1>
+
+                {% if course_obj.subtitle %}
+                <p class="mt-2 text-base text-be-ink-600 dark:text-white/70">
+                    {{ course_obj.subtitle }}
+                </p>
+                {% endif %}
+
+                <p class="mt-4 text-sm text-be-ink-500 dark:text-white/60 max-w-4xl whitespace-pre-line">
+                    {{ course_obj.description|default:"Aucune description renseignée pour le moment." }}
+                </p>
+
+                <div class="mt-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50/60 dark:bg-white/5 p-4">
+                        <div class="text-xs text-be-ink-500 dark:text-white/60">Sections</div>
+                        <div class="mt-1 text-2xl font-bold text-be-ink-900 dark:text-white">{{ course.sections_count }}</div>
+                    </div>
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50/60 dark:bg-white/5 p-4">
+                        <div class="text-xs text-be-ink-500 dark:text-white/60">Leçons</div>
+                        <div class="mt-1 text-2xl font-bold text-be-ink-900 dark:text-white">{{ course.lessons_count }}</div>
+                    </div>
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50/60 dark:bg-white/5 p-4">
+                        <div class="text-xs text-be-ink-500 dark:text-white/60">Inscrits</div>
+                        <div class="mt-1 text-2xl font-bold text-be-ink-900 dark:text-white">{{ course.enrolled_count }}</div>
+                    </div>
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50/60 dark:bg-white/5 p-4">
+                        <div class="text-xs text-be-ink-500 dark:text-white/60">Note moyenne</div>
+                        <div class="mt-1 text-2xl font-bold text-be-ink-900 dark:text-white">
+                            {{ course.rating_avg|floatformat:1 }}
+                        </div>
+                        <div class="text-[11px] text-be-ink-500 dark:text-white/50 mt-1">
+                            {{ course.rating_count }} avis
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="xl:col-span-4">
+                <div class="rounded-[24px] border border-be-ink-100 dark:border-white/10 bg-gradient-to-br from-be-sun-50 via-white to-be-sky-50 dark:from-white/5 dark:via-white/5 dark:to-white/10 p-4 shadow-soft">
+                    <div class="rounded-[20px] overflow-hidden border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 aspect-video">
+                        {% if course.thumbnail_url %}
+                            <img src="{{ course.thumbnail_url }}" alt="{{ course.title }}" class="w-full h-full object-cover">
+                        {% else %}
+                            <div class="w-full h-full flex items-center justify-center text-sm text-be-ink-400 dark:text-white/40">
+                                Aucune miniature
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mt-4 space-y-3">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-be-ink-500 dark:text-white/60">Créé le</span>
+                            <span class="font-semibold text-be-ink-900 dark:text-white">
+                                {{ course_obj.created_at|date:"d/m/Y H:i" }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-be-ink-500 dark:text-white/60">Mis à jour</span>
+                            <span class="font-semibold text-be-ink-900 dark:text-white">
+                                {{ course_obj.updated_at|date:"d/m/Y H:i" }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-be-ink-500 dark:text-white/60">Publié le</span>
+                            <span class="font-semibold text-be-ink-900 dark:text-white">
+                                {% if course_obj.published_at %}{{ course_obj.published_at|date:"d/m/Y H:i" }}{% else %}—{% endif %}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-be-ink-500 dark:text-white/60">Progression moyenne</span>
+                            <span class="font-semibold text-be-ink-900 dark:text-white">{{ progress_avg }}%</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="h-2.5 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+                            <div class="h-full rounded-full bg-be-sky-600" style="width: {{ progress_avg }}%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-2 gap-2">
+                        <a href="{% url 'instructor_course_update' course_obj.id %}"
+                           class="px-3 py-2.5 rounded-xl bg-be-sky-600 text-white text-sm font-semibold text-center hover:bg-be-sky-700 transition">
+                            Modifier
+                        </a>
+                        <a href="{% url 'instructor_course_builder' course_obj.id %}"
+                           class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold text-center transition">
+                            Builder
+                        </a>
+                    </div>
+
+                    {% if course.preview_video_url %}
+                    <div class="mt-4">
+                        <a href="{{ course.preview_video_url }}" target="_blank"
+                           class="block px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold text-center transition">
+                            Ouvrir la preview vidéo
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="grid xl:grid-cols-12 gap-6">
+        <!-- LEFT -->
+        <div class="xl:col-span-8 space-y-6">
+
+            <!-- STRUCTURE -->
+            <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-6 py-5 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-semibold text-be-ink-900 dark:text-white">Structure pédagogique</h2>
+                        <p class="mt-1 text-sm text-be-ink-500 dark:text-white/60">
+                            Sections du cours et nombre de leçons par partie.
+                        </p>
+                    </div>
+                    <a href="{% url 'instructor_course_builder' course_obj.id %}"
+                       class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold transition">
+                        Gérer le builder
+                    </a>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    {% for section in sections %}
+                    <div class="rounded-[24px] border border-be-ink-100 dark:border-white/10 bg-be-ink-50/50 dark:bg-white/5 p-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="text-sm font-semibold text-be-ink-900 dark:text-white">
+                                    {{ section.order }}. {{ section.title }}
+                                </div>
+                                <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">
+                                    {{ section.lessons_count }} leçon{{ section.lessons_count|pluralize:"s" }}
+                                </div>
+                            </div>
+                        </div>
+
+                        {% with section_lessons=lessons %}
+                        <div class="mt-4 space-y-2">
+                            {% for lesson in section_lessons %}
+                                {% if lesson.section_id == section.id %}
+                                <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-semibold text-be-ink-900 dark:text-white">
+                                                {{ section.order }}.{{ lesson.order }} — {{ lesson.title }}
+                                            </div>
+                                            <div class="mt-1 flex flex-wrap gap-2 text-[11px] text-be-ink-500 dark:text-white/60">
+                                                <span class="px-2 py-1 rounded-full border border-be-ink-100 dark:border-white/10 bg-be-ink-50 dark:bg-white/5">
+                                                    {{ lesson.get_lesson_type_display }}
+                                                </span>
+
+                                                {% if lesson.is_preview %}
+                                                <span class="px-2 py-1 rounded-full border border-be-sun-200 bg-be-sun-50 text-be-sun-800">
+                                                    Preview
+                                                </span>
+                                                {% endif %}
+
+                                                {% if lesson.duration_sec %}
+                                                <span>Durée : {{ lesson.duration_sec }} sec</span>
+                                                {% endif %}
+
+                                                {% if lesson.media_asset %}
+                                                <span>Media lié</span>
+                                                {% endif %}
+                                            </div>
+
+                                            {% if lesson.lesson_type == "TEXT" and lesson.content %}
+                                            <div class="mt-2 text-xs text-be-ink-600 dark:text-white/70">
+                                                {{ lesson.content|striptags|truncatechars:180 }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+
+                                        <a href="{% url 'instructor_course_builder' course_obj.id %}"
+                                           class="shrink-0 px-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition">
+                                            Éditer
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% empty %}
+                                <div class="text-sm text-be-ink-500 dark:text-white/60">Aucune leçon.</div>
+                            {% endfor %}
+                        </div>
+                        {% endwith %}
+                    </div>
+                    {% empty %}
+                    <div class="rounded-2xl border border-dashed border-be-ink-200 dark:border-white/10 bg-be-ink-50/50 dark:bg-white/5 p-6 text-center text-sm text-be-ink-500 dark:text-white/60">
+                        Aucune section n’a encore été ajoutée à ce cours.
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- REVIEWS -->
+            <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-6 py-5 border-b border-be-ink-100 dark:border-white/10">
+                    <h2 class="text-base font-semibold text-be-ink-900 dark:text-white">Derniers avis apprenants</h2>
+                    <p class="mt-1 text-sm text-be-ink-500 dark:text-white/60">
+                        Retour qualitatif sur l’expérience d’apprentissage.
+                    </p>
+                </div>
+
+                <div class="p-6 space-y-3">
+                    {% for review in recent_reviews %}
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50/50 dark:bg-white/5 p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <div class="text-sm font-semibold text-be-ink-900 dark:text-white">
+                                    {{ review.user.full_name|default:review.user.email|default:"Apprenant" }}
+                                </div>
+                                <div class="mt-1 text-xs text-be-ink-500 dark:text-white/60">
+                                    ★ {{ review.rating }}/5 • {{ review.created_at|date:"d/m/Y H:i" }}
+                                </div>
+                            </div>
+                        </div>
+                        {% if review.comment %}
+                        <div class="mt-3 text-sm text-be-ink-700 dark:text-white/75 whitespace-pre-line">
+                            {{ review.comment }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="text-sm text-be-ink-500 dark:text-white/60">
+                        Aucun avis public pour ce cours.
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+        </div>
+
+        <!-- RIGHT -->
+        <aside class="xl:col-span-4 space-y-6">
+
+            <!-- CHECKLIST -->
+            <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                    <h3 class="text-sm font-semibold text-be-ink-900 dark:text-white">Checklist publication</h3>
+                    <p class="mt-1 text-xs text-be-ink-500 dark:text-white/60">
+                        Points à corriger avant diffusion.
+                    </p>
+                </div>
+
+                <div class="p-5">
+                    {% if issues %}
+                    <div class="space-y-3">
+                        {% for issue in issues %}
+                        <div class="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+                            <span class="mt-0.5 w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
+                            <div class="text-sm text-rose-800">{{ issue }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                        Le cours semble prêt pour la publication.
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- ENROLLMENTS -->
+            <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                    <h3 class="text-sm font-semibold text-be-ink-900 dark:text-white">Dernières inscriptions</h3>
+                    <p class="mt-1 text-xs text-be-ink-500 dark:text-white/60">
+                        Aperçu des derniers apprenants inscrits.
+                    </p>
+                </div>
+
+                <div class="p-5 space-y-3">
+                    {% for enrollment in recent_enrollments %}
+                    <div class="flex items-center justify-between gap-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50/50 dark:bg-white/5 px-4 py-3">
+                        <div class="min-w-0">
+                            <div class="text-sm font-semibold text-be-ink-900 dark:text-white truncate">
+                                {{ enrollment.user.full_name|default:enrollment.user.email|default:"Apprenant" }}
+                            </div>
+                            <div class="mt-1 text-xs text-be-ink-500 dark:text-white/60">
+                                {{ enrollment.enrolled_at|date:"d/m/Y H:i" }}
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold border
+                            {% if enrollment.status == 'ACTIVE' %}
+                                bg-emerald-50 border-emerald-200 text-emerald-700
+                            {% elif enrollment.status == 'COMPLETED' %}
+                                bg-be-sky-50 border-be-sky-200 text-be-sky-700
+                            {% elif enrollment.status == 'CANCELED' %}
+                                bg-rose-50 border-rose-200 text-rose-700
+                            {% else %}
+                                bg-be-ink-50 border-be-ink-200 text-be-ink-700
+                            {% endif %}">
+                            {{ enrollment.get_status_display|default:enrollment.status }}
+                        </span>
+                    </div>
+                    {% empty %}
+                    <div class="text-sm text-be-ink-500 dark:text-white/60">
+                        Aucune inscription récente.
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- QUICK ACTIONS -->
+            <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                    <h3 class="text-sm font-semibold text-be-ink-900 dark:text-white">Actions rapides</h3>
+                </div>
+
+                <div class="p-5 grid grid-cols-2 gap-2">
+                    <a href="{% url 'instructor_course_update' course_obj.id %}"
+                       class="px-3 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold text-center transition">
+                        Modifier
+                    </a>
+                    <a href="{% url 'instructor_course_builder' course_obj.id %}"
+                       class="px-3 py-2.5 rounded-xl bg-be-ink-900 text-white text-sm font-semibold text-center hover:opacity-90 transition">
+                        Builder
+                    </a>
+                    <a href="{% url 'instructor_dashboard' %}?tab=courses"
+                       class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold text-center transition">
+                        Dashboard
+                    </a>
+                    <a href="{% url 'instructor_courses' %}"
+                       class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold text-center transition">
+                        Mes cours
+                    </a>
+                </div>
+            </section>
+
+        </aside>
+    </div>
+</div>
+{% endblock %}

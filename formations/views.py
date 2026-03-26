@@ -47,8 +47,6 @@ def _redirect_by_role(user):
     return reverse("learner_dashboard")
 
 
-
-
 class RoleRequiredMixin(UserPassesTestMixin):
     allowed_roles = ()  # ex: (User.Role.INSTRUCTOR,)
 
@@ -64,6 +62,7 @@ class RoleRequiredMixin(UserPassesTestMixin):
         # optionnel: redirige au lieu de 403
         from django.shortcuts import redirect
         return redirect(_redirect_by_role(self.request.user))
+
 
 from decimal import Decimal
 
@@ -129,15 +128,15 @@ class InstructorBaseMixin(LoginRequiredMixin):
 
     def _course_completion_avg(self, course):
         return (
-            LessonProgress.objects.filter(enrollment__course=course)
-            .aggregate(
-                v=Coalesce(
-                    Avg("progress_percent", output_field=models.IntegerField()),
-                    0,
-                    output_field=models.IntegerField(),
-                )
-            )["v"]
-            or 0
+                LessonProgress.objects.filter(enrollment__course=course)
+                .aggregate(
+                    v=Coalesce(
+                        Avg("progress_percent", output_field=models.IntegerField()),
+                        0,
+                        output_field=models.IntegerField(),
+                    )
+                )["v"]
+                or 0
         )
 
     def _course_thumbnail_url(self, course):
@@ -202,6 +201,8 @@ class InstructorBaseMixin(LoginRequiredMixin):
             "detail_url": reverse("instructor_course_detail", kwargs={"course_id": course.id}),
             "edit_url": f'{reverse("instructor_dashboard")}?tab=courses&edit={course.id}',
         }
+
+
 class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "instructor/instructor_dash.html"
     allowed_roles = ("INSTRUCTOR",)
@@ -435,6 +436,7 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
             "courses_needing_work": courses_needing_work,
         })
         return context
+
 
 class InstructorCourseView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "instructor/instructor_courses.html"
@@ -739,6 +741,7 @@ class InstructorCourseView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
         })
         return context
 
+
 class InstructorCourseCreateView(InstructorBaseMixin, TemplateView):
     template_name = "instructor/instructor_course_create.html"
 
@@ -753,6 +756,8 @@ class InstructorCourseCreateView(InstructorBaseMixin, TemplateView):
             "course_type_choices": Course.CourseType.choices,
         })
         return context
+
+
 class InstructorCourseDetailView(InstructorBaseMixin, TemplateView):
     template_name = "instructor/instructor_course_detail.html"
 
@@ -765,7 +770,8 @@ class InstructorCourseDetailView(InstructorBaseMixin, TemplateView):
             .select_related("category", "instructor")
             .annotate(
                 sections_count=Coalesce(Count("sections", distinct=True), 0, output_field=models.IntegerField()),
-                lessons_count=Coalesce(Count("sections__lessons", distinct=True), 0, output_field=models.IntegerField()),
+                lessons_count=Coalesce(Count("sections__lessons", distinct=True), 0,
+                                       output_field=models.IntegerField()),
                 enrolled_count=Coalesce(Count("enrollments", distinct=True), 0, output_field=models.IntegerField()),
                 rating_avg=Coalesce(
                     Avg(
@@ -821,6 +827,8 @@ class InstructorCourseDetailView(InstructorBaseMixin, TemplateView):
             "page_subtitle": "Vue détaillée du cours, de ses contenus et de sa performance.",
         })
         return context
+
+
 class InstructorCourseUpdateView(InstructorBaseMixin, TemplateView):
     template_name = "instructor/instructor_course_update.html"
 
@@ -839,6 +847,8 @@ class InstructorCourseUpdateView(InstructorBaseMixin, TemplateView):
             "course_type_choices": Course.CourseType.choices,
         })
         return context
+
+
 class InstructorCourseBuilderView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "instructor/instructor_builder.html"
     allowed_roles = ("INSTRUCTOR",)
@@ -854,18 +864,62 @@ class InstructorCourseBuilderView(LoginRequiredMixin, RoleRequiredMixin, Templat
         context["course"] = course
         return context
 
+
 class InstructorMediaLibraryView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "instructor/instructor_media.html"
     allowed_roles = ("INSTRUCTOR",)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["side_active"] = "media"
-        context["page_title"] = "Bibliothèque média"
+        context.update({
+            "side_active": "media",
+            "page_title": "Bibliothèque média",
+            "page_subtitle": "Consultez, filtrez et ouvrez les fichiers MinIO associés à votre espace instructeur.",
+        })
         return context
 
+class InstructorQuizListPageView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
+    template_name = "instructor/quiz/quiz_list.html"
+    allowed_roles = ("INSTRUCTOR",)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["side_active"] = "quizzes"
+        return ctx
+
+
+class InstructorQuizCreatePageView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
+    template_name = "instructor/quiz/quiz_create.html"
+    allowed_roles = ("INSTRUCTOR",)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["side_active"] = "quiz_create"
+        return ctx
+
+
+class InstructorQuizDetailPageView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
+    template_name = "instructor/quiz/quiz_detail.html"
+    allowed_roles = ("INSTRUCTOR",)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["quiz_id"] = self.kwargs.get("quiz_id")
+        ctx["side_active"] = "quizzes"
+        return ctx
+
+
+class InstructorQuizUpdatePageView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
+    template_name = "instructor/quiz/quiz_update.html"
+    allowed_roles = ("INSTRUCTOR",)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["quiz_id"] = self.kwargs.get("quiz_id")
+        ctx["side_active"] = "quizzes"
+        return ctx
 class StudentDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
-    template_name = "home/student_dash.html"
+    template_name = "learner/student_dash.html"
     allowed_roles = ("LEARNER",)
 
     # Si tu utilises déjà RoleRequiredMixin chez toi, garde-le:
@@ -887,12 +941,12 @@ class StudentDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
 
 
 class LearnerExploreView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
-    template_name = "home/learner_explore.html"
+    template_name = "learner/learner_explore.html"
     allowed_roles = ("LEARNER",)
 
 
 class LearnerCoursePlayerView(LoginRequiredMixin, TemplateView):
-    template_name = "home/learner_course_player.html"
+    template_name = "learner/learner_course_player.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -905,8 +959,8 @@ class OrganisationDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView)
     allowed_roles = ("COMPANY_ADMIN",)
 
 
-class AdminDashboard(LoginRequiredMixin,RoleRequiredMixin, TemplateView):
-    template_name = "home/../templates/instructor/admin_dash.html"
+class AdminDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
+    template_name = "instructor/admin_dash.html"
 
     def dispatch(self, request, *args, **kwargs):
         if not (request.user.is_staff or request.user.is_superuser):
@@ -981,6 +1035,7 @@ class PublicExploreCoursesView(APIView):
             "courses": serializer.data,  # compat front actuel
         })
 
+
 class CourseDetailPageView(TemplateView):
     template_name = "home/course_detail.html"
 
@@ -1004,6 +1059,8 @@ class CourseDetailPageView(TemplateView):
         ctx["course_id"] = self.kwargs.get("course_id")
         ctx["slug"] = self.kwargs.get("slug")  # ✅ plus de KeyError
         return ctx
+
+
 class PublicCourseDetailView(APIView):
     """
     GET /api/public/courses/<course_id>/
@@ -1029,6 +1086,7 @@ class PublicCourseDetailView(APIView):
             status=status.HTTP_200_OK
         )
 
+
 class PublicCourseRelatedView(APIView):
     permission_classes = [AllowAny]
 
@@ -1047,7 +1105,8 @@ class PublicCourseRelatedView(APIView):
         if not course:
             return Response({"detail": "Cours introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        qs = Course.objects.select_related("category", "instructor").filter(status=Course.Status.PUBLISHED).exclude(id=course.id)
+        qs = Course.objects.select_related("category", "instructor").filter(status=Course.Status.PUBLISHED).exclude(
+            id=course.id)
 
         # ✅ similarité: même catégorie si possible, sinon même type
         if course.category_id:
@@ -1058,7 +1117,7 @@ class PublicCourseRelatedView(APIView):
         # ✅ tri Udemy-like: plus récents d'abord
         qs = qs.order_by("-updated_at", "-id")[:limit]
 
-        data = [ _course_to_dict(c, request=request) for c in qs ]
+        data = [_course_to_dict(c, request=request) for c in qs]
         return Response({"count": len(data), "results": data})
 
 
@@ -1167,6 +1226,7 @@ class LearnerCourseDetailView(APIView):
             ),
             status=status.HTTP_200_OK
         )
+
 
 class LearnerCoursePlayerPage(LoginRequiredMixin, TemplateView):
     template_name = "home/course_player.html"

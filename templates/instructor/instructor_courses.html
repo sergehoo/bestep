@@ -305,7 +305,7 @@
                             <div class="p-5 hover:bg-be-ink-50/50 dark:hover:bg-white/5 transition">
                                 <div class="flex flex-col xl:flex-row xl:items-center gap-4">
                                     <div class="flex items-start gap-4 min-w-0 flex-1">
-                                        <div class="w-28 h-20 rounded-2xl overflow-hidden border border-be-ink-100 dark:border-white/10 bg-be-ink-50 dark:bg-white/5 shrink-0">
+                                       <a href="{% url 'instructor_course_detail' course_id=course.id %}">  <div class="w-28 h-20 rounded-2xl overflow-hidden border border-be-ink-100 dark:border-white/10 bg-be-ink-50 dark:bg-white/5 shrink-0">
                                             {% if course.thumbnail_url %}
                                                 <img src="{{ course.thumbnail_url }}" alt="{{ course.title }}" class="w-full h-full object-cover">
                                             {% else %}
@@ -316,12 +316,12 @@
                                                     No cover
                                                 </div>
                                             {% endif %}
-                                        </div>
+                                       </div></a>
 
                                         <div class="min-w-0 flex-1">
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <h3 class="text-base font-semibold truncate text-be-ink-900 dark:text-white">
-                                                    {{ course.title }}
+                                                    <a href="{% url 'instructor_course_detail' course_id=course.id %}"> {{ course.title }}</a>
                                                 </h3>
 
                                                 {% if course.status == "PUBLISHED" %}

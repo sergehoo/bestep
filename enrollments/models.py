@@ -26,10 +26,13 @@ class Enrollment(models.Model):
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)
     current_lesson = models.ForeignKey("catalog.Lesson", on_delete=models.SET_NULL, null=True, blank=True,
                                        related_name="current_for_enrollments")
+    progress_percent = models.PositiveIntegerField(default=0)
 
     enrolled_at = models.DateTimeField(default=timezone.now)
     completed_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 
     class Meta:
         unique_together = ("user", "course")
@@ -45,6 +48,8 @@ class LessonProgress(models.Model):
     last_position_sec = models.PositiveIntegerField(default=0)
     completed = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 
     def mark_completed(self):
         self.completed = True

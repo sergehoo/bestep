@@ -22,7 +22,8 @@ from django.urls import path, include
 from formations.views import InstructorDashboard, StudentDashboard, \
     OrganisationDashboard, AdminDashboard, LearnerExploreView, LearnerCoursePlayerView, HomeView, InstructorCourseView, \
     InstructorCourseBuilderView, InstructorMediaLibraryView, InstructorCourseCreateView, InstructorCourseDetailView, \
-    InstructorCourseUpdateView
+    InstructorCourseUpdateView, InstructorQuizListPageView, InstructorQuizCreatePageView, InstructorQuizDetailPageView, \
+    InstructorQuizUpdatePageView
 
 urlpatterns = [
                   path('admin/', admin.site.urls),
@@ -42,7 +43,7 @@ urlpatterns = [
 
                   path("dashboard/instructor/", InstructorDashboard.as_view(), name="instructor_dashboard"),
                   path("dashboard/instructor/courses/", InstructorCourseView.as_view(), name="instructor_courses"),
-                  path("dashboard/instructor/courses/", InstructorCourseView.as_view(), name="instructor_courses"),
+                  # path("dashboard/instructor/courses/", InstructorCourseView.as_view(), name="instructor_courses"),
                   path("dashboard/instructor/courses/<int:course_id>/builder/", InstructorCourseBuilderView.as_view(),
                        name="instructor_course_builder"),
                   path("dashboard/instructor/media/", InstructorMediaLibraryView.as_view(), name="instructor_media"),
@@ -53,6 +54,27 @@ urlpatterns = [
                        name="instructor_course_detail"),
                   path("instructor/courses/<int:course_id>/edit/", InstructorCourseUpdateView.as_view(),
                        name="instructor_course_update"),
+
+                  path(
+                      "dashboard/instructor/quizzes/",
+                      InstructorQuizListPageView.as_view(),
+                      name="instructor_quiz_list_page"
+                  ),
+                  path(
+                      "dashboard/instructor/quizzes/create/",
+                      InstructorQuizCreatePageView.as_view(),
+                      name="instructor_quiz_create_page"
+                  ),
+                  path(
+                      "dashboard/instructor/quizzes/<int:quiz_id>/",
+                      InstructorQuizDetailPageView.as_view(),
+                      name="instructor_quiz_detail_page"
+                  ),
+                  path(
+                      "dashboard/instructor/quizzes/<int:quiz_id>/edit/",
+                      InstructorQuizUpdatePageView.as_view(),
+                      name="instructor_quiz_update_page"
+                  ),
 
                   path("dashboard/learner/", StudentDashboard.as_view(), name="learner_dashboard"),
                   path("dashboard/learner/explore/", LearnerExploreView.as_view(), name="learner_explore"),

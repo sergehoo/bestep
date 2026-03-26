@@ -24,14 +24,23 @@
             createSection: (id) => `/api/instructor/courses/${id}/sections/create/`,
             updateSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/update/`,
             deleteSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/delete/`,
+
             sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`,
             createLesson: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/create/`,
             updateLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/update/`,
             deleteLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/delete/`,
+
             uploadInit: '{% url "api_media_upload_init" %}',
             uploadFinalize: '{% url "api_media_upload_finalize" %}',
             mediaList: '{% url "api_instructor_media" %}',
-            signedGet: (assetId) => `/api/media/${assetId}/signed/`
+            signedGet: (assetId) => `/api/media/${assetId}/signed/`,
+
+            courseQuizzes: (courseId) => `/api/instructor/courses/${courseId}/quizzes/`,
+            createSectionQuiz: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/quiz/create/`,
+            assignSectionQuiz: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/quiz/assign/`,
+            unassignSectionQuiz: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/quiz/unassign/`,
+            quizDetail: (quizId) => `/api/instructor/quizzes/${quizId}/`,
+            createQuizQuestion: (quizId) => `/api/instructor/quizzes/${quizId}/questions/create/`
         }
     })"
     x-init="init()"
@@ -43,7 +52,7 @@
                 <div class="text-xs uppercase tracking-[0.18em] text-be-sky-700 font-semibold">Builder</div>
                 <h1 class="mt-2 text-2xl font-bold">{{ course.title }}</h1>
                 <p class="mt-2 text-sm text-be-ink-500">
-                    Organisez vos sections, vos leçons et vos ressources pédagogiques.
+                    Organisez vos sections, vos leçons, vos quiz et vos ressources pédagogiques.
                 </p>
             </div>
 
@@ -65,7 +74,7 @@
         <div class="lg:col-span-4 rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
             <div class="px-5 py-4 border-b border-be-ink-100">
                 <div class="text-sm font-semibold">Sections</div>
-                <div class="text-xs text-be-ink-500 mt-1">Structure du cours.</div>
+                <div class="text-xs text-be-ink-500 mt-1">Structure du cours et quiz associés.</div>
             </div>
 
             <div class="p-4 space-y-3">
@@ -74,16 +83,17 @@
                 </template>
 
                 <template x-for="s in sections" :key="s.id">
-                    <button @click="selectSection(s)"
-                            class="w-full text-left p-4 rounded-2xl border transition"
-                            :class="activeSection?.id === s.id ? 'bg-be-sky-50 border-be-sky-200 shadow-soft' : 'bg-white border-be-ink-100 hover:bg-be-ink-50'">
+                    <div class="w-full p-4 rounded-2xl border transition"
+                         :class="activeSection?.id === s.id ? 'bg-be-sky-50 border-be-sky-200 shadow-soft' : 'bg-white border-be-ink-100 hover:bg-be-ink-50'">
+
                         <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
+                            <button @click="selectSection(s)" class="flex-1 text-left min-w-0">
                                 <div class="font-semibold text-sm truncate" x-text="`${s.order}. ${s.title}`"></div>
                                 <div class="text-[11px] text-be-ink-500 mt-1">
                                     <span x-text="s.lessons_count || 0"></span> leçon(s)
                                 </div>
-                            </div>
+                            </button>
+
                             <div class="flex gap-1">
                                 <button @click.stop="editSectionPrompt(s)"
                                         class="px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-white text-[11px]">
@@ -95,7 +105,47 @@
                                 </button>
                             </div>
                         </div>
-                    </button>
+
+                        <div class="mt-3 rounded-xl border border-be-ink-100 bg-white/80 p-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="min-w-0">
+                                    <div class="text-xs font-semibold text-be-ink-700">Quiz de section</div>
+                                    <div class="text-[11px] text-be-ink-500 truncate"
+                                         x-text="s.quiz ? s.quiz.title : 'Aucun quiz lié'"></div>
+                                </div>
+
+                                <div class="flex gap-2 shrink-0">
+                                    <button @click.stop="openAssignQuizModal(s)"
+                                            class="px-2 py-1 rounded-lg border border-be-ink-100 bg-white hover:bg-be-ink-50 text-[11px] font-semibold">
+                                        Choisir
+                                    </button>
+                                    <button @click.stop="openCreateQuizModal(s)"
+                                            class="px-2 py-1 rounded-lg bg-be-sky-600 text-white hover:bg-be-sky-700 text-[11px] font-semibold">
+                                        + Créer
+                                    </button>
+                                </div>
+                            </div>
+
+                            <template x-if="s.quiz">
+                                <div class="mt-2 flex items-center justify-between gap-2">
+                                    <div class="text-[11px] text-be-ink-500">
+                                        <span x-text="s.quiz.questions_count || 0"></span> question(s)
+                                        • score min <span x-text="s.quiz.passing_score || 70"></span>%
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <button @click.stop="openQuizPreview(s.quiz)"
+                                                class="text-[11px] text-be-sky-700 hover:underline">
+                                            Voir
+                                        </button>
+                                        <button @click.stop="unassignQuiz(s)"
+                                                class="text-[11px] text-rose-600 hover:underline">
+                                            Retirer
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </template>
 
                 <template x-if="!loading.sections && sections.length === 0">
@@ -119,11 +169,19 @@
                     </div>
                 </div>
 
-                <button @click="openLessonEditor()"
-                        :disabled="!activeSection"
-                        class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold shadow-soft transition disabled:opacity-50">
-                    + Leçon
-                </button>
+                <div class="flex gap-2">
+                    <button @click="openCreateQuizModal(activeSection)"
+                            :disabled="!activeSection"
+                            class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold transition disabled:opacity-50">
+                        + Quiz
+                    </button>
+
+                    <button @click="openLessonEditor()"
+                            :disabled="!activeSection"
+                            class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold shadow-soft transition disabled:opacity-50">
+                        + Leçon
+                    </button>
+                </div>
             </div>
 
             <div class="p-5 space-y-3">
@@ -270,6 +328,125 @@
         </div>
     </div>
 
+    <!-- MODAL CREATE QUIZ -->
+    <div x-show="modals.quizCreate" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="modals.quizCreate=false"></div>
+        <div class="relative w-full max-w-xl rounded-[28px] bg-white border border-be-ink-100 shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
+                <div class="font-semibold">Créer un quiz de section</div>
+                <button class="w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                        @click="modals.quizCreate=false">✕</button>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="text-xs font-semibold text-be-ink-600">Titre</label>
+                    <input x-model="quizForm.title"
+                           class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Score de réussite (%)</label>
+                        <input type="number" x-model="quizForm.passing_score"
+                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-be-ink-600">Nombre max tentatives</label>
+                        <input type="number" x-model="quizForm.max_attempts"
+                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-5 py-4 border-t border-be-ink-100 flex items-center justify-between">
+                <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
+                        @click="modals.quizCreate=false">Annuler</button>
+                <button class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft"
+                        @click="saveSectionQuiz()">Créer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ASSIGN QUIZ -->
+    <div x-show="modals.quizAssign" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="modals.quizAssign=false"></div>
+        <div class="relative w-full max-w-2xl rounded-[28px] bg-white border border-be-ink-100 shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
+                <div class="font-semibold">Choisir un quiz existant</div>
+                <button class="w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                        @click="modals.quizAssign=false">✕</button>
+            </div>
+
+            <div class="p-5 space-y-3 max-h-[60vh] overflow-auto no-scrollbar">
+                <template x-if="quizzes.length===0">
+                    <div class="text-sm text-be-ink-500">Aucun quiz disponible sur ce cours.</div>
+                </template>
+
+                <template x-for="q in quizzes" :key="q.id">
+                    <div class="rounded-xl border border-be-ink-100 p-4 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="font-semibold text-sm" x-text="q.title"></div>
+                            <div class="text-[11px] text-be-ink-500 mt-1">
+                                <span x-text="q.questions_count || 0"></span> question(s)
+                                • score min <span x-text="q.passing_score || 70"></span>%
+                                <template x-if="q.section_title">
+                                    <span> • lié à <span x-text="q.section_title"></span></span>
+                                </template>
+                            </div>
+                        </div>
+
+                        <button class="px-3 py-2 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-xs font-semibold"
+                                @click="assignQuizToSection(q.id)">
+                            Affecter
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL QUIZ PREVIEW -->
+    <div x-show="modals.quizPreview" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="closeQuizPreview()"></div>
+
+        <div class="relative w-full max-w-3xl rounded-[28px] bg-white border border-be-ink-100 shadow-soft overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
+                <div>
+                    <div class="font-semibold" x-text="quizPreview?.title || 'Quiz'"></div>
+                    <div class="text-xs text-be-ink-500 mt-1">
+                        Score min : <span x-text="quizPreview?.passing_score || 70"></span>%
+                        • Tentatives : <span x-text="quizPreview?.max_attempts || 3"></span>
+                    </div>
+                </div>
+                <button class="w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
+                        @click="closeQuizPreview()">✕</button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-4">
+                <template x-if="quizPreview && (!quizPreview.questions || quizPreview.questions.length===0)">
+                    <div class="text-sm text-be-ink-500">Aucune question définie pour ce quiz.</div>
+                </template>
+
+                <template x-for="q in (quizPreview?.questions || [])" :key="q.id">
+                    <div class="rounded-2xl border border-be-ink-100 p-4">
+                        <div class="font-semibold text-sm" x-text="`${q.order}. ${q.prompt}`"></div>
+                        <div class="text-[11px] text-be-ink-500 mt-1" x-show="q.topic" x-text="q.topic"></div>
+
+                        <div class="mt-3 space-y-2">
+                            <template x-for="c in (q.choices || [])" :key="c.id">
+                                <div class="rounded-xl px-3 py-2 border text-sm"
+                                     :class="c.is_correct ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-be-ink-100 text-be-ink-700'">
+                                    <span x-text="c.text"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
     <!-- DRAWER UPLOAD -->
     <div x-show="drawers.upload" x-transition.opacity class="fixed inset-0 z-50 flex justify-end">
         <div class="absolute inset-0 bg-black/40" @click="drawers.upload = false"></div>
@@ -336,6 +513,7 @@ function instructorBuilderPage(cfg) {
         course: null,
         sections: [],
         lessons: [],
+        quizzes: [],
         activeSection: null,
         mediaLibrary: [],
 
@@ -344,10 +522,15 @@ function instructorBuilderPage(cfg) {
             lessons: false,
             upload: false,
             saveLesson: false,
+            quizzes: false,
+            saveQuiz: false,
         },
 
         modals: {
             lesson: false,
+            quizCreate: false,
+            quizAssign: false,
+            quizPreview: false,
         },
 
         drawers: {
@@ -365,6 +548,17 @@ function instructorBuilderPage(cfg) {
             media_asset_id: "",
         },
 
+        quizForm: {
+            id: null,
+            title: "",
+            passing_score: 70,
+            max_attempts: 3,
+            section_id: null,
+        },
+
+        quizAssignTargetSection: null,
+        quizPreview: null,
+
         upload: {
             file: null,
             kind: "video",
@@ -378,6 +572,7 @@ function instructorBuilderPage(cfg) {
         init() {
             this.loadCourse();
             this.loadSections();
+            this.loadQuizzes();
         },
 
         getCsrf() {
@@ -437,6 +632,7 @@ function instructorBuilderPage(cfg) {
             try {
                 this.loading.sections = true;
                 this.sections = await this.apiGet(this.endpoints.courseSections(this.courseId));
+                this.attachQuizzesToSections();
 
                 if (this.sections.length) {
                     if (!this.activeSection) {
@@ -445,6 +641,8 @@ function instructorBuilderPage(cfg) {
                         const stillExists = this.sections.find(s => s.id === this.activeSection.id);
                         if (!stillExists) {
                             await this.selectSection(this.sections[0]);
+                        } else {
+                            this.activeSection = stillExists;
                         }
                     }
                 } else {
@@ -472,6 +670,36 @@ function instructorBuilderPage(cfg) {
                 this.lessons = [];
             } finally {
                 this.loading.lessons = false;
+            }
+        },
+
+        async loadQuizzes() {
+            try {
+                this.loading.quizzes = true;
+                this.quizzes = await this.apiGet(this.endpoints.courseQuizzes(this.courseId));
+                this.attachQuizzesToSections();
+            } catch (e) {
+                console.error(e);
+                this.quizzes = [];
+            } finally {
+                this.loading.quizzes = false;
+            }
+        },
+
+        attachQuizzesToSections() {
+            const map = {};
+            (this.quizzes || []).forEach(q => {
+                if (q.section_id) map[q.section_id] = q;
+            });
+
+            this.sections = (this.sections || []).map(s => ({
+                ...s,
+                quiz: map[s.id] || null
+            }));
+
+            if (this.activeSection) {
+                const found = this.sections.find(s => s.id === this.activeSection.id);
+                if (found) this.activeSection = found;
             }
         },
 
@@ -511,6 +739,7 @@ function instructorBuilderPage(cfg) {
                 this.activeSection = null;
                 this.lessons = [];
                 await this.loadSections();
+                await this.loadQuizzes();
             } catch (e) {
                 console.error(e);
             }
@@ -709,6 +938,88 @@ function instructorBuilderPage(cfg) {
             } catch (e) {
                 console.error(e);
             }
+        },
+
+        openCreateQuizModal(section) {
+            if (!section) return;
+            this.quizForm = {
+                id: null,
+                title: `Quiz — ${section.title}`,
+                passing_score: 70,
+                max_attempts: 3,
+                section_id: section.id
+            };
+            this.modals.quizCreate = true;
+        },
+
+        async saveSectionQuiz() {
+            try {
+                this.loading.saveQuiz = true;
+
+                await this.apiPost(
+                    this.endpoints.createSectionQuiz(this.courseId, this.quizForm.section_id),
+                    {
+                        title: this.quizForm.title,
+                        passing_score: this.quizForm.passing_score,
+                        max_attempts: this.quizForm.max_attempts
+                    }
+                );
+
+                this.modals.quizCreate = false;
+                await this.loadQuizzes();
+                await this.loadSections();
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.loading.saveQuiz = false;
+            }
+        },
+
+        openAssignQuizModal(section) {
+            if (!section) return;
+            this.quizAssignTargetSection = section;
+            this.modals.quizAssign = true;
+        },
+
+        async assignQuizToSection(quizId) {
+            try {
+                await this.apiPost(
+                    this.endpoints.assignSectionQuiz(this.courseId, this.quizAssignTargetSection.id),
+                    { quiz_id: quizId }
+                );
+                this.modals.quizAssign = false;
+                await this.loadQuizzes();
+                await this.loadSections();
+            } catch (e) {
+                console.error(e);
+            }
+        },
+
+        async unassignQuiz(section) {
+            try {
+                await this.apiPost(
+                    this.endpoints.unassignSectionQuiz(this.courseId, section.id),
+                    {}
+                );
+                await this.loadQuizzes();
+                await this.loadSections();
+            } catch (e) {
+                console.error(e);
+            }
+        },
+
+        async openQuizPreview(quiz) {
+            try {
+                this.quizPreview = await this.apiGet(this.endpoints.quizDetail(quiz.id));
+                this.modals.quizPreview = true;
+            } catch (e) {
+                console.error(e);
+            }
+        },
+
+        closeQuizPreview() {
+            this.modals.quizPreview = false;
+            this.quizPreview = null;
         },
 
         openUploadDrawer() {

@@ -4,88 +4,342 @@
 {% block title %}best-épargne — Bibliothèque média{% endblock %}
 {% block topbar_subtitle %}Médias instructeur{% endblock %}
 
+{% block topbar_actions %}
+<div class="flex items-center gap-2 flex-wrap">
+    <button @click="openUploadDrawer()"
+        class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
+        + Importer un média
+    </button>
+</div>
+{% endblock %}
+
 {% block content %}
-<div
-    x-data="instructorMediaPage({
+<div x-data="instructorMediaPremiumPage({
         endpoints: {
             mediaList: '{% url "api_instructor_media" %}',
-            signedGet: (assetId) => `/api/media/${assetId}/signed/`
+            uploadInit: '{% url "api_media_upload_init" %}',
+            uploadFinalize: '{% url "api_media_upload_finalize" %}',
+            signedGet: (assetId) => '{% url "api_media_signed_get" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
+            courses: '{% url "api_instructor_courses" %}',
+            courseSections: (courseId) => `/api/instructor/courses/${courseId}/sections/`,
+            sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`
         }
     })"
     x-init="init()"
     class="space-y-6"
 >
-    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-        <div class="p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-                <div class="text-xs uppercase tracking-[0.18em] text-be-sky-700 font-semibold">Media library</div>
-                <h1 class="mt-2 text-2xl font-bold">Bibliothèque média</h1>
-                <p class="mt-2 text-sm text-be-ink-500">
-                    Tous les assets MinIO rattachés à votre compte instructeur.
+    <!-- HERO -->
+    <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white/95 dark:bg-white/5 shadow-soft overflow-hidden">
+        <div class="p-6 lg:p-7 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+            <div class="min-w-0">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-be-sky-50 dark:bg-white/10 border border-be-sky-100 dark:border-white/10 text-be-sky-700 dark:text-white text-xs font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-be-sky-500"></span>
+                    Media library premium
+                </div>
+                <h1 class="mt-3 text-2xl lg:text-3xl font-bold tracking-tight text-be-ink-900 dark:text-white">
+                    Bibliothèque média instructeur
+                </h1>
+                <p class="mt-2 text-sm text-be-ink-500 dark:text-white/60 max-w-3xl">
+                    Gérez vos vidéos, audios et documents, prévisualisez vos assets, importez par drag & drop
+                    et liez-les directement à une leçon.
                 </p>
             </div>
 
-            <div class="flex gap-2">
-                <select x-model="kind" @change="loadMedia()"
-                        class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
-                    <option value="">Tous</option>
-                    <option value="video">Videos</option>
-                    <option value="audio">Audios</option>
-                    <option value="doc">Documents</option>
-                </select>
-
-                <button @click="loadMedia()"
-                        class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold transition">
-                    Actualiser
-                </button>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 min-w-full xl:min-w-[560px]">
+                <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-4">
+                    <div class="text-xs text-be-ink-500 dark:text-white/60">Total médias</div>
+                    <div class="mt-1 text-2xl font-bold text-be-ink-900 dark:text-white" x-text="stats.total"></div>
+                </div>
+                <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-4">
+                    <div class="text-xs text-be-ink-500 dark:text-white/60">Vidéos</div>
+                    <div class="mt-1 text-2xl font-bold text-be-ink-900 dark:text-white" x-text="stats.video"></div>
+                </div>
+                <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-4">
+                    <div class="text-xs text-be-ink-500 dark:text-white/60">Audios</div>
+                    <div class="mt-1 text-2xl font-bold text-be-ink-900 dark:text-white" x-text="stats.audio"></div>
+                </div>
+                <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-4">
+                    <div class="text-xs text-be-ink-500 dark:text-white/60">Documents</div>
+                    <div class="mt-1 text-2xl font-bold text-be-ink-900 dark:text-white" x-text="stats.doc"></div>
+                </div>
             </div>
         </div>
     </section>
 
-    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
+    <!-- TOAST -->
+    <template x-if="toast.show">
+        <div
+            class="rounded-2xl border px-4 py-3 flex items-start justify-between gap-3"
+            :class="toast.type === 'error'
+                ? 'border-rose-200 bg-rose-50 text-rose-800'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-800'"
+        >
+            <div class="text-sm">
+                <div class="font-semibold" x-text="toast.title"></div>
+                <div class="mt-1 opacity-90" x-text="toast.message"></div>
+            </div>
+            <button
+                @click="toast.show = false"
+                class="px-2 py-1 rounded-lg border border-current/20 text-xs font-semibold"
+            >
+                OK
+            </button>
+        </div>
+    </template>
+
+    <!-- FILTER BAR -->
+    <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+        <div class="p-5">
+            <div class="grid xl:grid-cols-12 gap-4">
+                <div class="xl:col-span-4">
+                    <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                        Recherche
+                    </label>
+                    <div class="mt-2 relative">
+                        <input
+                            x-model="filters.q"
+                            @input.debounce.250ms="applyFilters()"
+                            type="text"
+                            placeholder="Titre, object key, content type..."
+                            class="w-full pl-11 pr-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10"
+                        >
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/40">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                                <path d="M21 21l-4.35-4.35M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="xl:col-span-2">
+                    <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                        Type
+                    </label>
+                    <select
+                        x-model="filters.kind"
+                        @change="applyFilters()"
+                        class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                    >
+                        <option value="">Tous</option>
+                        <option value="video">Vidéos</option>
+                        <option value="audio">Audios</option>
+                        <option value="doc">Documents</option>
+                    </select>
+                </div>
+
+                <div class="xl:col-span-2">
+                    <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                        Tri
+                    </label>
+                    <select
+                        x-model="filters.sort"
+                        @change="applyFilters()"
+                        class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                    >
+                        <option value="recent">Plus récents</option>
+                        <option value="oldest">Plus anciens</option>
+                        <option value="title">Titre A-Z</option>
+                        <option value="size_desc">Taille décroissante</option>
+                        <option value="size_asc">Taille croissante</option>
+                    </select>
+                </div>
+
+                <div class="xl:col-span-2">
+                    <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                        Affichage
+                    </label>
+                    <div class="mt-2 inline-flex rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-1 w-full">
+                        <button
+                            @click="view='grid'"
+                            class="flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition"
+                            :class="view==='grid' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 dark:text-white/70 hover:bg-be-ink-50 dark:hover:bg-white/10'"
+                        >
+                            Cartes
+                        </button>
+                        <button
+                            @click="view='table'"
+                            class="flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition"
+                            :class="view==='table' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 dark:text-white/70 hover:bg-be-ink-50 dark:hover:bg-white/10'"
+                        >
+                            Tableau
+                        </button>
+                    </div>
+                </div>
+
+                <div class="xl:col-span-2 flex items-end gap-2">
+                    <button
+                        @click="loadMedia()"
+                        class="flex-1 px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
+                    >
+                        Actualiser
+                    </button>
+                    <button
+                        @click="openUploadDrawer()"
+                        class="flex-1 px-4 py-3 rounded-2xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition"
+                    >
+                        Importer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GRID VIEW -->
+    <section
+        x-show="view === 'grid'"
+        class="space-y-4"
+    >
+        <template x-if="loading.media">
+            <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft p-10 text-center text-sm text-be-ink-500 dark:text-white/60">
+                Chargement des médias…
+            </div>
+        </template>
+
+        <template x-if="!loading.media && filteredMedia.length === 0">
+            <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft p-10 text-center text-sm text-be-ink-500 dark:text-white/60">
+                Aucun média trouvé avec ces filtres.
+            </div>
+        </template>
+
+        <div class="grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5" x-show="!loading.media && filteredMedia.length > 0">
+            <template x-for="m in filteredMedia" :key="m.id">
+                <article class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden hover:-translate-y-0.5 transition">
+                    <div class="relative">
+                        <div class="aspect-video bg-be-ink-50 dark:bg-white/5 border-b border-be-ink-100 dark:border-white/10 overflow-hidden">
+                            <template x-if="previewCache[m.id] && m.kind === 'video'">
+                                <video :src="previewCache[m.id]" class="w-full h-full object-cover" muted preload="metadata"></video>
+                            </template>
+
+                            <template x-if="!(previewCache[m.id] && m.kind === 'video') && m.kind === 'audio'">
+                                <div class="w-full h-full flex flex-col items-center justify-center gap-3 text-be-sun-700 dark:text-white/80">
+                                    <div class="w-16 h-16 rounded-2xl bg-be-sun-100 dark:bg-white/10 flex items-center justify-center">
+                                        <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none">
+                                            <path d="M11 5L6 9H3v6h3l5 4V5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                            <path d="M15.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="text-xs font-semibold">Audio</div>
+                                </div>
+                            </template>
+
+                            <template x-if="!(previewCache[m.id] && m.kind === 'video') && m.kind === 'doc'">
+                                <div class="w-full h-full flex flex-col items-center justify-center gap-3 text-be-ink-600 dark:text-white/70">
+                                    <div class="w-16 h-16 rounded-2xl bg-be-ink-100 dark:bg-white/10 flex items-center justify-center">
+                                        <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none">
+                                            <path d="M7 3h7l5 5v13H7V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                            <path d="M14 3v5h5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="text-xs font-semibold">Document</div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <span
+                            class="absolute top-3 left-3 text-[11px] px-2.5 py-1 rounded-full border bg-white/95 dark:bg-black/30 backdrop-blur font-semibold"
+                            :class="kindPill(m.kind)"
+                            x-text="kindLabel(m.kind)"
+                        ></span>
+                    </div>
+
+                    <div class="p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <h3 class="font-semibold text-sm text-be-ink-900 dark:text-white truncate" x-text="m.title || 'Sans titre'"></h3>
+                                <div class="text-[11px] text-be-ink-500 dark:text-white/50 mt-1 break-all font-mono" x-text="m.object_key"></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
+                            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                                <div class="text-be-ink-500 dark:text-white/50">Taille</div>
+                                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="humanBytes(m.size)"></div>
+                            </div>
+                            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                                <div class="text-be-ink-500 dark:text-white/50">Créé le</div>
+                                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="formatDate(m.created_at)"></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 text-[11px] text-be-ink-500 dark:text-white/50 truncate" x-text="m.content_type || '—'"></div>
+
+                        <div class="mt-4 flex gap-2">
+                            <button
+                                @click="previewMedia(m)"
+                                class="flex-1 px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition"
+                            >
+                                Preview
+                            </button>
+                            <button
+                                @click="openMedia(m)"
+                                class="flex-1 px-3 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-xs font-semibold transition"
+                            >
+                                Ouvrir
+                            </button>
+                        </div>
+                    </div>
+                </article>
+            </template>
+        </div>
+    </section>
+
+    <!-- TABLE VIEW -->
+    <section
+        x-show="view === 'table'"
+        class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden"
+    >
         <div class="overflow-auto no-scrollbar">
             <table class="min-w-full text-sm">
-                <thead class="bg-be-ink-50/70 text-be-ink-600">
+                <thead class="bg-be-ink-50/70 dark:bg-white/5 text-be-ink-600 dark:text-white/70">
                     <tr>
                         <th class="text-left font-semibold px-4 py-3">Titre</th>
                         <th class="text-left font-semibold px-4 py-3">Type</th>
                         <th class="text-left font-semibold px-4 py-3">Content type</th>
                         <th class="text-left font-semibold px-4 py-3">Taille</th>
                         <th class="text-left font-semibold px-4 py-3">Créé le</th>
-                        <th class="text-right font-semibold px-4 py-3">Action</th>
+                        <th class="text-right font-semibold px-4 py-3">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <template x-if="loading">
+                    <template x-if="loading.media">
                         <tr>
-                            <td colspan="6" class="px-4 py-10 text-center text-be-ink-500">Chargement…</td>
+                            <td colspan="6" class="px-4 py-10 text-center text-be-ink-500 dark:text-white/60">Chargement…</td>
                         </tr>
                     </template>
 
-                    <template x-if="!loading && media.length === 0">
+                    <template x-if="!loading.media && filteredMedia.length === 0">
                         <tr>
-                            <td colspan="6" class="px-4 py-10 text-center text-be-ink-500">Aucun média trouvé.</td>
+                            <td colspan="6" class="px-4 py-10 text-center text-be-ink-500 dark:text-white/60">Aucun média trouvé.</td>
                         </tr>
                     </template>
 
-                    <template x-for="m in media" :key="m.id">
-                        <tr class="border-t border-be-ink-100 hover:bg-be-ink-50/50 transition">
+                    <template x-for="m in filteredMedia" :key="m.id">
+                        <tr class="border-t border-be-ink-100 dark:border-white/10 hover:bg-be-ink-50/50 dark:hover:bg-white/5 transition">
                             <td class="px-4 py-4">
-                                <div class="font-semibold" x-text="m.title || m.object_key"></div>
-                                <div class="text-xs text-be-ink-500 mt-1 font-mono" x-text="m.object_key"></div>
+                                <div class="font-semibold text-be-ink-900 dark:text-white" x-text="m.title || m.object_key"></div>
+                                <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1 font-mono break-all" x-text="m.object_key"></div>
                             </td>
                             <td class="px-4 py-4">
-                                <span class="text-xs px-2.5 py-1 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700"
-                                      x-text="m.kind"></span>
+                                <span class="text-xs px-2.5 py-1 rounded-full border" :class="kindPill(m.kind)" x-text="kindLabel(m.kind)"></span>
                             </td>
-                            <td class="px-4 py-4" x-text="m.content_type"></td>
+                            <td class="px-4 py-4" x-text="m.content_type || '—'"></td>
                             <td class="px-4 py-4" x-text="humanBytes(m.size)"></td>
-                            <td class="px-4 py-4" x-text="m.created_at || ''"></td>
+                            <td class="px-4 py-4" x-text="formatDate(m.created_at)"></td>
                             <td class="px-4 py-4 text-right">
-                                <button @click="openMedia(m)"
-                                        class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold transition">
-                                    Ouvrir
-                                </button>
+                                <div class="inline-flex gap-2">
+                                    <button
+                                        @click="previewMedia(m)"
+                                        class="px-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition"
+                                    >
+                                        Preview
+                                    </button>
+                                    <button
+                                        @click="openMedia(m)"
+                                        class="px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-xs font-semibold transition"
+                                    >
+                                        Ouvrir
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     </template>
@@ -93,20 +347,381 @@
             </table>
         </div>
     </section>
+
+    <!-- UPLOAD DRAWER -->
+    <div x-show="drawers.upload" x-transition.opacity class="fixed inset-0 z-50 flex justify-end">
+        <div class="absolute inset-0 bg-black/40" @click="closeUploadDrawer()"></div>
+
+        <div class="relative w-full max-w-2xl h-full bg-white dark:bg-[#0f172a] border-l border-be-ink-100 dark:border-white/10 shadow-soft p-5 overflow-auto no-scrollbar">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="font-semibold text-be-ink-900 dark:text-white">Importer un média</div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">
+                        Upload direct vers MinIO avec liaison optionnelle à une leçon.
+                    </div>
+                </div>
+                <button
+                    @click="closeUploadDrawer()"
+                    class="w-10 h-10 rounded-xl border border-be-ink-100 dark:border-white/10 hover:bg-be-ink-50 dark:hover:bg-white/10"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div class="mt-6 space-y-5">
+                <!-- DROPZONE -->
+                <div
+                    @dragover.prevent="dragover = true"
+                    @dragleave.prevent="dragover = false"
+                    @drop.prevent="handleDrop($event)"
+                    :class="dragover
+                        ? 'border-be-sky-300 bg-be-sky-50/80 dark:bg-white/10'
+                        : 'border-be-ink-200 bg-be-ink-50/60 dark:bg-white/5'"
+                    class="rounded-[28px] border-2 border-dashed p-8 text-center transition"
+                >
+                    <div class="mx-auto w-16 h-16 rounded-2xl bg-white dark:bg-white/10 border border-be-ink-100 dark:border-white/10 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-be-sky-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 16V4M12 4l-4 4M12 4l4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+
+                    <div class="mt-4 text-base font-semibold text-be-ink-900 dark:text-white">
+                        Glissez-déposez votre fichier ici
+                    </div>
+                    <div class="mt-1 text-sm text-be-ink-500 dark:text-white/60">
+                        ou cliquez pour sélectionner un fichier
+                    </div>
+
+                    <div class="mt-4">
+                        <input
+                            x-ref="fileInput"
+                            type="file"
+                            class="hidden"
+                            @change="handleFilePicked($event)"
+                        >
+                        <button
+                            @click="$refs.fileInput.click()"
+                            class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold transition"
+                        >
+                            Choisir un fichier
+                        </button>
+                    </div>
+
+                    <template x-if="upload.file">
+                        <div class="mt-4 text-sm text-be-ink-700 dark:text-white/80">
+                            <span class="font-semibold" x-text="upload.file.name"></span>
+                            <span class="mx-2">•</span>
+                            <span x-text="humanBytes(upload.file.size)"></span>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- META -->
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                            Type de média
+                        </label>
+                        <select
+                            x-model="upload.kind"
+                            class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                        >
+                            <option value="video">Vidéo</option>
+                            <option value="audio">Audio</option>
+                            <option value="doc">Document</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                            Titre
+                        </label>
+                        <input
+                            x-model="upload.title"
+                            type="text"
+                            class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                            placeholder="Ex: Module 1 — Introduction"
+                        >
+                    </div>
+                </div>
+
+                <!-- BIND -->
+                <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-be-ink-50/50 dark:bg-white/5 p-5">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="font-semibold text-be-ink-900 dark:text-white">Liaison à une leçon</div>
+                            <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">
+                                Optionnel. Le média sera directement affecté à la leçon sélectionnée.
+                            </div>
+                        </div>
+
+                        <label class="inline-flex items-center gap-2 text-sm font-semibold text-be-ink-700 dark:text-white/80">
+                            <input type="checkbox" x-model="upload.bindEnabled" class="rounded border-be-ink-200">
+                            Lier à une leçon
+                        </label>
+                    </div>
+
+                    <div x-show="upload.bindEnabled" class="mt-4 grid sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                                Cours
+                            </label>
+                            <select
+                                x-model="upload.course_id"
+                                @change="onBindCourseChange()"
+                                class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                            >
+                                <option value="">— Sélectionner —</option>
+                                <template x-for="c in courses" :key="c.id">
+                                    <option :value="String(c.id)" x-text="c.title"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                                Section
+                            </label>
+                            <select
+                                x-model="upload.section_id"
+                                @change="onBindSectionChange()"
+                                class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                                :disabled="!upload.course_id"
+                            >
+                                <option value="">— Sélectionner —</option>
+                                <template x-for="s in bindSections" :key="s.id">
+                                    <option :value="String(s.id)" x-text="`${s.order || ''} ${s.title}`"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                                Leçon
+                            </label>
+                            <select
+                                x-model="upload.lesson_id"
+                                class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                                :disabled="!upload.section_id"
+                            >
+                                <option value="">— Sélectionner —</option>
+                                <template x-for="l in bindLessons" :key="l.id">
+                                    <option :value="String(l.id)" x-text="`${l.order || ''} ${l.title}`"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROGRESS -->
+                <div x-show="upload.progress > 0" class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                    <div class="text-xs text-be-ink-500 dark:text-white/60">Progression</div>
+                    <div class="mt-2 h-2 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+                        <div class="h-full rounded-full bg-be-sky-600" :style="`width:${upload.progress}%`"></div>
+                    </div>
+                    <div class="text-[11px] text-be-ink-500 dark:text-white/60 mt-2" x-text="upload.progress + '%'"></div>
+                </div>
+
+                <template x-if="upload.error">
+                    <div class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3" x-text="upload.error"></div>
+                </template>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button
+                        @click="closeUploadDrawer()"
+                        class="px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
+                    >
+                        Annuler
+                    </button>
+                    <button
+                        @click="startUpload()"
+                        :disabled="loading.upload"
+                        class="px-4 py-3 rounded-2xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        <span x-show="!loading.upload">Uploader</span>
+                        <span x-show="loading.upload">Upload...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREVIEW MODAL -->
+    <div x-show="modals.preview" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50" @click="closePreview()"></div>
+
+        <div class="relative w-full max-w-6xl rounded-[28px] bg-white dark:bg-[#0f172a] border border-be-ink-100 dark:border-white/10 shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="font-semibold text-be-ink-900 dark:text-white truncate" x-text="previewItem?.title || 'Prévisualisation'"></div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1 font-mono truncate" x-text="previewItem?.object_key || ''"></div>
+                </div>
+                <button
+                    @click="closePreview()"
+                    class="w-10 h-10 rounded-xl border border-be-ink-100 dark:border-white/10 hover:bg-be-ink-50 dark:hover:bg-white/10"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div class="p-5">
+                <template x-if="previewLoading">
+                    <div class="py-12 text-center text-sm text-be-ink-500 dark:text-white/60">Chargement…</div>
+                </template>
+
+                <template x-if="!previewLoading && previewItem">
+                    <div class="space-y-4">
+                        <template x-if="previewItem.kind === 'video' && previewUrl">
+                            <video class="w-full max-h-[72vh] rounded-2xl border border-be-ink-100 dark:border-white/10 bg-black" controls :src="previewUrl"></video>
+                        </template>
+
+                        <template x-if="previewItem.kind === 'audio' && previewUrl">
+                            <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-6">
+                                <audio class="w-full" controls :src="previewUrl"></audio>
+                            </div>
+                        </template>
+
+                        <template x-if="previewItem.kind === 'doc' && previewUrl">
+                            <div class="space-y-3">
+                                <div class="text-sm text-be-ink-500 dark:text-white/60">
+                                    Certains documents peuvent ne pas être prévisualisés selon le navigateur. Utilisez “Ouvrir” si nécessaire.
+                                </div>
+                                <iframe :src="previewUrl" class="w-full h-[72vh] rounded-2xl border border-be-ink-100 dark:border-white/10"></iframe>
+                            </div>
+                        </template>
+
+                        <div class="flex justify-end">
+                            <button
+                                @click="openMedia(previewItem)"
+                                class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold transition"
+                            >
+                                Ouvrir dans un nouvel onglet
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function instructorMediaPage(cfg) {
+function instructorMediaPremiumPage(cfg) {
     return {
         endpoints: cfg.endpoints,
+
         media: [],
-        kind: "",
-        loading: false,
+        filteredMedia: [],
+        previewCache: {},
+
+        courses: [],
+        bindSections: [],
+        bindLessons: [],
+
+        view: "grid",
+        dragover: false,
+
+        filters: {
+            q: "",
+            kind: "",
+            sort: "recent",
+        },
+
+        stats: {
+            total: 0,
+            video: 0,
+            audio: 0,
+            doc: 0,
+        },
+
+        loading: {
+            media: false,
+            upload: false,
+            courses: false,
+            sections: false,
+            lessons: false,
+        },
+
+        drawers: {
+            upload: false,
+        },
+
+        modals: {
+            preview: false,
+        },
+
+        previewItem: null,
+        previewUrl: "",
+        previewLoading: false,
+
+        toast: {
+            show: false,
+            title: "",
+            message: "",
+            type: "success",
+        },
+
+        upload: {
+            file: null,
+            kind: "video",
+            title: "",
+            progress: 0,
+            error: "",
+            upload_id: null,
+            object_key: null,
+            bindEnabled: false,
+            course_id: "",
+            section_id: "",
+            lesson_id: "",
+        },
 
         init() {
             this.loadMedia();
+            this.loadCourses();
+        },
+
+        getCsrf() {
+            const match = document.cookie.match(/csrftoken=([^;]+)/);
+            return match ? match[1] : "";
+        },
+
+        showToast(title, message, type = "success") {
+            this.toast = { show: true, title, message, type };
+            setTimeout(() => {
+                this.toast.show = false;
+            }, 4000);
+        },
+
+        kindLabel(kind) {
+            const map = { video: "Vidéo", audio: "Audio", doc: "Document" };
+            return map[kind] || kind || "—";
+        },
+
+        kindPill(kind) {
+            if (kind === "video") return "bg-be-sky-50 border-be-sky-200 text-be-sky-700";
+            if (kind === "audio") return "bg-be-sun-50 border-be-sun-200 text-be-sun-800";
+            return "bg-be-ink-50 border-be-ink-200 text-be-ink-700";
+        },
+
+        humanBytes(bytes) {
+            const b = Number(bytes || 0);
+            const u = ["B", "KB", "MB", "GB", "TB"];
+            let i = 0;
+            let v = b;
+            while (v >= 1024 && i < u.length - 1) {
+                v /= 1024;
+                i++;
+            }
+            return `${v.toFixed(i ? 1 : 0)} ${u[i]}`;
+        },
+
+        formatDate(value) {
+            if (!value) return "—";
+            const d = new Date(value);
+            if (isNaN(d.getTime())) return value;
+            return d.toLocaleString("fr-FR");
         },
 
         async apiGet(url) {
@@ -118,16 +733,132 @@ function instructorMediaPage(cfg) {
             return await res.json();
         },
 
+        async apiPost(url, payload = {}) {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": this.getCsrf(),
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(payload),
+                credentials: "same-origin"
+            });
+
+            if (!res.ok) {
+                let detail = "";
+                try {
+                    detail = JSON.stringify(await res.json());
+                } catch (e) {}
+                throw new Error(`POST ${url} -> ${res.status} ${detail}`);
+            }
+            return await res.json();
+        },
+
         async loadMedia() {
             try {
-                this.loading = true;
+                this.loading.media = true;
                 const u = new URL(this.endpoints.mediaList, window.location.origin);
-                if (this.kind) u.searchParams.set("kind", this.kind);
-                this.media = await this.apiGet(u.toString());
+                const data = await this.apiGet(u.toString());
+                this.media = Array.isArray(data) ? data : (data.results || []);
+                this.computeStats();
+                this.applyFilters();
+            } catch (e) {
+                console.error(e);
+                this.showToast("Erreur", "Impossible de charger les médias.", "error");
+            } finally {
+                this.loading.media = false;
+            }
+        },
+
+        computeStats() {
+            this.stats.total = this.media.length;
+            this.stats.video = this.media.filter(m => m.kind === "video").length;
+            this.stats.audio = this.media.filter(m => m.kind === "audio").length;
+            this.stats.doc = this.media.filter(m => m.kind === "doc").length;
+        },
+
+        applyFilters() {
+            let items = [...this.media];
+
+            const q = (this.filters.q || "").toLowerCase().trim();
+            if (q) {
+                items = items.filter(m => {
+                    return [
+                        m.title || "",
+                        m.object_key || "",
+                        m.content_type || "",
+                        m.kind || ""
+                    ].join(" ").toLowerCase().includes(q);
+                });
+            }
+
+            if (this.filters.kind) {
+                items = items.filter(m => m.kind === this.filters.kind);
+            }
+
+            if (this.filters.sort === "title") {
+                items.sort((a, b) => (a.title || a.object_key || "").localeCompare(b.title || b.object_key || "", "fr"));
+            } else if (this.filters.sort === "oldest") {
+                items.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+            } else if (this.filters.sort === "size_desc") {
+                items.sort((a, b) => (b.size || 0) - (a.size || 0));
+            } else if (this.filters.sort === "size_asc") {
+                items.sort((a, b) => (a.size || 0) - (b.size || 0));
+            } else {
+                items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+            }
+
+            this.filteredMedia = items;
+        },
+
+        async loadCourses() {
+            try {
+                this.loading.courses = true;
+                const data = await this.apiGet(this.endpoints.courses);
+                this.courses = Array.isArray(data) ? data : (data.results || []);
             } catch (e) {
                 console.error(e);
             } finally {
-                this.loading = false;
+                this.loading.courses = false;
+            }
+        },
+
+        async onBindCourseChange() {
+            this.upload.section_id = "";
+            this.upload.lesson_id = "";
+            this.bindSections = [];
+            this.bindLessons = [];
+
+            if (!this.upload.course_id) return;
+
+            try {
+                this.loading.sections = true;
+                this.bindSections = await this.apiGet(this.endpoints.courseSections(this.upload.course_id));
+            } catch (e) {
+                console.error(e);
+                this.showToast("Erreur", "Impossible de charger les sections.", "error");
+            } finally {
+                this.loading.sections = false;
+            }
+        },
+
+        async onBindSectionChange() {
+            this.upload.lesson_id = "";
+            this.bindLessons = [];
+
+            if (!this.upload.course_id || !this.upload.section_id) return;
+
+            try {
+                this.loading.lessons = true;
+                this.bindLessons = await this.apiGet(
+                    this.endpoints.sectionLessons(this.upload.course_id, this.upload.section_id)
+                );
+            } catch (e) {
+                console.error(e);
+                this.showToast("Erreur", "Impossible de charger les leçons.", "error");
+            } finally {
+                this.loading.lessons = false;
             }
         },
 
@@ -139,20 +870,172 @@ function instructorMediaPage(cfg) {
                 }
             } catch (e) {
                 console.error(e);
-                alert("Impossible d’ouvrir le média.");
+                this.showToast("Erreur", "Impossible d’ouvrir le média.", "error");
             }
         },
 
-        humanBytes(bytes) {
-            const b = Number(bytes || 0);
-            const u = ["B", "KB", "MB", "GB"];
-            let i = 0, v = b;
-            while (v >= 1024 && i < u.length - 1) {
-                v /= 1024;
-                i++;
+        async previewMedia(m) {
+            try {
+                this.previewItem = m;
+                this.previewUrl = "";
+                this.previewLoading = true;
+                this.modals.preview = true;
+
+                const resp = await this.apiGet(this.endpoints.signedGet(m.id));
+                this.previewUrl = resp.url || "";
+
+                if (m.kind === "video" && this.previewUrl) {
+                    this.previewCache[m.id] = this.previewUrl;
+                }
+            } catch (e) {
+                console.error(e);
+                this.showToast("Erreur", "Impossible de prévisualiser le média.", "error");
+            } finally {
+                this.previewLoading = false;
             }
-            return `${v.toFixed(i ? 1 : 0)} ${u[i]}`;
-        }
+        },
+
+        closePreview() {
+            this.modals.preview = false;
+            this.previewItem = null;
+            this.previewUrl = "";
+            this.previewLoading = false;
+        },
+
+        openUploadDrawer() {
+            this.upload = {
+                file: null,
+                kind: "video",
+                title: "",
+                progress: 0,
+                error: "",
+                upload_id: null,
+                object_key: null,
+                bindEnabled: false,
+                course_id: "",
+                section_id: "",
+                lesson_id: "",
+            };
+            this.bindSections = [];
+            this.bindLessons = [];
+            this.drawers.upload = true;
+        },
+
+        closeUploadDrawer() {
+            this.drawers.upload = false;
+        },
+
+        handleFilePicked(event) {
+            const file = event.target.files?.[0] || null;
+            if (!file) return;
+            this.setPickedFile(file);
+        },
+
+        handleDrop(event) {
+            this.dragover = false;
+            const file = event.dataTransfer?.files?.[0] || null;
+            if (!file) return;
+            this.setPickedFile(file);
+        },
+
+        setPickedFile(file) {
+            this.upload.file = file;
+
+            if (file.type.startsWith("video/")) this.upload.kind = "video";
+            else if (file.type.startsWith("audio/")) this.upload.kind = "audio";
+            else this.upload.kind = "doc";
+
+            if (!this.upload.title) {
+                this.upload.title = file.name.replace(/\.[^/.]+$/, "");
+            }
+        },
+
+        async startUpload() {
+            try {
+                this.upload.error = "";
+
+                if (!this.upload.file) {
+                    this.upload.error = "Choisissez un fichier.";
+                    return;
+                }
+
+                if (this.upload.bindEnabled) {
+                    if (!this.upload.course_id || !this.upload.section_id || !this.upload.lesson_id) {
+                        this.upload.error = "Sélectionnez le cours, la section et la leçon à lier.";
+                        return;
+                    }
+                }
+
+                this.loading.upload = true;
+                this.upload.progress = 1;
+
+                const initResp = await this.apiPost(this.endpoints.uploadInit, {
+                    filename: this.upload.file.name,
+                    content_type: this.upload.file.type || "application/octet-stream",
+                    size: this.upload.file.size,
+                    kind: this.upload.kind,
+                    title: this.upload.title || ""
+                });
+
+                this.upload.upload_id = initResp.upload_id;
+                this.upload.object_key = initResp.object_key;
+
+                await this.putFile(initResp.upload_url, this.upload.file, initResp.headers || {});
+
+                const finalizePayload = {
+                    upload_id: this.upload.upload_id,
+                    object_key: this.upload.object_key,
+                    kind: this.upload.kind,
+                    title: this.upload.title || "",
+                    content_type: this.upload.file.type || "application/octet-stream",
+                    size: this.upload.file.size,
+                    duration_seconds: null,
+                    bind: this.upload.bindEnabled ? {
+                        course_id: Number(this.upload.course_id),
+                        section_id: Number(this.upload.section_id),
+                        lesson_id: Number(this.upload.lesson_id),
+                    } : null
+                };
+
+                await this.apiPost(this.endpoints.uploadFinalize, finalizePayload);
+
+                this.upload.progress = 100;
+                this.drawers.upload = false;
+                this.showToast("Succès", "Le média a été importé avec succès.");
+                await this.loadMedia();
+            } catch (e) {
+                console.error(e);
+                this.upload.error = "Upload échoué. Vérifiez la configuration MinIO et réessayez.";
+                this.showToast("Erreur", "Import impossible.", "error");
+            } finally {
+                this.loading.upload = false;
+            }
+        },
+
+        async putFile(uploadUrl, file, headers) {
+            await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("PUT", uploadUrl, true);
+
+                Object.entries(headers || {}).forEach(([k, v]) => {
+                    xhr.setRequestHeader(k, v);
+                });
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        this.upload.progress = Math.round((e.loaded / e.total) * 100);
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) resolve();
+                    else reject(new Error(`Upload HTTP ${xhr.status}`));
+                };
+
+                xhr.onerror = () => reject(new Error("network"));
+                xhr.send(file);
+            });
+        },
     }
 }
 </script>

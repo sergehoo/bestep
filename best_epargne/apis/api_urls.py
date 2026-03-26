@@ -11,7 +11,9 @@ from best_epargne.apis.views import CategoryViewSet, CourseViewSet, InstructorCo
     LearnerCourseDetailView, LearnerCourseProgressView, LearnerNotificationsView, LearnerPaymentsView, \
     LearnerProgressView, LearnerExploreCoursesView, LearnerEnrollView, LearnerCourseOutlineView, LearnerContinueView, \
     LearnerLessonStateView, LearnerLessonProgressUpdateView, LearnerSetCurrentLessonView, LearnerCoursePlayerDataView, \
-    LearnerMediaSignedGetView
+    LearnerMediaSignedGetView, InstructorQuizDetailView, InstructorQuizQuestionCreateView, LearnerSectionQuizView, \
+    LearnerSectionQuizSubmitView, InstructorCourseQuizListView, InstructorSectionQuizCreateView, \
+    InstructorSectionQuizAssignView, InstructorSectionQuizUnassignView, InstructorQuizListView, InstructorQuizUpdateView
 # from catalog.api.views import CourseViewSet, CategoryViewSet
 from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
 from organizations.api import CompanyMembersViewSet
@@ -32,11 +34,11 @@ urlpatterns = [
     path("instructor/reviews/", InstructorReviewsView.as_view(), name="api_instructor_reviews"),
     path("instructor/payouts/", InstructorPayoutsView.as_view(), name="api_instructor_payouts"),
     path("instructor/notifications/", InstructorNotificationsView.as_view(), name="api_instructor_notifications"),
-    path("instructor/courses/", CourseViewSet.as_view({"get": "my_courses"}),name="api_instructor_courses",),
+    path("instructor/courses/", CourseViewSet.as_view({"get": "my_courses"}), name="api_instructor_courses", ),
     path("instructor/courses/create/",
-        CourseViewSet.as_view({"post": "create"}),
-        name="api_instructor_course_create",
-    ),
+         CourseViewSet.as_view({"post": "create"}),
+         name="api_instructor_course_create",
+         ),
 
     # (optionnel mais utile)
     path(
@@ -60,14 +62,14 @@ urlpatterns = [
 
     # --- Builder: lessons ---
     path("instructor/courses/<int:course_id>/sections/<int:section_id>/lessons/",
-         InstructorLessonListView.as_view(), name="api_instructor_lessons",),
+         InstructorLessonListView.as_view(), name="api_instructor_lessons", ),
     path("instructor/courses/<int:course_id>/sections/<int:section_id>/lessons/create/",
-         InstructorLessonCreateView.as_view(),name="api_instructor_lesson_create"),
+         InstructorLessonCreateView.as_view(), name="api_instructor_lesson_create"),
     path("instructor/courses/<int:course_id>/sections/<int:section_id>/lessons/<int:lesson_id>/update/",
-         InstructorLessonUpdateView.as_view(),name="api_instructor_lesson_update"),
+         InstructorLessonUpdateView.as_view(), name="api_instructor_lesson_update"),
     path("instructor/courses/<int:course_id>/sections/<int:section_id>/lessons/<int:lesson_id>/delete/",
          InstructorLessonDeleteView.as_view(),
-        name="api_instructor_lesson_delete"),
+         name="api_instructor_lesson_delete"),
 
     path("learner/me/", LearnerMeView.as_view(), name="api_learner_me"),
     path("learner/kpis/", LearnerKpisView.as_view(), name="api_learner_kpis"),
@@ -88,14 +90,66 @@ urlpatterns = [
     path("learner/courses/", LearnerExploreCoursesView.as_view(), name="api_learner_courses_explore"),
     path("learner/courses/<int:course_id>/enroll/", LearnerEnrollView.as_view(), name="api_learner_enroll"),
 
-    path("learner/courses/<int:course_id>/outline/", LearnerCourseOutlineView.as_view(), name="api_learner_course_outline"),
+    path("learner/courses/<int:course_id>/outline/", LearnerCourseOutlineView.as_view(),
+         name="api_learner_course_outline"),
     path("learner/courses/<int:course_id>/continue/", LearnerContinueView.as_view(), name="api_learner_continue"),
 
-    path("learner/courses/<int:course_id>/lessons/<int:lesson_id>/state/", LearnerLessonStateView.as_view(), name="api_learner_lesson_state"),
-    path("learner/courses/<int:course_id>/lessons/<int:lesson_id>/progress/", LearnerLessonProgressUpdateView.as_view(), name="api_learner_lesson_progress_update"),
-    path("learner/courses/<int:course_id>/set-current/", LearnerSetCurrentLessonView.as_view(), name="api_learner_set_current"),
+    path("learner/courses/<int:course_id>/lessons/<int:lesson_id>/state/", LearnerLessonStateView.as_view(),
+         name="api_learner_lesson_state"),
+    path("learner/courses/<int:course_id>/lessons/<int:lesson_id>/progress/", LearnerLessonProgressUpdateView.as_view(),
+         name="api_learner_lesson_progress_update"),
+    path("learner/courses/<int:course_id>/set-current/", LearnerSetCurrentLessonView.as_view(),
+         name="api_learner_set_current"),
 
+    # Instructor quiz APIs
+    path(
+        "instructor/courses/<int:course_id>/quizzes/",
+        InstructorCourseQuizListView.as_view(),
+        name="api_instructor_course_quizzes"
+    ),
+    path(
+        "instructor/courses/<int:course_id>/sections/<int:section_id>/quiz/create/",
+        InstructorSectionQuizCreateView.as_view(),
+        name="api_instructor_section_quiz_create"
+    ),
+    path(
+        "instructor/courses/<int:course_id>/sections/<int:section_id>/quiz/assign/",
+        InstructorSectionQuizAssignView.as_view(),
+        name="api_instructor_section_quiz_assign"
+    ),
+    path(
+        "instructor/courses/<int:course_id>/sections/<int:section_id>/quiz/unassign/",
+        InstructorSectionQuizUnassignView.as_view(),
+        name="api_instructor_section_quiz_unassign"
+    ),
+    path(
+        "instructor/quizzes/<int:quiz_id>/",
+        InstructorQuizDetailView.as_view(),
+        name="api_instructor_quiz_detail"
+    ),
+    path(
+        "instructor/quizzes/<int:quiz_id>/questions/create/",
+        InstructorQuizQuestionCreateView.as_view(),
+        name="api_instructor_quiz_question_create"
+    ),
 
+    # Learner quiz APIs
+    path(
+        "learner/courses/<int:course_id>/sections/<int:section_id>/quiz/",
+        LearnerSectionQuizView.as_view(),
+        name="api_learner_section_quiz"
+    ),
+    path(
+        "learner/courses/<int:course_id>/sections/<int:section_id>/quiz/submit/",
+        LearnerSectionQuizSubmitView.as_view(),
+        name="api_learner_section_quiz_submit"
+    ),
+path("instructor/quizzes/", InstructorQuizListView.as_view(), name="api_instructor_quizzes"),
+path(
+    "instructor/quizzes/<int:quiz_id>/update/",
+    InstructorQuizUpdateView.as_view(),
+    name="api_instructor_quiz_update"
+),
     # --- Media / MinIO upload ---
     path("media/upload/init/", MediaUploadInitView.as_view(), name="api_media_upload_init"),
     path("media/upload/finalize/", MediaUploadFinalizeView.as_view(), name="api_media_upload_finalize"),

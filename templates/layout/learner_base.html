@@ -1,335 +1,707 @@
 {% load static %}
 <!doctype html>
-<html lang="fr" class="h-full"
+<html lang="fr"
+      class="h-full"
       x-data="appShell()"
       x-init="initShell()"
-      :class="theme==='dark' ? 'dark' : ''">
+      :class="{ 'dark': theme === 'dark' }">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>{% block title %}best-épargne — Apprenant{% endblock %}</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>{% block title %}best-épargne — Apprenant{% endblock %}</title>
 
-  <!-- Tailwind + Alpine (CDN, ok en dev) -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            be: {
-              sky: { 50:"#F2FAFF",100:"#DEF3FF",200:"#BEE8FF",300:"#8AD7FF",400:"#4DBFFF",500:"#1EA7FF",600:"#0C87D6",700:"#0B6FAE",800:"#0C5C8E",900:"#0A466B" },
-              sun: { 50:"#FFFBEA",100:"#FFF3BF",200:"#FFE58A",300:"#FFD14D",400:"#FFBD1F",500:"#F7A600",600:"#D48300",700:"#AD6400",800:"#8A4E00",900:"#6A3B00" },
-              ink: { 50:"#F7FAFC",100:"#EEF2F7",200:"#D7DEE9",300:"#B5C0D4",400:"#7E8AA6",500:"#5B6783",600:"#3F4A63",700:"#2B3449",800:"#1E2536",900:"#121827" }
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        be: {
+                            sky: {
+                                50: "#F2FAFF",
+                                100: "#DEF3FF",
+                                200: "#BEE8FF",
+                                300: "#8AD7FF",
+                                400: "#4DBFFF",
+                                500: "#1EA7FF",
+                                600: "#0C87D6",
+                                700: "#0B6FAE",
+                                800: "#0C5C8E",
+                                900: "#0A466B"
+                            },
+                            sun: {
+                                50: "#FFFBEA",
+                                100: "#FFF3BF",
+                                200: "#FFE58A",
+                                300: "#FFD14D",
+                                400: "#FFBD1F",
+                                500: "#F7A600",
+                                600: "#D48300",
+                                700: "#AD6400",
+                                800: "#8A4E00",
+                                900: "#6A3B00"
+                            },
+                            ink: {
+                                50: "#F7FAFC",
+                                100: "#EEF2F7",
+                                200: "#D7DEE9",
+                                300: "#B5C0D4",
+                                400: "#7E8AA6",
+                                500: "#5B6783",
+                                600: "#3F4A63",
+                                700: "#2B3449",
+                                800: "#1E2536",
+                                900: "#121827"
+                            }
+                        }
+                    },
+                    boxShadow: {
+                        soft: "0 10px 30px rgba(12,92,142,.12)",
+                        ring: "0 0 0 6px rgba(30,167,255,.12)",
+                        lift: "0 12px 40px rgba(18,24,39,.14)"
+                    },
+                    borderRadius: {
+                        '2.5xl': '1.25rem'
+                    },
+                    transitionTimingFunction: {
+                        'soft': 'cubic-bezier(0.22, 1, 0.36, 1)',
+                    }
+                }
             }
-          },
-          boxShadow: {
-            soft: "0 10px 30px rgba(12,92,142,.12)",
-            ring: "0 0 0 6px rgba(30,167,255,.12)",
-            lift: "0 12px 40px rgba(18,24,39,.14)"
-          },
-          borderRadius: { '2.5xl': '1.25rem' }
         }
-      }
-    }
-  </script>
+    </script>
 
-  <style>
-    .no-scrollbar::-webkit-scrollbar{display:none}
-    .no-scrollbar{-ms-overflow-style:none; scrollbar-width:none}
-    [x-cloak]{display:none !important}
-  </style>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        [x-cloak] { display: none !important; }
 
-  {% block extra_head %}{% endblock %}
+        html, body {
+            transition: background-color .25s ease, color .25s ease;
+        }
+
+        .sidebar-width-expanded {
+            width: 320px;
+        }
+
+        .sidebar-width-collapsed {
+            width: 104px;
+        }
+
+        .shell-transition {
+            transition:
+                width .25s cubic-bezier(0.22, 1, 0.36, 1),
+                margin .25s cubic-bezier(0.22, 1, 0.36, 1),
+                transform .2s ease,
+                opacity .2s ease,
+                background-color .25s ease,
+                color .25s ease,
+                border-color .25s ease,
+                box-shadow .25s ease;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
 </head>
 
-<body class="h-full bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50
-             dark:from-be-ink-900 dark:via-be-ink-900 dark:to-black
-             text-be-ink-900 dark:text-be-ink-50">
+<body class="h-full bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50 dark:from-be-ink-900 dark:via-be-ink-900 dark:to-black text-be-ink-900 dark:text-be-ink-50 antialiased"
+      @keydown.window.escape="sidebar.mobileOpen = false">
 
-<!-- Layout wrapper -->
-<div class="min-h-full"
-     :class="sidebar.collapsed ? 'be-sidebar-collapsed' : 'be-sidebar-expanded'">
+<div class="min-h-full">
 
-  <!-- MOBILE overlay drawer -->
-  <div x-cloak x-show="sidebar.mobileOpen" x-transition.opacity class="fixed inset-0 z-50 lg:hidden">
-    <div class="absolute inset-0 bg-black/50" @click="sidebar.mobileOpen=false"></div>
+    <!-- Mobile sidebar overlay -->
+    <div x-cloak
+         x-show="sidebar.mobileOpen"
+         x-transition.opacity
+         class="fixed inset-0 z-50 lg:hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px]" @click="sidebar.mobileOpen = false"></div>
 
-    <div x-transition:enter="transition transform duration-200"
-         x-transition:enter-start="-translate-x-full"
-         x-transition:enter-end="translate-x-0"
-         x-transition:leave="transition transform duration-200"
-         x-transition:leave-start="translate-x-0"
-         x-transition:leave-end="-translate-x-full"
-         class="absolute left-0 top-0 h-full w-[86%] max-w-[320px]">
-
-      {% block sidebar_mobile %}
-        {% include "partials/learner_side.html" with mode="mobile" %}
-      {% endblock %}
+        <aside x-transition:enter="transition transform duration-300 ease-out"
+               x-transition:enter-start="-translate-x-full opacity-0"
+               x-transition:enter-end="translate-x-0 opacity-100"
+               x-transition:leave="transition transform duration-200 ease-in"
+               x-transition:leave-start="translate-x-0 opacity-100"
+               x-transition:leave-end="-translate-x-full opacity-0"
+               class="absolute left-0 top-0 h-full w-[88%] max-w-[340px] p-3 shell-transition">
+            <div class="h-full overflow-auto no-scrollbar">
+                {% block sidebar_mobile %}
+                <div x-data="learnerSidebar({ mode: 'mobile' })"
+                     x-init="init()"
+                     class="h-full rounded-[1.25rem] border border-be-ink-100/70 dark:border-white/10 bg-white/95 dark:bg-be-ink-900/95 backdrop-blur-xl shadow-lift overflow-hidden">
+                    {{ "" }}
+                    <div class="h-full flex flex-col">
+                        <div class="flex-1 overflow-auto no-scrollbar">
+                            {% include "partials/learner_side.html" with mode="mobile" %}
+                        </div>
+                    </div>
+                </div>
+                {% endblock %}
+            </div>
+        </aside>
     </div>
-  </div>
 
-  <!-- Topbar -->
-  <header class="sticky top-0 z-40">
-    <div class="mx-auto max-w-[1600px] px-3 sm:px-6 py-3">
-      <div class="flex items-center justify-between gap-3 rounded-2.5xl border border-be-sky-100/70
-                  dark:border-white/10 bg-white/75 dark:bg-white/5 backdrop-blur-xl shadow-soft px-3 sm:px-4 py-2.5">
+    <!-- Topbar -->
+    <header class="sticky top-0 z-40">
+        <div class="mx-auto max-w-[1600px] px-3 sm:px-6 py-3">
+            <div class="flex items-center justify-between gap-3 rounded-2.5xl border border-be-sky-100/70 dark:border-white/10 bg-white/75 dark:bg-white/5 backdrop-blur-xl shadow-soft px-3 sm:px-4 py-2.5 shell-transition">
 
-        <!-- Left: menu + brand -->
-        <div class="flex items-center gap-2 min-w-0">
-          <!-- Mobile open -->
-          <button class="lg:hidden w-10 h-10 inline-flex items-center justify-center rounded-xl
-                         border border-be-ink-100/70 dark:border-white/10
-                         hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition"
-                  @click="sidebar.mobileOpen=true" aria-label="Ouvrir le menu">
-            <img src="{% static 'img/logo_img.png' %}" alt="Logo" class="w-7 h-7 object-contain">
-          </button>
+                <!-- Left -->
+                <div class="flex items-center gap-2 min-w-0">
+                    <button class="lg:hidden w-10 h-10 inline-flex items-center justify-center rounded-xl border border-be-ink-100/70 dark:border-white/10 hover:bg-be-ink-50/70 dark:hover:bg-white/10 transition"
+                            @click="sidebar.mobileOpen = true"
+                            aria-label="Ouvrir le menu">
+                        <img src="{% static 'img/logo_img.png' %}" alt="Logo" class="w-7 h-7 object-contain">
+                    </button>
 
-          <!-- Desktop collapse -->
-          <button class="hidden lg:inline-flex w-10 h-10 items-center justify-center rounded-xl
-                         border border-be-ink-100/70 dark:border-white/10
-                         hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition"
-                  @click="toggleCollapsed()" aria-label="Réduire/étendre le menu">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <path d="M8 6h13M8 12h13M8 18h13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M3.5 7.5l2-1.5v12l-2-1.5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-          </button>
+                    <button class="hidden lg:inline-flex w-10 h-10 items-center justify-center rounded-xl border border-be-ink-100/70 dark:border-white/10 hover:bg-be-ink-50/70 dark:hover:bg-white/10 transition"
+                            @click="toggleCollapsed()"
+                            :title="sidebar.collapsed ? 'Étendre la barre latérale' : 'Réduire la barre latérale'"
+                            aria-label="Réduire ou étendre le menu">
+                        <svg class="w-5 h-5 transition-transform duration-300"
+                             :class="sidebar.collapsed ? 'rotate-180' : ''"
+                             viewBox="0 0 24 24" fill="none">
+                            <path d="M8 6h13M8 12h13M8 18h13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M3.5 7.5l2-1.5v12l-2-1.5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
 
-          <!-- Brand (pas de <a> imbriqué) -->
-          <a href="{% url 'learner_dashboard' %}" class="flex items-center gap-3 group min-w-0">
-            <div class="w-24 h-12 rounded-xl overflow-hidden flex items-center justify-center">
-              <img src="{% static 'img/logo-2.png' %}" alt="Logo" class="w-24 h-10 object-contain">
+                    <a href="{% url 'learner_dashboard' %}" class="flex items-center gap-3 group min-w-0">
+                        <div class="w-24 h-12 rounded-xl overflow-hidden flex items-center justify-center">
+                            <img src="{% static 'img/logo-2.png' %}" alt="Logo" class="w-24 h-10 object-contain">
+                        </div>
+
+                        <div class="leading-tight min-w-0">
+                            <div class="font-semibold tracking-tight truncate">best-épargne</div>
+                            <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5 truncate">
+                                {% block topbar_subtitle %}Espace Apprenant{% endblock %}
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Search -->
+                <div class="hidden lg:flex flex-1 max-w-xl min-w-0">
+                    {% block topbar_search %}
+                    <div class="relative w-full"
+                         x-data="topbarSearch()"
+                         x-init="init()">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/50">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
+                                      stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+
+                        <input
+                            x-model.debounce.300ms="q"
+                            @input="sync()"
+                            placeholder="Rechercher un cours…"
+                            class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-be-ink-100/70 dark:border-white/10 bg-white/85 dark:bg-white/5 text-be-ink-900 dark:text-white placeholder:text-be-ink-400 dark:placeholder:text-white/40 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 dark:focus:ring-white/10 shell-transition text-sm"
+                        />
+
+                        <button type="button"
+                                x-show="q && q.length"
+                                @click="clear()"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg inline-flex items-center justify-center hover:bg-be-ink-50/70 dark:hover:bg-white/10 transition"
+                                aria-label="Effacer">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+
+                        <div x-show="loading"
+                             class="absolute -bottom-5 left-0 text-[11px] text-be-ink-400 dark:text-white/50">
+                            Recherche…
+                        </div>
+                    </div>
+                    {% endblock %}
+                </div>
+
+                <!-- Right -->
+                <div class="flex items-center gap-2 shrink-0">
+                    {% block topbar_actions %}{% endblock %}
+
+                    <button class="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-be-ink-100/70 dark:border-white/10 hover:bg-be-ink-50/70 dark:hover:bg-white/10 transition"
+                            @click="toggleTheme()"
+                            :title="theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'"
+                            aria-label="Basculer thème">
+                        <template x-if="theme === 'light'">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12Z" stroke="currentColor" stroke-width="2"/>
+                                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                                      stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </template>
+                        <template x-if="theme === 'dark'">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                                <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8Z"
+                                      stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            </svg>
+                        </template>
+                    </button>
+
+                    {% block topbar_user %}
+                    <div class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl border border-be-ink-100/70 dark:border-white/10 bg-white/80 dark:bg-white/5 shell-transition">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-be-sun-300 to-be-sun-500 flex items-center justify-center text-be-ink-900 font-semibold text-sm"
+                             x-text="($store.learner && $store.learner.me && $store.learner.me.initials) ? $store.learner.me.initials : 'A'"></div>
+
+                        <div class="hidden sm:block leading-tight">
+                            <div class="text-sm font-semibold"
+                                 x-text="($store.learner && $store.learner.me) ? ($store.learner.me.full_name || $store.learner.me.email || 'Apprenant') : 'Apprenant'"></div>
+                            <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5">Apprenant</div>
+                        </div>
+                    </div>
+                    {% endblock %}
+                </div>
             </div>
-
-            <div class="leading-tight min-w-0">
-              <div class="font-semibold tracking-tight truncate">
-                best-épargne
-              </div>
-              <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5 truncate">
-                {% block topbar_subtitle %}Espace Apprenant{% endblock %}
-              </div>
-            </div>
-          </a>
         </div>
+    </header>
 
-        <!-- Search slot -->
-        <div class="hidden lg:flex flex-1 max-w-xl">
-          {% block topbar_search %}
-          <div class="relative w-full" x-data="topbarSearch()">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/50">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </span>
+    <!-- Main layout -->
+    <div class="mx-auto max-w-[1600px] px-3 sm:px-6 pb-10">
+        <div class="mt-4 flex gap-4 items-start">
 
-            <!-- ✅ IMPORTANT: x-model assignable (plus de ternaire) -->
-            <input
-              x-model.debounce.300ms="q"
-              @input="sync()"
-              placeholder="Rechercher un cours…"
-              class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-be-ink-100/70 dark:border-white/10
-                     bg-white/80 dark:bg-white/5 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 text-sm"/>
+            <!-- Desktop sidebar -->
+            <aside class="hidden lg:block shrink-0 shell-transition"
+                   :class="sidebar.collapsed ? 'sidebar-width-collapsed' : 'sidebar-width-expanded'">
+                <div class="sticky top-[92px]">
+                    {% block sidebar %}
+                    <div x-data="learnerSidebar({ mode: 'desktop' })"
+                         x-init="init()"
+                         class="rounded-2.5xl border border-be-ink-100/70 dark:border-white/10 bg-white/80 dark:bg-white/5 shadow-soft overflow-hidden shell-transition">
 
-            <!-- Clear -->
-            <button type="button"
-                    x-show="q && q.length"
-                    @click="clear()"
-                    class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg
-                           inline-flex items-center justify-center
-                           hover:bg-be-ink-50/70 dark:hover:bg-white/10 transition"
-                    aria-label="Effacer">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </button>
+                        <!-- Header -->
+                        <div class="p-4 border-b border-be-ink-100/70 dark:border-white/10 shell-transition">
+                            <div class="flex items-center gap-3">
+                                <div class="w-14 h-11 rounded-2xl bg-gradient-to-br from-be-sky-500 to-be-sky-700 text-white flex items-center justify-center shadow-ring overflow-hidden shrink-0">
+                                    <img src="{% static 'img/logo_img.png' %}" alt="logo" class="w-8 h-8 object-contain">
+                                </div>
 
-            <!-- Tiny loading indicator (optionnel) -->
-            <div x-show="loading"
-                 class="absolute -bottom-5 left-0 text-[11px] text-be-ink-400 dark:text-white/50">
-              Recherche…
-            </div>
-          </div>
-          {% endblock %}
+                                <div class="min-w-0 shell-transition"
+                                     x-show="!collapsed"
+                                     x-transition.opacity.duration.150ms>
+                                    <div class="font-extrabold tracking-tight truncate">Espace Apprenant</div>
+                                    <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5 truncate">
+                                        Mes cours • progression • alertes
+                                    </div>
+                                </div>
+
+                                <div class="ml-auto shrink-0" x-show="collapsed">
+                                    <div class="w-9 h-9 rounded-xl border border-be-ink-100/70 dark:border-white/10 bg-white/70 dark:bg-white/5 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-be-ink-500 dark:text-white/60" viewBox="0 0 24 24" fill="none">
+                                            <path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            <path d="M12 8v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Nav -->
+                        <nav class="p-2">
+                            <div class="px-2 pt-2 pb-1" x-show="!collapsed">
+                                <div class="text-[11px] font-semibold text-be-ink-500 dark:text-white/60 uppercase tracking-wide">
+                                    Apprentissage
+                                </div>
+                            </div>
+
+                            <a href="{% url 'learner_dashboard' %}"
+                               :aria-current="isActive('dashboard') ? 'page' : null"
+                               class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 dark:focus:ring-white/10"
+                               :class="linkClass('dashboard')"
+                               :title="collapsed ? 'Dashboard' : ''">
+                                <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 group-hover:shadow-sm transition shrink-0">
+                                    <svg class="w-5 h-5" :class="iconClass('dashboard')" viewBox="0 0 24 24" fill="none">
+                                        <path d="M3 10.5 12 3l9 7.5V21a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 21v-10.5Z"
+                                              stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                        <path d="M9 22v-7h6v7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+
+                                <span class="min-w-0" x-show="!collapsed" x-transition.opacity.duration.150ms>
+                                    <span class="block text-sm font-semibold truncate">Dashboard</span>
+                                    <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">KPIs & résumé</span>
+                                </span>
+
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2" x-show="isActive('dashboard')">
+                                    <span class="w-2 h-2 rounded-full bg-be-sky-600"></span>
+                                </span>
+                            </a>
+
+                            <a href="#"
+                               :aria-current="isActive('my_courses') ? 'page' : null"
+                               class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 dark:focus:ring-white/10"
+                               :class="linkClass('my_courses')"
+                               :title="collapsed ? 'Mes cours' : ''">
+                                <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 group-hover:shadow-sm transition shrink-0">
+                                    <svg class="w-5 h-5" :class="iconClass('my_courses')" viewBox="0 0 24 24" fill="none">
+                                        <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                        <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </span>
+
+                                <span class="min-w-0" x-show="!collapsed" x-transition.opacity.duration.150ms>
+                                    <span class="block text-sm font-semibold truncate">Mes cours</span>
+                                    <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Inscriptions</span>
+                                </span>
+
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2" x-show="isActive('my_courses')">
+                                    <span class="w-2 h-2 rounded-full bg-be-sky-600"></span>
+                                </span>
+                            </a>
+
+                            <a href="#"
+                               :aria-current="isActive('progress') ? 'page' : null"
+                               class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 dark:focus:ring-white/10"
+                               :class="linkClass('progress', 'sun')"
+                               :title="collapsed ? 'Progression' : ''">
+                                <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 group-hover:shadow-sm transition shrink-0">
+                                    <svg class="w-5 h-5" :class="iconClass('progress', 'sun')" viewBox="0 0 24 24" fill="none">
+                                        <path d="M3 17l6-6 4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M14 7h7v7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+
+                                <span class="min-w-0" x-show="!collapsed" x-transition.opacity.duration.150ms>
+                                    <span class="block text-sm font-semibold truncate">Progression</span>
+                                    <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Leçons & complétion</span>
+                                </span>
+
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2" x-show="isActive('progress')">
+                                    <span class="w-2 h-2 rounded-full bg-be-sun-500"></span>
+                                </span>
+                            </a>
+
+                            <div class="my-3 border-t border-be-ink-100/70 dark:border-white/10"></div>
+
+                            <div class="px-2 pt-1 pb-1" x-show="!collapsed">
+                                <div class="text-[11px] font-semibold text-be-ink-500 dark:text-white/60 uppercase tracking-wide">
+                                    Compte
+                                </div>
+                            </div>
+
+                            <a href="#"
+                               :aria-current="isActive('notifications') ? 'page' : null"
+                               class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 dark:focus:ring-white/10"
+                               :class="linkClass('notifications', 'ink')"
+                               :title="collapsed ? 'Notifications' : ''">
+                                <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 group-hover:shadow-sm transition shrink-0">
+                                    <svg class="w-5 h-5" :class="iconClass('notifications', 'ink')" viewBox="0 0 24 24" fill="none">
+                                        <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"
+                                              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        <path d="M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </span>
+
+                                <span class="min-w-0" x-show="!collapsed" x-transition.opacity.duration.150ms>
+                                    <span class="block text-sm font-semibold truncate">Notifications</span>
+                                    <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Alertes & infos</span>
+                                </span>
+
+                                <span class="ml-auto text-[11px] px-2 py-1 rounded-full border border-be-ink-100 bg-white/70 dark:bg-white/5 text-be-ink-600 dark:text-white/70"
+                                      x-show="!collapsed && badge.notifications !== null"
+                                      x-text="badge.notifications"></span>
+
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2"
+                                      x-show="collapsed && badge.notifications">
+                                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                                </span>
+                            </a>
+
+                            <a href="#"
+                               :aria-current="isActive('payments') ? 'page' : null"
+                               class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 dark:focus:ring-white/10"
+                               :class="linkClass('payments', 'sun')"
+                               :title="collapsed ? 'Paiements' : ''">
+                                <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 group-hover:shadow-sm transition shrink-0">
+                                    <svg class="w-5 h-5" :class="iconClass('payments', 'sun')" viewBox="0 0 24 24" fill="none">
+                                        <path d="M21 7H3V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2Z" stroke="currentColor" stroke-width="2"/>
+                                        <path d="M3 7v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7" stroke="currentColor" stroke-width="2"/>
+                                        <path d="M7 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </span>
+
+                                <span class="min-w-0" x-show="!collapsed" x-transition.opacity.duration.150ms>
+                                    <span class="block text-sm font-semibold truncate">Paiements</span>
+                                    <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Historique</span>
+                                </span>
+
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2" x-show="isActive('payments')">
+                                    <span class="w-2 h-2 rounded-full bg-be-sun-500"></span>
+                                </span>
+                            </a>
+
+                            <div class="my-3 border-t border-be-ink-100/70 dark:border-white/10"></div>
+
+                            <div class="p-2">
+                                <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white/70 dark:bg-white/5 p-3 shell-transition">
+                                    <div class="text-[11px] font-semibold text-be-ink-500 dark:text-white/60 uppercase tracking-wide"
+                                         x-show="!collapsed">
+                                        Actions rapides
+                                    </div>
+
+                                    <div class="mt-2 grid gap-2"
+                                         :class="collapsed ? 'grid-cols-1' : 'grid-cols-2'">
+                                        <a href="#"
+                                           class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-xs font-semibold hover:bg-be-sky-700 transition text-center"
+                                           :title="collapsed ? 'Explorer' : ''">
+                                            <span x-show="!collapsed">Explorer</span>
+                                            <span x-show="collapsed">🔎</span>
+                                        </a>
+
+                                        <a href="#"
+                                           class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-semibold transition text-center"
+                                           :title="collapsed ? 'Support' : ''">
+                                            <span x-show="!collapsed">Support</span>
+                                            <span x-show="collapsed">💬</span>
+                                        </a>
+                                    </div>
+
+                                    <div class="mt-2 text-[11px] text-be-ink-500 dark:text-white/60"
+                                         x-show="!collapsed">
+                                        Astuce : clique sur “Progression” pour voir les détails par leçon.
+                                    </div>
+                                </div>
+                            </div>
+                        </nav>
+
+                        <!-- Footer -->
+                        <div class="p-3 border-t border-be-ink-100/70 dark:border-white/10">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="text-[11px] text-be-ink-500 dark:text-white/60" x-show="!collapsed">
+                                    © <span x-text="new Date().getFullYear()"></span> best-épargne
+                                </div>
+
+                                <div class="flex gap-2">
+                                    <a href="#"
+                                       class="w-10 h-10 rounded-xl inline-flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition"
+                                       title="Paramètres">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                                            <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M19.4 15a7.9 7.9 0 0 0 .1-1l2-1.5-2-3.5-2.4.6a7.8 7.8 0 0 0-1.7-1l-.3-2.5H10l-.3 2.5a7.8 7.8 0 0 0-1.7 1L5.6 9 3.6 12.5l2 1.5a7.9 7.9 0 0 0 .1 1l-2 1.5 2 3.5 2.4-.6a7.8 7.8 0 0 0 1.7 1l.3 2.5h4.4l.3-2.5a7.8 7.8 0 0 0 1.7-1l2.4.6 2-3.5-2-1.5Z"
+                                                  stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                        </svg>
+                                    </a>
+
+                                    <form method="post" action="{% url 'account_logout' %}" class="contents">
+                                        {% csrf_token %}
+                                        <button type="submit"
+                                                class="w-10 h-10 rounded-xl inline-flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition"
+                                                title="Déconnexion">
+                                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                                                <path d="M10 17l5-5-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                <path d="M21 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endblock %}
+                </div>
+            </aside>
+
+            <!-- Main -->
+            <main class="min-w-0 flex-1">
+                {% block content %}{% endblock %}
+            </main>
         </div>
-
-        <!-- Right actions -->
-        <div class="flex items-center gap-2 shrink-0">
-          {% block topbar_actions %}{% endblock %}
-
-          <button class="w-10 h-10 inline-flex items-center justify-center rounded-xl
-                         border border-be-ink-100/70 dark:border-white/10
-                         hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition"
-                  @click="toggleTheme()" aria-label="Basculer thème">
-            <template x-if="theme==='light'">
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                <path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12Z" stroke="currentColor" stroke-width="2"/>
-                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-                      stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </template>
-            <template x-if="theme==='dark'">
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8Z"
-                      stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              </svg>
-            </template>
-          </button>
-
-          {% block topbar_user %}
-          <div class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl
-                      border border-be-ink-100/70 dark:border-white/10
-                      bg-white/80 dark:bg-white/5">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-be-sun-300 to-be-sun-500
-                        flex items-center justify-center text-be-ink-900 font-semibold text-sm"
-                 x-text="($store.learner?.me?.initials) ? $store.learner.me.initials : 'A'"></div>
-
-            <div class="hidden sm:block leading-tight">
-              <div class="text-sm font-semibold"
-                   x-text="($store.learner?.me) ? ($store.learner.me.full_name || $store.learner.me.email || 'Apprenant') : 'Apprenant'"></div>
-              <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5">Apprenant</div>
-            </div>
-          </div>
-          {% endblock %}
-        </div>
-
-      </div>
     </div>
-  </header>
+</div>
 
-  <!-- Main layout -->
-  <div class="mx-auto max-w-[1600px] px-3 sm:px-6 pb-10">
-    <div class="mt-4 grid lg:grid-cols-12 gap-4">
-
-      <aside class="hidden lg:block lg:col-span-3 xl:col-span-2">
-        <div class="sticky top-[92px]">
-          {% block sidebar %}
-            {% include "partials/learner_side.html" with mode="desktop" %}
-          {% endblock %}
-        </div>
-      </aside>
-
-      <main class="lg:col-span-9 xl:col-span-10">
-        {% block content %}{% endblock %}
-      </main>
-
-    </div>
-  </div>
-
-</div><!-- /layout wrapper -->
-
-<!-- ============== Alpine Stores (ROBUST) ============== -->
 <script>
 document.addEventListener("alpine:init", () => {
-  // Store "learner" toujours présent => pas de crash
-  if (!Alpine.store("learner")) {
-    Alpine.store("learner", {
-      filters: { q: "" },
-      me: null,
-
-      // Flags optionnels pour UX
-      isLoadingEnrollments: false,
-
-      // Méthode safe (peut être remplacée dans pages)
-      async loadEnrollments() {
-        // Par défaut ne fait rien => évite erreurs si pas implémenté sur une page
-        return;
-      }
-    });
-  } else {
-    const s = Alpine.store("learner");
-    s.filters = s.filters || {};
-    if (typeof s.filters.q !== "string") s.filters.q = "";
-  }
-});
-</script>
-
-<!-- ============== App shell ============== -->
-<script>
-function appShell(){
-  return {
-    theme: "light",
-    sidebar: { collapsed: false, mobileOpen: false },
-
-    initShell(){
-      const savedTheme = localStorage.getItem("be_theme");
-      this.theme = savedTheme || (
-        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light"
-      );
-
-      const savedCollapsed = localStorage.getItem("be_sidebar_collapsed");
-      this.sidebar.collapsed = savedCollapsed === "1";
-
-      window.__beShell = this;
-
-      // Évènement global utile pour tes partials JS
-      window.dispatchEvent(new CustomEvent("be:sidebar", {
-        detail: { collapsed: this.sidebar.collapsed }
-      }));
-    },
-
-    toggleTheme(){
-      this.theme = (this.theme === "dark") ? "light" : "dark";
-      localStorage.setItem("be_theme", this.theme);
-    },
-
-    toggleCollapsed(){
-      this.sidebar.collapsed = !this.sidebar.collapsed;
-      localStorage.setItem("be_sidebar_collapsed", this.sidebar.collapsed ? "1" : "0");
-      window.dispatchEvent(new CustomEvent("be:sidebar", {
-        detail: { collapsed: this.sidebar.collapsed }
-      }));
-    }
-  }
-}
-</script>
-
-<!-- ============== Topbar search bridge (FIX x-model) ============== -->
-<script>
-function topbarSearch(){
-  return {
-    q: "",
-    loading: false,
-    _t: null,
-
-    init(){
-      // init depuis store si présent
-      this.q = (Alpine.store("learner")?.filters?.q) || "";
-    },
-
-    sync(){
-      const store = Alpine.store("learner");
-      if (!store) return;
-
-      // push q -> store.filters.q
-      store.filters.q = this.q;
-
-      // debounce manuel pour éviter spam
-      clearTimeout(this._t);
-      this.loading = true;
-      this._t = setTimeout(async () => {
-        try{
-          if (store.loadEnrollments) await store.loadEnrollments();
-        } finally {
-          this.loading = false;
+    const existing = Alpine.store("learner");
+    if (!existing) {
+        Alpine.store("learner", {
+            filters: { q: "" },
+            me: null,
+            isLoadingEnrollments: false,
+            async loadEnrollments() { return; }
+        });
+    } else {
+        existing.filters = existing.filters || {};
+        if (typeof existing.filters.q !== "string") existing.filters.q = "";
+        if (typeof existing.loadEnrollments !== "function") {
+            existing.loadEnrollments = async function () { return; };
         }
-      }, 250);
-    },
-
-    clear(){
-      this.q = "";
-      this.sync();
     }
-  }
-}
-
-// auto init des x-data topbarSearch (alpine init hook)
-document.addEventListener("alpine:init", () => {
-  // rien, juste pour cohérence si besoin
 });
+</script>
+
+<script>
+function appShell() {
+    return {
+        theme: "light",
+        sidebar: {
+            collapsed: false,
+            mobileOpen: false
+        },
+
+        initShell() {
+            const savedTheme = localStorage.getItem("be_theme");
+            const savedCollapsed = localStorage.getItem("be_sidebar_collapsed");
+
+            const systemPrefersDark = window.matchMedia &&
+                window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+            this.theme = savedTheme || (systemPrefersDark ? "dark" : "light");
+            this.sidebar.collapsed = savedCollapsed === "1";
+
+            document.documentElement.classList.toggle("dark", this.theme === "dark");
+            document.documentElement.style.colorScheme = this.theme;
+
+            window.__beShell = this;
+
+            window.dispatchEvent(new CustomEvent("be:sidebar", {
+                detail: { collapsed: this.sidebar.collapsed }
+            }));
+
+            if (window.matchMedia) {
+                const mq = window.matchMedia("(prefers-color-scheme: dark)");
+                const applySystemTheme = (e) => {
+                    if (!localStorage.getItem("be_theme")) {
+                        this.theme = e.matches ? "dark" : "light";
+                        document.documentElement.classList.toggle("dark", this.theme === "dark");
+                        document.documentElement.style.colorScheme = this.theme;
+                    }
+                };
+
+                if (typeof mq.addEventListener === "function") {
+                    mq.addEventListener("change", applySystemTheme);
+                } else if (typeof mq.addListener === "function") {
+                    mq.addListener(applySystemTheme);
+                }
+            }
+        },
+
+        toggleTheme() {
+            this.theme = this.theme === "dark" ? "light" : "dark";
+            localStorage.setItem("be_theme", this.theme);
+            document.documentElement.classList.toggle("dark", this.theme === "dark");
+            document.documentElement.style.colorScheme = this.theme;
+        },
+
+        toggleCollapsed() {
+            this.sidebar.collapsed = !this.sidebar.collapsed;
+            localStorage.setItem("be_sidebar_collapsed", this.sidebar.collapsed ? "1" : "0");
+
+            window.dispatchEvent(new CustomEvent("be:sidebar", {
+                detail: { collapsed: this.sidebar.collapsed }
+            }));
+        }
+    };
+}
+</script>
+
+<script>
+function topbarSearch() {
+    return {
+        q: "",
+        loading: false,
+        _t: null,
+
+        init() {
+            const store = Alpine.store("learner");
+            this.q = store?.filters?.q || "";
+        },
+
+        sync() {
+            const store = Alpine.store("learner");
+            if (!store) return;
+
+            store.filters = store.filters || {};
+            store.filters.q = this.q;
+
+            clearTimeout(this._t);
+            this.loading = true;
+
+            this._t = setTimeout(async () => {
+                try {
+                    if (typeof store.loadEnrollments === "function") {
+                        await store.loadEnrollments();
+                    }
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    this.loading = false;
+                }
+            }, 250);
+        },
+
+        clear() {
+            this.q = "";
+            this.sync();
+        }
+    };
+}
+</script>
+
+<script>
+function learnerSidebar(cfg) {
+    return {
+        mode: cfg.mode || "desktop",
+        collapsed: false,
+        badge: {
+            notifications: null,
+        },
+
+        init() {
+            this.collapsed = (window.__beShell && window.__beShell.sidebar)
+                ? !!window.__beShell.sidebar.collapsed
+                : false;
+
+            window.addEventListener("be:sidebar", (e) => {
+                if (this.mode === "desktop") {
+                    this.collapsed = !!(e.detail && e.detail.collapsed);
+                }
+            });
+        },
+
+        isActive(key) {
+            const p = (window.location.pathname || "").toLowerCase();
+
+            const rules = {
+                dashboard: ["/dashboard", "/learner/dashboard", "/student/dashboard"],
+                my_courses: ["/courses", "/enrollments", "/learner/courses", "/student/courses"],
+                progress: ["/progress", "/tracking", "/learner/progress"],
+                notifications: ["/notifications", "/alerts"],
+                payments: ["/payments", "/billing", "/invoices"]
+            };
+
+            const arr = rules[key] || [];
+            return arr.some(x => p.includes(x));
+        },
+
+        linkClass(key, tone) {
+            const active = this.isActive(key);
+            const baseHover = "hover:bg-be-ink-50/60 dark:hover:bg-white/10";
+            if (!active) return baseHover;
+
+            if (tone === "sun") {
+                return "bg-be-sun-50 dark:bg-white/10 border border-be-sun-200/70 dark:border-white/10";
+            }
+            if (tone === "ink") {
+                return "bg-be-ink-50 dark:bg-white/10 border border-be-ink-100/70 dark:border-white/10";
+            }
+            return "bg-be-sky-50 dark:bg-white/10 border border-be-sky-200/70 dark:border-white/10";
+        },
+
+        iconClass(key, tone) {
+            const active = this.isActive(key);
+            if (!active) return "text-be-ink-600 dark:text-white/80";
+
+            if (tone === "sun") return "text-be-sun-700 dark:text-white";
+            if (tone === "ink") return "text-be-ink-800 dark:text-white";
+            return "text-be-sky-700 dark:text-white";
+        }
+    };
+}
 </script>
 
 {% block extra_js %}{% endblock %}

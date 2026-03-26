@@ -88,7 +88,7 @@
     </span>
 </a>
 
-     
+
 
                 <a href="{% url 'instructor_media' %}"
                    :title="collapsed ? 'Bibliothèque média' : ''"
@@ -113,6 +113,38 @@
                         <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">MinIO, vidéos, audios, docs</div>
                     </div>
                 </a>
+               <a href="{% url 'instructor_quiz_list_page' %}"
+           class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition"
+           :class="linkClass('quizzes')"
+           :title="collapsed && mode==='desktop' ? 'Quiz' : ''">
+            <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5">
+                <svg class="w-5 h-5" :class="iconClass('quizzes')" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 11h6M9 15h3M7 3h10a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2h2Z"
+                          stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+            </span>
+
+            <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+                <span class="block text-sm font-semibold truncate">Quiz</span>
+                <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Évaluations</span>
+            </span>
+        </a>
+
+        <a href="{% url 'instructor_quiz_create_page' %}"
+           class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition"
+           :class="linkClass('quiz_create')"
+           :title="collapsed && mode==='desktop' ? 'Créer un quiz' : ''">
+            <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5">
+                <svg class="w-5 h-5" :class="iconClass('quiz_create')" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </span>
+
+            <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+                <span class="block text-sm font-semibold truncate">Nouveau quiz</span>
+                <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Créer une évaluation</span>
+            </span>
+        </a>
             </nav>
         </div>
 
@@ -219,7 +251,69 @@
                        class="px-3 py-2.5 rounded-xl bg-be-ink-900 text-white text-sm font-semibold hover:opacity-90 transition text-center">
                         Nouveau cours
                     </a>
-                    
+   <a href="{% url 'instructor_dashboard' %}"
+           class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition"
+           :class="linkClass('dashboard')"
+           :title="collapsed && mode==='desktop' ? 'Dashboard' : ''">
+            <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5">
+                <svg class="w-5 h-5" :class="iconClass('dashboard')" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 10.5 12 3l9 7.5V21a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 21v-10.5Z"
+                          stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M9 22v-7h6v7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+            </span>
+
+            <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+                <span class="block text-sm font-semibold truncate">Dashboard</span>
+                <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Vue d’ensemble</span>
+            </span>
+        </a>
+
+        <a href="{% url 'instructor_courses' %}"
+           class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition"
+           :class="linkClass('courses')"
+           :title="collapsed && mode==='desktop' ? 'Cours' : ''">
+            <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5">
+                <svg class="w-5 h-5" :class="iconClass('courses')" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z"
+                          stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </span>
+
+            <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+                <span class="block text-sm font-semibold truncate">Cours</span>
+                <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Catalogue formateur</span>
+            </span>
+        </a>
+
+     
+
+        <div class="my-3 border-t border-be-ink-100/70 dark:border-white/10"></div>
+
+        <div class="px-2 pt-1 pb-1" x-show="!collapsed || mode==='mobile'">
+            <div class="text-[11px] font-semibold text-be-ink-500 dark:text-white/60 uppercase tracking-wide">
+                Ressources
+            </div>
+        </div>
+
+        <a href="{% url 'instructor_media' %}"
+           class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition"
+           :class="linkClass('media')"
+           :title="collapsed && mode==='desktop' ? 'Médias' : ''">
+            <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5">
+                <svg class="w-5 h-5" :class="iconClass('media')" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"
+                          stroke="currentColor" stroke-width="2"/>
+                    <path d="m8 14 2-2 2 2 4-4 2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </span>
+
+            <span class="min-w-0" x-show="!collapsed || mode==='mobile'">
+                <span class="block text-sm font-semibold truncate">Médias</span>
+                <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">Bibliothèque</span>
+            </span>
+        </a>
                     <a href="{% url 'instructor_dashboard' %}?tab=reviews"
                        class="px-3 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition text-center">
                         Voir avis
