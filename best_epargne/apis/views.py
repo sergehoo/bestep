@@ -477,17 +477,39 @@ class InstructorLessonDeleteView(APIView):
         return Response({"ok": True})
 
 
-def s3_client():
+# def s3_client():
+#     return boto3.client(
+#         "s3",
+#         endpoint_url=getattr(settings, "MINIO_ENDPOINT_URL", None),
+#         aws_access_key_id=getattr(settings, "MINIO_ACCESS_KEY", None),
+#         aws_secret_access_key=getattr(settings, "MINIO_SECRET_KEY", None),
+#         region_name=getattr(settings, "MINIO_REGION", "us-east-1"),
+#         config=Config(signature_version="s3v4"),
+#         verify=getattr(settings, "MINIO_SECURE", False),
+#     )
+
+def s3_internal_client():
     return boto3.client(
         "s3",
-        endpoint_url=getattr(settings, "MINIO_ENDPOINT_URL", None),
+        endpoint_url=getattr(settings, "MINIO_INTERNAL_ENDPOINT", None),
         aws_access_key_id=getattr(settings, "MINIO_ACCESS_KEY", None),
         aws_secret_access_key=getattr(settings, "MINIO_SECRET_KEY", None),
         region_name=getattr(settings, "MINIO_REGION", "us-east-1"),
         config=Config(signature_version="s3v4"),
-        verify=getattr(settings, "MINIO_SECURE", False),
+        verify=False,  # car endpoint interne en http
     )
 
+
+def s3_public_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=getattr(settings, "MINIO_PUBLIC_ENDPOINT", None),
+        aws_access_key_id=getattr(settings, "MINIO_ACCESS_KEY", None),
+        aws_secret_access_key=getattr(settings, "MINIO_SECRET_KEY", None),
+        region_name=getattr(settings, "MINIO_REGION", "us-east-1"),
+        config=Config(signature_version="s3v4"),
+        verify=True,  # HTTPS public
+    )
 
 def build_object_key(user_id: int, kind: str, filename: str) -> str:
     prefix = getattr(settings, "MINIO_UPLOAD_PREFIX", "instructors")
@@ -498,10 +520,6 @@ def build_object_key(user_id: int, kind: str, filename: str) -> str:
 
 
 class MediaUploadInitView(APIView):
-    """
-    POST /api/media/upload/init/
-    -> retourne { upload_id, bucket, object_key, upload_url (PUT), headers }
-    """
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request):
@@ -514,9 +532,8 @@ class MediaUploadInitView(APIView):
             return Response({"detail": "MINIO_BUCKET is not configured"}, status=500)
 
         object_key = build_object_key(request.user.id, data["kind"], data["filename"])
-        client = s3_client()
+        client = s3_public_client()
 
-        # Presigned PUT (15 min)
         upload_url = client.generate_presigned_url(
             ClientMethod="put_object",
             Params={
@@ -528,17 +545,15 @@ class MediaUploadInitView(APIView):
         )
 
         return Response({
-            "upload_id": uuid.uuid4().hex,  # tracking côté front
+            "upload_id": uuid.uuid4().hex,
             "bucket": bucket,
             "object_key": object_key,
             "upload_url": upload_url,
             "method": "PUT",
-            # ✅ front attend "headers"
             "headers": {
                 "Content-Type": data["content_type"],
             },
         })
-
 
 class MediaUploadFinalizeView(APIView):
     """
