@@ -491,24 +491,24 @@ class InstructorLessonDeleteView(APIView):
 def s3_internal_client():
     return boto3.client(
         "s3",
-        endpoint_url=getattr(settings, "MINIO_INTERNAL_ENDPOINT", None),
-        aws_access_key_id=getattr(settings, "MINIO_ACCESS_KEY", None),
-        aws_secret_access_key=getattr(settings, "MINIO_SECRET_KEY", None),
-        region_name=getattr(settings, "MINIO_REGION", "us-east-1"),
+        endpoint_url=settings.MINIO_INTERNAL_ENDPOINT,
+        aws_access_key_id=settings.MINIO_ROOT_USER,
+        aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
+        region_name=settings.MINIO_REGION,
         config=Config(signature_version="s3v4"),
-        verify=False,  # car endpoint interne en http
+        verify=False,
     )
 
 
 def s3_public_client():
     return boto3.client(
         "s3",
-        endpoint_url=getattr(settings, "MINIO_PUBLIC_ENDPOINT", None),
-        aws_access_key_id=getattr(settings, "MINIO_ACCESS_KEY", None),
-        aws_secret_access_key=getattr(settings, "MINIO_SECRET_KEY", None),
-        region_name=getattr(settings, "MINIO_REGION", "us-east-1"),
+        endpoint_url=settings.MINIO_PUBLIC_ENDPOINT,
+        aws_access_key_id=settings.MINIO_ROOT_USER,
+        aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
+        region_name=settings.MINIO_REGION,
         config=Config(signature_version="s3v4"),
-        verify=True,  # HTTPS public
+        verify=True,
     )
 
 def build_object_key(user_id: int, kind: str, filename: str) -> str:
@@ -573,7 +573,7 @@ class MediaUploadFinalizeView(APIView):
             return Response({"detail": "MINIO_BUCKET is not configured"}, status=500)
 
         # ✅ Vérifier que l'objet existe réellement dans MinIO et récupérer la taille/type
-        client = s3_client()
+        client = s3_internal_client()
         try:
             head = client.head_object(Bucket=bucket, Key=data["object_key"])
         except Exception:
@@ -652,7 +652,7 @@ class MediaSignedGetView(APIView):
             return Response({"detail": "Forbidden"}, status=403)
 
         bucket = getattr(settings, "MINIO_BUCKET", None)
-        client = s3_client()
+        client = s3_internal_client()
 
         url = client.generate_presigned_url(
             ClientMethod="get_object",
