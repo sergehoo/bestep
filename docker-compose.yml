@@ -168,7 +168,9 @@ services:
       - "traefik.http.routers.best-epargne.rule=Host(`${APP_HOST}`)"
       - "traefik.http.routers.best-epargne.entrypoints=websecure"
       - "traefik.http.routers.best-epargne.tls=true"
+      - "traefik.http.routers.best-epargne.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
       - "traefik.http.services.best-epargne.loadbalancer.server.port=${APP_PORT:-8000}"
+
 
     command:
       [
