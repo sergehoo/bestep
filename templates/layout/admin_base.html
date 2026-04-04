@@ -300,6 +300,40 @@
                     }
                 },
 
+                
+                 linkClass(name) {
+            const current = window.location.pathname;
+
+            const routes = {
+                dashboard: ['/dashboard/instructor/'],
+                courses: ['/dashboard/instructor/courses/'],
+                media: ['/dashboard/instructor/media/'],
+                quizzes: ['/dashboard/instructor/quizzes/'],
+                quiz_create: ['/dashboard/instructor/quizzes/create/'],
+            };
+
+            const matched = (routes[name] || []).some(route => {
+                if (name === 'dashboard') {
+                    return current === route;
+                }
+                return current.startsWith(route);
+            });
+
+            return matched
+                ? 'bg-be-sky-50 text-be-sky-700 border border-be-sky-200 shadow-soft'
+                : 'text-be-ink-600 hover:bg-be-ink-50 hover:text-be-ink-900';
+        },
+
+        iconClass(name) {
+            const current = window.location.pathname;
+
+            const routes = {
+                dashboard: ['/dashboard/instructor/'],
+                courses: ['/dashboard/instructor/courses/'],
+                media: ['/dashboard/instructor/media/'],
+                quizzes: ['/dashboard/instructor/quizzes/'],
+                quiz_create: ['/dashboard/instructor/quizzes/create/'],
+            };
                 emitSidebarState() {
                     window.dispatchEvent(
                         new CustomEvent("be:sidebar", {
