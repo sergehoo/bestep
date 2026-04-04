@@ -652,7 +652,7 @@ class MediaSignedGetView(APIView):
             return Response({"detail": "Forbidden"}, status=403)
 
         bucket = getattr(settings, "MINIO_BUCKET", None)
-        client = s3_internal_client()
+        client = s3_public_client()
 
         url = client.generate_presigned_url(
             ClientMethod="get_object",
