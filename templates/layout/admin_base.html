@@ -257,110 +257,129 @@
         </div>
     </div>
 
-    <script>
-        function appShell() {
-            return {
-                theme: "light",
-                sidebar: {
-                    collapsed: false,
-                    mobileOpen: false
-                },
+   <script>
+    function appShell() {
+        return {
+            theme: "light",
+            sidebar: {
+                collapsed: false,
+                mobileOpen: false
+            },
 
-                initShell() {
-                    const savedTheme = localStorage.getItem("be_theme");
-                    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-                    this.theme = savedTheme || (prefersDark ? "dark" : "light");
+            initShell() {
+                const savedTheme = localStorage.getItem("be_theme");
+                const prefersDark =
+                    window.matchMedia &&
+                    window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-                    if (this.theme === "dark") {
-                        document.documentElement.classList.add("dark");
-                    } else {
-                        document.documentElement.classList.remove("dark");
-                    }
+                this.theme = savedTheme || (prefersDark ? "dark" : "light");
 
-                    const savedCollapsed = localStorage.getItem("be_sidebar_collapsed");
-                    this.sidebar.collapsed = savedCollapsed === "1";
+                if (this.theme === "dark") {
+                    document.documentElement.classList.add("dark");
+                } else {
+                    document.documentElement.classList.remove("dark");
+                }
 
-                    window.__beShell = this;
-                    this.emitSidebarState();
+                const savedCollapsed = localStorage.getItem("be_sidebar_collapsed");
+                this.sidebar.collapsed = savedCollapsed === "1";
 
-                    if (window.matchMedia) {
-                        const media = window.matchMedia("(prefers-color-scheme: dark)");
-                        if (media.addEventListener) {
-                            media.addEventListener("change", (e) => {
-                                if (!localStorage.getItem("be_theme")) {
-                                    this.theme = e.matches ? "dark" : "light";
-                                    if (this.theme === "dark") {
-                                        document.documentElement.classList.add("dark");
-                                    } else {
-                                        document.documentElement.classList.remove("dark");
-                                    }
+                window.__beShell = this;
+                this.emitSidebarState();
+
+                if (window.matchMedia) {
+                    const media = window.matchMedia("(prefers-color-scheme: dark)");
+                    if (media.addEventListener) {
+                        media.addEventListener("change", (e) => {
+                            if (!localStorage.getItem("be_theme")) {
+                                this.theme = e.matches ? "dark" : "light";
+
+                                if (this.theme === "dark") {
+                                    document.documentElement.classList.add("dark");
+                                } else {
+                                    document.documentElement.classList.remove("dark");
                                 }
-                            });
-                        }
+                            }
+                        });
                     }
-                },
-
-                
-                 linkClass(name) {
-            const current = window.location.pathname;
-
-            const routes = {
-                dashboard: ['/dashboard/instructor/'],
-                courses: ['/dashboard/instructor/courses/'],
-                media: ['/dashboard/instructor/media/'],
-                quizzes: ['/dashboard/instructor/quizzes/'],
-                quiz_create: ['/dashboard/instructor/quizzes/create/'],
-            };
-
-            const matched = (routes[name] || []).some(route => {
-                if (name === 'dashboard') {
-                    return current === route;
                 }
-                return current.startsWith(route);
-            });
+            },
 
-            return matched
-                ? 'bg-be-sky-50 text-be-sky-700 border border-be-sky-200 shadow-soft'
-                : 'text-be-ink-600 hover:bg-be-ink-50 hover:text-be-ink-900';
-        },
+            linkClass(name) {
+                const current = window.location.pathname;
 
-        iconClass(name) {
-            const current = window.location.pathname;
+                const routes = {
+                    dashboard: ["/dashboard/instructor/"],
+                    courses: ["/dashboard/instructor/courses/"],
+                    media: ["/dashboard/instructor/media/"],
+                    quizzes: ["/dashboard/instructor/quizzes/"],
+                    quiz_create: ["/dashboard/instructor/quizzes/create/"],
+                };
 
-            const routes = {
-                dashboard: ['/dashboard/instructor/'],
-                courses: ['/dashboard/instructor/courses/'],
-                media: ['/dashboard/instructor/media/'],
-                quizzes: ['/dashboard/instructor/quizzes/'],
-                quiz_create: ['/dashboard/instructor/quizzes/create/'],
-            };
-                emitSidebarState() {
-                    window.dispatchEvent(
-                        new CustomEvent("be:sidebar", {
-                            detail: { collapsed: this.sidebar.collapsed }
-                        })
-                    );
-                },
-
-                toggleTheme() {
-                    this.theme = this.theme === "dark" ? "light" : "dark";
-                    localStorage.setItem("be_theme", this.theme);
-
-                    if (this.theme === "dark") {
-                        document.documentElement.classList.add("dark");
-                    } else {
-                        document.documentElement.classList.remove("dark");
+                const matched = (routes[name] || []).some((route) => {
+                    if (name === "dashboard") {
+                        return current === route;
                     }
-                },
+                    return current.startsWith(route);
+                });
 
-                toggleCollapsed() {
-                    this.sidebar.collapsed = !this.sidebar.collapsed;
-                    localStorage.setItem("be_sidebar_collapsed", this.sidebar.collapsed ? "1" : "0");
-                    this.emitSidebarState();
+                return matched
+                    ? "bg-be-sky-50 text-be-sky-700 border border-be-sky-200 shadow-soft"
+                    : "text-be-ink-600 hover:bg-be-ink-50 hover:text-be-ink-900";
+            },
+
+            iconClass(name) {
+                const current = window.location.pathname;
+
+                const routes = {
+                    dashboard: ["/dashboard/instructor/"],
+                    courses: ["/dashboard/instructor/courses/"],
+                    media: ["/dashboard/instructor/media/"],
+                    quizzes: ["/dashboard/instructor/quizzes/"],
+                    quiz_create: ["/dashboard/instructor/quizzes/create/"],
+                };
+
+                const matched = (routes[name] || []).some((route) => {
+                    if (name === "dashboard") {
+                        return current === route;
+                    }
+                    return current.startsWith(route);
+                });
+
+                return matched
+                    ? "text-be-sky-600"
+                    : "text-be-ink-400 group-hover:text-be-ink-700";
+            },
+
+            emitSidebarState() {
+                window.dispatchEvent(
+                    new CustomEvent("be:sidebar", {
+                        detail: { collapsed: this.sidebar.collapsed }
+                    })
+                );
+            },
+
+            toggleTheme() {
+                this.theme = this.theme === "dark" ? "light" : "dark";
+                localStorage.setItem("be_theme", this.theme);
+
+                if (this.theme === "dark") {
+                    document.documentElement.classList.add("dark");
+                } else {
+                    document.documentElement.classList.remove("dark");
                 }
+            },
+
+            toggleCollapsed() {
+                this.sidebar.collapsed = !this.sidebar.collapsed;
+                localStorage.setItem(
+                    "be_sidebar_collapsed",
+                    this.sidebar.collapsed ? "1" : "0"
+                );
+                this.emitSidebarState();
             }
-        }
-    </script>
+        };
+    }
+</script>
 
     {% block extra_js %}{% endblock %}
 </body>
