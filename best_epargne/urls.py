@@ -23,7 +23,7 @@ from formations.views import InstructorDashboard, StudentDashboard, \
     OrganisationDashboard, AdminDashboard, LearnerExploreView, LearnerCoursePlayerView, HomeView, InstructorCourseView, \
     InstructorCourseBuilderView, InstructorMediaLibraryView, InstructorCourseCreateView, InstructorCourseDetailView, \
     InstructorCourseUpdateView, InstructorQuizListPageView, InstructorQuizCreatePageView, InstructorQuizDetailPageView, \
-    InstructorQuizUpdatePageView
+    InstructorQuizUpdatePageView, InstructorMediaDetailPageView
 
 urlpatterns = [
                   path('admin/', admin.site.urls),
@@ -47,6 +47,8 @@ urlpatterns = [
                   path("dashboard/instructor/courses/<int:course_id>/builder/", InstructorCourseBuilderView.as_view(),
                        name="instructor_course_builder"),
                   path("dashboard/instructor/media/", InstructorMediaLibraryView.as_view(), name="instructor_media"),
+                  path("instructor/media/<uuid:asset_id>/", InstructorMediaDetailPageView.as_view(),
+                       name="instructor_media_detail_page"),
 
                   path("instructor/courses/create/page/", InstructorCourseCreateView.as_view(),
                        name="instructor_course_create_page"),

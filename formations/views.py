@@ -982,6 +982,28 @@ class InstructorMediaLibraryView(LoginRequiredMixin, RoleRequiredMixin, Template
         })
         return context
 
+class InstructorMediaDetailPageView(LoginRequiredMixin, TemplateView):
+    template_name = "instructor/instructor_media_detail.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if getattr(request.user, "role", None) not in ("INSTRUCTOR", "SUPERADMIN"):
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("Forbidden")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        asset = get_object_or_404(MediaAsset, id=self.kwargs["asset_id"])
+
+        if asset.owner_id != self.request.user.id and getattr(self.request.user, "role", None) != "SUPERADMIN":
+            from django.http import Http404
+            raise Http404()
+
+        context.update({
+            "side_active": "media",
+            "asset": asset,
+        })
+        return context
 
 class InstructorQuizListPageView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "instructor/quiz/quiz_list.html"

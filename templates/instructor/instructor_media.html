@@ -6,23 +6,36 @@
 
 {% block topbar_actions %}
 <div class="flex items-center gap-2 flex-wrap">
-    <button @click="openUploadDrawer()"
-        class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
+    <button
+        @click="openUploadDrawer()"
+        class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition"
+    >
         + Importer un média
     </button>
 </div>
+{% endblock %}
+
+{% block sidebar %}
+    {% include "partials/instructor_side.html" with side_active="media" %}
 {% endblock %}
 
 {% block content %}
 <div x-data="instructorMediaPremiumPage({
         endpoints: {
             mediaList: '{% url "api_instructor_media" %}',
+            mediaDetail: (assetId) => '{% url "api_instructor_media_detail" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
+            mediaUpdate: (assetId) => '{% url "api_instructor_media_update" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
+            mediaDelete: (assetId) => '{% url "api_instructor_media_delete" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
+
             uploadInit: '{% url "api_media_upload_init" %}',
             uploadFinalize: '{% url "api_media_upload_finalize" %}',
             signedGet: (assetId) => '{% url "api_media_signed_get" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
+
             courses: '{% url "api_instructor_courses" %}',
             courseSections: (courseId) => `/api/instructor/courses/${courseId}/sections/`,
-            sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`
+            sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`,
+
+            mediaDetailPage: (assetId) => '{% url "instructor_media_detail_page" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
         }
     })"
     x-init="init()"
@@ -96,8 +109,13 @@
                         Recherche
                     </label>
                     <div class="mt-2 relative">
-                        <input x-model="filters.q" @input.debounce.250ms="applyFilters()" type="text" placeholder="Titre, object key, content type..."
-                            class="w-full pl-11 pr-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10">
+                        <input
+                            x-model="filters.q"
+                            @input.debounce.250ms="applyFilters()"
+                            type="text"
+                            placeholder="Titre, object key, content type..."
+                            class="w-full pl-11 pr-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10"
+                        >
                         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/40">
                             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
                                 <path d="M21 21l-4.35-4.35M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -110,7 +128,11 @@
                     <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
                         Type
                     </label>
-                    <select x-model="filters.kind" @change="applyFilters()" class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm">
+                    <select
+                        x-model="filters.kind"
+                        @change="applyFilters()"
+                        class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                    >
                         <option value="">Tous</option>
                         <option value="video">Vidéos</option>
                         <option value="audio">Audios</option>
@@ -122,7 +144,11 @@
                     <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
                         Tri
                     </label>
-                    <select x-model="filters.sort" @change="applyFilters()" class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm">
+                    <select
+                        x-model="filters.sort"
+                        @change="applyFilters()"
+                        class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                    >
                         <option value="recent">Plus récents</option>
                         <option value="oldest">Plus anciens</option>
                         <option value="title">Titre A-Z</option>
@@ -153,18 +179,12 @@
                     </div>
                 </div>
 
-                <div class="xl:col-span-2 flex items-end gap-2">
+                <div class="xl:col-span-1 flex items-end">
                     <button
                         @click="loadMedia()"
-                        class="flex-1 px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
+                        class="w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
                     >
                         Actualiser
-                    </button>
-                    <button
-                        @click="openUploadDrawer()"
-                        class="flex-1 px-4 py-3 rounded-2xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition"
-                    >
-                        Importer
                     </button>
                 </div>
             </div>
@@ -172,10 +192,7 @@
     </section>
 
     <!-- GRID VIEW -->
-    <section
-        x-show="view === 'grid'"
-        class="space-y-4"
-    >
+    <section x-show="view === 'grid'" class="space-y-4">
         <template x-if="loading.media">
             <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft p-10 text-center text-sm text-be-ink-500 dark:text-white/60">
                 Chargement des médias…
@@ -193,41 +210,41 @@
                 <article class="group rounded-[30px] border border-be-ink-100 dark:border-white/10 bg-white/95 dark:bg-white/5 shadow-soft overflow-hidden hover:-translate-y-1 hover:shadow-lift transition duration-300">
                     <div class="relative">
                         <div class="aspect-video bg-be-ink-50 dark:bg-white/5 border-b border-be-ink-100 dark:border-white/10 overflow-hidden">
-                           <template x-if="m.kind === 'video'">
-    <div class="relative w-full h-full">
-        <template x-if="thumbCache[m.id]">
-            <img :src="thumbCache[m.id]" class="w-full h-full object-cover" alt="">
-        </template>
+                            <template x-if="m.kind === 'video'">
+                                <div class="relative w-full h-full">
+                                    <template x-if="thumbCache[m.id]">
+                                        <img :src="thumbCache[m.id]" class="w-full h-full object-cover" alt="">
+                                    </template>
 
-        <template x-if="!thumbCache[m.id]">
-            <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-be-sky-100 via-white to-be-sky-50 dark:from-white/10 dark:via-white/5 dark:to-white/10">
-                <div class="w-16 h-16 rounded-2xl bg-white/90 dark:bg-white/10 border border-white/60 dark:border-white/10 flex items-center justify-center shadow-soft">
-                    <svg class="w-8 h-8 text-be-sky-700 dark:text-white" viewBox="0 0 24 24" fill="none">
-                        <path d="M8 6.5v11l9-5.5-9-5.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-                <div class="mt-3 text-xs font-semibold text-be-ink-700 dark:text-white/80">
-                    Vidéo
-                </div>
-            </div>
-        </template>
+                                    <template x-if="!thumbCache[m.id]">
+                                        <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-be-sky-100 via-white to-be-sky-50 dark:from-white/10 dark:via-white/5 dark:to-white/10">
+                                            <div class="w-16 h-16 rounded-2xl bg-white/90 dark:bg-white/10 border border-white/60 dark:border-white/10 flex items-center justify-center shadow-soft">
+                                                <svg class="w-8 h-8 text-be-sky-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+                                                    <path d="M8 6.5v11l9-5.5-9-5.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                                </svg>
+                                            </div>
+                                            <div class="mt-3 text-xs font-semibold text-be-ink-700 dark:text-white/80">
+                                                Vidéo
+                                            </div>
+                                        </div>
+                                    </template>
 
-        <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent"></div>
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent"></div>
 
-        <button
-            @click="previewMedia(m)"
-            class="absolute inset-0 flex items-center justify-center group"
-        >
-            <div class="w-14 h-14 rounded-full bg-white/90 dark:bg-black/40 backdrop-blur border border-white/60 dark:border-white/10 flex items-center justify-center shadow-soft group-hover:scale-105 transition">
-                <svg class="w-6 h-6 text-be-ink-900 dark:text-white ml-0.5" viewBox="0 0 24 24" fill="none">
-                    <path d="M8 6.5v11l9-5.5-9-5.5Z" fill="currentColor"/>
-                </svg>
-            </div>
-        </button>
-    </div>
-</template>
+                                    <button
+                                        @click="previewMedia(m)"
+                                        class="absolute inset-0 flex items-center justify-center group"
+                                    >
+                                        <div class="w-14 h-14 rounded-full bg-white/90 dark:bg-black/40 backdrop-blur border border-white/60 dark:border-white/10 flex items-center justify-center shadow-soft group-hover:scale-105 transition">
+                                            <svg class="w-6 h-6 text-be-ink-900 dark:text-white ml-0.5" viewBox="0 0 24 24" fill="none">
+                                                <path d="M8 6.5v11l9-5.5-9-5.5Z" fill="currentColor"/>
+                                            </svg>
+                                        </div>
+                                    </button>
+                                </div>
+                            </template>
 
-                            <template x-if="!(previewCache[m.id] && m.kind === 'video') && m.kind === 'audio'">
+                            <template x-if="m.kind === 'audio'">
                                 <div class="w-full h-full flex flex-col items-center justify-center gap-3 text-be-sun-700 dark:text-white/80">
                                     <div class="w-16 h-16 rounded-2xl bg-be-sun-100 dark:bg-white/10 flex items-center justify-center">
                                         <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none">
@@ -239,7 +256,7 @@
                                 </div>
                             </template>
 
-                            <template x-if="!(previewCache[m.id] && m.kind === 'video') && m.kind === 'doc'">
+                            <template x-if="m.kind === 'doc'">
                                 <div class="w-full h-full flex flex-col items-center justify-center gap-3 text-be-ink-600 dark:text-white/70">
                                     <div class="w-16 h-16 rounded-2xl bg-be-ink-100 dark:bg-white/10 flex items-center justify-center">
                                         <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none">
@@ -257,14 +274,18 @@
                             :class="kindPill(m.kind)"
                             x-text="kindLabel(m.kind)"
                         ></span>
+
+                        <span
+                            class="absolute top-3 right-3 text-[11px] px-2.5 py-1 rounded-full border bg-white/95 dark:bg-black/30 backdrop-blur font-semibold"
+                            :class="processingPill(m.processing_status)"
+                            x-text="processingLabel(m.processing_status)"
+                        ></span>
                     </div>
 
                     <div class="p-4">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <h3 class="font-semibold text-sm text-be-ink-900 dark:text-white truncate" x-text="m.title || 'Sans titre'"></h3>
-                                <div class="text-[11px] text-be-ink-500 dark:text-white/50 mt-1 break-all font-mono" x-text="m.object_key"></div>
-                            </div>
+                        <div class="min-w-0">
+                            <h3 class="font-semibold text-sm text-be-ink-900 dark:text-white truncate" x-text="m.title || 'Sans titre'"></h3>
+                            <div class="text-[11px] text-be-ink-500 dark:text-white/50 mt-1 break-all font-mono" x-text="m.object_key"></div>
                         </div>
 
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
@@ -278,21 +299,53 @@
                             </div>
                         </div>
 
+                        <div class="mt-3 grid grid-cols-2 gap-3 text-xs">
+                            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                                <div class="text-be-ink-500 dark:text-white/50">Durée</div>
+                                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="formatDuration(m.duration_seconds)"></div>
+                            </div>
+                            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                                <div class="text-be-ink-500 dark:text-white/50">Résolution</div>
+                                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="formatResolution(m.width, m.height)"></div>
+                            </div>
+                        </div>
+
                         <div class="mt-4 text-[11px] text-be-ink-500 dark:text-white/50 truncate" x-text="m.content_type || '—'"></div>
 
-                        <div class="mt-5 flex gap-2">
+                        <div class="mt-5 grid grid-cols-2 gap-2">
                             <button
-    @click="previewMedia(m)"
-    class="flex-1 px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition"
->
-    Aperçu
-</button>
-<button
-    @click="openMedia(m)"
-    class="flex-1 px-3 py-2.5 rounded-xl bg-gradient-to-r from-be-ink-900 to-be-sky-700 text-white hover:opacity-95 text-xs font-semibold transition"
->
-    Ouvrir
-</button>
+                                @click="previewMedia(m)"
+                                class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition"
+                            >
+                                Aperçu
+                            </button>
+                            <button
+                                @click="openMedia(m)"
+                                class="px-3 py-2.5 rounded-xl bg-gradient-to-r from-be-ink-900 to-be-sky-700 text-white hover:opacity-95 text-xs font-semibold transition"
+                            >
+                                Ouvrir
+                            </button>
+                            <button
+                                @click="openDetailDrawer(m)"
+                                class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition"
+                            >
+                                Détail
+                            </button>
+                            <button
+                                @click="openEditModal(m)"
+                                class="px-3 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold transition"
+                            >
+                                Modifier
+                            </button>
+                        </div>
+
+                        <div class="mt-2">
+                            <button
+                                @click="confirmDelete(m)"
+                                class="w-full px-3 py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold transition"
+                            >
+                                Supprimer
+                            </button>
                         </div>
                     </div>
                 </article>
@@ -311,6 +364,7 @@
                     <tr>
                         <th class="text-left font-semibold px-4 py-3">Titre</th>
                         <th class="text-left font-semibold px-4 py-3">Type</th>
+                        <th class="text-left font-semibold px-4 py-3">Statut</th>
                         <th class="text-left font-semibold px-4 py-3">Content type</th>
                         <th class="text-left font-semibold px-4 py-3">Taille</th>
                         <th class="text-left font-semibold px-4 py-3">Créé le</th>
@@ -320,13 +374,13 @@
                 <tbody>
                     <template x-if="loading.media">
                         <tr>
-                            <td colspan="6" class="px-4 py-10 text-center text-be-ink-500 dark:text-white/60">Chargement…</td>
+                            <td colspan="7" class="px-4 py-10 text-center text-be-ink-500 dark:text-white/60">Chargement…</td>
                         </tr>
                     </template>
 
                     <template x-if="!loading.media && filteredMedia.length === 0">
                         <tr>
-                            <td colspan="6" class="px-4 py-10 text-center text-be-ink-500 dark:text-white/60">Aucun média trouvé.</td>
+                            <td colspan="7" class="px-4 py-10 text-center text-be-ink-500 dark:text-white/60">Aucun média trouvé.</td>
                         </tr>
                     </template>
 
@@ -339,11 +393,14 @@
                             <td class="px-4 py-4">
                                 <span class="text-xs px-2.5 py-1 rounded-full border" :class="kindPill(m.kind)" x-text="kindLabel(m.kind)"></span>
                             </td>
+                            <td class="px-4 py-4">
+                                <span class="text-xs px-2.5 py-1 rounded-full border" :class="processingPill(m.processing_status)" x-text="processingLabel(m.processing_status)"></span>
+                            </td>
                             <td class="px-4 py-4" x-text="m.content_type || '—'"></td>
                             <td class="px-4 py-4" x-text="humanBytes(m.size)"></td>
                             <td class="px-4 py-4" x-text="formatDate(m.created_at)"></td>
                             <td class="px-4 py-4 text-right">
-                                <div class="inline-flex gap-2">
+                                <div class="inline-flex gap-2 flex-wrap justify-end">
                                     <button
                                         @click="previewMedia(m)"
                                         class="px-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition"
@@ -351,10 +408,22 @@
                                         Preview
                                     </button>
                                     <button
-                                        @click="openMedia(m)"
-                                        class="px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-xs font-semibold transition"
+                                        @click="openDetailDrawer(m)"
+                                        class="px-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition"
                                     >
-                                        Ouvrir
+                                        Détail
+                                    </button>
+                                    <button
+                                        @click="openEditModal(m)"
+                                        class="px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold transition"
+                                    >
+                                        Modifier
+                                    </button>
+                                    <button
+                                        @click="confirmDelete(m)"
+                                        class="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold transition"
+                                    >
+                                        Supprimer
                                     </button>
                                 </div>
                             </td>
@@ -366,7 +435,7 @@
     </section>
 
     <!-- UPLOAD DRAWER -->
-    <div x-show="drawers.upload" x-transition.opacity class="fixed inset-0 z-50 flex justify-end">
+    <div x-show="drawers.upload" x-transition.opacity class="fixed inset-0 z-50 flex justify-end" style="display:none;">
         <div class="absolute inset-0 bg-black/40" @click="closeUploadDrawer()"></div>
 
         <div class="relative w-full max-w-2xl h-full bg-white dark:bg-[#0f172a] border-l border-be-ink-100 dark:border-white/10 shadow-soft p-5 overflow-auto no-scrollbar">
@@ -386,7 +455,6 @@
             </div>
 
             <div class="mt-6 space-y-5">
-                <!-- DROPZONE -->
                 <div
                     @dragover.prevent="dragover = true"
                     @dragleave.prevent="dragover = false"
@@ -433,7 +501,6 @@
                     </template>
                 </div>
 
-                <!-- META -->
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
                         <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
@@ -462,7 +529,6 @@
                     </div>
                 </div>
 
-                <!-- BIND -->
                 <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-be-ink-50/50 dark:bg-white/5 p-5">
                     <div class="flex items-center justify-between gap-3">
                         <div>
@@ -530,7 +596,6 @@
                     </div>
                 </div>
 
-                <!-- PROGRESS -->
                 <div x-show="upload.progress > 0" class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
                     <div class="text-xs text-be-ink-500 dark:text-white/60">Progression</div>
                     <div class="mt-2 h-2 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
@@ -564,7 +629,7 @@
     </div>
 
     <!-- PREVIEW MODAL -->
-    <div x-show="modals.preview" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div x-show="modals.preview" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
         <div class="absolute inset-0 bg-black/50" @click="closePreview()"></div>
 
         <div class="relative w-full max-w-6xl rounded-[28px] bg-white dark:bg-[#0f172a] border border-be-ink-100 dark:border-white/10 shadow-soft overflow-hidden">
@@ -589,57 +654,57 @@
                 <template x-if="!previewLoading && previewItem">
                     <div class="space-y-4">
                         <template x-if="previewItem.kind === 'video' && previewUrl">
-    <div class="space-y-4">
-        <div class="rounded-[28px] overflow-hidden border border-be-ink-100 dark:border-white/10 bg-black shadow-soft">
-            <video
-                x-ref="previewVideo"
-                class="w-full max-h-[72vh] bg-black"
-                controls
-                playsinline
-                preload="metadata"
-                :poster="thumbCache[previewItem.id] || ''"
-                :src="previewUrl"
-            ></video>
-        </div>
+                            <div class="space-y-4">
+                                <div class="rounded-[28px] overflow-hidden border border-be-ink-100 dark:border-white/10 bg-black shadow-soft">
+                                    <video
+                                        x-ref="previewVideo"
+                                        class="w-full max-h-[72vh] bg-black"
+                                        controls
+                                        playsinline
+                                        preload="metadata"
+                                        :poster="thumbCache[previewItem.id] || ''"
+                                        :src="previewUrl"
+                                    ></video>
+                                </div>
 
-        <div class="grid sm:grid-cols-3 gap-3">
-            <div class="rounded-2xl bg-be-ink-50 dark:bg-white/5 p-4">
-                <div class="text-xs text-be-ink-500 dark:text-white/50">Type</div>
-                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white">Vidéo</div>
-            </div>
-            <div class="rounded-2xl bg-be-ink-50 dark:bg-white/5 p-4">
-                <div class="text-xs text-be-ink-500 dark:text-white/50">Taille</div>
-                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="humanBytes(previewItem.size)"></div>
-            </div>
-            <div class="rounded-2xl bg-be-ink-50 dark:bg-white/5 p-4">
-                <div class="text-xs text-be-ink-500 dark:text-white/50">Format</div>
-                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white truncate" x-text="previewItem.content_type || '—'"></div>
-            </div>
-        </div>
-    </div>
-</template>
+                                <div class="grid sm:grid-cols-3 gap-3">
+                                    <div class="rounded-2xl bg-be-ink-50 dark:bg-white/5 p-4">
+                                        <div class="text-xs text-be-ink-500 dark:text-white/50">Type</div>
+                                        <div class="mt-1 font-semibold text-be-ink-900 dark:text-white">Vidéo</div>
+                                    </div>
+                                    <div class="rounded-2xl bg-be-ink-50 dark:bg-white/5 p-4">
+                                        <div class="text-xs text-be-ink-500 dark:text-white/50">Taille</div>
+                                        <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="humanBytes(previewItem.size)"></div>
+                                    </div>
+                                    <div class="rounded-2xl bg-be-ink-50 dark:bg-white/5 p-4">
+                                        <div class="text-xs text-be-ink-500 dark:text-white/50">Format</div>
+                                        <div class="mt-1 font-semibold text-be-ink-900 dark:text-white truncate" x-text="previewItem.content_type || '—'"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
 
                         <template x-if="previewItem.kind === 'audio' && previewUrl">
-    <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 p-6 bg-gradient-to-br from-be-sun-50 via-white to-be-sky-50 dark:from-white/5 dark:via-white/5 dark:to-white/10">
-        <div class="flex flex-col md:flex-row items-center gap-5">
-            <div class="w-20 h-20 rounded-3xl bg-white dark:bg-white/10 border border-be-ink-100 dark:border-white/10 flex items-center justify-center shadow-soft shrink-0">
-                <svg class="w-10 h-10 text-be-sun-700 dark:text-white" viewBox="0 0 24 24" fill="none">
-                    <path d="M11 5L6 9H3v6h3l5 4V5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                    <path d="M15.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-            </div>
+                            <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 p-6 bg-gradient-to-br from-be-sun-50 via-white to-be-sky-50 dark:from-white/5 dark:via-white/5 dark:to-white/10">
+                                <div class="flex flex-col md:flex-row items-center gap-5">
+                                    <div class="w-20 h-20 rounded-3xl bg-white dark:bg-white/10 border border-be-ink-100 dark:border-white/10 flex items-center justify-center shadow-soft shrink-0">
+                                        <svg class="w-10 h-10 text-be-sun-700 dark:text-white" viewBox="0 0 24 24" fill="none">
+                                            <path d="M11 5L6 9H3v6h3l5 4V5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                            <path d="M15.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
 
-            <div class="flex-1 w-full">
-                <div class="font-semibold text-be-ink-900 dark:text-white" x-text="previewItem.title || 'Audio'"></div>
-                <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1" x-text="previewItem.content_type || '—'"></div>
+                                    <div class="flex-1 w-full">
+                                        <div class="font-semibold text-be-ink-900 dark:text-white" x-text="previewItem.title || 'Audio'"></div>
+                                        <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1" x-text="previewItem.content_type || '—'"></div>
 
-                <div class="mt-4">
-                    <audio class="w-full" controls :src="previewUrl"></audio>
-                </div>
-            </div>
-        </div>
-    </div>
-</template>
+                                        <div class="mt-4">
+                                            <audio class="w-full" controls :src="previewUrl"></audio>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
 
                         <template x-if="previewItem.kind === 'doc' && previewUrl">
                             <div class="space-y-3">
@@ -660,6 +725,206 @@
                         </div>
                     </div>
                 </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- DETAIL DRAWER -->
+    <div x-show="drawers.detail" x-transition.opacity class="fixed inset-0 z-50 flex justify-end" style="display:none;">
+        <div class="absolute inset-0 bg-black/40" @click="closeDetailDrawer()"></div>
+
+        <div class="relative w-full max-w-xl h-full bg-white dark:bg-[#0f172a] border-l border-be-ink-100 dark:border-white/10 shadow-soft p-5 overflow-auto no-scrollbar">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="font-semibold text-be-ink-900 dark:text-white">Détail du média</div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">Informations détaillées et métadonnées.</div>
+                </div>
+                <button
+                    @click="closeDetailDrawer()"
+                    class="w-10 h-10 rounded-xl border border-be-ink-100 dark:border-white/10 hover:bg-be-ink-50 dark:hover:bg-white/10"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <template x-if="detailLoading">
+                <div class="py-10 text-center text-sm text-be-ink-500 dark:text-white/60">Chargement…</div>
+            </template>
+
+            <template x-if="!detailLoading && detailItem">
+                <div class="mt-6 space-y-4">
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                        <div class="text-xs text-be-ink-500 dark:text-white/50">Titre</div>
+                        <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="detailItem.title || 'Sans titre'"></div>
+                    </div>
+
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                        <div class="text-xs text-be-ink-500 dark:text-white/50">Object key</div>
+                        <div class="mt-1 text-sm font-mono break-all text-be-ink-900 dark:text-white" x-text="detailItem.object_key"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                            <div class="text-xs text-be-ink-500 dark:text-white/50">Type</div>
+                            <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="kindLabel(detailItem.kind)"></div>
+                        </div>
+                        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                            <div class="text-xs text-be-ink-500 dark:text-white/50">Statut</div>
+                            <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="processingLabel(detailItem.processing_status)"></div>
+                        </div>
+                        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                            <div class="text-xs text-be-ink-500 dark:text-white/50">Taille</div>
+                            <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="humanBytes(detailItem.size)"></div>
+                        </div>
+                        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                            <div class="text-xs text-be-ink-500 dark:text-white/50">Durée</div>
+                            <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="formatDuration(detailItem.duration_seconds)"></div>
+                        </div>
+                        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                            <div class="text-xs text-be-ink-500 dark:text-white/50">Résolution</div>
+                            <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="formatResolution(detailItem.width, detailItem.height)"></div>
+                        </div>
+                        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                            <div class="text-xs text-be-ink-500 dark:text-white/50">Bitrate</div>
+                            <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="formatBitrate(detailItem.bitrate)"></div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                        <div class="text-xs text-be-ink-500 dark:text-white/50">Content type</div>
+                        <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="detailItem.content_type || '—'"></div>
+                    </div>
+
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4" x-show="detailItem.optimized_object_key">
+                        <div class="text-xs text-be-ink-500 dark:text-white/50">Version optimisée</div>
+                        <div class="mt-1 text-sm font-mono break-all text-be-ink-900 dark:text-white" x-text="detailItem.optimized_object_key"></div>
+                    </div>
+
+                    <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4" x-show="detailItem.thumbnail_object_key">
+                        <div class="text-xs text-be-ink-500 dark:text-white/50">Miniature</div>
+                        <div class="mt-1 text-sm font-mono break-all text-be-ink-900 dark:text-white" x-text="detailItem.thumbnail_object_key"></div>
+                    </div>
+
+                    <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4"
+                         x-show="detailItem.processing_error">
+                        <div class="text-xs text-rose-600">Erreur de traitement</div>
+                        <div class="mt-1 text-sm text-rose-800 whitespace-pre-wrap" x-text="detailItem.processing_error"></div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button
+                            @click="openEditModal(detailItem)"
+                            class="flex-1 px-4 py-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-sm font-semibold transition"
+                        >
+                            Modifier
+                        </button>
+                        <button
+                            @click="openMedia(detailItem)"
+                            class="flex-1 px-4 py-3 rounded-2xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold transition"
+                        >
+                            Ouvrir
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- EDIT MODAL -->
+    <div x-show="modals.edit" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+        <div class="absolute inset-0 bg-black/50" @click="closeEditModal()"></div>
+
+        <div class="relative w-full max-w-xl rounded-[28px] bg-white dark:bg-[#0f172a] border border-be-ink-100 dark:border-white/10 shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between gap-3">
+                <div>
+                    <div class="font-semibold text-be-ink-900 dark:text-white">Modifier le média</div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">Mettez à jour les informations principales.</div>
+                </div>
+                <button
+                    @click="closeEditModal()"
+                    class="w-10 h-10 rounded-xl border border-be-ink-100 dark:border-white/10 hover:bg-be-ink-50 dark:hover:bg-white/10"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">Titre</label>
+                    <input
+                        x-model="editForm.title"
+                        type="text"
+                        class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                        placeholder="Titre du média"
+                    >
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">Type</label>
+                    <select
+                        x-model="editForm.kind"
+                        class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
+                    >
+                        <option value="video">Vidéo</option>
+                        <option value="audio">Audio</option>
+                        <option value="doc">Document</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="px-5 py-4 border-t border-be-ink-100 dark:border-white/10 flex gap-3">
+                <button
+                    @click="closeEditModal()"
+                    class="flex-1 px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
+                >
+                    Annuler
+                </button>
+                <button
+                    @click="saveEdit()"
+                    :disabled="editSaving"
+                    class="flex-1 px-4 py-3 rounded-2xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold transition disabled:opacity-60"
+                >
+                    <span x-show="!editSaving">Enregistrer</span>
+                    <span x-show="editSaving">Enregistrement...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE MODAL -->
+    <div x-show="modals.delete" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none;">
+        <div class="absolute inset-0 bg-black/50" @click="closeDeleteModal()"></div>
+
+        <div class="relative w-full max-w-lg rounded-[28px] bg-white dark:bg-[#0f172a] border border-be-ink-100 dark:border-white/10 shadow-soft overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                <div class="font-semibold text-be-ink-900 dark:text-white">Supprimer ce média ?</div>
+                <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">
+                    Cette action est définitive. Le fichier et ses dérivés seront supprimés.
+                </div>
+            </div>
+
+            <div class="p-5">
+                <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                    <div class="text-sm font-semibold text-rose-800" x-text="deleteItem?.title || deleteItem?.object_key || 'Média'"></div>
+                    <div class="text-xs text-rose-700 mt-1 font-mono break-all" x-text="deleteItem?.object_key || ''"></div>
+                </div>
+            </div>
+
+            <div class="px-5 py-4 border-t border-be-ink-100 dark:border-white/10 flex gap-3">
+                <button
+                    @click="closeDeleteModal()"
+                    class="flex-1 px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
+                >
+                    Annuler
+                </button>
+                <button
+                    @click="deleteMedia()"
+                    :disabled="deleteLoading"
+                    class="flex-1 px-4 py-3 rounded-2xl bg-rose-600 text-white hover:bg-rose-700 text-sm font-semibold transition disabled:opacity-60"
+                >
+                    <span x-show="!deleteLoading">Supprimer</span>
+                    <span x-show="deleteLoading">Suppression...</span>
+                </button>
             </div>
         </div>
     </div>
@@ -708,15 +973,31 @@ function instructorMediaPremiumPage(cfg) {
 
         drawers: {
             upload: false,
+            detail: false,
         },
 
         modals: {
             preview: false,
+            edit: false,
+            delete: false,
         },
 
         previewItem: null,
         previewUrl: "",
         previewLoading: false,
+
+        detailItem: null,
+        detailLoading: false,
+
+        editForm: {
+            id: "",
+            title: "",
+            kind: "video",
+        },
+        editSaving: false,
+
+        deleteItem: null,
+        deleteLoading: false,
 
         toast: {
             show: false,
@@ -767,6 +1048,23 @@ function instructorMediaPremiumPage(cfg) {
             return "bg-be-ink-50 border-be-ink-200 text-be-ink-700";
         },
 
+        processingLabel(status) {
+            const map = {
+                pending: "En attente",
+                processing: "Traitement",
+                ready: "Prêt",
+                failed: "Échec",
+            };
+            return map[status] || status || "—";
+        },
+
+        processingPill(status) {
+            if (status === "ready") return "bg-emerald-50 border-emerald-200 text-emerald-700";
+            if (status === "processing") return "bg-amber-50 border-amber-200 text-amber-700";
+            if (status === "failed") return "bg-rose-50 border-rose-200 text-rose-700";
+            return "bg-be-ink-50 border-be-ink-200 text-be-ink-700";
+        },
+
         humanBytes(bytes) {
             const b = Number(bytes || 0);
             const u = ["B", "KB", "MB", "GB", "TB"];
@@ -784,6 +1082,30 @@ function instructorMediaPremiumPage(cfg) {
             const d = new Date(value);
             if (isNaN(d.getTime())) return value;
             return d.toLocaleString("fr-FR");
+        },
+
+        formatDuration(seconds) {
+            const s = Number(seconds || 0);
+            if (!s) return "—";
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+            if (m > 0) return `${m}m ${String(sec).padStart(2, "0")}s`;
+            return `${sec}s`;
+        },
+
+        formatResolution(w, h) {
+            if (!w || !h) return "—";
+            return `${w} × ${h}`;
+        },
+
+        formatBitrate(v) {
+            const value = Number(v || 0);
+            if (!value) return "—";
+            if (value >= 1000000) return `${(value / 1000000).toFixed(1)} Mbps`;
+            if (value >= 1000) return `${Math.round(value / 1000)} kbps`;
+            return `${value} bps`;
         },
 
         async apiGet(url) {
@@ -817,6 +1139,26 @@ function instructorMediaPremiumPage(cfg) {
             return await res.json();
         },
 
+        async apiDelete(url) {
+            const res = await fetch(url, {
+                method: "DELETE",
+                headers: {
+                    "X-CSRFToken": this.getCsrf(),
+                    "Accept": "application/json"
+                },
+                credentials: "same-origin"
+            });
+
+            if (!res.ok) {
+                let detail = "";
+                try {
+                    detail = JSON.stringify(await res.json());
+                } catch (e) {}
+                throw new Error(`DELETE ${url} -> ${res.status} ${detail}`);
+            }
+            return await res.json();
+        },
+
         async loadMedia() {
             try {
                 this.loading.media = true;
@@ -835,79 +1177,77 @@ function instructorMediaPremiumPage(cfg) {
         },
 
         async preloadVideoThumbs() {
-    const videos = (this.media || []).filter(m => m.kind === "video").slice(0, 12);
-    for (const item of videos) {
-        if (!this.thumbCache[item.id] && !this.thumbLoading[item.id]) {
-            this.thumbLoading[item.id] = true;
-            try {
-                const resp = await this.apiGet(this.endpoints.signedGet(item.id));
-                if (resp.url) {
-                    const thumb = await this.generateVideoThumbnail(resp.url);
-                    if (thumb) {
-                        this.thumbCache[item.id] = thumb;
+            const videos = (this.media || []).filter(m => m.kind === "video").slice(0, 12);
+            for (const item of videos) {
+                if (!this.thumbCache[item.id] && !this.thumbLoading[item.id]) {
+                    this.thumbLoading[item.id] = true;
+                    try {
+                        const resp = await this.apiGet(this.endpoints.signedGet(item.id));
+                        if (resp.url) {
+                            const thumb = await this.generateVideoThumbnail(resp.url);
+                            if (thumb) this.thumbCache[item.id] = thumb;
+                            this.previewCache[item.id] = resp.url;
+                        }
+                    } catch (e) {
+                        console.error("thumbnail preload failed", e);
+                    } finally {
+                        this.thumbLoading[item.id] = false;
                     }
-                    this.previewCache[item.id] = resp.url;
                 }
-            } catch (e) {
-                console.error("thumbnail preload failed", e);
-            } finally {
-                this.thumbLoading[item.id] = false;
             }
-        }
-    }
-},
+        },
 
-generateVideoThumbnail(videoUrl) {
-    return new Promise((resolve) => {
-        try {
-            const video = document.createElement("video");
-            video.crossOrigin = "anonymous";
-            video.muted = true;
-            video.playsInline = true;
-            video.preload = "metadata";
-            video.src = videoUrl;
-
-            let done = false;
-
-            const finish = (value = null) => {
-                if (done) return;
-                done = true;
-                resolve(value);
-            };
-
-            video.addEventListener("loadeddata", () => {
-                const seekTo = Math.min(1, Math.max(0.1, (video.duration || 1) * 0.1));
+        generateVideoThumbnail(videoUrl) {
+            return new Promise((resolve) => {
                 try {
-                    video.currentTime = seekTo;
+                    const video = document.createElement("video");
+                    video.crossOrigin = "anonymous";
+                    video.muted = true;
+                    video.playsInline = true;
+                    video.preload = "metadata";
+                    video.src = videoUrl;
+
+                    let done = false;
+
+                    const finish = (value = null) => {
+                        if (done) return;
+                        done = true;
+                        resolve(value);
+                    };
+
+                    video.addEventListener("loadeddata", () => {
+                        const seekTo = Math.min(1, Math.max(0.1, (video.duration || 1) * 0.1));
+                        try {
+                            video.currentTime = seekTo;
+                        } catch (e) {
+                            finish(null);
+                        }
+                    });
+
+                    video.addEventListener("seeked", () => {
+                        try {
+                            const canvas = document.createElement("canvas");
+                            canvas.width = video.videoWidth || 640;
+                            canvas.height = video.videoHeight || 360;
+
+                            const ctx = canvas.getContext("2d");
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                            const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+                            finish(dataUrl);
+                        } catch (e) {
+                            finish(null);
+                        }
+                    });
+
+                    video.addEventListener("error", () => finish(null));
+                    setTimeout(() => finish(null), 12000);
                 } catch (e) {
-                    finish(null);
+                    resolve(null);
                 }
             });
+        },
 
-            video.addEventListener("seeked", () => {
-                try {
-                    const canvas = document.createElement("canvas");
-                    canvas.width = video.videoWidth || 640;
-                    canvas.height = video.videoHeight || 360;
-
-                    const ctx = canvas.getContext("2d");
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                    const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
-                    finish(dataUrl);
-                } catch (e) {
-                    finish(null);
-                }
-            });
-
-            video.addEventListener("error", () => finish(null));
-
-            setTimeout(() => finish(null), 12000);
-        } catch (e) {
-            resolve(null);
-        }
-    });
-},
         computeStats() {
             this.stats.total = this.media.length;
             this.stats.video = this.media.filter(m => m.kind === "video").length;
@@ -925,7 +1265,8 @@ generateVideoThumbnail(videoUrl) {
                         m.title || "",
                         m.object_key || "",
                         m.content_type || "",
-                        m.kind || ""
+                        m.kind || "",
+                        m.processing_status || ""
                     ].join(" ").toLowerCase().includes(q);
                 });
             }
@@ -1012,41 +1353,142 @@ generateVideoThumbnail(videoUrl) {
         },
 
         async previewMedia(m) {
-    try {
-        this.previewItem = m;
-        this.previewUrl = "";
-        this.previewLoading = true;
-        this.modals.preview = true;
+            try {
+                this.previewItem = m;
+                this.previewUrl = "";
+                this.previewLoading = true;
+                this.modals.preview = true;
 
-        if (this.previewCache[m.id]) {
-            this.previewUrl = this.previewCache[m.id];
-        } else {
-            const resp = await this.apiGet(this.endpoints.signedGet(m.id));
-            this.previewUrl = resp.url || "";
-            if (this.previewUrl) {
-                this.previewCache[m.id] = this.previewUrl;
-            }
-        }
+                if (this.previewCache[m.id]) {
+                    this.previewUrl = this.previewCache[m.id];
+                } else {
+                    const resp = await this.apiGet(this.endpoints.signedGet(m.id));
+                    this.previewUrl = resp.url || "";
+                    if (this.previewUrl) {
+                        this.previewCache[m.id] = this.previewUrl;
+                    }
+                }
 
-        if (m.kind === "video" && !this.thumbCache[m.id] && this.previewUrl) {
-            const thumb = await this.generateVideoThumbnail(this.previewUrl);
-            if (thumb) {
-                this.thumbCache[m.id] = thumb;
+                if (m.kind === "video" && !this.thumbCache[m.id] && this.previewUrl) {
+                    const thumb = await this.generateVideoThumbnail(this.previewUrl);
+                    if (thumb) {
+                        this.thumbCache[m.id] = thumb;
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                this.showToast("Erreur", "Impossible de prévisualiser le média.", "error");
+            } finally {
+                this.previewLoading = false;
             }
-        }
-    } catch (e) {
-        console.error(e);
-        this.showToast("Erreur", "Impossible de prévisualiser le média.", "error");
-    } finally {
-        this.previewLoading = false;
-    }
-},
+        },
 
         closePreview() {
             this.modals.preview = false;
             this.previewItem = null;
             this.previewUrl = "";
             this.previewLoading = false;
+        },
+
+        async openDetailDrawer(m) {
+            try {
+                this.drawers.detail = true;
+                this.detailItem = null;
+                this.detailLoading = true;
+                this.detailItem = await this.apiGet(this.endpoints.mediaDetail(m.id));
+            } catch (e) {
+                console.error(e);
+                this.showToast("Erreur", "Impossible de charger le détail du média.", "error");
+            } finally {
+                this.detailLoading = false;
+            }
+        },
+
+        closeDetailDrawer() {
+            this.drawers.detail = false;
+            this.detailItem = null;
+            this.detailLoading = false;
+        },
+
+        openEditModal(m) {
+            this.editForm = {
+                id: m.id,
+                title: m.title || "",
+                kind: m.kind || "video",
+            };
+            this.modals.edit = true;
+        },
+
+        closeEditModal() {
+            this.modals.edit = false;
+            this.editForm = {
+                id: "",
+                title: "",
+                kind: "video",
+            };
+        },
+
+        async saveEdit() {
+            try {
+                if (!this.editForm.id) return;
+                this.editSaving = true;
+
+                const updated = await this.apiPost(this.endpoints.mediaUpdate(this.editForm.id), {
+                    title: this.editForm.title,
+                    kind: this.editForm.kind,
+                });
+
+                this.media = this.media.map(item => item.id === updated.id ? updated : item);
+                this.applyFilters();
+
+                if (this.detailItem && this.detailItem.id === updated.id) {
+                    this.detailItem = updated;
+                }
+
+                this.closeEditModal();
+                this.showToast("Succès", "Le média a été mis à jour.");
+            } catch (e) {
+                console.error(e);
+                this.showToast("Erreur", "Impossible de modifier le média.", "error");
+            } finally {
+                this.editSaving = false;
+            }
+        },
+
+        confirmDelete(m) {
+            this.deleteItem = m;
+            this.modals.delete = true;
+        },
+
+        closeDeleteModal() {
+            this.modals.delete = false;
+            this.deleteItem = null;
+        },
+
+        async deleteMedia() {
+            try {
+                if (!this.deleteItem?.id) return;
+                this.deleteLoading = true;
+
+                await this.apiDelete(this.endpoints.mediaDelete(this.deleteItem.id));
+
+                const deletedId = this.deleteItem.id;
+                this.media = this.media.filter(item => item.id !== deletedId);
+                this.filteredMedia = this.filteredMedia.filter(item => item.id !== deletedId);
+                delete this.previewCache[deletedId];
+                delete this.thumbCache[deletedId];
+
+                this.computeStats();
+                this.closeDeleteModal();
+                this.closeDetailDrawer();
+
+                this.showToast("Succès", "Le média a été supprimé.");
+            } catch (e) {
+                console.error(e);
+                this.showToast("Erreur", "Impossible de supprimer le média.", "error");
+            } finally {
+                this.deleteLoading = false;
+            }
         },
 
         openUploadDrawer() {
@@ -1152,7 +1594,7 @@ generateVideoThumbnail(videoUrl) {
                 await this.loadMedia();
             } catch (e) {
                 console.error(e);
-                this.upload.error = "Upload échoué. Vérifiez la configuration MinIO et réessayez.";
+                this.upload.error = e?.message || "Upload échoué. Vérifiez la configuration MinIO et réessayez.";
                 this.showToast("Erreur", this.upload.error, "error");
             } finally {
                 this.loading.upload = false;
@@ -1160,45 +1602,36 @@ generateVideoThumbnail(videoUrl) {
         },
 
         async putFile(uploadUrl, file, headers) {
-    await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", uploadUrl, true);
+            await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("PUT", uploadUrl, true);
 
-        Object.entries(headers || {}).forEach(([k, v]) => {
-            xhr.setRequestHeader(k, v);
-        });
+                Object.entries(headers || {}).forEach(([k, v]) => {
+                    xhr.setRequestHeader(k, v);
+                });
 
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                this.upload.progress = Math.round((e.loaded / e.total) * 100);
-            }
-        };
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        this.upload.progress = Math.round((e.loaded / e.total) * 100);
+                    }
+                };
 
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                resolve();
-            } else {
-                reject(new Error(`Upload HTTP ${xhr.status}: ${xhr.responseText || "no body"}`));
-            }
-        };
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Upload HTTP ${xhr.status}: ${xhr.responseText || "no body"}`));
+                    }
+                };
 
-        xhr.onerror = () => {
-            reject(new Error("Network/CORS/proxy error during upload"));
-        };
+                xhr.onerror = () => reject(new Error("Network/CORS/proxy error during upload"));
+                xhr.ontimeout = () => reject(new Error("Upload timeout"));
+                xhr.onabort = () => reject(new Error("Upload aborted"));
+                xhr.timeout = 1000 * 60 * 60;
 
-        xhr.ontimeout = () => {
-            reject(new Error("Upload timeout"));
-        };
-
-        xhr.onabort = () => {
-            reject(new Error("Upload aborted"));
-        };
-
-        xhr.timeout = 1000 * 60 * 60; // 1 heure
-
-        xhr.send(file);
-    });
-}
+                xhr.send(file);
+            });
+        },
     }
 }
 </script>

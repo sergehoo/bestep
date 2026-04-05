@@ -243,6 +243,46 @@ class MediaAssetListSerializer(serializers.ModelSerializer):
 
     def get_optimized(self, obj):
         return bool(obj.optimized_object_key)
+
+class MediaAssetDetailSerializer(serializers.ModelSerializer):
+    effective_object_key = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = MediaAsset
+        fields = [
+            "id",
+            "kind",
+            "title",
+            "object_key",
+            "effective_object_key",
+            "content_type",
+            "size",
+            "duration_seconds",
+            "optimized_object_key",
+            "thumbnail_object_key",
+            "width",
+            "height",
+            "bitrate",
+            "processing_status",
+            "processing_error",
+            "created_at",
+            "updated_at",
+        ]
+
+class MediaAssetUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MediaAsset
+        fields = ["title", "kind"]
+
+    def validate_kind(self, value):
+        allowed = {
+            MediaAsset.Kind.VIDEO,
+            MediaAsset.Kind.AUDIO,
+            MediaAsset.Kind.DOC,
+        }
+        if value not in allowed:
+            raise serializers.ValidationError("Type de média invalide.")
+        return value
 class PublicCourseSerializer(serializers.ModelSerializer):
     # ✅ champs “UI-friendly” calculés
     course_type_label = serializers.CharField(source="get_course_type_display", read_only=True)

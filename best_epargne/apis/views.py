@@ -25,7 +25,8 @@ from assessments.models import Quiz, Attempt, Question, Choice, AttemptAnswer
 from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, Payment
 from .permissions import IsInstructor
 from .serializers import CourseSerializer, CategorySerializer, CourseSectionSerializer, LessonSerializer, \
-    MediaUploadInitSerializer, MediaUploadFinalizeSerializer, MediaAssetListSerializer
+    MediaUploadInitSerializer, MediaUploadFinalizeSerializer, MediaAssetListSerializer, MediaAssetUpdateSerializer, \
+    MediaAssetDetailSerializer
 from formations.tasks import process_media_asset
 
 # from compte.api.permissions import IsInstructor
@@ -723,6 +724,91 @@ class MediaUploadFinalizeView(APIView):
 
 
 
+class InstructorMediaDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def get_object(self, request, asset_id):
+        asset = get_object_or_404(MediaAsset, id=asset_id)
+        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Forbidden")
+        return asset
+
+    def get(self, request, asset_id):
+        asset = self.get_object(request, asset_id)
+        serializer = MediaAssetDetailSerializer(asset)
+        return Response(serializer.data)
+
+
+class InstructorMediaUpdateView(APIView):
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def get_object(self, request, asset_id):
+        asset = get_object_or_404(MediaAsset, id=asset_id)
+        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Forbidden")
+        return asset
+
+    @transaction.atomic
+    def post(self, request, asset_id):
+        asset = self.get_object(request, asset_id)
+        serializer = MediaAssetUpdateSerializer(instance=asset, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        output = MediaAssetDetailSerializer(asset)
+        return Response(output.data, status=status.HTTP_200_OK)
+
+    @transaction.atomic
+    def patch(self, request, asset_id):
+        asset = self.get_object(request, asset_id)
+        serializer = MediaAssetUpdateSerializer(instance=asset, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        output = MediaAssetDetailSerializer(asset)
+        return Response(output.data, status=status.HTTP_200_OK)
+
+
+class InstructorMediaDeleteView(APIView):
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def get_object(self, request, asset_id):
+        asset = get_object_or_404(MediaAsset, id=asset_id)
+        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Forbidden")
+        return asset
+
+    @transaction.atomic
+    def delete(self, request, asset_id):
+        asset = self.get_object(request, asset_id)
+
+        bucket = getattr(settings, "MINIO_BUCKET", None)
+        if not bucket:
+            return Response({"detail": "MINIO_BUCKET is not configured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        client = s3_internal_client()
+
+        keys_to_delete = [asset.object_key]
+        if asset.optimized_object_key:
+            keys_to_delete.append(asset.optimized_object_key)
+        if asset.thumbnail_object_key:
+            keys_to_delete.append(asset.thumbnail_object_key)
+
+        for key in keys_to_delete:
+            try:
+                client.delete_object(Bucket=bucket, Key=key)
+            except Exception:
+                pass
+
+        asset.delete()
+        return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+    @transaction.atomic
+    def post(self, request, asset_id):
+        return self.delete(request, asset_id)
 
 class MediaSignedGetView(APIView):
     permission_classes = [IsAuthenticated]
