@@ -191,20 +191,21 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
 
-      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
-      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
-      DB_HOST: ${DB_HOST:-bestDB}
-      DB_PORT: ${DB_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
 
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
 
-      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://bestminio:9000}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      MINIO_BUCKET: ${MINIO_BUCKET:-bestepargne}
+      MINIO_INTERNAL_ENDPOINT: ${MINIO_INTERNAL_ENDPOINT:-http://bestminio:9000}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-https://minio.ayo-group.com}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
 
     depends_on:
       bestDB:
@@ -231,20 +232,21 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-best_epargne.settings.prod}
 
-      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
-      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
-      DB_HOST: ${DB_HOST:-bestDB}
-      DB_PORT: ${DB_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
 
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
 
-      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://bestminio:9000}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      MINIO_BUCKET: ${MINIO_BUCKET:-bestepargne}
+      MINIO_INTERNAL_ENDPOINT: ${MINIO_INTERNAL_ENDPOINT:-http://bestminio:9000}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-https://minio.ayo-group.com}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
 
     depends_on:
       bestDB:
