@@ -1,0 +1,14 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://ayo-group.com",
+      "https://www.ayo-group.com",
+      "https://minio.ayo-group.com",
+      "https://minio-console.ayo-group.com"
+    ],
+    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag", "x-amz-request-id", "x-amz-id-2"],
+    "MaxAgeSeconds": 3000
+  }
+]

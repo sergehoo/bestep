@@ -107,6 +107,8 @@ services:
       proxy:
         aliases:
           - bestminio
+      volumes:
+        - ./deploy/minio/cors.json:/tmp/cors.json:ro
     entrypoint: >
       /bin/sh -c "
       until mc alias set local http://bestminio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
