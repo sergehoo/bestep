@@ -6,7 +6,7 @@ from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 
-from .models import MediaAsset
+from catalog.models import MediaAsset
 from .storage import (
     build_optimized_object_key,
     build_thumbnail_object_key,
