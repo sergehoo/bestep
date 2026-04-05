@@ -621,7 +621,7 @@ class MediaUploadInitView(APIView):
                 "Key": object_key,
                 "ContentType": data["content_type"],
             },
-            ExpiresIn=60 * 15,
+            ExpiresIn=60 * 60,
         )
 
         return Response({

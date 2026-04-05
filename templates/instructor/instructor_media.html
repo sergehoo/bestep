@@ -1153,36 +1153,52 @@ generateVideoThumbnail(videoUrl) {
             } catch (e) {
                 console.error(e);
                 this.upload.error = "Upload échoué. Vérifiez la configuration MinIO et réessayez.";
-                this.showToast("Erreur", "Import impossible.", "error");
+                this.showToast("Erreur", this.upload.error, "error");
             } finally {
                 this.loading.upload = false;
             }
         },
 
         async putFile(uploadUrl, file, headers) {
-            await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.open("PUT", uploadUrl, true);
+    await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl, true);
 
-                Object.entries(headers || {}).forEach(([k, v]) => {
-                    xhr.setRequestHeader(k, v);
-                });
+        Object.entries(headers || {}).forEach(([k, v]) => {
+            xhr.setRequestHeader(k, v);
+        });
 
-                xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable) {
-                        this.upload.progress = Math.round((e.loaded / e.total) * 100);
-                    }
-                };
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                this.upload.progress = Math.round((e.loaded / e.total) * 100);
+            }
+        };
 
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) resolve();
-                    else reject(new Error(`Upload HTTP ${xhr.status}`));
-                };
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+            } else {
+                reject(new Error(`Upload HTTP ${xhr.status}: ${xhr.responseText || "no body"}`));
+            }
+        };
 
-                xhr.onerror = () => reject(new Error("network"));
-                xhr.send(file);
-            });
-        },
+        xhr.onerror = () => {
+            reject(new Error("Network/CORS/proxy error during upload"));
+        };
+
+        xhr.ontimeout = () => {
+            reject(new Error("Upload timeout"));
+        };
+
+        xhr.onabort = () => {
+            reject(new Error("Upload aborted"));
+        };
+
+        xhr.timeout = 1000 * 60 * 60; // 1 heure
+
+        xhr.send(file);
+    });
+}
     }
 }
 </script>
