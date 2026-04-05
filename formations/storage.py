@@ -4,6 +4,7 @@ import mimetypes
 from uuid import uuid4
 
 import boto3
+from botocore.config import Config
 from django.conf import settings
 
 
@@ -32,21 +33,25 @@ def build_thumbnail_object_key(user_id, asset_id) -> str:
     return f"instructors/{user_id}/video/thumbnails/{asset_id}/thumb.jpg"
 
 
+def s3_internal_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.MINIO_INTERNAL_ENDPOINT,
+        aws_access_key_id=settings.MINIO_ROOT_USER,
+        aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
+        region_name=settings.MINIO_REGION,
+        config=Config(signature_version="s3v4"),
+        verify=False,
+    )
+
+
 def s3_public_client():
     return boto3.client(
         "s3",
         endpoint_url=settings.MINIO_PUBLIC_ENDPOINT,
-        aws_access_key_id=settings.MINIO_ACCESS_KEY,
-        aws_secret_access_key=settings.MINIO_SECRET_KEY,
-        region_name=getattr(settings, "MINIO_REGION", "us-east-1"),
-    )
-
-
-def s3_internal_client():
-    return boto3.client(
-        "s3",
-        endpoint_url=getattr(settings, "MINIO_INTERNAL_ENDPOINT", settings.MINIO_PUBLIC_ENDPOINT),
-        aws_access_key_id=settings.MINIO_ACCESS_KEY,
-        aws_secret_access_key=settings.MINIO_SECRET_KEY,
-        region_name=getattr(settings, "MINIO_REGION", "us-east-1"),
+        aws_access_key_id=settings.MINIO_ROOT_USER,
+        aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
+        region_name=settings.MINIO_REGION,
+        config=Config(signature_version="s3v4"),
+        verify=True,
     )
