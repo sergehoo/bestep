@@ -7,17 +7,12 @@ from django.conf import settings
 from django.db import transaction
 
 from catalog.models import MediaAsset
-from .storage import (
-    build_optimized_object_key,
-    build_thumbnail_object_key,
-    s3_internal_client,
-)
-from .video_pipeline import (
+from formations.video_pipeline import (
     ffprobe_metadata,
-    generate_thumbnail,
     transcode_to_web_mp4,
-    VideoProcessingError,
+    generate_thumbnail,
 )
+from formations.storage import s3_internal_client, build_thumbnail_object_key, build_optimized_object_key
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
@@ -41,26 +36,40 @@ def process_media_asset(self, asset_id: str):
     with tempfile.TemporaryDirectory(prefix="media_proc_") as tmpdir:
         tmpdir = Path(tmpdir)
 
-        src_path = tmpdir / "source"
+        src_path = tmpdir / "source.mp4"
         optimized_path = tmpdir / "optimized.mp4"
         thumb_path = tmpdir / "thumb.jpg"
 
-        # Télécharger l'original
         client.download_file(bucket, asset.object_key, str(src_path))
 
-        # Lire métadonnées
         meta = ffprobe_metadata(str(src_path))
 
-        # Transcoder
-        transcode_to_web_mp4(str(src_path), str(optimized_path), target_height=720)
+        transcode_to_web_mp4(
+            str(src_path),
+            str(optimized_path),
+            target_height=720,
+            max_width=1280,
+            crf=23,
+            audio_bitrate="128k",
+            preset="medium",
+        )
 
-        # Miniature
         thumb_second = 2
         if meta["duration_seconds"] and meta["duration_seconds"] > 10:
             thumb_second = max(1, int(meta["duration_seconds"] * 0.1))
-        generate_thumbnail(str(src_path), str(thumb_path), second=thumb_second)
 
-        optimized_key = build_optimized_object_key(asset.owner_id, asset.id, source_filename="video.mp4")
+        generate_thumbnail(
+            str(src_path),
+            str(thumb_path),
+            second=thumb_second,
+            width=1280,
+        )
+
+        optimized_key = build_optimized_object_key(
+            asset.owner_id,
+            asset.id,
+            source_filename="video.mp4",
+        )
         thumbnail_key = build_thumbnail_object_key(asset.owner_id, asset.id)
 
         client.upload_file(
