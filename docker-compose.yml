@@ -54,6 +54,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_SERVER_URL: https://${MINIO_PUBLIC_DOMAIN}
       MINIO_BROWSER_REDIRECT_URL: https://${MINIO_CONSOLE_DOMAIN}
+      MINIO_API_CORS_ALLOW_ORIGIN: "https://ayo-group.com,https://www.ayo-group.com"
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
