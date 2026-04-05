@@ -26,7 +26,7 @@ from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, 
 from .permissions import IsInstructor
 from .serializers import CourseSerializer, CategorySerializer, CourseSectionSerializer, LessonSerializer, \
     MediaUploadInitSerializer, MediaUploadFinalizeSerializer, MediaAssetListSerializer
-
+from formations.tasks import process_media_asset
 
 # from compte.api.permissions import IsInstructor
 
@@ -564,8 +564,43 @@ def build_object_key(user_id: int, kind: str, filename: str) -> str:
     return f"{prefix}/{user_id}/{kind}/{uuid.uuid4().hex}{ext}"
 
 
+# class MediaUploadInitView(APIView):
+#     permission_classes = [IsAuthenticated, IsInstructor]
+#
+#     def post(self, request):
+#         ser = MediaUploadInitSerializer(data=request.data)
+#         ser.is_valid(raise_exception=True)
+#         data = ser.validated_data
+#
+#         bucket = getattr(settings, "MINIO_BUCKET", None)
+#         if not bucket:
+#             return Response({"detail": "MINIO_BUCKET is not configured"}, status=500)
+#
+#         object_key = build_object_key(request.user.id, data["kind"], data["filename"])
+#         client = s3_public_client()
+#
+#         upload_url = client.generate_presigned_url(
+#             ClientMethod="put_object",
+#             Params={
+#                 "Bucket": bucket,
+#                 "Key": object_key,
+#                 "ContentType": data["content_type"],
+#             },
+#             ExpiresIn=60 * 15,
+#         )
+#
+#         return Response({
+#             "upload_id": uuid.uuid4().hex,
+#             "bucket": bucket,
+#             "object_key": object_key,
+#             "upload_url": upload_url,
+#             "method": "PUT",
+#             "headers": {
+#                 "Content-Type": data["content_type"],
+#             },
+#         })
 class MediaUploadInitView(APIView):
-    permission_classes = [IsAuthenticated, IsInstructor]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         ser = MediaUploadInitSerializer(data=request.data)
@@ -599,13 +634,8 @@ class MediaUploadInitView(APIView):
                 "Content-Type": data["content_type"],
             },
         })
-
 class MediaUploadFinalizeView(APIView):
-    """
-    POST /api/media/upload/finalize/
-    -> crée MediaAsset, optionnellement attache à une Lesson via Lesson.media_asset
-    """
-    permission_classes = [IsAuthenticated, IsInstructor]
+    permission_classes = [IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
@@ -617,24 +647,26 @@ class MediaUploadFinalizeView(APIView):
         if not bucket:
             return Response({"detail": "MINIO_BUCKET is not configured"}, status=500)
 
-        # ✅ Vérifier que l'objet existe réellement dans MinIO et récupérer la taille/type
         client = s3_internal_client()
+
         try:
             head = client.head_object(Bucket=bucket, Key=data["object_key"])
         except Exception:
-            raise ValidationError(
-                {"object_key": "Object not found in MinIO (head_object failed). Upload may have failed."})
+            raise ValidationError({
+                "object_key": "Object not found in MinIO (head_object failed). Upload may have failed."
+            })
 
         remote_size = int(head.get("ContentLength") or 0)
         remote_type = head.get("ContentType") or data["content_type"]
 
-        # Tolérance : si l’écart est énorme, on bloque
         if remote_size <= 0:
             raise ValidationError({"size": "Remote size invalid (0)."})
-        if abs(remote_size - int(data["size"])) > 1024 * 1024 * 5:  # 5MB tolérance
-            raise ValidationError({"size": f"Size mismatch. local={data['size']} remote={remote_size}"})
 
-        # ✅ Eviter doublons object_key (unique=True)
+        if abs(remote_size - int(data["size"])) > 1024 * 1024 * 5:
+            raise ValidationError({
+                "size": f"Size mismatch. local={data['size']} remote={remote_size}"
+            })
+
         asset, created = MediaAsset.objects.get_or_create(
             object_key=data["object_key"],
             defaults=dict(
@@ -644,67 +676,114 @@ class MediaUploadFinalizeView(APIView):
                 content_type=remote_type,
                 size=remote_size,
                 duration_seconds=data.get("duration_seconds"),
+                processing_status=(
+                    MediaAsset.ProcessingStatus.PENDING
+                    if data["kind"] == MediaAsset.Kind.VIDEO
+                    else MediaAsset.ProcessingStatus.READY
+                ),
             )
         )
 
-        # Si l’asset existe déjà mais owner différent => interdit
-        if not created and asset.owner_id != request.user.id and request.user.role != "SUPERADMIN":
+        if not created and asset.owner_id != request.user.id:
             return Response({"detail": "Forbidden: object_key already owned by another user."}, status=403)
 
-        # ✅ Bind optionnel vers une lesson (recommandé, plus propre que video_url="s3://...")
         bind = data.get("bind")
         if bind:
             course = get_object_or_404(Course, id=bind["course_id"])
-            if course.instructor_id != request.user.id and request.user.role != "SUPERADMIN":
+            if course.instructor_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
                 return Response({"detail": "Forbidden: course not owned"}, status=403)
 
             section = get_object_or_404(CourseSection, id=bind["section_id"], course=course)
             lesson = get_object_or_404(Lesson, id=bind["lesson_id"], section=section)
 
-            # Attacher
             lesson.media_asset = asset
-
-            # Ajuster le type de lesson si nécessaire
-            if asset.kind == "video":
+            if asset.kind == MediaAsset.Kind.VIDEO:
                 lesson.lesson_type = Lesson.LessonType.VIDEO
-            elif asset.kind == "audio":
-                # tu n'as pas AUDIO dans LessonType → on mappe en FILE
-                lesson.lesson_type = Lesson.LessonType.FILE
             else:
                 lesson.lesson_type = Lesson.LessonType.FILE
 
             lesson.save(update_fields=["media_asset", "lesson_type"])
+
+        if asset.kind == MediaAsset.Kind.VIDEO:
+            process_media_asset.delay(str(asset.id))
 
         return Response({
             "id": str(asset.id),
             "kind": asset.kind,
             "title": asset.title,
             "object_key": asset.object_key,
+            "optimized_object_key": asset.optimized_object_key,
+            "thumbnail_object_key": asset.thumbnail_object_key,
             "content_type": asset.content_type,
             "size": asset.size,
             "duration_seconds": asset.duration_seconds,
+            "processing_status": asset.processing_status,
             "created_at": asset.created_at,
         }, status=201)
 
 
+
+
 class MediaSignedGetView(APIView):
-    permission_classes = [IsAuthenticated, IsInstructor]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, asset_id):
         asset = get_object_or_404(MediaAsset, id=asset_id)
 
-        if asset.owner_id != request.user.id and request.user.role != "SUPERADMIN":
+        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
             return Response({"detail": "Forbidden"}, status=403)
+
+        bucket = getattr(settings, "MINIO_BUCKET", None)
+        if not bucket:
+            return Response({"detail": "MINIO_BUCKET is not configured"}, status=500)
+
+        client = s3_public_client()
+        target_key = asset.effective_object_key
+
+        url = client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": bucket, "Key": target_key},
+            ExpiresIn=60 * 10,
+        )
+
+        thumbnail_url = ""
+        if asset.thumbnail_object_key:
+            thumbnail_url = client.generate_presigned_url(
+                ClientMethod="get_object",
+                Params={"Bucket": bucket, "Key": asset.thumbnail_object_key},
+                ExpiresIn=60 * 10,
+            )
+
+        return Response({
+            "url": url,
+            "thumbnail_url": thumbnail_url,
+            "processing_status": asset.processing_status,
+            "optimized": bool(asset.optimized_object_key),
+            "kind": asset.kind,
+        })
+
+class MediaThumbnailSignedGetView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, asset_id):
+        asset = get_object_or_404(MediaAsset, id=asset_id)
+
+        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
+            return Response({"detail": "Forbidden"}, status=403)
+
+        if not asset.thumbnail_object_key:
+            return Response({"detail": "Thumbnail not available"}, status=404)
 
         bucket = getattr(settings, "MINIO_BUCKET", None)
         client = s3_public_client()
 
         url = client.generate_presigned_url(
             ClientMethod="get_object",
-            Params={"Bucket": bucket, "Key": asset.object_key},
-            ExpiresIn=60 * 10,  # 10 minutes
+            Params={"Bucket": bucket, "Key": asset.thumbnail_object_key},
+            ExpiresIn=60 * 10,
         )
         return Response({"url": url})
+
 
 
 class InstructorMediaListView(APIView):

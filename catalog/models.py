@@ -131,36 +131,68 @@ class CourseSection(models.Model):
 
 
 class MediaAsset(models.Model):
-    """
-    Fichiers envoyés par le formateur vers MinIO via presigned URL.
-    Une Lesson peut pointer vers un MediaAsset pour VIDEO/AUDIO/DOC.
-    """
-
     class Kind(models.TextChoices):
         VIDEO = "video", "Video"
         AUDIO = "audio", "Audio"
         DOC = "doc", "Document"
 
+    class ProcessingStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PROCESSING = "processing", "Processing"
+        READY = "ready", "Ready"
+        FAILED = "failed", "Failed"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="media_assets")
-    kind = models.CharField(max_length=10, choices=Kind.choices)
 
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="media_assets",
+    )
+
+    kind = models.CharField(max_length=20, choices=Kind.choices)
     title = models.CharField(max_length=255, blank=True, default="")
-    object_key = models.CharField(max_length=1024, unique=True)  # chemin dans MinIO
-    content_type = models.CharField(max_length=120)
-    size = models.BigIntegerField(default=0)
+    object_key = models.CharField(max_length=500, unique=True)
 
-    duration_seconds = models.IntegerField(null=True, blank=True)  # optionnel
+    content_type = models.CharField(max_length=255, blank=True, default="")
+    size = models.BigIntegerField(default=0)
+    duration_seconds = models.PositiveIntegerField(null=True, blank=True)
+
+    # Dérivés
+    optimized_object_key = models.CharField(max_length=500, blank=True, default="")
+    thumbnail_object_key = models.CharField(max_length=500, blank=True, default="")
+
+    # Métadonnées vidéo
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    bitrate = models.PositiveIntegerField(null=True, blank=True)
+
+    processing_status = models.CharField(
+        max_length=20,
+        choices=ProcessingStatus.choices,
+        default=ProcessingStatus.PENDING,
+    )
+    processing_error = models.TextField(blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["owner", "kind", "created_at"]),
+            models.Index(fields=["owner", "kind"]),
+            models.Index(fields=["owner", "created_at"]),
+            models.Index(fields=["processing_status"]),
         ]
 
     def __str__(self):
-        return f"{self.kind} • {self.title or self.object_key}"
+        return self.title or self.object_key
+
+    @property
+    def effective_object_key(self):
+        if self.kind == self.Kind.VIDEO and self.optimized_object_key:
+            return self.optimized_object_key
+        return self.object_key
 
 
 class Lesson(models.Model):

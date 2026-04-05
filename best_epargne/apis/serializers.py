@@ -140,35 +140,76 @@ class WebhookSerializer(serializers.Serializer):
     raw_payload = serializers.JSONField(required=False)
 
 
+# class MediaUploadInitSerializer(serializers.Serializer):
+#     filename = serializers.CharField(max_length=255)
+#     content_type = serializers.CharField(max_length=120)
+#     size = serializers.IntegerField(min_value=1)
+#     kind = serializers.ChoiceField(choices=["video", "audio", "doc"])
+#     title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+#
+#
+# class MediaUploadFinalizeBindSerializer(serializers.Serializer):
+#     course_id = serializers.IntegerField()
+#     section_id = serializers.IntegerField()
+#     lesson_id = serializers.IntegerField()
+#
+#
+# class MediaUploadFinalizeSerializer(serializers.Serializer):
+#     upload_id = serializers.CharField(max_length=64)  # id de tracking coté front
+#     object_key = serializers.CharField(max_length=1024)
+#     kind = serializers.ChoiceField(choices=["video", "audio", "doc"])
+#     title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+#
+#     content_type = serializers.CharField(max_length=120)
+#     size = serializers.IntegerField(min_value=1)
+#     duration_seconds = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+#
+#     # bind optionnel (recommandé)
+#     bind = MediaUploadFinalizeBindSerializer(required=False, allow_null=True)
+#
+#
+# class MediaAssetListSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = MediaAsset
+#         fields = [
+#             "id",
+#             "kind",
+#             "title",
+#             "object_key",
+#             "content_type",
+#             "size",
+#             "duration_seconds",
+#             "created_at",
+#         ]
 class MediaUploadInitSerializer(serializers.Serializer):
     filename = serializers.CharField(max_length=255)
-    content_type = serializers.CharField(max_length=120)
+    content_type = serializers.CharField(max_length=255)
     size = serializers.IntegerField(min_value=1)
-    kind = serializers.ChoiceField(choices=["video", "audio", "doc"])
-    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    kind = serializers.ChoiceField(choices=MediaAsset.Kind.choices)
+    title = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
 
-class MediaUploadFinalizeBindSerializer(serializers.Serializer):
-    course_id = serializers.IntegerField()
-    section_id = serializers.IntegerField()
-    lesson_id = serializers.IntegerField()
+class MediaBindSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField(min_value=1)
+    section_id = serializers.IntegerField(min_value=1)
+    lesson_id = serializers.IntegerField(min_value=1)
 
 
 class MediaUploadFinalizeSerializer(serializers.Serializer):
-    upload_id = serializers.CharField(max_length=64)  # id de tracking coté front
-    object_key = serializers.CharField(max_length=1024)
-    kind = serializers.ChoiceField(choices=["video", "audio", "doc"])
-    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
-
-    content_type = serializers.CharField(max_length=120)
+    upload_id = serializers.CharField(max_length=255)
+    object_key = serializers.CharField(max_length=500)
+    kind = serializers.ChoiceField(choices=MediaAsset.Kind.choices)
+    title = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    content_type = serializers.CharField(max_length=255)
     size = serializers.IntegerField(min_value=1)
     duration_seconds = serializers.IntegerField(required=False, allow_null=True, min_value=0)
-
-    # bind optionnel (recommandé)
-    bind = MediaUploadFinalizeBindSerializer(required=False, allow_null=True)
+    bind = MediaBindSerializer(required=False, allow_null=True)
 
 
 class MediaAssetListSerializer(serializers.ModelSerializer):
+    thumbnail_url = serializers.SerializerMethodField()
+    optimized = serializers.SerializerMethodField()
+
     class Meta:
         model = MediaAsset
         fields = [
@@ -179,9 +220,29 @@ class MediaAssetListSerializer(serializers.ModelSerializer):
             "content_type",
             "size",
             "duration_seconds",
+            "optimized_object_key",
+            "thumbnail_object_key",
+            "processing_status",
+            "processing_error",
+            "width",
+            "height",
+            "bitrate",
+            "thumbnail_url",
+            "optimized",
             "created_at",
+            "updated_at",
         ]
 
+    def get_thumbnail_url(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return ""
+        if not obj.thumbnail_object_key:
+            return ""
+        return request.build_absolute_uri(f"/api/media/{obj.id}/thumbnail/")
+
+    def get_optimized(self, obj):
+        return bool(obj.optimized_object_key)
 class PublicCourseSerializer(serializers.ModelSerializer):
     # ✅ champs “UI-friendly” calculés
     course_type_label = serializers.CharField(source="get_course_type_display", read_only=True)

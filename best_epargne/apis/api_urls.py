@@ -13,7 +13,8 @@ from best_epargne.apis.views import CategoryViewSet, CourseViewSet, InstructorCo
     LearnerLessonStateView, LearnerLessonProgressUpdateView, LearnerSetCurrentLessonView, LearnerCoursePlayerDataView, \
     LearnerMediaSignedGetView, InstructorQuizDetailView, InstructorQuizQuestionCreateView, LearnerSectionQuizView, \
     LearnerSectionQuizSubmitView, InstructorCourseQuizListView, InstructorSectionQuizCreateView, \
-    InstructorSectionQuizAssignView, InstructorSectionQuizUnassignView, InstructorQuizListView, InstructorQuizUpdateView
+    InstructorSectionQuizAssignView, InstructorSectionQuizUnassignView, InstructorQuizListView, \
+    InstructorQuizUpdateView, MediaThumbnailSignedGetView
 # from catalog.api.views import CourseViewSet, CategoryViewSet
 from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
 from organizations.api import CompanyMembersViewSet
@@ -154,6 +155,9 @@ path(
     path("media/upload/init/", MediaUploadInitView.as_view(), name="api_media_upload_init"),
     path("media/upload/finalize/", MediaUploadFinalizeView.as_view(), name="api_media_upload_finalize"),
     path("media/<uuid:asset_id>/signed/", MediaSignedGetView.as_view(), name="api_media_signed_get"),
+    path("api/media/<uuid:asset_id>/thumbnail/", MediaThumbnailSignedGetView.as_view(),
+         name="api_media_thumbnail_signed_get"),
+
     path("instructor/media/", InstructorMediaListView.as_view(), name="api_instructor_media"),
 
 ]

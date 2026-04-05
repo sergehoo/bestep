@@ -37,6 +37,7 @@ django-ipware==7.0.1
 django-model-utils==5.0.0
 django-notifications-hq==1.8.3
 django-otp==1.6.3
+django-payments==3.1.0
 django-phonenumber-field==8.3.0
 django-redis==6.0.0
 django-resumable==0.2.0
@@ -70,6 +71,7 @@ nodeenv==1.10.0
 oauthlib==3.3.1
 packaging==25.0
 pathspec==0.12.1
+phonenumberslite==9.0.26
 pillow==11.3.0
 platformdirs==4.4.0
 pluggy==1.6.0
@@ -105,7 +107,7 @@ typing_extensions==4.15.0
 tzdata==2025.3
 tzlocal==5.3.1
 uritemplate==4.2.0
-urllib3==2.6.2
+urllib3==1.26.20
 vine==5.1.0
 virtualenv==20.35.4
 wcwidth==0.2.14
