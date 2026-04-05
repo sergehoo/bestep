@@ -29,6 +29,24 @@ from best_epargne.apis.views import _course_to_dict
 from catalog.models import Course, CourseSection, Lesson, MediaAsset, Payment, Notification
 from enrollments.models import Enrollment, LessonProgress
 from reviews.models import CourseReview
+from decimal import Decimal
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
+from django.db import models
+from django.db.models import Q, Count, Avg
+from django.db.models.functions import Coalesce
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.views.generic import TemplateView
+
+from assessments.models import Quiz
+from catalog.models import Course, CourseSection, Lesson, MediaAsset
+from compte.models import InstructorProfile
+from enrollments.models import Enrollment, LessonProgress
+
+from reviews.models import CourseReview
 
 
 # Create your views here.
@@ -42,6 +60,7 @@ def _redirect_by_role(user):
 
     if user.role == user.Role.INSTRUCTOR:
         return reverse("instructor_dashboard")
+
     if user.role == user.Role.COMPANY_ADMIN:
         return reverse("business_dashboard")
     return reverse("learner_dashboard")
@@ -62,27 +81,6 @@ class RoleRequiredMixin(UserPassesTestMixin):
         # optionnel: redirige au lieu de 403
         from django.shortcuts import redirect
         return redirect(_redirect_by_role(self.request.user))
-
-
-from decimal import Decimal
-
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.paginator import Paginator
-from django.db import models
-from django.db.models import Q, Count, Avg
-from django.db.models.functions import Coalesce
-from django.http import Http404
-from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse, reverse_lazy
-from django.utils import timezone
-from django.views.generic import TemplateView
-
-from assessments.models import Quiz
-from catalog.models import Course, CourseSection, Lesson, MediaAsset
-from compte.models import InstructorProfile
-from enrollments.models import Enrollment, LessonProgress
-
-from reviews.models import CourseReview
 
 
 class InstructorBaseMixin(LoginRequiredMixin):
@@ -878,6 +876,7 @@ class InstructorMediaLibraryView(LoginRequiredMixin, RoleRequiredMixin, Template
         })
         return context
 
+
 class InstructorQuizListPageView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "instructor/quiz/quiz_list.html"
     allowed_roles = ("INSTRUCTOR",)
@@ -918,6 +917,8 @@ class InstructorQuizUpdatePageView(LoginRequiredMixin, RoleRequiredMixin, Templa
         ctx["quiz_id"] = self.kwargs.get("quiz_id")
         ctx["side_active"] = "quizzes"
         return ctx
+
+
 class StudentDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "learner/student_dash.html"
     allowed_roles = ("LEARNER",)

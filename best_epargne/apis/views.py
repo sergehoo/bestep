@@ -1969,7 +1969,11 @@ class LearnerLessonStateView(LearnerBaseAPIView):
 
     def get(self, request, course_id: int, lesson_id: int):
         course = get_object_or_404(Course, id=course_id)
-        lesson = get_object_or_404(Lesson, id=lesson_id, section__course=course)
+        lesson = get_object_or_404(
+            Lesson.objects.select_related("media_asset", "section__course"),
+            id=lesson_id,
+            section__course=course
+        )
 
         enrollment = _get_enrollment(request.user, course)
         if not enrollment:
@@ -1980,11 +1984,34 @@ class LearnerLessonStateView(LearnerBaseAPIView):
         video_url = lesson.video_url or None
         file_url = None
 
+        bucket = getattr(settings, "MINIO_BUCKET", None)
+
+        # Fichier Django classique
         if getattr(lesson, "file", None):
             try:
                 file_url = lesson.file.url
             except Exception:
                 file_url = None
+
+        # Média MinIO attaché
+        if lesson.media_asset_id and bucket:
+            try:
+                client = s3_public_client()
+                signed_url = client.generate_presigned_url(
+                    ClientMethod="get_object",
+                    Params={
+                        "Bucket": bucket,
+                        "Key": lesson.media_asset.object_key,
+                    },
+                    ExpiresIn=60 * 10,
+                )
+
+                if lesson.lesson_type == Lesson.LessonType.VIDEO:
+                    video_url = signed_url
+                else:
+                    file_url = signed_url
+            except Exception:
+                pass
 
         return Response({
             "lesson": {
@@ -2216,11 +2243,12 @@ class LearnerMediaSignedGetView(LearnerBaseAPIView):
         if not enrollment and not lesson.is_preview:
             return Response({"detail": "Inscription requise."}, status=status.HTTP_403_FORBIDDEN)
 
-        if s3_client is None:
-            return Response({"detail": "Client S3 non configuré."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         bucket = getattr(settings, "MINIO_BUCKET", None)
-        client = s3_client()
+        if not bucket:
+            return Response({"detail": "MINIO_BUCKET non configuré."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        client = s3_public_client()
+
         url = client.generate_presigned_url(
             ClientMethod="get_object",
             Params={"Bucket": bucket, "Key": asset.object_key},
