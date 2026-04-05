@@ -3,7 +3,7 @@ from decimal import Decimal
 from allauth.account.forms import LoginForm
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, redirect_to_login
 from django.core.paginator import Paginator
 from django.db import models
 
@@ -70,17 +70,18 @@ class RoleRequiredMixin(UserPassesTestMixin):
     allowed_roles = ()  # ex: (User.Role.INSTRUCTOR,)
 
     def test_func(self):
-        u = self.request.user
-        if not u.is_authenticated:
+        user = self.request.user
+        if not user.is_authenticated:
             return False
-        if u.is_superuser or u.is_staff:
+        if user.is_superuser or user.is_staff:
             return True
-        return bool(self.allowed_roles) and u.role in self.allowed_roles
+        return user.role in self.allowed_roles
 
     def handle_no_permission(self):
-        # optionnel: redirige au lieu de 403
-        from django.shortcuts import redirect
-        return redirect(_redirect_by_role(self.request.user))
+        user = self.request.user
+        if not user.is_authenticated:
+            return redirect_to_login(self.request.get_full_path())
+        return redirect(_redirect_by_role(user))
 
 
 class InstructorBaseMixin(LoginRequiredMixin):
@@ -200,7 +201,129 @@ class InstructorBaseMixin(LoginRequiredMixin):
             "edit_url": f'{reverse("instructor_dashboard")}?tab=courses&edit={course.id}',
         }
 
+from decimal import Decimal
+from django.db.models import Avg, Count, Sum, Q, IntegerField, DecimalField
+from django.db.models.functions import Coalesce
+from django.utils import timezone
 
+def get_instructor_dashboard_kpis(user):
+    now = timezone.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if month_start.month == 12:
+        next_month = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_month = month_start.replace(month=month_start.month + 1)
+
+    instructor_courses = Course.objects.filter(instructor=user)
+    course_ids = list(instructor_courses.values_list("id", flat=True))
+
+    total_courses = instructor_courses.count()
+    draft_courses = instructor_courses.filter(status=Course.Status.DRAFT).count()
+    review_courses = instructor_courses.filter(status=Course.Status.REVIEW).count()
+    published_courses = instructor_courses.filter(status=Course.Status.PUBLISHED).count()
+    archived_courses = instructor_courses.filter(status=Course.Status.ARCHIVED).count()
+
+    total_sections = CourseSection.objects.filter(course__instructor=user).count()
+    total_lessons = Lesson.objects.filter(section__course__instructor=user).count()
+    total_media = MediaAsset.objects.filter(owner=user).count()
+
+    enrollments_qs = Enrollment.objects.filter(course__instructor=user)
+    enrolled_total = enrollments_qs.count()
+    active_enrollments = enrollments_qs.filter(status=Enrollment.Status.ACTIVE).count()
+    completed_enrollments = enrollments_qs.filter(status=Enrollment.Status.COMPLETED).count()
+    canceled_enrollments = enrollments_qs.filter(status=Enrollment.Status.CANCELED).count()
+
+    reviews_qs = CourseReview.objects.filter(course__instructor=user, is_public=True)
+    rating_avg = reviews_qs.aggregate(
+        v=Coalesce(
+            Avg("rating", output_field=DecimalField(max_digits=5, decimal_places=2)),
+            Decimal("0.00"),
+            output_field=DecimalField(max_digits=5, decimal_places=2),
+        )
+    )["v"] or Decimal("0.00")
+    rating_count = reviews_qs.count()
+
+    payments_qs = Payment.objects.filter(
+        course_id__in=course_ids,
+        status=Payment.Status.PAID
+    )
+
+    revenue_total = payments_qs.aggregate(
+        v=Coalesce(
+            Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
+            Decimal("0.00"),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+    )["v"] or Decimal("0.00")
+
+    revenue_month = payments_qs.filter(
+        paid_at__gte=month_start,
+        paid_at__lt=next_month
+    ).aggregate(
+        v=Coalesce(
+            Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
+            Decimal("0.00"),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+    )["v"] or Decimal("0.00")
+
+    payments_count = payments_qs.count()
+
+    progress_qs = LessonProgress.objects.filter(enrollment__course__instructor=user)
+    completion_avg = progress_qs.aggregate(
+        v=Coalesce(
+            Avg("progress_percent", output_field=IntegerField()),
+            0,
+            output_field=IntegerField(),
+        )
+    )["v"] or 0
+
+    completed_lessons_count = progress_qs.filter(completed=True).count()
+
+    unread_notifications = Notification.objects.filter(user=user, is_read=False).count()
+
+    return {
+        "courses": {
+            "total": total_courses,
+            "draft": draft_courses,
+            "review": review_courses,
+            "published": published_courses,
+            "archived": archived_courses,
+        },
+        "sections": {
+            "total": total_sections,
+        },
+        "lessons": {
+            "total": total_lessons,
+            "completed": completed_lessons_count,
+        },
+        "media": {
+            "total": total_media,
+        },
+        "enrollments": {
+            "total": enrolled_total,
+            "active": active_enrollments,
+            "completed": completed_enrollments,
+            "canceled": canceled_enrollments,
+        },
+        "reviews": {
+            "avg": round(float(rating_avg or 0), 1),
+            "count": rating_count,
+        },
+        "revenue": {
+            "total": float(revenue_total or 0),
+            "month": float(revenue_month or 0),
+            "payments_count": payments_count,
+        },
+        "progress": {
+            "avg": int(completion_avg or 0),
+            "completed_lessons_count": completed_lessons_count,
+        },
+        "notifications": {
+            "unread": unread_notifications,
+        },
+    }
 class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "instructor/instructor_dash.html"
     allowed_roles = ("INSTRUCTOR",)
@@ -222,7 +345,6 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
         instructor_courses = Course.objects.filter(instructor=user)
         course_ids = list(instructor_courses.values_list("id", flat=True))
 
-        # ---- KPI cours
         total_courses = instructor_courses.count()
         draft_courses = instructor_courses.filter(status=Course.Status.DRAFT).count()
         review_courses = instructor_courses.filter(status=Course.Status.REVIEW).count()
@@ -233,14 +355,12 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
         total_lessons = Lesson.objects.filter(section__course__instructor=user).count()
         total_media = MediaAsset.objects.filter(owner=user).count()
 
-        # ---- KPI apprenants
         enrollments_qs = Enrollment.objects.filter(course__instructor=user)
         enrolled_total = enrollments_qs.count()
         active_enrollments = enrollments_qs.filter(status=Enrollment.Status.ACTIVE).count()
         completed_enrollments = enrollments_qs.filter(status=Enrollment.Status.COMPLETED).count()
         canceled_enrollments = enrollments_qs.filter(status=Enrollment.Status.CANCELED).count()
 
-        # ---- KPI reviews
         reviews_qs = CourseReview.objects.filter(course__instructor=user, is_public=True)
         rating_avg = reviews_qs.aggregate(
             v=Coalesce(
@@ -251,7 +371,6 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
         )["v"] or Decimal("0.00")
         rating_count = reviews_qs.count()
 
-        # ---- Paiements / revenus
         payments_qs = Payment.objects.filter(
             course_id__in=course_ids,
             status=Payment.Status.PAID
@@ -278,7 +397,6 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
 
         payments_count = payments_qs.count()
 
-        # ---- Progression globale
         progress_qs = LessonProgress.objects.filter(enrollment__course__instructor=user)
         completion_avg = progress_qs.aggregate(
             v=Coalesce(
@@ -290,7 +408,6 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
 
         completed_lessons_count = progress_qs.filter(completed=True).count()
 
-        # ---- Cours enrichis
         courses = (
             instructor_courses
             .annotate(
@@ -327,19 +444,18 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
             .order_by("-updated_at")
         )
 
-        # ---- calcul completion_rate par cours
+        course_progress_map = {
+            row["enrollment__course"]: int(round(row["avg_progress"] or 0))
+            for row in (
+                LessonProgress.objects
+                .filter(enrollment__course__in=instructor_courses)
+                .values("enrollment__course")
+                .annotate(avg_progress=Avg("progress_percent"))
+            )
+        }
+
         courses_list = []
         for course in courses[:12]:
-            course_progress_avg = LessonProgress.objects.filter(
-                enrollment__course=course
-            ).aggregate(
-                v=Coalesce(
-                    Avg("progress_percent", output_field=IntegerField()),
-                    0,
-                    output_field=IntegerField(),
-                )
-            )["v"] or 0
-
             courses_list.append({
                 "id": course.id,
                 "title": course.title,
@@ -357,18 +473,14 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
                 "enrolled_count": course.enrolled_count,
                 "rating_avg": round(float(course.rating_avg or 0), 1),
                 "rating_count": course.rating_count,
-                "completion_rate": int(course_progress_avg),
+                "completion_rate": course_progress_map.get(course.id, 0),
                 "updated_at": course.updated_at,
                 "published_at": course.published_at,
             })
 
         top_courses = sorted(courses_list, key=lambda x: x["enrolled_count"], reverse=True)[:5]
 
-        recent_reviews = (
-            reviews_qs.select_related("course", "user")
-            .order_by("-created_at")[:8]
-        )
-
+        recent_reviews = reviews_qs.select_related("course", "user").order_by("-created_at")[:8]
         recent_payments = payments_qs.order_by("-paid_at", "-created_at")[:8]
 
         notifications = Notification.objects.filter(user=user).order_by("-created_at")[:10]
@@ -404,23 +516,18 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
                 "review_courses": review_courses,
                 "published_courses": published_courses,
                 "archived_courses": archived_courses,
-
                 "total_sections": total_sections,
                 "total_lessons": total_lessons,
                 "total_media": total_media,
-
                 "enrolled_total": enrolled_total,
                 "active_enrollments": active_enrollments,
                 "completed_enrollments": completed_enrollments,
                 "canceled_enrollments": canceled_enrollments,
-
                 "rating_avg": round(float(rating_avg), 1),
                 "rating_count": rating_count,
-
                 "revenue_total": revenue_total,
                 "revenue_month": revenue_month,
                 "payments_count": payments_count,
-
                 "completion_avg": int(completion_avg or 0),
                 "completed_lessons_count": completed_lessons_count,
                 "unread_notifications": unread_notifications,
@@ -434,7 +541,6 @@ class InstructorDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
             "courses_needing_work": courses_needing_work,
         })
         return context
-
 
 class InstructorCourseView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "instructor/instructor_courses.html"

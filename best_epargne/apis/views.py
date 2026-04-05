@@ -1,5 +1,6 @@
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 
 import boto3
 from django.conf import settings
@@ -121,9 +122,10 @@ except Exception:  # pragma: no cover
     Payout = None
 
 try:
-    from reviews.models import Review, CourseReview  # adapte si tu as un app reviews
-except Exception:  # pragma: no cover
+    from reviews.models import Review, CourseReview
+except Exception:
     Review = None
+    CourseReview = None   # 🔥 IMPORTANT
 
 try:
     from notifications.models import Notification  # adapte si tu as un app notifications
@@ -176,6 +178,7 @@ class InstructorKpisView(APIView):
         courses_qs = Course.objects.filter(instructor=u)
         course_ids = list(courses_qs.values_list("id", flat=True))
 
+        # ------------------ COURSES ------------------
         total_courses = courses_qs.count()
         published_courses = courses_qs.filter(status=Course.Status.PUBLISHED).count()
         review_courses = courses_qs.filter(status=Course.Status.REVIEW).count()
@@ -186,75 +189,117 @@ class InstructorKpisView(APIView):
         total_lessons = Lesson.objects.filter(section__course__instructor=u).count()
         total_media = MediaAsset.objects.filter(owner=u).count()
 
-        enrollments_qs = Enrollment.objects.filter(course__instructor=u)
-        enrolled_total = enrollments_qs.count()
-        enrolled_recent = enrollments_qs.filter(enrolled_at__gte=since).count()
-        completed_enrollments = enrollments_qs.filter(status=Enrollment.Status.COMPLETED).count()
-        active_enrollments = enrollments_qs.filter(status=Enrollment.Status.ACTIVE).count()
+        # ------------------ ENROLLMENTS ------------------
+        if Enrollment:
+            enrollments_qs = Enrollment.objects.filter(course__instructor=u)
 
-        reviews_qs = CourseReview.objects.filter(course__instructor=u, is_public=True)
-        rating_avg = reviews_qs.aggregate(
-            v=Coalesce(
-                Avg("rating", output_field=DecimalField(max_digits=5, decimal_places=2)),
-                0,
-                output_field=DecimalField(max_digits=5, decimal_places=2),
-            )
-        )["v"] or 0
-        rating_count = reviews_qs.count()
+            enrolled_total = enrollments_qs.count()
+            enrolled_recent = enrollments_qs.filter(enrolled_at__gte=since).count()
 
-        payments_qs = Payment.objects.filter(
-            course_id__in=course_ids,
-            status=Payment.Status.PAID
-        )
+            active_enrollments = enrollments_qs.filter(status="ACTIVE").count()
+            completed_enrollments = enrollments_qs.filter(status="COMPLETED").count()
+        else:
+            enrolled_total = 0
+            enrolled_recent = 0
+            active_enrollments = 0
+            completed_enrollments = 0
 
-        revenue_total = payments_qs.aggregate(
-            v=Coalesce(
-                Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
-                0,
-                output_field=DecimalField(max_digits=12, decimal_places=2),
-            )
-        )["v"] or 0
+        # ------------------ REVIEWS ------------------
+        if CourseReview:
+            reviews_qs = CourseReview.objects.filter(course__instructor=u, is_public=True)
 
-        revenue_recent = payments_qs.filter(created_at__gte=since).aggregate(
-            v=Coalesce(
-                Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
-                0,
-                output_field=DecimalField(max_digits=12, decimal_places=2),
-            )
-        )["v"] or 0
+            rating_avg = reviews_qs.aggregate(
+                v=Coalesce(
+                    Avg("rating", output_field=DecimalField(max_digits=5, decimal_places=2)),
+                    0,
+                    output_field=DecimalField(max_digits=5, decimal_places=2),
+                )
+            )["v"] or 0
 
-        completion_avg = LessonProgress.objects.filter(
-            enrollment__course__instructor=u
-        ).aggregate(
-            v=Coalesce(
-                Avg("progress_percent", output_field=IntegerField()),
-                0,
-                output_field=IntegerField(),
-            )
-        )["v"] or 0
+            rating_count = reviews_qs.count()
+        else:
+            rating_avg = 0
+            rating_count = 0
 
-        unread_notifications = Notification.objects.filter(user=u, is_read=False).count()
+        # ------------------ REVENUE (PAYOUT) ------------------
+        if Payout:
+            payouts_qs = Payout.objects.filter(user=u)
 
+            revenue_total = payouts_qs.aggregate(
+                v=Coalesce(
+                    Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    0,
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                )
+            )["v"] or 0
+
+            revenue_recent = payouts_qs.filter(created_at__gte=since).aggregate(
+                v=Coalesce(
+                    Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
+                    0,
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                )
+            )["v"] or 0
+
+            payments_count = payouts_qs.count()
+        else:
+            revenue_total = 0
+            revenue_recent = 0
+            payments_count = 0
+
+        # ------------------ PROGRESS ------------------
+        if LessonProgress:
+            completion_avg = LessonProgress.objects.filter(
+                enrollment__course__instructor=u
+            ).aggregate(
+                v=Coalesce(
+                    Avg("progress_percent", output_field=IntegerField()),
+                    0,
+                    output_field=IntegerField(),
+                )
+            )["v"] or 0
+        else:
+            completion_avg = 0
+
+        # ------------------ NOTIFICATIONS ------------------
+        if Notification:
+            unread_notifications = Notification.objects.filter(user=u, is_read=False).count()
+        else:
+            unread_notifications = 0
+
+        # ------------------ RESPONSE ------------------
         return Response({
-            "range": f"{days}d",
-            "courses_count": total_courses,
-            "published_courses": published_courses,
-            "review_courses": review_courses,
-            "draft_courses": draft_courses,
-            "archived_courses": archived_courses,
-            "sections_count": total_sections,
-            "lessons_count": total_lessons,
-            "media_count": total_media,
-            "enrolled_total": enrolled_total,
-            "enrolled_recent": enrolled_recent,
-            "active_enrollments": active_enrollments,
-            "completed_enrollments": completed_enrollments,
-            "rating_avg": round(float(rating_avg), 1),
-            "rating_count": rating_count,
-            "revenue_total": revenue_total,
-            "revenue_month": revenue_recent,
-            "completion_avg": int(completion_avg),
-            "unread_notifications": unread_notifications,
+            "courses": {
+                "total": total_courses,
+                "published": published_courses,
+                "review": review_courses,
+                "draft": draft_courses,
+                "archived": archived_courses,
+            },
+            "media": {
+                "total": total_media,
+            },
+            "enrollments": {
+                "total": enrolled_total,
+                "recent": enrolled_recent,
+                "active": active_enrollments,
+                "completed": completed_enrollments,
+            },
+            "reviews": {
+                "avg": round(float(rating_avg), 1),
+                "count": rating_count,
+            },
+            "revenue": {
+                "total": float(revenue_total),
+                "month": float(revenue_recent),
+                "payments_count": payments_count,
+            },
+            "progress": {
+                "avg": int(completion_avg),
+            },
+            "notifications": {
+                "unread": unread_notifications,
+            },
         })
 
 

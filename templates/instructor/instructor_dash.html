@@ -7,8 +7,8 @@
 {% block topbar_search %}
 <div class="w-full">
     <input
-        x-model.debounce.300ms="filters.q"
-        @input="loadCourses()"
+        x-model.debounce.300ms="$store.instructor.filters.q"
+        @input="$store.instructor.loadCourses()"
         placeholder="Rechercher un cours…"
         class="w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white/90 text-sm focus:outline-none focus:ring-4 focus:ring-be-sky-100"
     >
@@ -17,15 +17,15 @@
 
 {% block topbar_actions %}
 <a href="{% url 'instructor_course_create_page' %}"
-                            class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
-                        + Nouveau cours
-                    </a>
+   class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
+    + Nouveau cours
+</a>
 {% endblock %}
 
 {% block topbar_user %}
-<div class="relative" x-data="{open:false}">
+<div class="relative" x-data="{ open: false }">
     <button
-        @click="open=!open; if(open) loadNotifications()"
+        @click="open = !open; if(open) $store.instructor.loadNotifications()"
         class="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-be-ink-100 hover:bg-be-ink-50 transition overflow-hidden"
     >
         <img src="{% static 'img/logo-2.png' %}" alt="Logo" class="w-full h-full object-cover">
@@ -34,25 +34,25 @@
     <div
         x-show="open"
         x-transition.origin.top.right
-        @click.outside="open=false"
+        @click.outside="open = false"
         class="absolute right-0 mt-2 w-96 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden z-30"
         style="display:none;"
     >
         <div class="px-4 py-3 border-b border-be-ink-100 flex items-center justify-between">
             <div class="font-semibold text-sm">Notifications</div>
-            <button class="text-xs text-be-sky-700 hover:underline" @click="open=false">Fermer</button>
+            <button class="text-xs text-be-sky-700 hover:underline" @click="open = false">Fermer</button>
         </div>
 
         <div class="max-h-96 overflow-auto no-scrollbar">
-            <template x-if="loading.notifications">
+            <template x-if="$store.instructor.loading.notifications">
                 <div class="p-4 text-sm text-be-ink-500">Chargement…</div>
             </template>
 
-            <template x-if="!loading.notifications && notifications.length===0">
+            <template x-if="!$store.instructor.loading.notifications && $store.instructor.notifications.length === 0">
                 <div class="p-4 text-sm text-be-ink-500">Aucune notification.</div>
             </template>
 
-            <template x-for="n in notifications" :key="n.id">
+            <template x-for="n in $store.instructor.notifications" :key="n.id">
                 <div class="px-4 py-3 border-b border-be-ink-50 hover:bg-be-ink-50/60 transition">
                     <div class="text-sm font-medium" x-text="n.title"></div>
                     <div class="text-xs text-be-ink-500 mt-1" x-text="n.body"></div>
@@ -65,9 +65,9 @@
 
 <div class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl border border-be-ink-100 bg-white">
     <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-be-sun-300 to-be-sun-500 flex items-center justify-center text-be-ink-900 font-semibold text-sm"
-         x-text="me.initials || 'F'"></div>
+         x-text="$store.instructor.me.initials || 'F'"></div>
     <div class="hidden sm:block leading-tight">
-        <div class="text-sm font-semibold" x-text="me.full_name || me.email || 'Formateur'"></div>
+        <div class="text-sm font-semibold" x-text="$store.instructor.me.full_name || $store.instructor.me.email || 'Formateur'"></div>
         <div class="text-[11px] text-be-ink-500 -mt-0.5">Formateur</div>
     </div>
 </div>
@@ -78,67 +78,7 @@
 {% endblock %}
 
 {% block content %}
-<div
-    class="space-y-6"
-    x-data="instructorApp({
-        endpoints: {
-            me: '{% url "api_instructor_me" %}',
-            kpis: '{% url "api_instructor_kpis" %}',
-            courses: '{% url "api_instructor_courses" %}',
-
-            courseDetail: (id) => `/api/instructor/courses/${id}/`,
-            courseSections: (id) => `/api/instructor/courses/${id}/sections/`,
-            sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`,
-
-            createCourse: '{% url "api_instructor_course_create" %}',
-            updateCourse: (id) => `/api/instructor/courses/${id}/update/`,
-            publishCourse: (id) => `/api/instructor/courses/${id}/publish/`,
-            archiveCourse: (id) => `/api/instructor/courses/${id}/archive/`,
-
-            createSection: (courseId) => `/api/instructor/courses/${courseId}/sections/create/`,
-            updateSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/update/`,
-            deleteSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/delete/`,
-            createLesson: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/create/`,
-            updateLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/update/`,
-            deleteLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/delete/`,
-
-            uploadInit: '{% url "api_media_upload_init" %}',
-            uploadFinalize: '{% url "api_media_upload_finalize" %}',
-
-            mediaList: '{% url "api_instructor_media" %}',
-            signedGet: (assetId) => `/api/media/${assetId}/signed/`,
-
-            reviews: '{% url "api_instructor_reviews" %}',
-            payouts: '{% url "api_instructor_payouts" %}',
-            notifications: '{% url "api_instructor_notifications" %}',
-        },
-        serverData: {
-            kpis: {
-                total_courses: {{ kpis.total_courses|default:0 }},
-                draft_courses: {{ kpis.draft_courses|default:0 }},
-                review_courses: {{ kpis.review_courses|default:0 }},
-                published_courses: {{ kpis.published_courses|default:0 }},
-                archived_courses: {{ kpis.archived_courses|default:0 }},
-                total_sections: {{ kpis.total_sections|default:0 }},
-                total_lessons: {{ kpis.total_lessons|default:0 }},
-                total_media: {{ kpis.total_media|default:0 }},
-                enrolled_total: {{ kpis.enrolled_total|default:0 }},
-                active_enrollments: {{ kpis.active_enrollments|default:0 }},
-                completed_enrollments: {{ kpis.completed_enrollments|default:0 }},
-                canceled_enrollments: {{ kpis.canceled_enrollments|default:0 }},
-                rating_avg: {{ kpis.rating_avg|default:0 }},
-                rating_count: {{ kpis.rating_count|default:0 }},
-                revenue_total: {{ kpis.revenue_total|default:0 }},
-                revenue_month: {{ kpis.revenue_month|default:0 }},
-                payments_count: {{ kpis.payments_count|default:0 }},
-                completion_avg: {{ kpis.completion_avg|default:0 }},
-                completed_lessons_count: {{ kpis.completed_lessons_count|default:0 }},
-                unread_notifications: {{ kpis.unread_notifications|default:0 }}
-            }
-        }
-    })"
-    x-init="init()"
->
+<div class="space-y-6" x-data="$store.instructor" x-init="init()">
     <!-- Toast -->
     <template x-if="toast.show">
         <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft px-4 py-3 flex items-start justify-between gap-3">
@@ -147,7 +87,7 @@
                 <div class="text-be-ink-600 mt-1" x-text="toast.message"></div>
             </div>
             <button class="text-xs px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-be-ink-50"
-                    @click="toast.show=false">OK</button>
+                    @click="toast.show = false">OK</button>
         </div>
     </template>
 
@@ -194,7 +134,7 @@
                         <div class="text-[11px] text-be-ink-500 mt-2" x-text="k.hint || ''"></div>
                     </div>
                     <div class="w-12 h-12 rounded-2xl flex items-center justify-center border"
-                         :class="k.tone==='sky' ? 'bg-be-sky-100 border-be-sky-200 text-be-sky-700' : 'bg-be-sun-100 border-be-sun-200 text-be-sun-800'">
+                         :class="k.tone === 'sky' ? 'bg-be-sky-100 border-be-sky-200 text-be-sky-700' : 'bg-be-sun-100 border-be-sun-200 text-be-sun-800'">
                         <span x-html="k.icon"></span>
                     </div>
                 </div>
@@ -302,22 +242,22 @@
             </div>
             <div class="inline-flex rounded-xl border border-be-ink-100 bg-white p-1">
                 <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                        :class="activeTab==='courses' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                        :class="activeTab === 'courses' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
                         @click="activeTab='courses'; loadCourses()">Cours</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                        :class="activeTab==='builder' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                        :class="activeTab === 'builder' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
                         @click="activeTab='builder'; if(selectedCourse) openBuilder(selectedCourse)">Builder</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                        :class="activeTab==='reviews' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                        :class="activeTab === 'reviews' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
                         @click="activeTab='reviews'; loadReviews()">Avis</button>
                 <button class="px-3 py-1.5 rounded-lg text-xs font-semibold"
-                        :class="activeTab==='payouts' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
+                        :class="activeTab === 'payouts' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
                         @click="activeTab='payouts'; loadPayouts()">Paiements</button>
             </div>
         </div>
 
         <!-- COURSES TAB -->
-        <div x-show="activeTab==='courses'" class="p-4 sm:p-5" style="display:none;">
+        <div x-show="activeTab === 'courses'" class="p-4 sm:p-5" style="display:none;">
             <div class="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
                 <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
                     <select class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm"
@@ -353,7 +293,7 @@
                         Actualiser
                     </button>
                     <a href="{% url 'instructor_course_create_page' %}"
-                            class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
+                       class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
                         + Nouveau cours
                     </a>
                 </div>
@@ -362,117 +302,116 @@
             <div class="mt-4 overflow-auto no-scrollbar">
                 <table class="min-w-full text-sm">
                     <thead class="bg-be-ink-50/60 text-be-ink-600">
-                    <tr>
-                        <th class="text-left font-semibold px-4 py-3">Cours</th>
-                        <th class="text-left font-semibold px-4 py-3">Statut</th>
-                        <th class="text-left font-semibold px-4 py-3">Pricing</th>
-                        <th class="text-left font-semibold px-4 py-3">Inscrits</th>
-                        <th class="text-left font-semibold px-4 py-3">Note</th>
-                        <th class="text-left font-semibold px-4 py-3">Complétion</th>
-                        <th class="px-4 py-3"></th>
-                    </tr>
+                        <tr>
+                            <th class="text-left font-semibold px-4 py-3">Cours</th>
+                            <th class="text-left font-semibold px-4 py-3">Statut</th>
+                            <th class="text-left font-semibold px-4 py-3">Pricing</th>
+                            <th class="text-left font-semibold px-4 py-3">Inscrits</th>
+                            <th class="text-left font-semibold px-4 py-3">Note</th>
+                            <th class="text-left font-semibold px-4 py-3">Complétion</th>
+                            <th class="px-4 py-3"></th>
+                        </tr>
                     </thead>
 
                     <tbody>
-                    <template x-if="loading.courses">
-                        <tr>
-                            <td colspan="7" class="px-4 py-8 text-center text-be-ink-500">Chargement…</td>
-                        </tr>
-                    </template>
+                        <template x-if="loading.courses">
+                            <tr>
+                                <td colspan="7" class="px-4 py-8 text-center text-be-ink-500">Chargement…</td>
+                            </tr>
+                        </template>
 
-                    <template x-if="!loading.courses && courses.length===0">
-                        <tr>
-                            <td colspan="7" class="px-4 py-8 text-center text-be-ink-500">Aucun cours.</td>
-                        </tr>
-                    </template>
+                        <template x-if="!loading.courses && courses.length === 0">
+                            <tr>
+                                <td colspan="7" class="px-4 py-8 text-center text-be-ink-500">Aucun cours.</td>
+                            </tr>
+                        </template>
 
-                    <template x-for="c in courses" :key="c.id">
-                        <tr class="border-t border-be-ink-100 hover:bg-be-ink-50/40 transition">
-                            <td class="px-4 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-14 h-10 rounded-xl bg-be-ink-50 border border-be-ink-100 overflow-hidden shrink-0">
-                                        <img x-show="c.thumbnail_url" :src="c.thumbnail_url"
-                                             class="w-full h-full object-cover" alt="">
-                                        <div x-show="!c.thumbnail_url"
-                                             class="w-full h-full flex items-center justify-center text-[11px] text-be-ink-400">
-                                            No img
+                        <template x-for="c in courses" :key="c.id">
+                            <tr class="border-t border-be-ink-100 hover:bg-be-ink-50/40 transition">
+                                <td class="px-4 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-14 h-10 rounded-xl bg-be-ink-50 border border-be-ink-100 overflow-hidden shrink-0">
+                                            <img x-show="c.thumbnail_url" :src="c.thumbnail_url" class="w-full h-full object-cover" alt="">
+                                            <div x-show="!c.thumbnail_url"
+                                                 class="w-full h-full flex items-center justify-center text-[11px] text-be-ink-400">
+                                                No img
+                                            </div>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <a :href="window.URLS.courseDetail(c.id)">
+                                                <div class="font-semibold truncate" x-text="c.title"></div>
+                                            </a>
+                                            <div class="text-xs text-be-ink-500 mt-1 truncate" x-text="c.subtitle || ''"></div>
+                                            <div class="text-[11px] text-be-ink-500 mt-1">
+                                                Sections: <span class="font-semibold" x-text="c.sections_count || 0"></span>
+                                                • Leçons: <span class="font-semibold" x-text="c.lessons_count || 0"></span>
+                                                <span class="ml-2">• MAJ: <span x-text="c.updated_at_human || '—'"></span></span>
+                                            </div>
+                                            <button class="text-[11px] text-be-sky-700 hover:underline mt-1"
+                                                    @click="openCoursePreview(c)">
+                                                ▶ Preview
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="min-w-0">
-                                        <a :href="window.URLS.courseDetail(c.id)">
-    <div class="font-semibold truncate" x-text="c.title"></div>
-</a>
-                                        <div class="text-xs text-be-ink-500 mt-1 truncate" x-text="c.subtitle || ''"></div>
+                                </td>
 
-                                        <div class="text-[11px] text-be-ink-500 mt-1">
-                                            Sections: <span class="font-semibold" x-text="c.sections_count || 0"></span>
-                                            • Leçons: <span class="font-semibold" x-text="c.lessons_count || 0"></span>
-                                            <span class="ml-2">• MAJ: <span x-text="c.updated_at_human || '—'"></span></span>
+                                <td class="px-4 py-4">
+                                    <span class="text-xs px-2 py-1 rounded-full border"
+                                          :class="statusPill(c.status)"
+                                          x-text="statusLabel(c.status)"></span>
+                                </td>
+
+                                <td class="px-4 py-4">
+                                    <span class="text-xs px-2 py-1 rounded-full border"
+                                          :class="pricingPill(c.pricing_type)"
+                                          x-text="pricingLabel(c.pricing_type, c.price, c.currency)"></span>
+                                </td>
+
+                                <td class="px-4 py-4" x-text=" c.enrolled_count || 0"></td>
+
+                                <td class="px-4 py-4">
+                                    <div class="inline-flex items-center gap-1 text-xs">
+                                        <span class="text-be-sun-600">★</span>
+                                        <span class="font-semibold" x-text="c.rating_avg || '—'"></span>
+                                        <span class="text-be-ink-400" x-show="c.rating_count">
+                                            (<span x-text="c.rating_count"></span>)
+                                        </span>
+                                    </div>
+                                </td>
+
+                                <td class="px-4 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-2 w-28 rounded-full bg-be-ink-100 overflow-hidden">
+                                            <div class="h-full rounded-full bg-be-sky-600"
+                                                 :style="`width:${c.completion_rate || 0}%`"></div>
                                         </div>
+                                        <div class="text-xs font-semibold text-be-ink-700"
+                                             x-text="(c.completion_rate ?? 0) + '%'"></div>
+                                    </div>
+                                </td>
 
-                                        <button class="text-[11px] text-be-sky-700 hover:underline mt-1"
-                                                @click="openCoursePreview(c)">
-                                            ▶ Preview
+                                <td class="px-4 py-4 text-right">
+                                    <div class="inline-flex gap-2">
+                                        <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
+                                                @click="openBuilder(c)">
+                                            Builder
+                                        </button>
+
+                                        <button class="px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-xs font-semibold"
+                                                @click="openEditCourse(c)">
+                                            Éditer
                                         </button>
                                     </div>
-                                </div>
-                            </td>
-
-                            <td class="px-4 py-4">
-                                <span class="text-xs px-2 py-1 rounded-full border"
-                                      :class="statusPill(c.status)"
-                                      x-text="statusLabel(c.status)"></span>
-                            </td>
-
-                            <td class="px-4 py-4">
-                                <span class="text-xs px-2 py-1 rounded-full border"
-                                      :class="pricingPill(c.pricing_type)"
-                                      x-text="pricingLabel(c.pricing_type, c.price, c.currency)"></span>
-                            </td>
-
-                            <td class="px-4 py-4" x-text="c.enrolled_count || 0"></td>
-
-                            <td class="px-4 py-4">
-                                <div class="inline-flex items-center gap-1 text-xs">
-                                    <span class="text-be-sun-600">★</span>
-                                    <span class="font-semibold" x-text="c.rating_avg || '—'"></span>
-                                    <span class="text-be-ink-400" x-show="c.rating_count">(<span x-text="c.rating_count"></span>)</span>
-                                </div>
-                            </td>
-
-                            <td class="px-4 py-4">
-                                <div class="flex items-center gap-2">
-                                    <div class="h-2 w-28 rounded-full bg-be-ink-100 overflow-hidden">
-                                        <div class="h-full rounded-full bg-be-sky-600"
-                                             :style="`width:${c.completion_rate || 0}%`"></div>
-                                    </div>
-                                    <div class="text-xs font-semibold text-be-ink-700"
-                                         x-text="(c.completion_rate ?? 0) + '%'"></div>
-                                </div>
-                            </td>
-
-                            <td class="px-4 py-4 text-right">
-                                <div class="inline-flex gap-2">
-                                    <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
-                                            @click="openBuilder(c)">
-                                        Builder
-                                    </button>
-
-                                    <button class="px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-xs font-semibold"
-                                            @click="openEditCourse(c)">
-                                        Éditer
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
+                                </td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <!-- BUILDER TAB -->
-        <div x-show="activeTab==='builder'" class="p-0" style="display:none;">
+        <div x-show="activeTab === 'builder'" class="p-0" style="display:none;">
             <template x-if="!selectedCourse">
                 <div class="p-6 text-sm text-be-ink-500">Sélectionne un cours (onglet "Cours" → "Builder").</div>
             </template>
@@ -502,7 +441,7 @@
 
                             <template x-for="s in sections" :key="s.id">
                                 <button class="w-full text-left p-3 rounded-2xl border transition"
-                                        :class="activeSection?.id===s.id ? 'bg-white border-be-sky-200 shadow-soft' : 'bg-white/60 border-be-ink-100 hover:bg-white'"
+                                        :class="activeSection?.id === s.id ? 'bg-white border-be-sky-200 shadow-soft' : 'bg-white/60 border-be-ink-100 hover:bg-white'"
                                         @click="selectSection(s)">
                                     <div class="flex items-start justify-between gap-2">
                                         <div class="min-w-0">
@@ -583,13 +522,15 @@
                                                 Type: <span class="font-semibold" x-text="l.lesson_type"></span>
                                                 <span x-show="l.is_preview"
                                                       class="ml-2 text-[11px] px-2 py-0.5 rounded-full bg-be-sun-100 text-be-sun-800 border border-be-sun-200">Preview</span>
-                                                <span x-show="l.duration_sec" class="ml-2">• Durée: <span class="font-semibold" x-text="formatDuration(l.duration_sec)"></span></span>
+                                                <span x-show="l.duration_sec" class="ml-2">
+                                                    • Durée: <span class="font-semibold" x-text="formatDuration(l.duration_sec)"></span>
+                                                </span>
                                             </div>
 
                                             <div class="text-xs text-be-ink-500 mt-2"
-                                                 x-show="l.lesson_type==='TEXT' && l.content">
+                                                 x-show="l.lesson_type === 'TEXT' && l.content">
                                                 <span class="font-semibold">Contenu:</span>
-                                                <span x-text="stripHtml(l.content).slice(0,120) + (stripHtml(l.content).length>120 ? '…' : '')"></span>
+                                                <span x-text="stripHtml(l.content).slice(0,120) + (stripHtml(l.content).length > 120 ? '…' : '')"></span>
                                             </div>
 
                                             <div class="text-xs text-be-ink-500 mt-2" x-show="l.media_asset">
@@ -598,15 +539,21 @@
 
                                             <div class="mt-2 flex gap-2">
                                                 <button class="text-[11px] text-be-sky-700 hover:underline"
-                                                        @click="openLessonPreview(l)">▶ Prévisualiser</button>
+                                                        @click="openLessonPreview(l)">
+                                                    ▶ Prévisualiser
+                                                </button>
                                             </div>
                                         </div>
 
                                         <div class="flex gap-2">
                                             <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
-                                                    @click="openLessonEditor(l)">Éditer</button>
+                                                    @click="openLessonEditor(l)">
+                                                Éditer
+                                            </button>
                                             <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
-                                                    @click="deleteLesson(l)">Suppr</button>
+                                                    @click="deleteLesson(l)">
+                                                Suppr
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -618,14 +565,16 @@
         </div>
 
         <!-- REVIEWS TAB -->
-        <div x-show="activeTab==='reviews'" class="p-4 sm:p-5" style="display:none;">
+        <div x-show="activeTab === 'reviews'" class="p-4 sm:p-5" style="display:none;">
             <div class="flex items-center justify-between">
                 <div>
                     <div class="text-sm font-semibold">Avis</div>
                     <div class="text-xs text-be-ink-500 mt-1">Feedback apprenants sur vos cours.</div>
                 </div>
                 <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
-                        @click="loadReviews()">Actualiser</button>
+                        @click="loadReviews()">
+                    Actualiser
+                </button>
             </div>
 
             <div class="mt-4 space-y-3">
@@ -633,7 +582,7 @@
                     <div class="text-sm text-be-ink-500">Chargement…</div>
                 </template>
 
-                <template x-if="!loading.reviews && reviews.length===0">
+                <template x-if="!loading.reviews && reviews.length === 0">
                     <div class="text-sm text-be-ink-500">Aucun avis.</div>
                 </template>
 
@@ -656,52 +605,54 @@
         </div>
 
         <!-- PAYOUTS TAB -->
-        <div x-show="activeTab==='payouts'" class="p-4 sm:p-5" style="display:none;">
+        <div x-show="activeTab === 'payouts'" class="p-4 sm:p-5" style="display:none;">
             <div class="flex items-center justify-between">
                 <div>
                     <div class="text-sm font-semibold">Paiements</div>
                     <div class="text-xs text-be-ink-500 mt-1">Historique des transactions formateur & commissions.</div>
                 </div>
                 <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
-                        @click="loadPayouts()">Actualiser</button>
+                        @click="loadPayouts()">
+                    Actualiser
+                </button>
             </div>
 
             <div class="mt-4 overflow-auto no-scrollbar">
                 <table class="min-w-full text-sm">
                     <thead class="bg-be-ink-50/60 text-be-ink-600">
-                    <tr>
-                        <th class="text-left font-semibold px-4 py-3">Date</th>
-                        <th class="text-left font-semibold px-4 py-3">Réf</th>
-                        <th class="text-left font-semibold px-4 py-3">Montant</th>
-                        <th class="text-left font-semibold px-4 py-3">Statut</th>
-                    </tr>
+                        <tr>
+                            <th class="text-left font-semibold px-4 py-3">Date</th>
+                            <th class="text-left font-semibold px-4 py-3">Réf</th>
+                            <th class="text-left font-semibold px-4 py-3">Montant</th>
+                            <th class="text-left font-semibold px-4 py-3">Statut</th>
+                        </tr>
                     </thead>
                     <tbody>
-                    <template x-if="loading.payouts">
-                        <tr>
-                            <td colspan="4" class="px-4 py-8 text-center text-be-ink-500">Chargement…</td>
-                        </tr>
-                    </template>
+                        <template x-if="loading.payouts">
+                            <tr>
+                                <td colspan="4" class="px-4 py-8 text-center text-be-ink-500">Chargement…</td>
+                            </tr>
+                        </template>
 
-                    <template x-for="p in payouts" :key="p.ref">
-                        <tr class="border-t border-be-ink-100">
-                            <td class="px-4 py-3" x-text="p.date"></td>
-                            <td class="px-4 py-3 font-mono text-xs" x-text="p.ref"></td>
-                            <td class="px-4 py-3 font-semibold" x-text="p.amount"></td>
-                            <td class="px-4 py-3">
-                                <span class="text-[11px] px-2 py-1 rounded-full border"
-                                      :class="p.status==='PAID' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-be-ink-50 border-be-ink-100 text-be-ink-700'">
-                                    <span x-text="p.status_label"></span>
-                                </span>
-                            </td>
-                        </tr>
-                    </template>
+                        <template x-for="p in payouts" :key="p.ref">
+                            <tr class="border-t border-be-ink-100">
+                                <td class="px-4 py-3" x-text="p.date"></td>
+                                <td class="px-4 py-3 font-mono text-xs" x-text="p.ref"></td>
+                                <td class="px-4 py-3 font-semibold" x-text="p.amount"></td>
+                                <td class="px-4 py-3">
+                                    <span class="text-[11px] px-2 py-1 rounded-full border"
+                                          :class="p.status === 'PAID' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-be-ink-50 border-be-ink-100 text-be-ink-700'">
+                                        <span x-text="p.status_label"></span>
+                                    </span>
+                                </td>
+                            </tr>
+                        </template>
 
-                    <template x-if="!loading.payouts && payouts.length===0">
-                        <tr>
-                            <td colspan="4" class="px-4 py-8 text-center text-be-ink-500">Aucun paiement.</td>
-                        </tr>
-                    </template>
+                        <template x-if="!loading.payouts && payouts.length === 0">
+                            <tr>
+                                <td colspan="4" class="px-4 py-8 text-center text-be-ink-500">Aucun paiement.</td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>
@@ -835,7 +786,7 @@
                     <div>
                         <label class="text-xs font-semibold text-be-ink-600">Prix</label>
                         <input type="number" x-model="courseForm.price"
-                               :disabled="courseForm.pricing_type==='FREE'"
+                               :disabled="courseForm.pricing_type === 'FREE'"
                                class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"/>
                         <div class="text-[11px] text-be-ink-500 mt-1">Devise: XOF</div>
                     </div>
@@ -861,7 +812,9 @@
 
             <div class="px-5 py-4 border-t border-be-ink-100 flex items-center justify-between">
                 <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
-                        @click="closeCourseModal()">Annuler</button>
+                        @click="closeCourseModal()">
+                    Annuler
+                </button>
                 <button class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft"
                         @click="saveCourse()" :disabled="loading.saveCourse">
                     <span x-show="!loading.saveCourse">Enregistrer</span>
@@ -883,7 +836,8 @@
             <div class="p-5">
                 <template x-if="normalizedCoursePreviewUrl(previewCourse?.preview_video_url)">
                     <div class="aspect-video rounded-2xl overflow-hidden border border-be-ink-100">
-                        <iframe class="w-full h-full" :src="normalizedCoursePreviewUrl(previewCourse?.preview_video_url)"
+                        <iframe class="w-full h-full"
+                                :src="normalizedCoursePreviewUrl(previewCourse?.preview_video_url)"
                                 allow="autoplay; encrypted-media"
                                 referrerpolicy="strict-origin-when-cross-origin"
                                 allowfullscreen></iframe>
@@ -941,14 +895,14 @@
                     <span class="text-sm text-be-ink-700">Leçon en preview (gratuite)</span>
                 </div>
 
-                <div x-show="lessonForm.lesson_type==='TEXT'">
+                <div x-show="lessonForm.lesson_type === 'TEXT'">
                     <label class="text-xs font-semibold text-be-ink-600">Contenu</label>
                     <textarea x-model="lessonForm.content" rows="10"
                               class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm"
                               placeholder="Texte, plan, ressources, liens…"></textarea>
                 </div>
 
-                <div x-show="lessonForm.lesson_type!=='TEXT'">
+                <div x-show="lessonForm.lesson_type !== 'TEXT'">
                     <div class="grid sm:grid-cols-2 gap-3">
                         <div>
                             <label class="text-xs font-semibold text-be-ink-600">Video URL (optionnel)</label>
@@ -982,9 +936,13 @@
 
             <div class="px-5 py-4 border-t border-be-ink-100 flex items-center justify-between">
                 <button class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
-                        @click="closeLessonModal()">Annuler</button>
+                        @click="closeLessonModal()">
+                    Annuler
+                </button>
                 <button class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft"
-                        @click="saveLesson()">Enregistrer</button>
+                        @click="saveLesson()">
+                    Enregistrer
+                </button>
             </div>
         </div>
     </div>
@@ -999,11 +957,11 @@
                         @click="closeLessonPreview()">✕</button>
             </div>
             <div class="p-5">
-                <template x-if="previewLesson?.lesson_type==='TEXT'">
+                <template x-if="previewLesson?.lesson_type === 'TEXT'">
                     <div class="prose max-w-none text-sm" x-html="previewLesson?.content || ''"></div>
                 </template>
 
-                <template x-if="previewLesson?.lesson_type!=='TEXT'">
+                <template x-if="previewLesson?.lesson_type !== 'TEXT'">
                     <template x-if="previewLessonSignedUrl">
                         <div class="aspect-video rounded-2xl overflow-hidden border border-be-ink-100">
                             <video class="w-full h-full" controls :src="previewLessonSignedUrl"></video>
@@ -1011,7 +969,8 @@
                     </template>
                     <template x-if="!previewLessonSignedUrl && normalizedLessonPreviewUrl(previewLesson?.video_url)">
                         <div class="aspect-video rounded-2xl overflow-hidden border border-be-ink-100">
-                            <iframe class="w-full h-full" :src="normalizedLessonPreviewUrl(previewLesson?.video_url)"
+                            <iframe class="w-full h-full"
+                                    :src="normalizedLessonPreviewUrl(previewLesson?.video_url)"
                                     allow="autoplay; encrypted-media"
                                     referrerpolicy="strict-origin-when-cross-origin"
                                     allowfullscreen></iframe>
@@ -1027,7 +986,7 @@
 
     <!-- Upload Drawer -->
     <div x-show="drawers.upload" x-transition.opacity class="fixed inset-0 z-50 flex justify-end" style="display:none;">
-        <div class="absolute inset-0 bg-black/40" @click="drawers.upload=false"></div>
+        <div class="absolute inset-0 bg-black/40" @click="drawers.upload = false"></div>
         <div class="relative w-full max-w-xl h-full bg-white border-l border-be-ink-100 shadow-soft p-5 overflow-auto no-scrollbar">
             <div class="flex items-start justify-between">
                 <div>
@@ -1035,7 +994,7 @@
                     <div class="text-xs text-be-ink-500 mt-1">Upload direct (presigned) + liaison optionnelle à une leçon.</div>
                 </div>
                 <button class="w-9 h-9 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
-                        @click="drawers.upload=false">✕</button>
+                        @click="drawers.upload = false">✕</button>
             </div>
 
             <div class="mt-5 space-y-4">
@@ -1082,7 +1041,7 @@
                     </div>
                 </div>
 
-                <div x-show="upload.progress>0" class="rounded-2xl border border-be-ink-100 bg-white p-4">
+                <div x-show="upload.progress > 0" class="rounded-2xl border border-be-ink-100 bg-white p-4">
                     <div class="text-xs text-be-ink-500">Progression</div>
                     <div class="mt-2 h-2 rounded-full bg-be-ink-100 overflow-hidden">
                         <div class="h-full bg-be-sky-600 rounded-full" :style="`width:${upload.progress}%`"></div>
@@ -1092,7 +1051,9 @@
 
                 <div class="flex gap-2">
                     <button class="flex-1 px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold"
-                            @click="drawers.upload=false">Fermer</button>
+                            @click="drawers.upload = false">
+                        Fermer
+                    </button>
                     <button class="flex-1 px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft"
                             @click="startUpload()" :disabled="loading.upload">
                         <span x-show="!loading.upload">Uploader</span>
@@ -1111,11 +1072,12 @@
 {% endblock %}
 
 {% block extra_js %}
-    <script>
-    window.URLS = {
-        courseDetail: (id) => "{% url 'instructor_course_detail' course_id=0 %}".replace("/0/", `/${id}/`)
-    }
+<script>
+window.URLS = {
+    courseDetail: (id) => "{% url 'instructor_course_detail' course_id=0 %}".replace("/0/", `/${id}/`)
+};
 </script>
+
 <script>
 function icon(name) {
     const icons = {
@@ -1163,7 +1125,7 @@ function instructorApp(cfg) {
         selectedCourse: null,
         activeSection: null,
 
-        filters: {q: "", status: "", pricing: "", type: ""},
+        filters: { q: "", status: "", pricing: "", type: "" },
 
         loading: {
             me: false,
@@ -1187,7 +1149,7 @@ function instructorApp(cfg) {
             previewLesson: false
         },
 
-        drawers: {upload: false},
+        drawers: { upload: false },
 
         courseForm: {
             id: null,
@@ -1225,7 +1187,7 @@ function instructorApp(cfg) {
             object_key: null
         },
 
-        toast: {show: false, title: "", message: ""},
+        toast: { show: false, title: "", message: "" },
         previewCourse: null,
         previewLesson: null,
         previewLessonSignedUrl: "",
@@ -1291,7 +1253,7 @@ function instructorApp(cfg) {
         },
 
         showToast(title, message) {
-            this.toast = {show: true, title, message};
+            this.toast = { show: true, title, message };
             setTimeout(() => this.toast.show = false, 3500);
         },
 
@@ -1409,7 +1371,7 @@ function instructorApp(cfg) {
 
         async apiGet(url) {
             const res = await fetch(url, {
-                headers: {"Accept": "application/json"},
+                headers: { "Accept": "application/json" },
                 credentials: "same-origin"
             });
             if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
@@ -1699,10 +1661,7 @@ function instructorApp(cfg) {
                 await this.loadCourses();
 
                 if (this.selectedCourse && resp.id === this.selectedCourse.id) {
-                    this.selectedCourse = {
-                        ...this.selectedCourse,
-                        ...resp
-                    };
+                    this.selectedCourse = { ...this.selectedCourse, ...resp };
                 }
             } catch (e) {
                 console.error(e);
@@ -1744,7 +1703,7 @@ function instructorApp(cfg) {
             const title = prompt("Titre de la section ?");
             if (!title) return;
             try {
-                await this.apiPost(this.endpoints.createSection(this.selectedCourse.id), {title});
+                await this.apiPost(this.endpoints.createSection(this.selectedCourse.id), { title });
                 await this.loadSections(this.selectedCourse.id);
             } catch (e) {
                 console.error(e);
@@ -1756,7 +1715,7 @@ function instructorApp(cfg) {
             const title = prompt("Nouveau titre ?", s.title);
             if (!title) return;
             try {
-                await this.apiPost(this.endpoints.updateSection(this.selectedCourse.id, s.id), {title});
+                await this.apiPost(this.endpoints.updateSection(this.selectedCourse.id, s.id), { title });
                 await this.loadSections(this.selectedCourse.id);
             } catch (e) {
                 console.error(e);
@@ -2002,7 +1961,65 @@ function instructorApp(cfg) {
                 xhr.send(file);
             });
         },
-    }
+    };
 }
+
+document.addEventListener("alpine:init", () => {
+    Alpine.store("instructor", instructorApp({
+        endpoints: {
+            me: '{% url "api_instructor_me" %}',
+            kpis: '{% url "api_instructor_kpis" %}',
+            courses: '{% url "api_instructor_courses" %}',
+
+            courseDetail: (id) => `/api/instructor/courses/${id}/`,
+            courseSections: (id) => `/api/instructor/courses/${id}/sections/`,
+            sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`,
+
+            createCourse: '{% url "api_instructor_course_create" %}',
+            updateCourse: (id) => `/api/instructor/courses/${id}/update/`,
+            publishCourse: (id) => `/api/instructor/courses/${id}/publish/`,
+            archiveCourse: (id) => `/api/instructor/courses/${id}/archive/`,
+
+            createSection: (courseId) => `/api/instructor/courses/${courseId}/sections/create/`,
+            updateSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/update/`,
+            deleteSection: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/delete/`,
+            createLesson: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/create/`,
+            updateLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/update/`,
+            deleteLesson: (courseId, sectionId, lessonId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}/delete/`,
+
+            uploadInit: '{% url "api_media_upload_init" %}',
+            uploadFinalize: '{% url "api_media_upload_finalize" %}',
+            mediaList: '{% url "api_instructor_media" %}',
+            signedGet: (assetId) => `/api/media/${assetId}/signed/`,
+            reviews: '{% url "api_instructor_reviews" %}',
+            payouts: '{% url "api_instructor_payouts" %}',
+            notifications: '{% url "api_instructor_notifications" %}',
+        },
+        serverData: {
+            kpis: {
+                total_courses: {{ kpis.total_courses|default:0 }},
+                draft_courses: {{ kpis.draft_courses|default:0 }},
+                review_courses: {{ kpis.review_courses|default:0 }},
+                published_courses: {{ kpis.published_courses|default:0 }},
+                archived_courses: {{ kpis.archived_courses|default:0 }},
+                total_sections: {{ kpis.total_sections|default:0 }},
+                total_lessons: {{ kpis.total_lessons|default:0 }},
+                total_media: {{ kpis.total_media|default:0 }},
+                enrolled_total: {{ kpis.enrolled_total|default:0 }},
+                active_enrollments: {{ kpis.active_enrollments|default:0 }},
+                completed_enrollments: {{ kpis.completed_enrollments|default:0 }},
+                canceled_enrollments: {{ kpis.canceled_enrollments|default:0 }},
+                rating_avg: {{ kpis.rating_avg|default:0 }},
+                rating_count: {{ kpis.rating_count|default:0 }},
+                revenue_total: {{ kpis.revenue_total|default:0 }},
+                revenue_month: {{ kpis.revenue_month|default:0 }},
+                payments_count: {{ kpis.payments_count|default:0 }},
+                completion_avg: {{ kpis.completion_avg|default:0 }},
+                completed_lessons_count: {{ kpis.completed_lessons_count|default:0 }},
+                unread_notifications: {{ kpis.unread_notifications|default:0 }}
+            }
+        }
+    }));
+});
 </script>
 {% endblock %}

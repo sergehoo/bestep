@@ -227,83 +227,118 @@
       </div>
 
       <div class="md:w-1/2 flex justify-center animate-fade-in-up animate-delay-1">
-        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg card-lift border border-transparent">
-          {% if user.is_authenticated %}
-            <div class="flex justify-between items-center mb-6">
-              <h3 class="text-xl font-bold text-gray-800">
-                Bon retour, {{ user.first_name|default:user.get_username }}!
-              </h3>
-              <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <span class="text-blue-600 font-bold">
-                  {{ user.first_name|first|default:user.get_username|first|upper }}
-                </span>
-              </div>
-            </div>
+      <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg card-lift border border-transparent">
+  {% if user.is_authenticated %}
 
-            <div class="text-center py-6">
-              <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-book-open text-blue-600 text-2xl"></i>
-              </div>
-              <h4 class="text-lg font-semibold text-gray-800 mb-2">Reprenez votre apprentissage</h4>
-              <p class="text-gray-600 mb-4">Accédez à votre tableau de bord et continuez vos cours</p>
-              <a href="{% url 'learner_dashboard' %}"
-                 class="inline-block bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-lg font-medium">
-                Aller au tableau de bord
-              </a>
-            </div>
-        {% else %}
-<div class="mb-5">
-
-  <!-- Section vidéo principale -->
-  <div class="mb-10 max-w-18xl mx-auto">
-
-    <!-- En-tête minimaliste -->
-    <div class="text-center mb-6">
-      <h3 class="text-2xl md:text-2xl font-extrabold text-gray-900 mb-2">
-       Bienvenue sur votre espace d’apprentissage 🚀
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="text-xl font-bold text-gray-800">
+        Bon retour, {{ user.first_name|default:user.get_username }} !
       </h3>
-      <p class="text-gray-600 max-w-2xl mx-auto">
-        Faites un pas de plus vers la connaissance
-      </p>
-    </div>
-
-    <!-- HERO VIDEO -->
-    <div class="relative">
-
-      <!-- Glow / bordure premium -->
-      <div class="absolute -inset-1 rounded-3xl  via-indigo-500 to-blue-500 blur-xl opacity-30"></div>
-
-      <div class="relative rounded-3xl overflow-hidden ring-1 ring-black/10">
-
-        <div class="aspect-video w-full">
-          <iframe width="560" height="315" src="https://www.youtube.com/embed/PmmlgDz3T3E?si=QDRhVmyZnL3umkP0"  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-        </div>
-
-
+      <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+        <span class="text-blue-600 font-bold">
+          {{ user.first_name|first|default:user.get_username|first|upper }}
+        </span>
       </div>
     </div>
 
-
-  </div>
-
-  <!-- CTA -->
-  <div class="max-w-md mx-auto mt-10">
-    <a href="{% url 'account_signup' %}"
-       class="block w-full text-center py-4 rounded-2xl font-semibold text-white
-              bg-gradient-to-r from-blue-600 to-blue-500
-              hover:from-blue-700 hover:to-blue-600
-              shadow-xl hover:shadow-2xl
-              transition-all duration-300 text-lg">
-      Commencer gratuitement
-    </a>
-    <p class="text-center text-gray-500 text-sm mt-3">
-      Accès immédiat • Sans engagement
-    </p>
-  </div>
-
-</div>
-{% endif %}
+    {% if user.role == "STUDENT" %}
+      <div class="text-center py-6">
+        <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-book-open text-blue-600 text-2xl"></i>
         </div>
+        <h4 class="text-lg font-semibold text-gray-800 mb-2">Reprenez votre apprentissage</h4>
+        <p class="text-gray-600 mb-4">Accédez à votre tableau de bord et continuez vos cours.</p>
+        <a href="{% url 'learner_dashboard' %}"
+           class="inline-block bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-lg font-medium">
+          Aller au tableau de bord
+        </a>
+      </div>
+
+    {% elif user.role == "INSTRUCTOR" %}
+      <div class="text-center py-6">
+        <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-chart-line text-blue-600 text-2xl"></i>
+        </div>
+        <h4 class="text-lg font-semibold text-gray-800 mb-2">Accédez à vos statistiques de cours</h4>
+        <p class="text-gray-600 mb-4">Consultez votre tableau de bord instructeur et pilotez vos contenus.</p>
+        <a href="{% url 'instructor_dashboard' %}"
+           class="inline-block bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-lg font-medium">
+          Aller au tableau de bord
+        </a>
+      </div>
+
+    {% elif user.role == "COMPANY_ADMIN" %}
+      <div class="text-center py-6">
+        <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-building text-blue-600 text-2xl"></i>
+        </div>
+        <h4 class="text-lg font-semibold text-gray-800 mb-2">Gérez votre espace entreprise</h4>
+        <p class="text-gray-600 mb-4">Suivez vos équipes et accédez à votre tableau de bord entreprise.</p>
+        <a href="{% url 'business_dashboard' %}"
+           class="inline-block bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-lg font-medium">
+          Aller au tableau de bord
+        </a>
+      </div>
+
+    {% else %}
+      <div class="text-center py-6">
+        <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-gauge-high text-blue-600 text-2xl"></i>
+        </div>
+        <h4 class="text-lg font-semibold text-gray-800 mb-2">Accédez à votre espace</h4>
+        <p class="text-gray-600 mb-4">Retrouvez votre tableau de bord personnel.</p>
+        <a href="{% url 'learner_dashboard' %}"
+           class="inline-block bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-lg font-medium">
+          Aller au tableau de bord
+        </a>
+      </div>
+    {% endif %}
+
+  {% else %}
+    <div class="mb-5">
+      <div class="mb-10 max-w-18xl mx-auto">
+        <div class="text-center mb-6">
+          <h3 class="text-2xl md:text-2xl font-extrabold text-gray-900 mb-2">
+            Bienvenue sur votre espace d’apprentissage 🚀
+          </h3>
+          <p class="text-gray-600 max-w-2xl mx-auto">
+            Faites un pas de plus vers la connaissance
+          </p>
+        </div>
+
+        <div class="relative">
+          <div class="absolute -inset-1 rounded-3xl via-indigo-500 to-blue-500 blur-xl opacity-30"></div>
+
+          <div class="relative rounded-3xl overflow-hidden ring-1 ring-black/10">
+            <div class="aspect-video w-full">
+              <iframe
+                class="w-full h-full"
+                src="https://www.youtube.com/embed/PmmlgDz3T3E?si=QDRhVmyZnL3umkP0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerpolicy="strict-origin-when-cross-origin"
+                allowfullscreen>
+              </iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="max-w-md mx-auto mt-10">
+        <a href="{% url 'account_signup' %}"
+           class="block w-full text-center py-4 rounded-2xl font-semibold text-white
+                  bg-gradient-to-r from-blue-600 to-blue-500
+                  hover:from-blue-700 hover:to-blue-600
+                  shadow-xl hover:shadow-2xl
+                  transition-all duration-300 text-lg">
+          Commencer gratuitement
+        </a>
+        <p class="text-center text-gray-500 text-sm mt-3">
+          Accès immédiat • Sans engagement
+        </p>
+      </div>
+    </div>
+  {% endif %}
+</div>
       </div>
     </div>
   </div>
