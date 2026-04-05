@@ -14,7 +14,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential gcc libpq-dev curl \
-  && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
 RUN pip wheel --wheel-dir /wheels -r /app/requirements.txt
@@ -29,8 +29,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 curl \
-  && rm -rf /var/lib/apt/lists/*
+    libpq5 curl ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 10001 appuser
 WORKDIR /app
@@ -42,7 +42,6 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels -r /app/requireme
 
 COPY . /app
 
-# Prépare dossiers + droits
 RUN mkdir -p /app/staticfiles /app/media \
  && chmod +x /app/entrypoint.sh \
  && chown -R appuser:appuser /app
@@ -56,5 +55,4 @@ ENV APP_PORT=8000 \
     GUNICORN_TIMEOUT=120
 
 ENTRYPOINT ["/app/entrypoint.sh"]
-
 CMD ["gunicorn", "best_epargne.wsgi:application", "--bind", "0.0.0.0:8000"]

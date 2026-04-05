@@ -261,30 +261,9 @@ AWS_QUERYSTRING_AUTH = os.getenv("MINIO_QUERYSTRING_AUTH", "0") == "1"
 
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
-# ✅ Domaine public (Traefik) pour que le navigateur charge les médias
-# Exemple: MINIO_PUBLIC_DOMAIN=minio.ayo-group.com
-# AWS_S3_CUSTOM_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "")
-# AWS_S3_CUSTOM_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://", "")
 
 AWS_S3_CUSTOM_DOMAIN = f"{MINIO_PUBLIC_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}"
 
-
-# MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}/"
-
-# TINYMCE_DEFAULT_CONFIG = {
-#     "height": 420,
-#     "width": "100%",
-#     "menubar": True,
-#     "plugins": "advlist autolink lists link image charmap preview anchor "
-#                "searchreplace visualblocks code fullscreen "
-#                "insertdatetime media table help wordcount",
-#     "toolbar": "undo redo | blocks | "
-#                "bold italic underline | forecolor backcolor | "
-#                "alignleft aligncenter alignright alignjustify | "
-#                "bullist numlist outdent indent | "
-#                "link image media table | code fullscreen preview",
-#     "branding": False,
-# }
 TINYMCE_DEFAULT_CONFIG = {
     "height": 500,
     "menubar": "file edit view insert format tools table help",

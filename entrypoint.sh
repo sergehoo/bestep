@@ -1,6 +1,13 @@
 #!/bin/sh
 set -e
 
+# Si une commande explicite est fournie (celery, python, bash, etc.),
+# on l'exécute au lieu de lancer gunicorn.
+if [ "$#" -gt 0 ] && [ "$1" != "gunicorn" ]; then
+  echo "==> Run custom command: $*"
+  exec "$@"
+fi
+
 echo "==> Run migrations"
 python manage.py migrate --noinput
 
@@ -8,7 +15,4 @@ echo "==> Collect static"
 python manage.py collectstatic --noinput
 
 echo "==> Start gunicorn"
-exec gunicorn best_epargne.wsgi:application \
-  --bind 0.0.0.0:${APP_PORT:-8000} \
-  --workers ${GUNICORN_WORKERS:-3} \
-  --timeout ${GUNICORN_TIMEOUT:-120}
+exec "$@"

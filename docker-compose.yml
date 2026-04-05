@@ -217,7 +217,8 @@ services:
     networks:
       - internal
 
-    command: ["celery", "-A", "best_epargne.celery:app", "worker", "-l", "info"]
+    command: ["celery", "-A", "best_epargne", "worker", "-l", "info"]
+
 
   celery_beat:
     build:
@@ -256,4 +257,4 @@ services:
     networks:
       - internal
 
-    command: ["celery", "-A", "best_epargne.celery:app", "beat", "-l", "info"]
+    command: ["celery", "-A", "best_epargne", "beat", "-l", "info"]
