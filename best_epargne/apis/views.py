@@ -489,12 +489,30 @@ class InstructorLessonCreateView(APIView):
 
         title = (request.data.get("title") or "").strip()
         lesson_type = (request.data.get("lesson_type") or Lesson.LessonType.VIDEO).strip()
+
         if not title:
             return Response({"detail": "title is required"}, status=400)
 
         max_order = Lesson.objects.filter(section=section).aggregate(m=Max("order"))["m"] or 0
-        lesson = Lesson.objects.create(section=section, title=title, lesson_type=lesson_type, order=max_order + 1)
-        return Response(LessonSerializer(lesson).data, status=201)
+
+        media_asset = None
+        media_asset_id = request.data.get("media_asset_id")
+        if media_asset_id:
+            media_asset = get_object_or_404(MediaAsset, id=media_asset_id, owner=request.user)
+
+        lesson = Lesson.objects.create(
+            section=section,
+            title=title,
+            lesson_type=lesson_type,
+            order=max_order + 1,
+            is_preview=bool(request.data.get("is_preview", False)),
+            duration_sec=int(request.data.get("duration_sec") or 0),
+            video_url=request.data.get("video_url") or "",
+            content=request.data.get("content") or "",
+            media_asset=media_asset,
+        )
+
+        return Response(LessonSerializer(lesson, context={"request": request}).data, status=201)
 
 
 class InstructorLessonUpdateView(APIView):
@@ -508,8 +526,16 @@ class InstructorLessonUpdateView(APIView):
         for f in ["title", "lesson_type", "is_preview", "duration_sec", "video_url", "content"]:
             if f in request.data:
                 setattr(lesson, f, request.data.get(f))
+
+        if "media_asset_id" in request.data:
+            media_asset_id = request.data.get("media_asset_id")
+            if media_asset_id:
+                lesson.media_asset = get_object_or_404(MediaAsset, id=media_asset_id, owner=request.user)
+            else:
+                lesson.media_asset = None
+
         lesson.save()
-        return Response(LessonSerializer(lesson).data)
+        return Response(LessonSerializer(lesson, context={"request": request}).data)
 
 
 class InstructorLessonDeleteView(APIView):

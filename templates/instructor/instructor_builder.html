@@ -16,6 +16,9 @@
 {% endblock %}
 
 {% block content %}
+    <style>
+  [x-cloak] { display: none !important; }
+</style>
     <div x-data="instructorBuilderPage({
     courseId: {{ course.id }},
     endpoints: {

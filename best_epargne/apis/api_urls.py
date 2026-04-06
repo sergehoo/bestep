@@ -115,11 +115,11 @@ urlpatterns = [
         InstructorCourseQuizListView.as_view(),
         name="api_instructor_course_quizzes"
     ),
-    path(
-        "instructor/quizzes/<int:quiz_id>/update/",
-        InstructorQuizUpdateView.as_view(),
-        name="api_instructor_quiz_update"
-    ),
+    # path(
+    #     "instructor/quizzes/<int:quiz_id>/update/",
+    #     InstructorQuizUpdateView.as_view(),
+    #     name="api_instructor_quiz_update"
+    # ),
     path(
         "instructor/courses/<int:course_id>/sections/<int:section_id>/quiz/create/",
         InstructorSectionQuizCreateView.as_view(),
@@ -176,7 +176,7 @@ urlpatterns = [
     path("media/upload/init/", MediaUploadInitView.as_view(), name="api_media_upload_init"),
     path("media/upload/finalize/", MediaUploadFinalizeView.as_view(), name="api_media_upload_finalize"),
     path("media/<uuid:asset_id>/signed/", MediaSignedGetView.as_view(), name="api_media_signed_get"),
-    path("api/media/<uuid:asset_id>/thumbnail/", MediaThumbnailSignedGetView.as_view(),
+    path("media/<uuid:asset_id>/thumbnail/", MediaThumbnailSignedGetView.as_view(),
          name="api_media_thumbnail_signed_get"),
 
     path("instructor/media/<uuid:asset_id>/", InstructorMediaDetailView.as_view(),

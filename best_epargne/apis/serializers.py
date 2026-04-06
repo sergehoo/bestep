@@ -1,6 +1,6 @@
 from django.urls import reverse
 from django.utils.timesince import timesince
-from faker.utils.text import slugify
+from django.utils.text import slugify
 from rest_framework import serializers
 from catalog.models import Course, CourseSection, Lesson, Category, MediaAsset
 from commerce.models import OrderItem
@@ -390,12 +390,14 @@ class PublicCourseSerializer(serializers.ModelSerializer):
 
     # ---------- Media ----------
     def get_thumbnail_url(self, obj):
-        if obj.thumbnail:
-            try:
-                return obj.thumbnail.url
-            except Exception:
-                return None
-        return None
+        if not obj.thumbnail:
+            return None
+        try:
+            request = self.context.get("request")
+            url = obj.thumbnail.url
+            return request.build_absolute_uri(url) if request else url
+        except Exception:
+            return None
 
     # ---------- Front defaults (absents du modèle) ----------
     def get_level(self, obj):
