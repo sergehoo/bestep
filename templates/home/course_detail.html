@@ -833,12 +833,21 @@
     if (data && Array.isArray(data.courses)) return data.courses;
     return [];
   }
-  function normalizeDetailUrl(course){
-    const u = (course?.detail_url || course?.preview_url || "").trim();
-    if (u.startsWith(LANDING_DETAIL_BASE)) return u;
-    if (course?.id) return `${LANDING_DETAIL_BASE}${course.id}/`;
-    return u || "#";
+  function normalizeDetailUrl(course) {
+  const u = String(course?.detail_url || course?.preview_url || "").trim();
+
+  if (u) {
+    if (u.startsWith("http://") || u.startsWith("https://") || u.startsWith("/")) {
+      return u;
+    }
   }
+
+  if (course?.id) {
+    return `${PUBLIC_DETAIL_BASE}${course.id}/`;
+  }
+
+  return "#";
+}
   function renderMiniCourseCard(course) {
     const title = course.title || "Cours";
     const subtitle = course.subtitle || "";

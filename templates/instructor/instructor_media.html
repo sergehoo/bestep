@@ -101,7 +101,7 @@
     </template>
 
     <!-- FILTER BAR -->
-    <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+   <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
         <div class="p-5">
             <div class="grid xl:grid-cols-12 gap-4">
                 <div class="xl:col-span-5">
@@ -109,13 +109,8 @@
                         Recherche
                     </label>
                     <div class="mt-2 relative">
-                        <input
-                            x-model="filters.q"
-                            @input.debounce.250ms="applyFilters()"
-                            type="text"
-                            placeholder="Titre, object key, content type..."
-                            class="w-full pl-11 pr-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10"
-                        >
+                        <input x-model="filters.q" @input.debounce.250ms="applyFilters()" type="text" placeholder="Titre, object key, content type..."
+                            class="w-full pl-11 pr-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10">
                         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/40">
                             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
                                 <path d="M21 21l-4.35-4.35M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -128,11 +123,7 @@
                     <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
                         Type
                     </label>
-                    <select
-                        x-model="filters.kind"
-                        @change="applyFilters()"
-                        class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
-                    >
+                    <select x-model="filters.kind" @change="applyFilters()" class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm">
                         <option value="">Tous</option>
                         <option value="video">Vidéos</option>
                         <option value="audio">Audios</option>
@@ -144,11 +135,7 @@
                     <label class="text-xs font-semibold uppercase tracking-wide text-be-ink-500 dark:text-white/60">
                         Tri
                     </label>
-                    <select
-                        x-model="filters.sort"
-                        @change="applyFilters()"
-                        class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
-                    >
+                    <select x-model="filters.sort" @change="applyFilters()" class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm">
                         <option value="recent">Plus récents</option>
                         <option value="oldest">Plus anciens</option>
                         <option value="title">Titre A-Z</option>
@@ -179,18 +166,23 @@
                     </div>
                 </div>
 
-                <div class="xl:col-span-1 flex items-end">
+                <div class="xl:col-span-2 flex items-end gap-2">
                     <button
                         @click="loadMedia()"
-                        class="w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
+                        class="flex-1 px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
                     >
                         Actualiser
+                    </button>
+                    <button
+                        @click="openUploadDrawer()"
+                        class="flex-1 px-4 py-3 rounded-2xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition"
+                    >
+                        Importer
                     </button>
                 </div>
             </div>
         </div>
     </section>
-
     <!-- GRID VIEW -->
     <section x-show="view === 'grid'" class="space-y-4">
         <template x-if="loading.media">
