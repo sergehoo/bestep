@@ -889,48 +889,101 @@ class InstructorMediaListView(APIView):
         ser = MediaAssetListSerializer(qs[:200], many=True)  # limite simple
         return Response(ser.data)
 
-class InstructorQuizListView(APIView):
-    permission_classes = [IsAuthenticated]
+class InstructorQuizListApiView(APIView):
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def get(self, request):
         quizzes = (
             Quiz.objects
             .filter(course__instructor=request.user)
-            .select_related("course", "lesson")
+            .select_related("course", "section", "lesson")
             .prefetch_related("questions")
             .order_by("-id")
         )
 
         results = []
         for q in quizzes:
-            section_title = ""
-            section_id = None
-            if q.lesson and q.lesson.section_id:
-                section_title = q.lesson.section.title
-                section_id = q.lesson.section_id
-
             results.append({
                 "id": q.id,
                 "title": q.title,
+                "slug": q.slug,
+                "course_id": q.course_id,
+                "course_title": q.course.title if q.course else "",
+                "section_id": q.section_id,
+                "section_title": q.section.title if q.section else "",
+                "lesson_id": q.lesson_id,
+                "is_active": q.is_active,
                 "passing_score": q.passing_score,
                 "max_attempts": q.max_attempts,
                 "questions_count": q.questions.count(),
-                "course_id": q.course_id,
-                "course_title": q.course.title if q.course else "",
-                "section_id": section_id,
-                "section_title": section_title,
             })
 
-        return Response(results)
+        return Response({
+            "count": len(results),
+            "results": results,
+        })
 class InstructorQuizUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def get(self, request, quiz_id: int):
+        quiz = get_object_or_404(
+            Quiz.objects.select_related("course", "section").prefetch_related("questions__choices"),
+            id=quiz_id,
+            course__instructor=request.user
+        )
+
+        return Response({
+            "id": quiz.id,
+            "title": quiz.title,
+            "slug": quiz.slug,
+            "course_id": quiz.course_id,
+            "course_title": quiz.course.title if quiz.course else "",
+            "section_id": quiz.section_id,
+            "section_title": quiz.section.title if quiz.section else "",
+            "lesson_id": quiz.lesson_id,
+            "passing_score": quiz.passing_score,
+            "max_attempts": quiz.max_attempts,
+            "is_active": quiz.is_active,
+            "questions": [
+                {
+                    "id": q.id,
+                    "prompt": q.prompt,
+                    "topic": q.topic,
+                    "order": q.order,
+                    "choices": [
+                        {
+                            "id": c.id,
+                            "text": c.text,
+                            "is_correct": c.is_correct,
+                        }
+                        for c in q.choices.all()
+                    ]
+                }
+                for q in quiz.questions.all().order_by("order")
+            ]
+        })
 
     def post(self, request, quiz_id: int):
         quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user)
 
-        quiz.title = request.data.get("title", quiz.title)
-        quiz.passing_score = int(request.data.get("passing_score", quiz.passing_score or 70))
-        quiz.max_attempts = int(request.data.get("max_attempts", quiz.max_attempts or 3))
+        title = (request.data.get("title") or quiz.title).strip()
+        if not title:
+            return Response({"detail": "Le titre est requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            passing_score = int(request.data.get("passing_score", quiz.passing_score or 70))
+            max_attempts = int(request.data.get("max_attempts", quiz.max_attempts or 3))
+        except (TypeError, ValueError):
+            return Response({"detail": "Paramètres invalides."}, status=status.HTTP_400_BAD_REQUEST)
+
+        quiz.title = title
+        quiz.passing_score = passing_score
+        quiz.max_attempts = max_attempts
+
+        if "is_active" in request.data:
+            raw_is_active = request.data.get("is_active")
+            quiz.is_active = raw_is_active in (True, "true", "True", 1, "1", "on")
+
         quiz.save()
 
         return Response({
@@ -938,6 +991,7 @@ class InstructorQuizUpdateView(APIView):
             "title": quiz.title,
             "passing_score": quiz.passing_score,
             "max_attempts": quiz.max_attempts,
+            "is_active": quiz.is_active,
         })
 class InstructorCourseQuizListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1005,7 +1059,75 @@ class InstructorSectionQuizCreateView(APIView):
             "questions_count": 0,
         }, status=status.HTTP_201_CREATED)
 
+class InstructorQuizQuestionUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request, question_id: int):
+        question = get_object_or_404(
+            Question.objects.select_related("quiz", "quiz__course"),
+            id=question_id,
+            quiz__course__instructor=request.user
+        )
+
+        prompt = (request.data.get("prompt") or "").strip()
+        topic = (request.data.get("topic") or "").strip()
+        order = int(request.data.get("order") or question.order)
+        choices = request.data.get("choices") or []
+
+        if not prompt:
+            return Response({"detail": "Le libellé de la question est requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not isinstance(choices, list) or len(choices) < 2:
+            return Response({"detail": "Au moins 2 choix sont requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+        has_correct = any(bool(item.get("is_correct")) for item in choices)
+        if not has_correct:
+            return Response({"detail": "Un choix correct est obligatoire."}, status=status.HTTP_400_BAD_REQUEST)
+
+        question.prompt = prompt
+        question.topic = topic
+        question.order = order
+        question.save(update_fields=["prompt", "topic", "order"])
+
+        question.choices.all().delete()
+
+        created_choices = []
+        for item in choices:
+            text = (item.get("text") or "").strip()
+            if not text:
+                continue
+
+            choice = Choice.objects.create(
+                question=question,
+                text=text,
+                is_correct=bool(item.get("is_correct"))
+            )
+            created_choices.append({
+                "id": choice.id,
+                "text": choice.text,
+                "is_correct": choice.is_correct,
+            })
+
+        return Response({
+            "id": question.id,
+            "prompt": question.prompt,
+            "topic": question.topic,
+            "order": question.order,
+            "choices": created_choices,
+        })
+
+
+class InstructorQuizQuestionDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, question_id: int):
+        question = get_object_or_404(
+            Question.objects.select_related("quiz", "quiz__course"),
+            id=question_id,
+            quiz__course__instructor=request.user
+        )
+        question.delete()
+        return Response({"ok": True})
 class InstructorSectionQuizAssignView(APIView):
     permission_classes = [IsAuthenticated]
 

@@ -1012,6 +1012,9 @@ class InstructorQuizListPageView(LoginRequiredMixin, RoleRequiredMixin, Template
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["side_active"] = "quizzes"
+        ctx["quiz_endpoints"] = {
+            "list": reverse("api_instructor_quiz_list"),
+        }
         return ctx
 
 
@@ -1022,6 +1025,8 @@ class InstructorQuizCreatePageView(LoginRequiredMixin, RoleRequiredMixin, Templa
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["side_active"] = "quiz_create"
+        ctx["course_id"] = self.request.GET.get("course")
+        ctx["section_id"] = self.request.GET.get("section")
         return ctx
 
 
@@ -1031,8 +1036,13 @@ class InstructorQuizDetailPageView(LoginRequiredMixin, RoleRequiredMixin, Templa
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["quiz_id"] = self.kwargs.get("quiz_id")
+        quiz_id = self.kwargs.get("quiz_id")
+        ctx["quiz_id"] = quiz_id
         ctx["side_active"] = "quizzes"
+        ctx["quiz_endpoints"] = {
+            "detail": reverse("api_instructor_quiz_detail", kwargs={"quiz_id": quiz_id}),
+            "question_create": reverse("api_instructor_quiz_question_create", kwargs={"quiz_id": quiz_id}),
+        }
         return ctx
 
 
@@ -1042,10 +1052,15 @@ class InstructorQuizUpdatePageView(LoginRequiredMixin, RoleRequiredMixin, Templa
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["quiz_id"] = self.kwargs.get("quiz_id")
+        quiz_id = self.kwargs.get("quiz_id")
+        ctx["quiz_id"] = quiz_id
         ctx["side_active"] = "quizzes"
+        ctx["quiz_endpoints"] = {
+            "detail": reverse("api_instructor_quiz_detail", kwargs={"quiz_id": quiz_id}),
+            "update": reverse("api_instructor_quiz_update", kwargs={"quiz_id": quiz_id}),
+            "question_create": reverse("api_instructor_quiz_question_create", kwargs={"quiz_id": quiz_id}),
+        }
         return ctx
-
 
 class StudentDashboard(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     template_name = "learner/student_dash.html"

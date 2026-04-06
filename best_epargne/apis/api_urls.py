@@ -13,9 +13,10 @@ from best_epargne.apis.views import CategoryViewSet, CourseViewSet, InstructorCo
     LearnerLessonStateView, LearnerLessonProgressUpdateView, LearnerSetCurrentLessonView, LearnerCoursePlayerDataView, \
     LearnerMediaSignedGetView, InstructorQuizDetailView, InstructorQuizQuestionCreateView, LearnerSectionQuizView, \
     LearnerSectionQuizSubmitView, InstructorCourseQuizListView, InstructorSectionQuizCreateView, \
-    InstructorSectionQuizAssignView, InstructorSectionQuizUnassignView, InstructorQuizListView, \
+    InstructorSectionQuizAssignView, InstructorSectionQuizUnassignView, \
     InstructorQuizUpdateView, MediaThumbnailSignedGetView, InstructorMediaDetailView, InstructorMediaUpdateView, \
-    InstructorMediaDeleteView
+    InstructorMediaDeleteView, InstructorQuizListApiView, InstructorQuizQuestionUpdateView, \
+    InstructorQuizQuestionDeleteView
 # from catalog.api.views import CourseViewSet, CategoryViewSet
 from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
 from organizations.api import CompanyMembersViewSet
@@ -105,9 +106,19 @@ urlpatterns = [
 
     # Instructor quiz APIs
     path(
+        "instructor/quizzes/",
+        InstructorQuizListApiView.as_view(),
+        name="api_instructor_quiz_list"
+    ),
+    path(
         "instructor/courses/<int:course_id>/quizzes/",
         InstructorCourseQuizListView.as_view(),
         name="api_instructor_course_quizzes"
+    ),
+    path(
+        "instructor/quizzes/<int:quiz_id>/update/",
+        InstructorQuizUpdateView.as_view(),
+        name="api_instructor_quiz_update"
     ),
     path(
         "instructor/courses/<int:course_id>/sections/<int:section_id>/quiz/create/",
@@ -134,6 +145,16 @@ urlpatterns = [
         InstructorQuizQuestionCreateView.as_view(),
         name="api_instructor_quiz_question_create"
     ),
+    path(
+        "instructor/questions/<int:question_id>/update/",
+        InstructorQuizQuestionUpdateView.as_view(),
+        name="api_instructor_quiz_question_update"
+    ),
+    path(
+        "instructor/questions/<int:question_id>/delete/",
+        InstructorQuizQuestionDeleteView.as_view(),
+        name="api_instructor_quiz_question_delete"
+    ),
 
     # Learner quiz APIs
     path(
@@ -146,12 +167,11 @@ urlpatterns = [
         LearnerSectionQuizSubmitView.as_view(),
         name="api_learner_section_quiz_submit"
     ),
-path("instructor/quizzes/", InstructorQuizListView.as_view(), name="api_instructor_quizzes"),
-path(
-    "instructor/quizzes/<int:quiz_id>/update/",
-    InstructorQuizUpdateView.as_view(),
-    name="api_instructor_quiz_update"
-),
+    path(
+        "instructor/quizzes/<int:quiz_id>/update/",
+        InstructorQuizUpdateView.as_view(),
+        name="api_instructor_quiz_update"
+    ),
     # --- Media / MinIO upload ---
     path("media/upload/init/", MediaUploadInitView.as_view(), name="api_media_upload_init"),
     path("media/upload/finalize/", MediaUploadFinalizeView.as_view(), name="api_media_upload_finalize"),
