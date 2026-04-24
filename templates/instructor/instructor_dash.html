@@ -78,7 +78,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6" x-data="$store.instructor" x-init="init()">
+<div class="space-y-6" x-data x-init="$nextTick(() => $store.instructor.init())">
     <!-- Toast -->
     <template x-if="toast.show">
         <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft px-4 py-3 flex items-start justify-between gap-3">

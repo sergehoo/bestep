@@ -1,446 +1,436 @@
-<!doctype html>
-<html lang="fr" class="h-full">
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>best-épargne — Administrateur</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Espace Organisation — Best-Épargne{% endblock %}</title>
+
   <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
-  <style>
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  </style>
-
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          colors: {
-            be: {
-              sky: { 50:"#F2FAFF",100:"#DEF3FF",200:"#BEE8FF",300:"#8AD7FF",400:"#4DBFFF",500:"#1EA7FF",600:"#0C87D6",700:"#0B6FAE",800:"#0C5C8E",900:"#0A466B" },
-              sun: { 50:"#FFFBEA",100:"#FFF3BF",200:"#FFE58A",300:"#FFD14D",400:"#FFBD1F",500:"#F7A600",600:"#D48300",700:"#AD6400",800:"#8A4E00",900:"#6A3B00" },
-              ink: { 50:"#F7FAFC",100:"#EEF2F7",200:"#D7DEE9",300:"#B5C0D4",400:"#7E8AA6",500:"#5B6783",600:"#3F4A63",700:"#2B3449",800:"#1E2536",900:"#121827" }
-            }
-          },
           boxShadow: {
-            soft: "0 10px 30px rgba(12,92,142,.12)",
-            ring: "0 0 0 6px rgba(30,167,255,.12)"
+            premium: "0 22px 60px rgba(15, 23, 42, .10)",
+            glow: "0 18px 45px rgba(37, 99, 235, .22)"
           }
         }
       }
     }
   </script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    * { font-family: 'Inter', system-ui, sans-serif; }
+
+    :root{
+      --blue:#2563eb;
+      --sky:#4A90E2;
+      --yellow:#FFD166;
+      --ink:#0f172a;
+      --muted:#64748b;
+      --line:#e2e8f0;
+      --soft:#f8fafc;
+    }
+
+    body{
+      background:
+        radial-gradient(circle at top left, rgba(74,144,226,.12), transparent 32rem),
+        radial-gradient(circle at top right, rgba(255,209,102,.13), transparent 28rem),
+        #f8fafc;
+    }
+
+    [x-cloak]{display:none!important;}
+
+    @keyframes fadeInUp{
+      from{opacity:0; transform:translateY(18px);}
+      to{opacity:1; transform:translateY(0);}
+    }
+
+    .animate-fade-in-up{animation:fadeInUp .45s ease-out forwards;}
+
+    .premium-panel{
+      background:rgba(255,255,255,.88);
+      border:1px solid rgba(226,232,240,.85);
+      box-shadow:0 22px 60px rgba(15,23,42,.08);
+      backdrop-filter:blur(18px);
+    }
+
+    .org-card{
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(226,232,240,.9);
+      border-radius:1.75rem;
+      box-shadow:0 18px 50px rgba(15,23,42,.07);
+      backdrop-filter:blur(14px);
+    }
+
+    .card{
+      background:white;
+      border:1px solid #e2e8f0;
+      border-radius:1.5rem;
+      box-shadow:0 12px 35px rgba(15,23,42,.06);
+      padding:1rem;
+    }
+
+    .card-lift{
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+
+    .card-lift:hover{
+      transform:translateY(-3px);
+      box-shadow:0 24px 60px rgba(2,6,23,.13);
+      border-color:rgba(74,144,226,.45);
+    }
+
+    .sidebar-shell{
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.94)),
+        radial-gradient(circle at top, rgba(37,99,235,.08), transparent 22rem);
+    }
+
+    .sidebar-link{
+      position:relative;
+      display:flex;
+      align-items:center;
+      gap:.85rem;
+      padding:.86rem 1rem;
+      border-radius:1.1rem;
+      color:#64748b;
+      font-weight:800;
+      transition:all .18s ease;
+    }
+
+    .sidebar-link i{
+      width:1.2rem;
+      text-align:center;
+    }
+
+    .sidebar-link:hover{
+      background:rgba(232,244,253,.9);
+      color:#2563eb;
+      transform:translateX(3px);
+    }
+
+    .sidebar-active{
+      background:linear-gradient(135deg, rgba(37,99,235,.12), rgba(74,144,226,.16));
+      color:#2563eb;
+      box-shadow:0 14px 35px rgba(37,99,235,.14);
+    }
+
+    .sidebar-active::before{
+      content:"";
+      position:absolute;
+      left:.35rem;
+      top:50%;
+      transform:translateY(-50%);
+      width:.28rem;
+      height:60%;
+      border-radius:999px;
+      background:linear-gradient(180deg,#2563eb,#4A90E2);
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.55rem;
+      padding:.75rem 1.05rem;
+      border-radius:1rem;
+      font-weight:850;
+      transition:all .18s ease;
+      white-space:nowrap;
+    }
+
+    .btn-primary{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.55rem;
+      padding:.75rem 1.05rem;
+      border-radius:1rem;
+      background:linear-gradient(135deg,#2563eb,#4A90E2);
+      color:white;
+      font-weight:850;
+      box-shadow:0 16px 35px rgba(37,99,235,.22);
+      transition:all .18s ease;
+      white-space:nowrap;
+    }
+
+    .btn-primary:hover{
+      transform:translateY(-1px);
+      box-shadow:0 22px 45px rgba(37,99,235,.30);
+    }
+
+    .btn-yellow{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.55rem;
+      padding:.75rem 1.05rem;
+      border-radius:1rem;
+      background:linear-gradient(135deg,#f59e0b,#FFD166);
+      color:#172033;
+      font-weight:850;
+      box-shadow:0 16px 35px rgba(245,158,11,.20);
+      transition:all .18s ease;
+      white-space:nowrap;
+    }
+
+    .btn-yellow:hover{
+      transform:translateY(-1px);
+      box-shadow:0 22px 45px rgba(245,158,11,.28);
+    }
+
+    .btn-soft{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.55rem;
+      padding:.75rem 1.05rem;
+      border-radius:1rem;
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(226,232,240,.95);
+      color:#334155;
+      font-weight:850;
+      transition:all .18s ease;
+      white-space:nowrap;
+    }
+
+    .btn-soft:hover{
+      background:#f8fafc;
+      color:#2563eb;
+      transform:translateY(-1px);
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="url"],
+    select,
+    textarea{
+      width:100%;
+      border-radius:1rem;
+      border:1px solid #e2e8f0;
+      background:rgba(248,250,252,.92);
+      padding:.82rem 1rem;
+      outline:none;
+      transition:all .15s ease;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus{
+      border-color:#93c5fd;
+      box-shadow:0 0 0 5px rgba(59,130,246,.13);
+      background:white;
+    }
+
+    .glass-topbar{
+      background:rgba(255,255,255,.82);
+      backdrop-filter:blur(20px);
+    }
+
+    .topbar-pill{
+      background:rgba(248,250,252,.86);
+      border:1px solid rgba(226,232,240,.95);
+      border-radius:1rem;
+    }
+
+    .premium-scroll::-webkit-scrollbar{width:8px;}
+    .premium-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px;}
+    .premium-scroll::-webkit-scrollbar-track{background:transparent;}
+  </style>
+
+  {% block extra_head %}{% endblock %}
 </head>
 
-<body class="h-full bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50 text-be-ink-900"
-      x-data="AdminApp()" x-init="init()">
+<body class="text-slate-900">
 
-  <!-- Topbar -->
-  <header class="sticky top-0 z-40">
-    <div class="mx-auto max-w-[1480px] px-3 sm:px-6 py-3">
-      <div class="flex items-center justify-between gap-3 rounded-2xl border border-be-sky-100 bg-white/80 backdrop-blur-xl shadow-soft px-3 sm:px-4 py-2.5">
-        <div class="flex items-center gap-2">
-          <button class="w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 transition"
-                  @click="sidebarOpen=!sidebarOpen" aria-label="Menu">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </button>
+<div class="min-h-screen flex">
 
-          <a href="#" class="flex items-center gap-2">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-be-sky-500 to-be-sky-700 text-white flex items-center justify-center shadow-ring">
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                <path d="M12 3l9 5-9 5-9-5 9-5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                <path d="M3 10l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                <path d="M3 14l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div class="leading-tight">
-              <div class="font-semibold tracking-tight">best-épargne</div>
-              <div class="text-[11px] text-be-ink-500 -mt-0.5">Vue Administrateur</div>
-            </div>
-          </a>
+  <!-- SIDEBAR -->
+  <aside class="hidden lg:flex lg:w-82 xl:w-80 sidebar-shell border-r border-slate-200/80 flex-col fixed inset-y-0 left-0 z-40">
+    <div class="h-20 px-6 flex items-center border-b border-slate-100">
+      <a href="/" class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm ring-1 ring-slate-100">
+          <img src="{% static 'img/logo_img.png' %}" class="w-10 h-10 object-contain" alt="Best-Épargne">
         </div>
+        <div>
+          <div class="text-2xl font-black text-blue-600">
+            Best-<span class="text-yellow-500">Épargne</span>
+          </div>
+          <div class="text-xs text-slate-500 -mt-1 font-semibold">Espace organisation</div>
+        </div>
+      </a>
+    </div>
 
-        <div class="hidden lg:flex flex-1 max-w-xl">
-          <div class="relative w-full">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
+    <div class="px-6 py-5 border-b border-slate-100">
+      <div class="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-blue-700 via-blue-600 to-sky-400 p-5 text-white shadow-glow card-lift">
+        <div class="absolute -right-8 -top-8 w-28 h-28 bg-white/10 rounded-full"></div>
+        <div class="absolute -bottom-12 -left-8 w-32 h-32 bg-yellow-300/20 rounded-full"></div>
+
+        <div class="relative">
+          <div class="text-[11px] uppercase tracking-widest opacity-85 font-black">Organisation active</div>
+          <div class="mt-2 text-lg font-black truncate">{{ organization.name|default:"Organisation" }}</div>
+          <div class="mt-3 flex items-center gap-2 text-xs opacity-90">
+            <i class="fas fa-location-dot"></i>
+            <span class="truncate">
+              {{ organization.city|default:"Ville non renseignée" }}{% if organization.country %}, {{ organization.country }}{% endif %}
             </span>
-            <input x-model="q" placeholder="Rechercher cours, apprenants, entreprises…"
-                   class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100 bg-white focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 focus:border-be-sky-300 text-sm"/>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <div class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-be-ink-100 bg-white">
-            <span class="text-xs text-be-ink-500">Profil:</span>
-            <span class="text-sm font-semibold">Administrateur</span>
-          </div>
-
-          <div class="relative" x-data="{open:false}">
-            <button @click="open=!open" class="w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 transition">
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <div x-show="open" x-transition.origin.top.right @click.outside="open=false"
-                 class="absolute right-0 mt-2 w-80 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-              <div class="px-4 py-3 border-b border-be-ink-100 flex items-center justify-between">
-                <div class="font-semibold text-sm">Notifications</div>
-                <button class="text-xs text-be-sky-700 hover:underline">Tout lire</button>
-              </div>
-              <div class="max-h-80 overflow-auto no-scrollbar">
-                <template x-for="n in notifications" :key="n.id">
-                  <div class="px-4 py-3 border-b border-be-ink-50 hover:bg-be-ink-50/60 transition">
-                    <div class="text-sm font-medium" x-text="n.title"></div>
-                    <div class="text-xs text-be-ink-500 mt-1" x-text="n.desc"></div>
-                  </div>
-                </template>
-              </div>
-            </div>
-          </div>
-
-          <div class="relative" x-data="{open:false}">
-            <button @click="open=!open" class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 transition">
-              <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-be-sun-300 to-be-sun-500 flex items-center justify-center font-semibold text-sm">SO</div>
-              <div class="hidden sm:block text-left leading-tight">
-                <div class="text-sm font-semibold">Serge OGAH</div>
-                <div class="text-[11px] text-be-ink-500 -mt-0.5">Admin principal</div>
-              </div>
-              <svg class="w-4 h-4 text-be-ink-500" viewBox="0 0 24 24" fill="none">
-                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <div x-show="open" x-transition.origin.top.right @click.outside="open=false"
-                 class="absolute right-0 mt-2 w-64 rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-              <a href="#" class="block px-4 py-3 text-sm hover:bg-be-ink-50">Mon profil</a>
-              <a href="#" class="block px-4 py-3 text-sm hover:bg-be-ink-50">Paramètres</a>
-              <div class="border-t border-be-ink-100"></div>
-              <a href="#" class="block px-4 py-3 text-sm hover:bg-be-ink-50 text-rose-600">Déconnexion</a>
-            </div>
           </div>
         </div>
       </div>
     </div>
-  </header>
 
-  <!-- Shell -->
-  <div class="mx-auto max-w-[1480px] px-3 sm:px-6 pb-10">
-    <div class="grid lg:grid-cols-12 gap-4 lg:gap-6">
-      <!-- Sidebar -->
-      <aside class="lg:col-span-3 xl:col-span-2" :class="sidebarOpen ? '' : 'hidden lg:block'">
-        <div class="sticky top-[92px]">
-          <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-            <div class="p-4 border-b border-be-ink-100 bg-gradient-to-br from-be-sky-50 to-white">
-              <div class="text-xs text-be-ink-500">Résumé</div>
-              <div class="text-lg font-semibold mt-1">Admin</div>
-              <div class="text-xs text-be-ink-500 -mt-0.5">Supervision globale</div>
-            </div>
+    <nav class="flex-1 px-4 py-5 space-y-2 overflow-y-auto premium-scroll">
+      <div class="px-3 pb-2 text-[11px] uppercase tracking-widest font-black text-slate-400">Pilotage</div>
 
-            <nav class="p-2">
-              <div class="px-2 py-2 text-[11px] uppercase tracking-wider text-be-ink-400">Administration</div>
-              <template x-for="item in nav" :key="item.key">
-                <button
-                  @click="goto(item.route)"
-                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition"
-                  :class="route===item.route ? 'bg-be-sky-600 text-white shadow-soft' : 'text-be-ink-700 hover:bg-be-ink-50'">
-                  <span class="w-9 h-9 rounded-xl flex items-center justify-center"
-                        :class="route===item.route ? 'bg-white/15' : 'bg-be-ink-50 border border-be-ink-100'">
-                    <span x-html="item.icon"></span>
-                  </span>
-                  <span class="flex-1 text-left" x-text="item.label"></span>
-                  <span x-show="item.badge" class="text-[10px] px-2 py-0.5 rounded-full"
-                        :class="route===item.route ? 'bg-white/15' : 'bg-be-sun-100 text-be-sun-800 border border-be-sun-200'"
-                        x-text="item.badge"></span>
-                </button>
-              </template>
-            </nav>
-          </div>
+      <a href="{% url 'organization_dashboard' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'organization_dashboard' %}sidebar-active{% endif %}">
+        <i class="fas fa-chart-pie"></i> Dashboard
+      </a>
 
-          <div class="mt-4 rounded-2xl border border-be-sun-200 bg-gradient-to-br from-be-sun-50 via-white to-be-sky-50 shadow-soft p-4">
-            <div class="text-xs text-be-ink-500">Actions rapides</div>
-            <button class="mt-3 w-full px-3 py-2 rounded-xl bg-be-ink-900 text-white text-sm font-semibold hover:opacity-90">+ Créer un cours</button>
-            <button class="mt-2 w-full px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">+ Créer entreprise</button>
-          </div>
+      <a href="{% url 'organization_members' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'organization_members' %}sidebar-active{% endif %}">
+        <i class="fas fa-users"></i> Membres
+      </a>
+
+      <a href="{% url 'organization_courses' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'organization_courses' or request.resolver_match.url_name == 'organization_course_detail' %}sidebar-active{% endif %}">
+        <i class="fas fa-book-open"></i> Cours internes
+      </a>
+
+      <div class="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest font-black text-slate-400">Création</div>
+
+      <a href="{% url 'organization_instructor_create' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'organization_instructor_create' %}sidebar-active{% endif %}">
+        <i class="fas fa-chalkboard-teacher"></i> Ajouter formateur
+      </a>
+
+      <a href="{% url 'organization_learner_create' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'organization_learner_create' %}sidebar-active{% endif %}">
+        <i class="fas fa-user-graduate"></i> Ajouter apprenant
+      </a>
+
+      <a href="{% url 'organization_course_create' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'organization_course_create' %}sidebar-active{% endif %}">
+        <i class="fas fa-plus-circle"></i> Créer un cours
+      </a>
+
+      <div class="pt-5 mt-5 border-t border-slate-100">
+        <a href="{% url 'learner_dashboard' %}" class="sidebar-link">
+          <i class="fas fa-user"></i> Mon espace personnel
+        </a>
+
+        <a href="/" class="sidebar-link">
+          <i class="fas fa-home"></i> Retour au site
+        </a>
+      </div>
+    </nav>
+
+    <div class="p-4 border-t border-slate-100">
+      <div class="rounded-[22px] bg-white/90 border border-slate-200 p-3 flex items-center gap-3 shadow-sm">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-black shadow">
+          {{ request.user.full_name|default:request.user.email|first|upper }}
         </div>
-      </aside>
-
-      <!-- Main -->
-      <main class="lg:col-span-9 xl:col-span-10">
-        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-          <div>
-            <div class="text-xs text-be-ink-500">best-épargne • Administrateur</div>
-            <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight mt-1" x-text="pageTitle()"></h1>
-          </div>
-          <div class="flex items-center gap-2">
-            <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-medium">Exporter</button>
-            <button class="px-3 py-2 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-medium shadow-soft">Planifier</button>
-          </div>
+        <div class="min-w-0">
+          <div class="text-sm font-black truncate">{{ request.user.full_name|default:request.user.email }}</div>
+          <div class="text-xs text-slate-500 truncate">Admin organisation</div>
         </div>
+      </div>
 
-        <div class="mt-5 space-y-6">
-          <!-- DASHBOARD -->
-          <section x-show="route==='dashboard'" x-transition.opacity>
-            <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              <template x-for="k in kpis" :key="k.label">
-                <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
-                  <div class="flex items-start justify-between">
-                    <div>
-                      <div class="text-xs text-be-ink-500" x-text="k.label"></div>
-                      <div class="text-2xl font-semibold mt-1" x-text="k.value"></div>
-                      <div class="text-xs mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full"
-                           :class="k.deltaUp ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'">
-                        <span x-text="k.delta"></span>
-                      </div>
-                    </div>
-                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center"
-                         :class="k.tone==='sky' ? 'bg-be-sky-100 text-be-sky-700 border border-be-sky-200' : 'bg-be-sun-100 text-be-sun-800 border border-be-sun-200'">
-                      <span x-html="k.icon"></span>
-                    </div>
-                  </div>
-                  <div class="mt-4 h-2 rounded-full bg-be-ink-100 overflow-hidden">
-                    <div class="h-full rounded-full"
-                         :class="k.tone==='sky' ? 'bg-be-sky-600' : 'bg-be-sun-500'"
-                         :style="`width:${k.progress}%`"></div>
-                  </div>
-                </div>
-              </template>
-            </div>
-
-            <div class="grid xl:grid-cols-3 gap-4">
-              <div class="xl:col-span-2 rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <div class="text-sm font-semibold">Progression globale</div>
-                    <div class="text-xs text-be-ink-500 mt-1">Vue de performance.</div>
-                  </div>
-                  <div class="inline-flex rounded-xl border border-be-ink-100 bg-white p-1">
-                    <button class="px-3 py-1.5 rounded-lg text-xs font-medium"
-                            :class="range==='7d' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
-                            @click="range='7d'">7j</button>
-                    <button class="px-3 py-1.5 rounded-lg text-xs font-medium"
-                            :class="range==='30d' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
-                            @click="range='30d'">30j</button>
-                    <button class="px-3 py-1.5 rounded-lg text-xs font-medium"
-                            :class="range==='90d' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 hover:bg-be-ink-50'"
-                            @click="range='90d'">90j</button>
-                  </div>
-                </div>
-                <div class="mt-5 grid grid-cols-12 gap-2 items-end h-40">
-                  <template x-for="(v,i) in chartData(range)" :key="i">
-                    <div class="col-span-1 rounded-xl"
-                         :class="i%3===0 ? 'bg-be-sky-600' : (i%3===1 ? 'bg-be-sun-500' : 'bg-be-ink-300')"
-                         :style="`height:${v}%;`"></div>
-                  </template>
-                </div>
-              </div>
-
-              <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
-                <div class="text-sm font-semibold">Activité récente</div>
-                <div class="text-xs text-be-ink-500 mt-1">Dernières actions.</div>
-                <div class="mt-4 space-y-3">
-                  <template x-for="a in activity" :key="a.id">
-                    <div class="flex items-start gap-3 p-3 rounded-xl border border-be-ink-100 hover:bg-be-ink-50/60 transition">
-                      <div class="w-10 h-10 rounded-xl flex items-center justify-center"
-                           :class="a.tone==='sky' ? 'bg-be-sky-100 text-be-sky-700 border border-be-sky-200' : 'bg-be-sun-100 text-be-sun-800 border border-be-sun-200'">
-                        <span x-html="a.icon"></span>
-                      </div>
-                      <div class="min-w-0">
-                        <div class="text-sm font-medium truncate" x-text="a.title"></div>
-                        <div class="text-xs text-be-ink-500 mt-1" x-text="a.time"></div>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- COURSES -->
-          <section x-show="route==='courses'" x-transition.opacity>
-            <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-              <div class="p-5 flex items-center justify-between">
-                <div>
-                  <div class="text-sm font-semibold">Catalogue des cours</div>
-                  <div class="text-xs text-be-ink-500 mt-1">Gestion, publication, validation.</div>
-                </div>
-                <button class="px-3 py-2 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
-                  + Nouveau cours
-                </button>
-              </div>
-              <div class="overflow-auto no-scrollbar">
-                <table class="min-w-full text-sm">
-                  <thead class="bg-be-ink-50/60 text-be-ink-600">
-                    <tr>
-                      <th class="text-left font-semibold px-5 py-3">Cours</th>
-                      <th class="text-left font-semibold px-5 py-3">Formateur</th>
-                      <th class="text-left font-semibold px-5 py-3">Statut</th>
-                      <th class="text-left font-semibold px-5 py-3">Inscrits</th>
-                      <th class="px-5 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <template x-for="c in popularCourses" :key="c.id">
-                      <tr class="border-t border-be-ink-100 hover:bg-be-ink-50/40 transition">
-                        <td class="px-5 py-4">
-                          <div class="font-semibold" x-text="c.title"></div>
-                          <div class="text-xs text-be-ink-500 mt-1" x-text="c.type"></div>
-                        </td>
-                        <td class="px-5 py-4" x-text="c.instructor"></td>
-                        <td class="px-5 py-4">
-                          <span class="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Publié</span>
-                        </td>
-                        <td class="px-5 py-4" x-text="c.enrolled"></td>
-                        <td class="px-5 py-4 text-right">
-                          <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold">Gérer</button>
-                        </td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <!-- USERS -->
-          <section x-show="route==='users'" x-transition.opacity>
-            <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-sm font-semibold">Utilisateurs</div>
-                  <div class="text-xs text-be-ink-500 mt-1">Apprenants, entreprises, formateurs.</div>
-                </div>
-                <button class="px-3 py-2 rounded-xl bg-be-ink-900 text-white text-sm font-semibold hover:opacity-90">+ Ajouter</button>
-              </div>
-              <div class="mt-4 text-sm text-be-ink-600">
-                (Table / liste à connecter sur ton API DRF)
-              </div>
-            </div>
-          </section>
-
-          <!-- PAYMENTS -->
-          <section x-show="route==='payments'" x-transition.opacity>
-            <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-sm font-semibold">Paiements</div>
-                  <div class="text-xs text-be-ink-500 mt-1">Commandes, transactions, statuts.</div>
-                </div>
-                <button class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold">Exporter</button>
-              </div>
-              <div class="mt-4 text-sm text-be-ink-600">(Table paiements à brancher)</div>
-            </div>
-          </section>
-
-          <!-- SETTINGS -->
-          <section x-show="route==='settings'" x-transition.opacity>
-            <div class="rounded-2xl border border-be-ink-100 bg-white shadow-soft p-5">
-              <div class="text-sm font-semibold">Paramètres</div>
-              <div class="text-xs text-be-ink-500 mt-1">Sécurité, profils, rôles.</div>
-            </div>
-          </section>
-
-        </div>
-      </main>
+      <a href="{% url 'account_logout' %}" class="mt-4 btn-soft w-full">
+        <i class="fas fa-sign-out-alt"></i> Déconnexion
+      </a>
     </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="flex-1 lg:ml-80">
+
+    <header class="sticky top-0 z-30 glass-topbar border-b border-slate-200/80">
+      <div class="h-20 px-4 md:px-8 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <div class="text-[11px] font-black uppercase tracking-widest text-blue-600">
+            Best-Épargne Organisation
+          </div>
+          <h1 class="text-xl md:text-2xl font-black text-slate-900 truncate">
+            {% block page_title %}{{ page_title|default:"Tableau de bord" }}{% endblock %}
+          </h1>
+        </div>
+
+        <div class="hidden md:flex items-center gap-3">
+          {% if organizations_administered %}
+            <form method="get">
+              <select name="organization"
+                      onchange="this.form.submit()"
+                      class="topbar-pill text-sm font-bold min-w-[210px]">
+                {% for org in organizations_administered %}
+                  <option value="{{ org.id }}" {% if org.id == organization.id %}selected{% endif %}>
+                    {{ org.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </form>
+          {% endif %}
+
+          <a href="{% url 'organization_member_create' organization.id %}" class="btn-soft">
+            <i class="fas fa-user-plus"></i> Membre
+          </a>
+
+          <a href="{% url 'organization_course_create' organization.id %}" class="btn-primary">
+            <i class="fas fa-plus"></i> Cours
+          </a>
+        </div>
+
+        <button id="mobile-menu-btn" class="lg:hidden w-11 h-11 rounded-2xl bg-white border border-slate-200 text-slate-700 shadow-sm">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+
+      <div id="mobile-menu" class="hidden lg:hidden border-t border-slate-100 bg-white px-4 py-4 space-y-2">
+        <a href="{% url 'organization_dashboard' organization.id %}" class="sidebar-link">Dashboard</a>
+        <a href="{% url 'organization_members' organization.id %}" class="sidebar-link">Membres</a>
+        <a href="{% url 'organization_courses' organization.id %}" class="sidebar-link">Cours internes</a>
+        <a href="{% url 'organization_instructor_create' organization.id %}" class="sidebar-link">Ajouter formateur</a>
+        <a href="{% url 'organization_learner_create' organization.id %}" class="sidebar-link">Ajouter apprenant</a>
+        <a href="{% url 'account_logout' %}" class="sidebar-link text-red-600">Déconnexion</a>
+      </div>
+    </header>
+
+    <main class="p-4 md:p-8 animate-fade-in-up">
+      {% if messages %}
+        <div class="mb-6 space-y-3">
+          {% for message in messages %}
+            <div class="rounded-2xl border px-4 py-3 text-sm font-bold shadow-sm
+              {% if 'success' in message.tags %}bg-emerald-50 border-emerald-200 text-emerald-700
+              {% elif 'error' in message.tags %}bg-red-50 border-red-200 text-red-700
+              {% elif 'warning' in message.tags %}bg-amber-50 border-amber-200 text-amber-700
+              {% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </main>
+
   </div>
+</div>
 
-  <script>
-    function icon(name){
-      const icons = {
-        dashboard: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-          <path d="M4 13h7V4H4v9Zm9 7h7V11h-7v9ZM4 20h7v-5H4v5Zm9-18v7h7V2h-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-        </svg>`,
-        catalog: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-          <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-          <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>`,
-        users: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-          <path d="M17 21a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <path d="M9 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" stroke="currentColor" stroke-width="2"/>
-          <path d="M23 21a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>`,
-        payments: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-          <path d="M21 7H3V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2Z" stroke="currentColor" stroke-width="2"/>
-          <path d="M3 7v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7" stroke="currentColor" stroke-width="2"/>
-          <path d="M7 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>`,
-        settings: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
-          <path d="M12 15.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Z" stroke="currentColor" stroke-width="2"/>
-          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .3 1.7 1.7 0 0 0-.87 1.47V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.1 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06A2 2 0 1 1 3.34 17l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.3-1 1.7 1.7 0 0 0-1.47-.87H2a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.1a1.7 1.7 0 0 0-.34-1.87l-.06-.06A2 2 0 1 1 6.03 3.34l.06.06A1.7 1.7 0 0 0 8.1 4.6a1.7 1.7 0 0 0 1-.3 1.7 1.7 0 0 0 .87-1.47V2a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.9 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06A2 2 0 1 1 20.66 6l-.06.06A1.7 1.7 0 0 0 19.4 8.1a1.7 1.7 0 0 0 .3 1 1.7 1.7 0 0 0 1.47.87H22a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>`
-      }
-      return icons[name] || icons.dashboard;
-    }
+<script>
+  document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
+    document.getElementById('mobile-menu')?.classList.toggle('hidden');
+  });
+</script>
 
-    function AdminApp(){
-      return {
-        sidebarOpen: true,
-        route: "dashboard",
-        q: "",
-        range: "30d",
-        nav: [
-          { key:"dashboard", route:"dashboard", label:"Dashboard", icon: icon("dashboard") },
-          { key:"courses", route:"courses", label:"Cours", icon: icon("catalog"), badge:"86" },
-          { key:"users", route:"users", label:"Utilisateurs", icon: icon("users"), badge:"1.2k" },
-          { key:"payments", route:"payments", label:"Paiements", icon: icon("payments"), badge:"12" },
-          { key:"settings", route:"settings", label:"Paramètres", icon: icon("settings") },
-        ],
-        kpis: [],
-        activity: [],
-        popularCourses: [],
-        notifications: [],
-        init(){
-          this.kpis = [
-            { label:"Apprenants actifs", value:"1 284", delta:"+8.4%", deltaUp:true, tone:"sky", progress:78, icon: icon("users") },
-            { label:"Cours publiés", value:"86", delta:"+2", deltaUp:true, tone:"sun", progress:64, icon: icon("catalog") },
-            { label:"Taux complétion", value:"74%", delta:"+3.1%", deltaUp:true, tone:"sky", progress:74, icon: icon("dashboard") },
-            { label:"Revenu (mois)", value:"8.4M XOF", delta:"-1.2%", deltaUp:false, tone:"sun", progress:52, icon: icon("payments") },
-          ];
-          this.activity = [
-            { id:1, tone:"sky", icon: icon("users"), title:"12 nouveaux apprenants inscrits", time:"Il y a 12 min" },
-            { id:2, tone:"sun", icon: icon("payments"), title:"Transaction confirmée", time:"Il y a 1h" },
-            { id:3, tone:"sky", icon: icon("catalog"), title:"Cours soumis en validation", time:"Hier" },
-          ];
-          this.popularCourses = [
-            { id:1, title:"Budget & Épargne intelligente", instructor:"A. Kouassi", type:"Certifiante", enrolled:920, completion:78, rating:"4.8" },
-            { id:2, title:"Excel pour la Finance", instructor:"S. Diabaté", type:"Professionnelle", enrolled:1104, completion:71, rating:"4.6" },
-            { id:3, title:"Procédures RH & conformité", instructor:"M. Traoré", type:"Interne", enrolled:640, completion:82, rating:"4.7" },
-          ];
-          this.notifications = [
-            { id:1, title:"Nouvelle inscription", desc:"12 apprenants ont rejoint 'Budget & Épargne'." },
-            { id:2, title:"Webhook paiement", desc:"Transaction SUCCESS confirmée." },
-          ];
-          const mq = window.matchMedia("(max-width: 1024px)");
-          this.sidebarOpen = !mq.matches;
-          mq.addEventListener?.("change", (e)=>{ this.sidebarOpen = !e.matches; });
-        },
-        goto(r){ this.route = r; if (window.innerWidth < 1024) this.sidebarOpen = false; },
-        pageTitle(){
-          return {
-            dashboard:"Tableau de bord",
-            courses:"Gestion des cours",
-            users:"Gestion des utilisateurs",
-            payments:"Paiements",
-            settings:"Paramètres"
-          }[this.route] || "Tableau de bord";
-        },
-        chartData(r){
-          const d7 = [20,35,28,55,48,62,70,66,60,52,58,64];
-          const d30 = [18,22,30,28,34,42,46,54,50,58,64,72];
-          const d90 = [12,14,18,20,24,28,34,38,44,50,56,62];
-          if (r==="7d") return d7;
-          if (r==="90d") return d90;
-          return d30;
-        }
-      }
-    }
-  </script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

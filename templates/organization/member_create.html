@@ -1,0 +1,146 @@
+{% extends "layout/admin_base_template.html" %}
+{% load static %}
+
+{% block title %}Créer un membre — {{ organization.name }}{% endblock %}
+{% block page_title %}Créer un membre{% endblock %}
+
+{% block content %}
+<section class="max-w-4xl mx-auto space-y-6">
+
+  <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
+    <div class="absolute -right-16 -top-16 w-44 h-44 rounded-full bg-white/10"></div>
+    <div class="absolute -left-10 -bottom-16 w-40 h-40 rounded-full bg-yellow-300/20"></div>
+
+    <div class="relative flex items-start justify-between gap-5">
+      <div>
+        <div class="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
+          <i class="fas fa-building"></i>
+          {{ organization.name }}
+        </div>
+        <h1 class="mt-4 text-2xl md:text-3xl font-black">Ajouter un membre</h1>
+        <p class="mt-2 max-w-2xl text-sm md:text-base text-blue-50">
+          Créez un formateur ou un apprenant et rattachez-le directement à votre organisation.
+        </p>
+      </div>
+
+      <a href="{% url 'organization_members' organization.id %}" class="btn-soft bg-white/95">
+        <i class="fas fa-arrow-left"></i>
+        Membres
+      </a>
+    </div>
+  </div>
+
+  <div class="grid lg:grid-cols-12 gap-6">
+    <div class="lg:col-span-8 org-card p-5 md:p-6">
+      <form method="post" class="space-y-5">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        <div>
+          <label class="text-xs font-black uppercase tracking-wider text-slate-500">Rôle</label>
+          <div class="mt-1">{{ form.role }}</div>
+          {% if form.role.errors %}
+            <p class="mt-1 text-xs font-semibold text-red-600">{{ form.role.errors|striptags }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label class="text-xs font-black uppercase tracking-wider text-slate-500">Nom complet</label>
+          <div class="mt-1">{{ form.full_name }}</div>
+          {% if form.full_name.errors %}
+            <p class="mt-1 text-xs font-semibold text-red-600">{{ form.full_name.errors|striptags }}</p>
+          {% endif %}
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs font-black uppercase tracking-wider text-slate-500">Email</label>
+            <div class="mt-1">{{ form.email }}</div>
+            {% if form.email.errors %}
+              <p class="mt-1 text-xs font-semibold text-red-600">{{ form.email.errors|striptags }}</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <label class="text-xs font-black uppercase tracking-wider text-slate-500">Téléphone</label>
+            <div class="mt-1">{{ form.phone }}</div>
+            {% if form.phone.errors %}
+              <p class="mt-1 text-xs font-semibold text-red-600">{{ form.phone.errors|striptags }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-black uppercase tracking-wider text-slate-500">Mot de passe optionnel</label>
+          <div class="mt-1">{{ form.password }}</div>
+          <p class="mt-1 text-xs text-slate-500">
+            Laissez vide pour générer une invitation au lieu d’imposer un mot de passe.
+          </p>
+          {% if form.password.errors %}
+            <p class="mt-1 text-xs font-semibold text-red-600">{{ form.password.errors|striptags }}</p>
+          {% endif %}
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-start gap-3">
+          <div class="pt-1">{{ form.send_invitation_if_no_password }}</div>
+          <div>
+            <div class="text-sm font-bold text-slate-900">Envoyer une invitation si aucun mot de passe n’est défini</div>
+            <p class="text-xs text-slate-500 mt-1">
+              Le membre recevra un lien pour finaliser son accès à la plateforme.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 pt-2">
+          <button type="submit" class="btn-primary flex-1">
+            <i class="fas fa-user-plus"></i>
+            Créer le membre
+          </button>
+
+          <a href="{% url 'organization_members' organization.id %}" class="btn-soft">
+            Annuler
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <aside class="lg:col-span-4 space-y-4">
+      <div class="org-card p-5 card-lift">
+        <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mb-4">
+          <i class="fas fa-shield-halved text-xl"></i>
+        </div>
+        <h3 class="font-black text-slate-900">Accès sécurisé</h3>
+        <p class="mt-2 text-sm text-slate-600">
+          Seuls les administrateurs de l’organisation peuvent créer des membres.
+        </p>
+      </div>
+
+      <div class="org-card p-5 card-lift">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+          <i class="fas fa-chalkboard-teacher text-xl"></i>
+        </div>
+        <h3 class="font-black text-slate-900">Formateur</h3>
+        <p class="mt-2 text-sm text-slate-600">
+          Peut créer, gérer ou animer des cours internes selon vos règles métier.
+        </p>
+      </div>
+
+      <div class="org-card p-5 card-lift">
+        <div class="w-12 h-12 rounded-2xl bg-yellow-100 text-yellow-600 flex items-center justify-center mb-4">
+          <i class="fas fa-user-graduate text-xl"></i>
+        </div>
+        <h3 class="font-black text-slate-900">Apprenant</h3>
+        <p class="mt-2 text-sm text-slate-600">
+          Peut suivre les cours rattachés à l’organisation et progresser dans son parcours.
+        </p>
+      </div>
+    </aside>
+  </div>
+
+</section>
+{% endblock %}

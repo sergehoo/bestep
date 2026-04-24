@@ -21,7 +21,7 @@ class Enrollment(models.Model):
     course = models.ForeignKey("catalog.Course", on_delete=models.CASCADE, related_name="enrollments")
     source = models.CharField(max_length=10, choices=Source.choices, default=Source.B2C)
 
-    company = models.ForeignKey("organizations.Company", on_delete=models.SET_NULL, null=True, blank=True,
+    company = models.ForeignKey("organizations.Organization", on_delete=models.SET_NULL, null=True, blank=True,
                                 related_name="enrollments")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)
     current_lesson = models.ForeignKey("catalog.Lesson", on_delete=models.SET_NULL, null=True, blank=True,

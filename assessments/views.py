@@ -103,11 +103,13 @@ def analyze_attempt(answers: List[AttemptAnswer], score_percent: int) -> Tuple[s
 def onboarding_quiz(request):
     user = request.user
 
-    # ✅ superadmin/staff ignore
-    if user.is_superuser or user.is_staff or getattr(user, "role", None) == "SUPERADMIN":
+    # Super-user / staff / admin plateforme : ne passent pas l'onboarding.
+    if user.is_superuser or user.is_staff or getattr(user, "is_platform_admin", False):
         return redirect(reverse("home"))
 
-    if getattr(user, "role", None) != "LEARNER":
+    # Les utilisateurs avec un rôle élevé (admin org, manager, formateur)
+    # ne sont pas des apprenants purs : pas d'onboarding pour eux.
+    if getattr(user, "is_org_admin", False) or getattr(user, "is_instructor", False):
         return redirect(reverse("home"))
 
     quiz = Quiz.objects.filter(is_onboarding=True, is_active=True).order_by("id").first()
@@ -202,7 +204,7 @@ def onboarding_quiz(request):
 def onboarding_result(request, attempt_id: int):
     user = request.user
 
-    if user.is_superuser or user.is_staff or getattr(user, "role", None) == "SUPERADMIN":
+    if user.is_superuser or user.is_staff or getattr(user, "is_platform_admin", False):
         return redirect(reverse("home"))
 
     attempt = get_object_or_404(

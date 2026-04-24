@@ -67,7 +67,7 @@ class Course(models.Model):
     # Cours internes d'entreprise
     company_only = models.BooleanField(default=False)
     company = models.ForeignKey(
-        "organizations.Company",
+        "organizations.Organization",
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name="internal_courses"
@@ -238,6 +238,7 @@ class Lesson(models.Model):
     def __str__(self):
         return f"{self.section.course.title} — {self.section.order}.{self.order} {self.title}"
 
+
 class Payment(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", "En attente"
@@ -287,6 +288,8 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.reference} • {self.user_id} • {self.status} • {self.amount}{self.currency}"
+
+
 class Notification(models.Model):
     class Level(models.TextChoices):
         INFO = "INFO", "Info"

@@ -1,0 +1,328 @@
+{% extends "layout/admin_base_template.html" %}
+{% load static humanize %}
+
+{% block title %}{{ course.title }} — {{ organization.name }}{% endblock %}
+{% block page_title %}Détail du cours{% endblock %}
+
+{% block content %}
+    <section class="space-y-6">
+
+        <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
+            <div class="absolute -right-16 -top-16 w-44 h-44 rounded-full bg-white/10"></div>
+            <div class="absolute -left-10 -bottom-16 w-40 h-40 rounded-full bg-yellow-300/20"></div>
+
+            <div class="relative grid lg:grid-cols-12 gap-6 items-center">
+                <div class="lg:col-span-6">
+                    <div class="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
+                        <i class="fas fa-building"></i>
+                        {{ organization.name }}
+                    </div>
+
+                    <h1 class="mt-4 text-2xl md:text-4xl font-black leading-tight">
+                        {{ course.title }}
+                    </h1>
+
+                    <p class="mt-2 max-w-3xl text-sm md:text-base text-blue-50">
+                        {{ course.subtitle|default:"Cours interne rattaché à votre organisation." }}
+                    </p>
+
+                    <div class="mt-5 flex flex-wrap gap-2 text-xs font-bold">
+          <span class="rounded-full bg-white/15 px-3 py-1">
+            <i class="fas fa-layer-group mr-1"></i>{{ course.sections_count|default:0 }} sections
+          </span>
+                        <span class="rounded-full bg-white/15 px-3 py-1">
+            <i class="fas fa-list-check mr-1"></i>{{ course.lessons_count|default:0 }} leçons
+          </span>
+                        <span class="rounded-full bg-white/15 px-3 py-1">
+            <i class="fas fa-users mr-1"></i>{{ course.enrolled_count|default:0 }} inscrits
+          </span>
+                        <span class="rounded-full bg-white/15 px-3 py-1">
+            <i class="fas fa-star mr-1"></i>{{ course.rating_avg|floatformat:1 }} / 5
+          </span>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-6 flex ">
+                    <div class="flex flex-wrap gap-3">
+                        <a href="{% url 'organization_course_assign_learners' organization.id course.id %}"
+                           class="btn-soft bg-white/95">
+                            <i class="fas fa-user-check"></i>
+                            Affecter des apprenants
+                        </a>
+                        <a href="{{ builder_url }}" class="btn-yellow">
+                            <i class="fas fa-screwdriver-wrench"></i>Builder
+                        </a>
+
+                        <a href="{{ courses_url }}" class="btn-soft bg-white/95">
+                            <i class="fas fa-arrow-left"></i>
+                            Retour
+                        </a>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="org-card p-5 card-lift">
+                <p class="text-sm text-slate-500 font-semibold">Sections</p>
+                <p class="mt-2 text-3xl font-black text-slate-900">{{ course.sections_count|default:0|intcomma }}</p>
+            </div>
+
+            <div class="org-card p-5 card-lift">
+                <p class="text-sm text-slate-500 font-semibold">Leçons</p>
+                <p class="mt-2 text-3xl font-black text-slate-900">{{ course.lessons_count|default:0|intcomma }}</p>
+            </div>
+
+            <div class="org-card p-5 card-lift">
+                <p class="text-sm text-slate-500 font-semibold">Apprenants</p>
+                <p class="mt-2 text-3xl font-black text-slate-900">{{ course.enrolled_count|default:0|intcomma }}</p>
+            </div>
+
+            <div class="org-card p-5 card-lift">
+                <p class="text-sm text-slate-500 font-semibold">Progression moyenne</p>
+                <p class="mt-2 text-3xl font-black text-slate-900">{{ progress_avg|floatformat:0 }}%</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+            <div class="xl:col-span-2 space-y-6">
+
+                <div class="org-card overflow-hidden">
+                    <div class="aspect-[16/9] bg-slate-100">
+                        {% if course.thumbnail %}
+                            <img src="{{ course.thumbnail.url }}" alt="{{ course.title }}"
+                                 class="w-full h-full object-cover">
+                        {% else %}
+                            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-400 text-white">
+                                <i class="fas fa-book-open text-6xl"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="p-5 md:p-6">
+                        <h2 class="text-sm font-black text-slate-900">Description</h2>
+                        <div class="mt-3 text-sm text-slate-600 leading-7 whitespace-pre-wrap">
+                            {{ course.description|default:"Aucune description renseignée." }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="org-card overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-sm font-black text-slate-900">Structure pédagogique</h2>
+                            <p class="text-xs text-slate-500 mt-1">Sections et leçons du cours</p>
+                        </div>
+
+                        <a href="{{ section_create_url }}" class="btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Section
+                        </a>
+                    </div>
+
+                    <div class="divide-y divide-slate-100">
+                        {% for section in sections %}
+                            <div class="p-5">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <h3 class="font-black text-slate-900">
+                                            {{ section.order }}. {{ section.title }}
+                                        </h3>
+                                        <p class="text-xs text-slate-500 mt-1">
+                                            {{ section.lessons_count|default:0 }} leçon(s)
+                                        </p>
+                                    </div>
+
+                                    <a href="{% url 'organization_lesson_create' organization.id course.id section.id %}"
+                                       class="btn-soft">
+                                        <i class="fas fa-plus"></i>
+                                        Leçon
+                                    </a>
+                                </div>
+
+                                <div class="mt-4 space-y-3">
+                                    {% for lesson in section.lessons.all %}
+                                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center justify-between gap-4">
+                                            <div>
+                                                <div class="font-bold text-slate-900">
+                                                    {{ lesson.order }}. {{ lesson.title }}
+                                                </div>
+                                                <div class="text-xs text-slate-500 mt-1">
+                                                    {{ lesson.get_lesson_type_display }}
+                                                    {% if lesson.duration_sec %} · {{ lesson.duration_sec }}
+                                                        sec{% endif %}
+                                                    {% if lesson.is_preview %} · Preview{% endif %}
+                                                </div>
+                                            </div>
+
+                                            <span class="rounded-full bg-white border border-slate-200 px-3 py-1 text-xs font-bold text-slate-700">
+                      {{ lesson.lesson_type }}
+                    </span>
+                                        </div>
+                                    {% empty %}
+                                        <div class="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">
+                                            Aucune leçon dans cette section.
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="p-10 text-center">
+                                <div class="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-layer-group text-2xl"></i>
+                                </div>
+                                <h3 class="font-black text-slate-900">Aucune section</h3>
+                                <p class="text-sm text-slate-500 mt-1">Ajoutez une section pour commencer la
+                                    construction du cours.</p>
+                                <a href="{{ section_create_url }}" class="btn-primary mt-5">
+                                    <i class="fas fa-plus"></i>
+                                    Créer une section
+                                </a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </div>
+
+            <aside class="space-y-6">
+
+                <div class="org-card p-5">
+                    <h2 class="text-sm font-black text-slate-900">Informations</h2>
+
+                    <div class="mt-4 space-y-3 text-sm">
+                        <div class="flex justify-between gap-4">
+                            <span class="text-slate-500">Formateur</span>
+                            <span class="font-bold text-slate-900 text-right">
+              {{ course.instructor.full_name|default:course.instructor.email }}
+            </span>
+                        </div>
+
+                        <div class="flex justify-between gap-4">
+                            <span class="text-slate-500">Catégorie</span>
+                            <span class="font-bold text-slate-900 text-right">
+              {{ course.category.name|default:"Sans catégorie" }}
+            </span>
+                        </div>
+
+                        <div class="flex justify-between gap-4">
+                            <span class="text-slate-500">Type</span>
+                            <span class="font-bold text-slate-900 text-right">
+              {{ course.get_course_type_display }}
+            </span>
+                        </div>
+
+                        <div class="flex justify-between gap-4">
+                            <span class="text-slate-500">Tarification</span>
+                            <span class="font-bold text-slate-900 text-right">
+              {{ course.get_pricing_type_display }}
+            </span>
+                        </div>
+
+                        <div class="flex justify-between gap-4">
+                            <span class="text-slate-500">Prix</span>
+                            <span class="font-bold text-slate-900 text-right">
+              {% if course.pricing_type == "FREE" %}
+                  Gratuit
+              {% else %}
+                  {{ course.price|floatformat:0|intcomma }} {{ course.currency }}
+              {% endif %}
+            </span>
+                        </div>
+
+                        <div class="flex justify-between gap-4">
+                            <span class="text-slate-500">Statut</span>
+                            <span class="font-bold text-slate-900 text-right">
+              {{ course.get_status_display }}
+            </span>
+                        </div>
+
+                        <div class="flex justify-between gap-4">
+                            <span class="text-slate-500">Publié le</span>
+                            <span class="font-bold text-slate-900 text-right">
+              {{ course.published_at|date:"d/m/Y"|default:"—" }}
+            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="org-card p-5">
+                    <h2 class="text-sm font-black text-slate-900">Qualité du cours</h2>
+
+                    <div class="mt-4 space-y-3">
+                        {% for issue in issues %}
+                            <div class="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                                <i class="fas fa-triangle-exclamation mr-2"></i>{{ issue }}
+                            </div>
+                        {% empty %}
+                            <div class="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                                <i class="fas fa-check-circle mr-2"></i>Aucune anomalie détectée.
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="org-card overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-100">
+                        <h2 class="text-sm font-black text-slate-900">Inscriptions récentes</h2>
+                    </div>
+
+                    <div class="divide-y divide-slate-100">
+                        {% for e in recent_enrollments %}
+                            <div class="px-5 py-4 flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black">
+                                    {{ e.user.full_name|default:e.user.email|first|upper }}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-bold text-slate-900 truncate">
+                                        {{ e.user.full_name|default:"Nom non renseigné" }}
+                                    </div>
+                                    <div class="text-xs text-slate-500 truncate">
+                                        {{ e.user.email }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="p-5 text-sm text-slate-500">Aucune inscription récente.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="org-card p-5">
+                    <h2 class="text-sm font-black text-slate-900">Actions rapides</h2>
+
+                    <div class="mt-4 space-y-3">
+
+                        <a href="{{ builder_url }}" class="btn-primary w-full">
+                            <i class="fas fa-screwdriver-wrench"></i>
+                            Ouvrir le builder
+                        </a>
+
+                        <a href="{{ section_create_url }}" class="btn-soft w-full">
+                            <i class="fas fa-layer-group"></i>
+                            Ajouter une section
+                        </a>
+
+                        {% if course.preview_video_url %}
+                            <a href="{{ course.preview_video_url }}" target="_blank" rel="noopener"
+                               class="btn-soft w-full">
+                                <i class="fas fa-circle-play"></i>
+                                Voir la preview
+                            </a>
+                        {% endif %}
+
+                        <a href="{{ courses_url }}" class="btn-soft w-full">
+                            <i class="fas fa-arrow-left"></i>
+                            Retour aux cours
+                        </a>
+
+                    </div>
+                </div>
+
+            </aside>
+        </div>
+
+    </section>
+{% endblock %}

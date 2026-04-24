@@ -20,7 +20,7 @@ from django.contrib import admin
 from django.urls import path, include
 
 from formations.views import InstructorDashboard, StudentDashboard, \
-    OrganisationDashboard, AdminDashboard, LearnerExploreView, LearnerCoursePlayerView, HomeView, InstructorCourseView, \
+    OrganisationDashboard, LearnerExploreView, LearnerCoursePlayerView, HomeView, InstructorCourseView, \
     InstructorCourseBuilderView, InstructorMediaLibraryView, InstructorCourseCreateView, InstructorCourseDetailView, \
     InstructorCourseUpdateView, InstructorQuizListPageView, InstructorQuizCreatePageView, InstructorQuizDetailPageView, \
     InstructorQuizUpdatePageView, InstructorMediaDetailPageView
@@ -34,7 +34,7 @@ urlpatterns = [
                   path("api/", include("best_epargne.apis.api_urls")),  # marketplace
                   path("catalog/", include("catalog.urls")),  # marketplace
                   path("learn/", include("enrollments.urls")),  # player
-                  path("company/", include("organizations.urls")),
+                  path("organisation/", include("organizations.urls")),
                   path("landinghome/", include("formations.landing_urls")),
                   path("reviews/", include("reviews.urls")),
                   path("assessments/", include("assessments.urls")),
@@ -84,7 +84,7 @@ urlpatterns = [
                        name="learner_course_player"),
 
                   path("dashboard/business/", OrganisationDashboard.as_view(), name="business_dashboard"),
-                  path("dashboard/admin/", AdminDashboard.as_view(), name="admin_dashboard"),
+                  # path("dashboard/admin/", AdminDashboard.as_view(), name="admin_dashboard"),
                   path("", HomeView.as_view(), name="home"),
 
               ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -32,7 +32,7 @@ class Order(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                              related_name="orders")
-    company = models.ForeignKey("organizations.Company", on_delete=models.SET_NULL, null=True, blank=True,
+    company = models.ForeignKey("organizations.Organization", on_delete=models.SET_NULL, null=True, blank=True,
                                 related_name="orders")
 
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT)
@@ -46,6 +46,25 @@ class Order(models.Model):
 
     created_at = models.DateTimeField(default=timezone.now)
     paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["company", "status"]),
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["paid_at"]),
+        ]
+        constraints = [
+            # Une commande DOIT avoir soit un user soit une company.
+            models.CheckConstraint(
+                name="order_user_or_company_required",
+                check=(
+                    models.Q(user__isnull=False)
+                    | models.Q(company__isnull=False)
+                ),
+            ),
+        ]
 
 
 class OrderItem(models.Model):
@@ -61,6 +80,11 @@ class OrderItem(models.Model):
 
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["order", "item_type"]),
+        ]
 
 
 class PaymentTransaction(models.Model):
@@ -81,9 +105,16 @@ class PaymentTransaction(models.Model):
     raw_payload = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
 
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["order", "status"]),
+            models.Index(fields=["provider", "reference"]),
+        ]
+
 
 class CompanyLicense(models.Model):
-    company = models.ForeignKey("organizations.Company", on_delete=models.CASCADE, related_name="licenses")
+    company = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="licenses")
     seats_total = models.PositiveIntegerField(default=0)
     seats_used = models.PositiveIntegerField(default=0)
     valid_until = models.DateField(null=True, blank=True)
@@ -91,7 +122,7 @@ class CompanyLicense(models.Model):
 
 
 class CompanyAssignment(models.Model):
-    company = models.ForeignKey("organizations.Company", on_delete=models.CASCADE, related_name="assignments")
+    company = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="assignments")
     course = models.ForeignKey("catalog.Course", on_delete=models.CASCADE, related_name="company_assignments")
     assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
                                     related_name="assigned_courses")

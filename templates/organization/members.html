@@ -1,0 +1,266 @@
+{% extends "layout/admin_base_template.html" %}
+{% load static %}
+
+{% block title %}Membres — {{ organization.name }}{% endblock %}
+{% block page_title %}Membres de l’organisation{% endblock %}
+
+{% block content %}
+<section
+  class="space-y-6"
+  x-data="{
+    q: '',
+    role: '',
+    get rows() {
+      return Array.from(document.querySelectorAll('[data-member-row]')).filter(row => {
+        const text = row.dataset.search || '';
+        const role = row.dataset.role || '';
+        return (!this.q || text.includes(this.q.toLowerCase())) && (!this.role || role === this.role);
+      });
+    },
+    refresh() {
+      document.querySelectorAll('[data-member-row]').forEach(row => row.classList.add('hidden'));
+      this.rows.forEach(row => row.classList.remove('hidden'));
+    }
+  }"
+  x-init="$watch('q', () => refresh()); $watch('role', () => refresh()); refresh();"
+>
+
+  <!-- HERO -->
+  <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
+    <div class="absolute -right-16 -top-16 w-44 h-44 rounded-full bg-white/10"></div>
+    <div class="absolute -left-10 -bottom-16 w-40 h-40 rounded-full bg-yellow-300/20"></div>
+
+    <div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+      <div>
+        <div class="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
+          <i class="fas fa-building"></i>
+          {{ organization.name }}
+        </div>
+        <h1 class="mt-4 text-2xl md:text-3xl font-black">
+          Gestion des membres
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm md:text-base text-blue-50">
+          Gérez les formateurs, apprenants et administrateurs rattachés à votre organisation.
+        </p>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <a href="{% url 'organization_instructor_create' organization.id %}" class="btn-yellow">
+          <i class="fas fa-chalkboard-teacher"></i>
+          Ajouter formateur
+        </a>
+        <a href="{% url 'organization_learner_create' organization.id %}" class="btn-soft bg-white/95">
+          <i class="fas fa-user-graduate"></i>
+          Ajouter apprenant
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div class="org-card p-5 card-lift">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-slate-500 font-semibold">Total membres</p>
+          <p class="mt-2 text-3xl font-black text-slate-900">{{ memberships|length }}</p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
+          <i class="fas fa-users text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="org-card p-5 card-lift">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-slate-500 font-semibold">Formateurs</p>
+          <p class="mt-2 text-3xl font-black text-slate-900">
+            {{ instructors_count|default:"—" }}
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+          <i class="fas fa-chalkboard-teacher text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="org-card p-5 card-lift">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-slate-500 font-semibold">Apprenants</p>
+          <p class="mt-2 text-3xl font-black text-slate-900">
+            {{ learners_count|default:"—" }}
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-yellow-100 text-yellow-600 flex items-center justify-center">
+          <i class="fas fa-user-graduate text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="org-card p-5 card-lift">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-slate-500 font-semibold">Admins</p>
+          <p class="mt-2 text-3xl font-black text-slate-900">
+            {{ admins_count|default:"—" }}
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center">
+          <i class="fas fa-user-shield text-xl"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="org-card p-4 md:p-5">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+      <div class="md:col-span-8">
+        <label class="text-xs font-bold text-slate-500">Recherche</label>
+        <div class="mt-1 relative">
+          <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input
+            x-model.debounce.250ms="q"
+            type="text"
+            placeholder="Rechercher par nom, email ou rôle…"
+            class="pl-11"
+          >
+        </div>
+      </div>
+
+      <div class="md:col-span-4">
+        <label class="text-xs font-bold text-slate-500">Rôle</label>
+        <select x-model="role" class="mt-1">
+          <option value="">Tous les rôles</option>
+          <option value="OWNER">Propriétaire</option>
+          <option value="ADMIN">Administrateur</option>
+          <option value="MANAGER">Manager</option>
+          <option value="INSTRUCTOR">Formateur</option>
+          <option value="LEARNER">Apprenant</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="org-card overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+      <div>
+        <h2 class="text-sm font-black text-slate-900">Liste des membres</h2>
+        <p class="text-xs text-slate-500 mt-1">Membres actifs rattachés à {{ organization.name }}</p>
+      </div>
+      <a href="{% url 'organization_member_create' organization.id %}" class="btn-primary">
+        <i class="fas fa-plus"></i>
+        Ajouter
+      </a>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-100">
+          <tr>
+            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Membre</th>
+            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Rôle</th>
+            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Invitation</th>
+            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Date</th>
+            <th class="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">Statut</th>
+          </tr>
+        </thead>
+
+        <tbody class="divide-y divide-slate-100">
+          {% for m in memberships %}
+            <tr
+              data-member-row
+              data-role="{{ m.role }}"
+              data-search="{{ m.user.email|lower }} {{ m.user.full_name|lower }} {{ m.get_role_display|lower }}"
+              class="hover:bg-blue-50/40 transition"
+            >
+              <td class="px-5 py-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 text-white flex items-center justify-center font-black">
+                    {{ m.user.full_name|default:m.user.email|first|upper }}
+                  </div>
+                  <div>
+                    <div class="font-bold text-slate-900">
+                      {{ m.user.full_name|default:"Nom non renseigné" }}
+                    </div>
+                    <div class="text-xs text-slate-500">{{ m.user.email }}</div>
+                  </div>
+                </div>
+              </td>
+
+              <td class="px-5 py-4">
+                {% if m.role == "OWNER" %}
+                  <span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
+                    <i class="fas fa-crown"></i>{{ m.get_role_display }}
+                  </span>
+                {% elif m.role == "ADMIN" %}
+                  <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                    <i class="fas fa-user-shield"></i>{{ m.get_role_display }}
+                  </span>
+                {% elif m.role == "INSTRUCTOR" %}
+                  <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                    <i class="fas fa-chalkboard-teacher"></i>{{ m.get_role_display }}
+                  </span>
+                {% elif m.role == "LEARNER" %}
+                  <span class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-700">
+                    <i class="fas fa-user-graduate"></i>{{ m.get_role_display }}
+                  </span>
+                {% else %}
+                  <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                    <i class="fas fa-user"></i>{{ m.get_role_display }}
+                  </span>
+                {% endif %}
+              </td>
+
+              <td class="px-5 py-4 text-slate-600">
+                {% if m.invited_by %}
+                  <div class="text-xs">
+                    Par <span class="font-semibold">{{ m.invited_by.full_name|default:m.invited_by.email }}</span>
+                  </div>
+                {% else %}
+                  <span class="text-xs text-slate-400">—</span>
+                {% endif %}
+              </td>
+
+              <td class="px-5 py-4 text-slate-600">
+                <div class="font-semibold">{{ m.joined_at|date:"d/m/Y" }}</div>
+                <div class="text-xs text-slate-400">{{ m.joined_at|date:"H:i" }}</div>
+              </td>
+
+              <td class="px-5 py-4 text-right">
+                {% if m.is_active %}
+                  <span class="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-100">
+                    Actif
+                  </span>
+                {% else %}
+                  <span class="inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700 border border-red-100">
+                    Inactif
+                  </span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="px-5 py-12 text-center">
+                <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                  <i class="fas fa-users text-slate-400 text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-black text-slate-900">Aucun membre trouvé</h3>
+                <p class="text-sm text-slate-500 mt-1">Ajoutez vos formateurs et apprenants pour démarrer.</p>
+                <a href="{% url 'organization_member_create' organization.id %}" class="btn-primary mt-5">
+                  <i class="fas fa-user-plus"></i>
+                  Ajouter un membre
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</section>
+{% endblock %}

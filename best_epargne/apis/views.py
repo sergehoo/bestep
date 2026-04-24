@@ -23,6 +23,7 @@ from botocore.client import Config
 
 from assessments.models import Quiz, Attempt, Question, Choice, AttemptAnswer
 from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, Payment
+from organizations.models import OrganizationMembership
 from .permissions import IsInstructor
 from .serializers import CourseSerializer, CategorySerializer, CourseSectionSerializer, LessonSerializer, \
     MediaUploadInitSerializer, MediaUploadFinalizeSerializer, MediaAssetListSerializer, MediaAssetUpdateSerializer, \
@@ -45,7 +46,8 @@ class CourseViewSet(ModelViewSet):
         qs = Course.objects.select_related("category", "instructor").prefetch_related("sections__lessons")
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
             # public: seulement cours publiés (hors internes)
-            if not self.request.user.is_authenticated or self.request.user.role != "SUPERADMIN":
+            user = self.request.user
+            if not user.is_authenticated or not getattr(user, "is_platform_admin", False):
                 qs = qs.filter(status=Course.Status.PUBLISHED, company_only=False)
 
         q = self.request.query_params.get("q")
@@ -1890,6 +1892,77 @@ class LearnerExploreCoursesView(LearnerBaseAPIView):
 # --------------------------------------------
 # /api/learner/courses/<id>/
 # --------------------------------------------
+class LearnerOrganizationCoursesAPIView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        user = request.user
+
+        organization_ids = OrganizationMembership.objects.filter(
+
+            user=user,
+
+            is_active=True,
+
+            organization__is_active=True,
+
+            role=OrganizationMembership.Role.LEARNER,
+
+        ).values_list("organization_id", flat=True)
+
+        courses = (
+
+            Course.objects.filter(
+
+                company_only=True,
+
+                company_id__in=organization_ids,
+
+                status=Course.Status.PUBLISHED,
+
+            )
+
+            .select_related("category", "instructor", "company")
+
+            .order_by("-published_at", "-created_at")
+
+        )
+
+        results = []
+
+        for course in courses:
+
+            results.append({
+
+                "id": course.id,
+
+                "title": course.title,
+
+                "subtitle": course.subtitle,
+
+                "company_name": course.company.name if course.company else "",
+
+                "category_name": course.category.name if course.category else "",
+
+                "instructor_name": course.instructor.full_name or course.instructor.email,
+
+                "thumbnail_url": course.thumbnail.url if course.thumbnail else "",
+
+                "detail_url": f"/landinghome/courses/{course.id}/",
+
+                "continue_url": f"/dashboard/learner/courses/{course.id}/",
+
+            })
+
+        return Response({
+
+            "count": len(results),
+
+            "results": results,
+
+        })
 class LearnerCourseDetailView(LearnerBaseAPIView):
     permission_classes = [IsAuthenticated]
 

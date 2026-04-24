@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
 # Create your models here.
@@ -7,59 +8,166 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.utils import timezone
 
+from organizations.models import OrganizationMembership
+
 
 class UserManager(BaseUserManager):
+
+    use_in_migrations = True
+
     def create_user(self, email: str, password: str | None = None, **extra):
+
         if not email:
+
             raise ValueError("Email is required")
-        email = self.normalize_email(email)
+
+        email = self.normalize_email(email).strip().lower()
+
+        extra.setdefault("is_active", True)
+
+        extra.setdefault("is_staff", False)
+
+        extra.setdefault("is_superuser", False)
+
+        extra.setdefault("platform_role", User.PlatformRole.USER)
+
         user = self.model(email=email, **extra)
-        user.set_password(password) if password else user.set_unusable_password()
+
+        if password:
+
+            user.set_password(password)
+
+        else:
+
+            user.set_unusable_password()
+
+        user.full_clean()
+
         user.save(using=self._db)
+
         return user
 
     def create_superuser(self, email: str, password: str, **extra):
-        extra.setdefault("is_staff", True)
-        extra.setdefault("is_superuser", True)
-        extra.setdefault("is_active", True)
-        return self.create_user(email=email, password=password, **extra)
+
+        extra["is_staff"] = True
+
+        extra["is_superuser"] = True
+
+        extra["is_active"] = True
+
+        extra["platform_role"] = User.PlatformRole.PLATFORM_ADMIN
+
+        user = self.create_user(email=email, password=password, **extra)
+
+        if user.is_staff is not True:
+
+            raise ValidationError("Superuser must have is_staff=True")
+
+        if user.is_superuser is not True:
+
+            raise ValidationError("Superuser must have is_superuser=True")
+
+        if user.platform_role != User.PlatformRole.PLATFORM_ADMIN:
+
+            raise ValidationError("Superuser must have platform_role=PLATFORM_ADMIN")
+
+        return user
+
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    class Role(models.TextChoices):
-        LEARNER = "LEARNER", "Apprenant"
-        INSTRUCTOR = "INSTRUCTOR", "Formateur"
-        COMPANY_ADMIN = "COMPANY_ADMIN", "Admin Entreprise"
-        SUPERADMIN = "SUPERADMIN", "Administrateur principal"
+    class PlatformRole(models.TextChoices):
+        USER = "USER", "Utilisateur"
+        PLATFORM_ADMIN = "PLATFORM_ADMIN", "Administrateur plateforme"
 
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=30, blank=True)
     full_name = models.CharField(max_length=160, blank=True)
 
-    role = models.CharField(max_length=20, choices=Role.choices, default=Role.LEARNER)
+    platform_role = models.CharField(
+        max_length=30,
+        choices=PlatformRole.choices,
+        default=PlatformRole.USER,
+        db_index=True,
+    )
 
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)  # accès admin site
+    is_staff = models.BooleanField(default=False)  # accès admin Django
     created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = "email"
+    EMAIL_FIELD = "email"
+    REQUIRED_FIELDS: list[str] = []
+
     objects = UserManager()
 
-    @property
-    def is_learner(self):
-        return self.role == self.Role.LEARNER
+    class Meta:
+        indexes = [
+            models.Index(fields=["platform_role", "is_active"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.email:
+            self.email = self.__class__.objects.normalize_email(self.email).strip().lower()
+
+        if self.platform_role == self.PlatformRole.PLATFORM_ADMIN:
+            self.is_staff = True
 
     @property
-    def is_instructor(self):
-        return self.role == self.Role.INSTRUCTOR
+    def display_name(self):
+        return self.full_name or self.email
 
     @property
-    def is_company_admin(self):
-        return self.role == self.Role.COMPANY_ADMIN
+    def is_platform_admin(self) -> bool:
+        return (
+            self.platform_role == self.PlatformRole.PLATFORM_ADMIN
+            or self.is_superuser
+            or self.is_staff
+        )
 
     @property
-    def is_superadmin(self):
-        return self.role == self.Role.SUPERADMIN or self.is_superuser or self.is_staff
+    def active_memberships(self):
+        return self.organization_memberships.filter(is_active=True).select_related("organization")
+
+    @property
+    def has_organization(self) -> bool:
+        return self.active_memberships.exists()
+
+    @property
+    def is_org_owner(self) -> bool:
+        return self.active_memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
+
+    @property
+    def is_org_admin(self) -> bool:
+        return self.active_memberships.filter(
+            role__in=[
+                OrganizationMembership.Role.OWNER,
+                OrganizationMembership.Role.ADMIN,
+            ]
+        ).exists()
+
+    @property
+    def is_org_instructor(self) -> bool:
+        return self.active_memberships.filter(
+            role=OrganizationMembership.Role.INSTRUCTOR
+        ).exists()
+
+    @property
+    def is_org_learner(self) -> bool:
+        return self.active_memberships.filter(
+            role=OrganizationMembership.Role.LEARNER
+        ).exists()
+
+    @property
+    def is_instructor(self) -> bool:
+        return hasattr(self, "instructor_profile") or self.is_org_instructor
+
+    @property
+    def is_learner(self) -> bool:
+        return hasattr(self, "learner_profile") or self.is_org_learner
 
     def __str__(self):
         return self.email

@@ -1,22 +1,30 @@
-{# /Users/ogahserge/Documents/best_epargne/templates/layout/admin_base.html #}
+{# /templates/layout/admin_base.html — shell premium instructeur / admin #}
 {% load static %}
 <!doctype html>
-<html lang="fr" class="h-full" x-data="appShell()" x-init="initShell()" x-cloak>
+<html lang="fr" class="h-full" x-data="appShell()" x-init="initShell()"
+      :class="{ 'dark': theme === 'dark', 'be-drawer-open': sidebar.mobileOpen }"
+      x-cloak>
 <head>
     <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
     <meta name="color-scheme" content="light dark"/>
+    <meta name="theme-color" content="#0C87D6"/>
     <title>{% block title %}best-épargne{% endblock %}</title>
 
+    {# Thème injecté avant le rendu pour éviter le FOUC #}
     <script>
-        (() => {
-            const savedTheme = localStorage.getItem("be_theme");
-            const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-            const theme = savedTheme || (prefersDark ? "dark" : "light");
-            if (theme === "dark") {
-                document.documentElement.classList.add("dark");
-            } else {
-                document.documentElement.classList.remove("dark");
+        (function () {
+            try {
+                var saved = localStorage.getItem("be_theme");
+                var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+                var theme = saved || (prefersDark ? "dark" : "light");
+                var root = document.documentElement;
+                if (theme === "dark") {
+                    root.classList.add("dark");
+                } else {
+                    root.classList.remove("dark");
+                }
+            } catch (e) { /* ignore */
             }
         })();
     </script>
@@ -32,40 +40,19 @@
                     colors: {
                         be: {
                             sky: {
-                                50: "#F2FAFF",
-                                100: "#DEF3FF",
-                                200: "#BEE8FF",
-                                300: "#8AD7FF",
-                                400: "#4DBFFF",
-                                500: "#1EA7FF",
-                                600: "#0C87D6",
-                                700: "#0B6FAE",
-                                800: "#0C5C8E",
-                                900: "#0A466B"
+                                50: "#F2FAFF", 100: "#DEF3FF", 200: "#BEE8FF", 300: "#8AD7FF",
+                                400: "#4DBFFF", 500: "#1EA7FF", 600: "#0C87D6", 700: "#0B6FAE",
+                                800: "#0C5C8E", 900: "#0A466B"
                             },
                             sun: {
-                                50: "#FFFBEA",
-                                100: "#FFF3BF",
-                                200: "#FFE58A",
-                                300: "#FFD14D",
-                                400: "#FFBD1F",
-                                500: "#F7A600",
-                                600: "#D48300",
-                                700: "#AD6400",
-                                800: "#8A4E00",
-                                900: "#6A3B00"
+                                50: "#FFFBEA", 100: "#FFF3BF", 200: "#FFE58A", 300: "#FFD14D",
+                                400: "#FFBD1F", 500: "#F7A600", 600: "#D48300", 700: "#AD6400",
+                                800: "#8A4E00", 900: "#6A3B00"
                             },
                             ink: {
-                                50: "#F7FAFC",
-                                100: "#EEF2F7",
-                                200: "#D7DEE9",
-                                300: "#B5C0D4",
-                                400: "#7E8AA6",
-                                500: "#5B6783",
-                                600: "#3F4A63",
-                                700: "#2B3449",
-                                800: "#1E2536",
-                                900: "#121827"
+                                50: "#F7FAFC", 100: "#EEF2F7", 200: "#D7DEE9", 300: "#B5C0D4",
+                                400: "#7E8AA6", 500: "#5B6783", 600: "#3F4A63", 700: "#2B3449",
+                                800: "#1E2536", 900: "#121827"
                             }
                         }
                     },
@@ -74,18 +61,21 @@
                         ring: "0 0 0 6px rgba(30,167,255,.12)",
                         lift: "0 12px 40px rgba(18,24,39,.14)"
                     },
-                    borderRadius: {
-                        "2.5xl": "1.25rem"
-                    }
+                    borderRadius: {"2.5xl": "1.25rem"}
                 }
             }
-        }
+        };
     </script>
 
     <style>
-        [x-cloak] { display: none !important; }
+        [x-cloak] {
+            display: none !important;
+        }
 
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
         .no-scrollbar {
             -ms-overflow-style: none;
             scrollbar-width: none;
@@ -94,293 +84,376 @@
         html, body {
             min-height: 100%;
         }
+
+        /* Verrouille le scroll derrière le drawer mobile (iOS safe). */
+        html.be-drawer-open,
+        html.be-drawer-open body {
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        @media (min-width: 1024px) {
+            html.be-drawer-open,
+            html.be-drawer-open body {
+                overflow: auto;
+                touch-action: auto;
+            }
+        }
+
+        /* Safe-area iOS notch pour le header collant. */
+        @supports (padding: max(0px)) {
+            .be-safe-top {
+                padding-top: max(0px, env(safe-area-inset-top));
+            }
+        }
+
+        /* Accessibilité : respecter les préférences de mouvement réduit. */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+            }
+        }
+
+        /* Transition d’élévation du header au scroll. */
+        .be-header-shell {
+            transition: box-shadow .3s ease, backdrop-filter .3s ease;
+        }
     </style>
 
     {% block extra_head %}{% endblock %}
 </head>
 
-<body class="h-full bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50 dark:from-be-ink-900 dark:via-be-ink-900 dark:to-black text-be-ink-900 dark:text-be-ink-50 overflow-x-hidden">
-    <!-- Mobile Sidebar Drawer -->
-    <div
-        x-show="sidebar.mobileOpen"
-        x-transition.opacity
-        class="fixed inset-0 z-[70] lg:hidden"
-        x-cloak
-    >
-        <div class="absolute inset-0 bg-black/50" @click="sidebar.mobileOpen = false"></div>
+<body class="h-full bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50
+             dark:from-be-ink-900 dark:via-be-ink-900 dark:to-black
+             text-be-ink-900 dark:text-be-ink-50
+             overflow-x-hidden antialiased selection:bg-be-sky-200 selection:text-be-ink-900">
 
-        <div
+{# ================== DRAWER MOBILE ================== #}
+<div x-show="sidebar.mobileOpen" x-transition.opacity @keydown.escape.window="closeMobileSidebar()" class="fixed inset-0 z-[90] lg:hidden" x-cloak >
+    <div class="absolute inset-0 bg-black/55 backdrop-blur-sm" @click="closeMobileSidebar()"></div>
+    <aside x-show="sidebar.mobileOpen"
             x-transition:enter="transition ease-out duration-300"
-            x-transition:enter-start="-translate-x-full opacity-0"
-            x-transition:enter-end="translate-x-0 opacity-100"
+            x-transition:enter-start="-translate-x-full"
+            x-transition:enter-end="translate-x-0"
             x-transition:leave="transition ease-in duration-200"
-            x-transition:leave-start="translate-x-0 opacity-100"
-            x-transition:leave-end="-translate-x-full opacity-0"
-            class="absolute left-0 top-0 h-full w-[88%] max-w-[340px] p-3"
-        >
-            <div class="h-full overflow-auto no-scrollbar rounded-[24px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-be-ink-900 shadow-lift">
-                {% block sidebar_mobile %}
-                    {% include "partials/instructor_side.html" with mode="mobile" %}
-                {% endblock %}
-            </div>
+            x-transition:leave-start="translate-x-0"
+            x-transition:leave-end="-translate-x-full"
+            class="absolute left-0 top-0 h-full w-[88%] max-w-[340px] p-3">
+        <div class="h-full overflow-auto no-scrollbar rounded-[24px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-be-ink-900 shadow-lift">
+            {% include "partials/instructor_side.html" with mode="mobile" %}
         </div>
-    </div>
+    </aside>
+</div>
 
-    <div class="min-h-full">
-        <!-- Topbar -->
-        <header class="sticky top-0 z-40">
-            <div class="mx-auto max-w-[1600px] px-3 sm:px-6 py-3">
-                <div class="flex items-center justify-between gap-3 rounded-2.5xl border border-be-sky-100/70 dark:border-white/10 bg-white/75 dark:bg-white/5 backdrop-blur-xl shadow-soft px-3 sm:px-4 py-2.5">
-                    <!-- Left -->
-                    <div class="flex items-center gap-2 min-w-0">
-                        <!-- Mobile menu -->
-                        <button
-                            type="button"
-                            class="lg:hidden w-10 h-10 inline-flex items-center justify-center rounded-xl border border-be-ink-100/70 dark:border-white/10 hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition shrink-0"
-                            @click="sidebar.mobileOpen = true"
-                            aria-label="Ouvrir le menu"
-                        >
-                            <img src="{% static 'img/logo-2.png' %}" alt="Logo" class="w-full h-full object-cover rounded-lg">
-                        </button>
+<div class="min-h-full">
+    {# ================== TOPBAR ================== #}
+    <header class="sticky top-0 z-40 be-safe-top">
+        <div class="mx-auto max-w-[1600px] px-3 sm:px-6 py-3">
+            <div class="be-header-shell flex items-center justify-between gap-3
+                            rounded-2.5xl border border-be-sky-100/70 dark:border-white/10
+                            bg-white/80 dark:bg-white/5 backdrop-blur-xl
+                            px-3 sm:px-4 py-2.5"
+                 :class="scrolled ? 'shadow-lift' : 'shadow-soft'">
 
-                        <!-- Desktop collapse -->
-                        <button
+                {# ---- Left ---- #}
+                <div class="flex items-center gap-2 min-w-0">
+                    {# Burger mobile #}
+                    <button
                             type="button"
-                            class="hidden lg:inline-flex w-10 h-10 items-center justify-center rounded-xl border border-be-ink-100/70 dark:border-white/10 hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition shrink-0"
+                            class="lg:hidden w-10 h-10 inline-flex items-center justify-center
+                                   rounded-xl border border-be-ink-100/70 dark:border-white/10
+                                   hover:bg-be-ink-50/60 dark:hover:bg-white/10
+                                   focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
+                                   transition shrink-0"
+                            @click="openMobile()"
+                            :aria-expanded="sidebar.mobileOpen ? 'true' : 'false'"
+                            aria-label="Ouvrir le menu">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M4 6h16M4 12h16M4 18h16"
+                                  stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+
+                    {# Collapse desktop #}
+                    <button
+                            type="button"
+                            class="hidden lg:inline-flex w-10 h-10 items-center justify-center
+                                   rounded-xl border border-be-ink-100/70 dark:border-white/10
+                                   hover:bg-be-ink-50/60 dark:hover:bg-white/10
+                                   focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
+                                   transition shrink-0"
                             @click="toggleCollapsed()"
-                            aria-label="Réduire ou étendre le menu"
-                        >
+                            :aria-pressed="sidebar.collapsed ? 'true' : 'false'"
+                            :aria-label="sidebar.collapsed ? 'Étendre le menu' : 'Réduire le menu'">
+                        <svg class="w-5 h-5 transition-transform duration-300"
+                             :class="sidebar.collapsed ? 'rotate-180' : ''"
+                             viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M8 6h13M8 12h13M8 18h13"
+                                  stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M3.5 7.5l2-1.5v12l-2-1.5"
+                                  stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+
+                    {# Brand #}
+                    <a href="{% block brand_url %}{% url 'instructor_dashboard' %}{% endblock %}"
+                       class="flex items-center gap-2 group min-w-0 rounded-xl
+                                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-be-sky-500 to-be-sky-700
+                                        text-white flex items-center justify-center shadow-ring shrink-0
+                                        transition-transform duration-300 group-hover:scale-[1.04]">
                             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <path d="M8 6h13M8 12h13M8 18h13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                <path d="M3.5 7.5l2-1.5v12l-2-1.5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                <path d="M12 3l9 5-9 5-9-5 9-5Z"
+                                      stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                <path d="M3 10l9 5 9-5"
+                                      stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                <path d="M3 14l9 5 9-5"
+                                      stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
                             </svg>
-                        </button>
-
-                        <!-- Brand -->
-                        <a href="{% block brand_url %}#{% endblock %}" class="flex items-center gap-2 group min-w-0">
-                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-be-sky-500 to-be-sky-700 text-white flex items-center justify-center shadow-ring shrink-0">
-                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <path d="M12 3l9 5-9 5-9-5 9-5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                                    <path d="M3 10l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                                    <path d="M3 14l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                                </svg>
+                        </div>
+                        <div class="leading-tight min-w-0 hidden sm:block">
+                            <div class="font-semibold tracking-tight truncate">best-épargne</div>
+                            <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5 truncate">
+                                {% block topbar_subtitle %}Dashboard{% endblock %}
                             </div>
-                            <div class="leading-tight min-w-0">
-                                <div class="font-semibold tracking-tight truncate">best-épargne</div>
-                                <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5 truncate">
-                                    {% block topbar_subtitle %}Dashboard{% endblock %}
-                                </div>
-                            </div>
-                        </a>
-                    </div>
+                        </div>
+                    </a>
+                </div>
 
-                    <!-- Search -->
-                    <div class="hidden lg:flex flex-1 max-w-xl min-w-0">
-                        {% block topbar_search %}
-                            <div class="relative w-full">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/50">
-                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                        <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                {# ---- Search ---- #}
+                <div class="hidden lg:flex flex-1 max-w-xl min-w-0">
+                    {% block topbar_search %}
+                        <div class="relative w-full">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2
+                                             text-be-ink-400 dark:text-white/50"
+                                      aria-hidden="true">
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                        <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
+                                              stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                                     </svg>
                                 </span>
-                                <input
-                                    type="text"
+                            <input
+                                    type="search"
                                     placeholder="Rechercher…"
-                                    class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100/70 dark:border-white/10 bg-white/80 dark:bg-white/5 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 dark:focus:ring-white/10 text-sm"
-                                />
-                            </div>
-                        {% endblock %}
-                    </div>
+                                    aria-label="Rechercher dans la plateforme"
+                                    class="w-full pl-10 pr-4 py-2.5 rounded-xl
+                                           border border-be-ink-100/70 dark:border-white/10
+                                           bg-white/80 dark:bg-white/5
+                                           focus:outline-none focus:ring-4 focus:ring-be-sky-200/60
+                                           dark:focus:ring-white/10 text-sm transition"/>
+                        </div>
+                    {% endblock %}
+                </div>
 
-                    <!-- Right -->
-                    <div class="flex items-center gap-2 shrink-0">
-                        {% block topbar_actions %}{% endblock %}
+                {# ---- Right ---- #}
+                <div class="flex items-center gap-2 shrink-0">
+                    {% block topbar_actions %}{% endblock %}
 
-                        <!-- Theme toggle -->
-                        <button
+                    {# Theme toggle #}
+                    <button
                             type="button"
-                            class="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-be-ink-100/70 dark:border-white/10 hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition"
+                            class="w-10 h-10 inline-flex items-center justify-center
+                                   rounded-xl border border-be-ink-100/70 dark:border-white/10
+                                   hover:bg-be-ink-50/60 dark:hover:bg-white/10
+                                   focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
+                                   transition"
                             @click="toggleTheme()"
-                            aria-label="Basculer le thème"
-                        >
-                            <template x-if="theme === 'light'">
-                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12Z" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-                                          stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                            </template>
+                            :aria-label="theme === 'dark' ? 'Activer le thème clair' : 'Activer le thème sombre'">
+                        <template x-if="theme === 'light'">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12Z"
+                                      stroke="currentColor" stroke-width="2"/>
+                                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                                      stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </template>
+                        <template x-if="theme === 'dark'">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8Z"
+                                      stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            </svg>
+                        </template>
+                    </button>
 
-                            <template x-if="theme === 'dark'">
-                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                    <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                                </svg>
-                            </template>
-                        </button>
-
-                        {% block topbar_user %}
-                            <div class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl border border-be-ink-100/70 dark:border-white/10 bg-white/80 dark:bg-white/5">
-                                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-be-sun-300 to-be-sun-500 flex items-center justify-center text-be-ink-900 font-semibold text-sm">
-                                    U
+                    {% block topbar_user %}
+                        <div class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl
+                                        border border-be-ink-100/70 dark:border-white/10
+                                        bg-white/80 dark:bg-white/5">
+                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-be-sun-300 to-be-sun-500
+                                            flex items-center justify-center text-be-ink-900 font-semibold text-sm">
+                                {{ request.user.full_name|slice:":1"|default:"U"|upper }}
+                            </div>
+                            <div class="hidden sm:block leading-tight">
+                                <div class="text-sm font-semibold truncate max-w-[140px]">
+                                    {{ request.user.full_name|default:"Utilisateur" }}
                                 </div>
-                                <div class="hidden sm:block leading-tight">
-                                    <div class="text-sm font-semibold">Utilisateur</div>
-                                    <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5">Compte</div>
+                                <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5">
+                                    Compte
                                 </div>
                             </div>
-                        {% endblock %}
-                    </div>
+                        </div>
+                    {% endblock %}
                 </div>
             </div>
-        </header>
+        </div>
+    </header>
 
-        <!-- Main layout -->
-        <div class="mx-auto max-w-[1600px] px-3 sm:px-6 pb-10">
-            <div class="mt-4 flex gap-4 items-start">
-                <!-- Sidebar desktop -->
-                <aside
+    {# ================== LAYOUT PRINCIPAL ================== #}
+    <div class="mx-auto max-w-[1600px] px-3 sm:px-6 pb-10">
+        <div class="mt-4 flex gap-4 items-start">
+
+            {# Sidebar desktop #}
+            <aside
                     class="hidden lg:block shrink-0 transition-all duration-300"
                     :class="sidebar.collapsed ? 'w-[96px]' : 'w-[320px]'"
-                >
-                    <div class="sticky top-[92px]">
-                        {% block sidebar %}
-                            {% include "partials/instructor_side.html" %}
-                        {% endblock %}
-                    </div>
-                </aside>
+                    aria-label="Navigation principale">
+                <div class="sticky top-[92px]">
+                    {% block sidebar %}
+                        {% include "partials/instructor_side.html" with mode="desktop" %}
+                    {% endblock %}
+                </div>
+            </aside>
 
-                <!-- Content -->
-                <main class="min-w-0 flex-1">
-                    {% block content %}{% endblock %}
-                </main>
-            </div>
+            {# Main content #}
+            <main id="be-main" class="min-w-0 flex-1" tabindex="-1">
+                {% block content %}{% endblock %}
+            </main>
         </div>
     </div>
+</div>
 
-   <script>
+{# ================== ALPINE SHELL ================== #}
+<script>
     function appShell() {
         return {
             theme: "light",
+            scrolled: false,
             sidebar: {
                 collapsed: false,
                 mobileOpen: false
             },
 
             initShell() {
+                // Thème
                 const savedTheme = localStorage.getItem("be_theme");
-                const prefersDark =
-                    window.matchMedia &&
-                    window.matchMedia("(prefers-color-scheme: dark)").matches;
-
+                const prefersDark = window.matchMedia
+                    && window.matchMedia("(prefers-color-scheme: dark)").matches;
                 this.theme = savedTheme || (prefersDark ? "dark" : "light");
+                this._applyTheme();
 
-                if (this.theme === "dark") {
-                    document.documentElement.classList.add("dark");
-                } else {
-                    document.documentElement.classList.remove("dark");
-                }
+                // Collapsed desktop (persisté)
+                this.sidebar.collapsed = localStorage.getItem("be_sidebar_collapsed") === "1";
 
-                const savedCollapsed = localStorage.getItem("be_sidebar_collapsed");
-                this.sidebar.collapsed = savedCollapsed === "1";
-
+                // Exposé pour les partials (sidebar) afin de se resynchroniser
                 window.__beShell = this;
                 this.emitSidebarState();
 
+                // Suivi du scroll pour l’ombre du header (throttle via rAF)
+                let ticking = false;
+                const onScroll = () => {
+                    if (ticking) return;
+                    ticking = true;
+                    requestAnimationFrame(() => {
+                        this.scrolled = window.scrollY > 4;
+                        ticking = false;
+                    });
+                };
+                window.addEventListener("scroll", onScroll, {passive: true});
+                onScroll();
+
+                // Fermeture du drawer depuis un partial (clic sur un lien)
+                window.addEventListener("be:sidebar-close", () => this.closeMobile());
+
+                // Suivi des préférences système si l’utilisateur n’a rien choisi
                 if (window.matchMedia) {
                     const media = window.matchMedia("(prefers-color-scheme: dark)");
-                    if (media.addEventListener) {
-                        media.addEventListener("change", (e) => {
-                            if (!localStorage.getItem("be_theme")) {
-                                this.theme = e.matches ? "dark" : "light";
-
-                                if (this.theme === "dark") {
-                                    document.documentElement.classList.add("dark");
-                                } else {
-                                    document.documentElement.classList.remove("dark");
-                                }
-                            }
-                        });
-                    }
+                    const handler = (e) => {
+                        if (!localStorage.getItem("be_theme")) {
+                            this.theme = e.matches ? "dark" : "light";
+                            this._applyTheme();
+                        }
+                    };
+                    if (media.addEventListener) media.addEventListener("change", handler);
+                    else if (media.addListener) media.addListener(handler);
                 }
-            },
 
-            linkClass(name) {
-                const current = window.location.pathname;
-
-                const routes = {
-                    dashboard: ["/dashboard/instructor/"],
-                    courses: ["/dashboard/instructor/courses/"],
-                    media: ["/dashboard/instructor/media/"],
-                    quizzes: ["/dashboard/instructor/quizzes/"],
-                    quiz_create: ["/dashboard/instructor/quizzes/create/"],
+                // Fermer le drawer si on repasse en desktop
+                const mq = window.matchMedia("(min-width: 1024px)");
+                const onResize = (e) => {
+                    if (e.matches) this.closeMobile();
                 };
-
-                const matched = (routes[name] || []).some((route) => {
-                    if (name === "dashboard") {
-                        return current === route;
-                    }
-                    return current.startsWith(route);
-                });
-
-                return matched
-                    ? "bg-be-sky-50 text-be-sky-700 border border-be-sky-200 shadow-soft"
-                    : "text-be-ink-600 hover:bg-be-ink-50 hover:text-be-ink-900";
+                if (mq.addEventListener) mq.addEventListener("change", onResize);
+                else if (mq.addListener) mq.addListener(onResize);
             },
 
-            iconClass(name) {
-                const current = window.location.pathname;
-
-                const routes = {
-                    dashboard: ["/dashboard/instructor/"],
-                    courses: ["/dashboard/instructor/courses/"],
-                    media: ["/dashboard/instructor/media/"],
-                    quizzes: ["/dashboard/instructor/quizzes/"],
-                    quiz_create: ["/dashboard/instructor/quizzes/create/"],
-                };
-
-                const matched = (routes[name] || []).some((route) => {
-                    if (name === "dashboard") {
-                        return current === route;
-                    }
-                    return current.startsWith(route);
-                });
-
-                return matched
-                    ? "text-be-sky-600"
-                    : "text-be-ink-400 group-hover:text-be-ink-700";
-            },
-
-            emitSidebarState() {
-                window.dispatchEvent(
-                    new CustomEvent("be:sidebar", {
-                        detail: { collapsed: this.sidebar.collapsed }
-                    })
-                );
+            _applyTheme() {
+                const root = document.documentElement;
+                if (this.theme === "dark") root.classList.add("dark");
+                else root.classList.remove("dark");
             },
 
             toggleTheme() {
                 this.theme = this.theme === "dark" ? "light" : "dark";
                 localStorage.setItem("be_theme", this.theme);
-
-                if (this.theme === "dark") {
-                    document.documentElement.classList.add("dark");
-                } else {
-                    document.documentElement.classList.remove("dark");
-                }
+                this._applyTheme();
             },
 
             toggleCollapsed() {
                 this.sidebar.collapsed = !this.sidebar.collapsed;
-                localStorage.setItem(
-                    "be_sidebar_collapsed",
-                    this.sidebar.collapsed ? "1" : "0"
-                );
+                localStorage.setItem("be_sidebar_collapsed", this.sidebar.collapsed ? "1" : "0");
                 this.emitSidebarState();
+            },
+
+            openMobile() {
+                this.sidebar.mobileOpen = true;
+            },
+
+            closeMobile() {
+                this.sidebar.mobileOpen = false;
+            },
+
+            // Alias rétro-compatibles (anciens noms encore appelés dans les templates)
+            closeMobileSidebar() { this.closeMobile(); },
+            openMobileSidebar()  { this.openMobile();  },
+
+            emitSidebarState() {
+                window.dispatchEvent(new CustomEvent("be:sidebar", {
+                    detail: {collapsed: this.sidebar.collapsed}
+                }));
+            },
+
+            // --- Helpers partagés avec les partials ---
+            linkClass(name) {
+                return this._isActive(name)
+                    ? "bg-be-sky-50 text-be-sky-700 border border-be-sky-200 shadow-soft"
+                    : "text-be-ink-600 hover:bg-be-ink-50 hover:text-be-ink-900";
+            },
+
+            iconClass(name) {
+                return this._isActive(name)
+                    ? "text-be-sky-600"
+                    : "text-be-ink-400 group-hover:text-be-ink-700";
+            },
+
+            _isActive(name) {
+                const current = window.location.pathname;
+                const routes = {
+                    dashboard: ["/dashboard/instructor/"],
+                    courses: ["/dashboard/instructor/courses/"],
+                    media: ["/dashboard/instructor/media/"],
+                    quizzes: ["/dashboard/instructor/quizzes/"],
+                    quiz_create: ["/dashboard/instructor/quizzes/create/"]
+                };
+                return (routes[name] || []).some((route) => {
+                    if (name === "dashboard") return current === route;
+                    return current.startsWith(route);
+                });
             }
         };
     }
 </script>
 
-    {% block extra_js %}{% endblock %}
+{% block extra_js %}{% endblock %}
 </body>
 </html>

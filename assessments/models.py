@@ -156,6 +156,15 @@ class Attempt(models.Model):
     score_percent = models.PositiveIntegerField(default=0)
     passed = models.BooleanField(default=False)
 
+    class Meta:
+        indexes = [
+            # Requête très fréquente : "ce user a-t-il passé ce quiz ?"
+            models.Index(fields=["quiz", "user"]),
+            # Middleware d'onboarding : filtre sur user + submitted_at.
+            models.Index(fields=["user", "submitted_at"]),
+        ]
+        ordering = ["-started_at"]
+
     def __str__(self):
         return f"{self.user} — {self.quiz.slug} ({self.score_percent})"
 
@@ -164,6 +173,15 @@ class AttemptAnswer(models.Model):
     attempt = models.ForeignKey("assessments.Attempt", on_delete=models.CASCADE, related_name="answers")
     question = models.ForeignKey("assessments.Question", on_delete=models.CASCADE)
     selected_choice = models.ForeignKey("assessments.Choice", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        # Une réponse par (tentative, question) — évite les doublons.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attempt", "question"],
+                name="uniq_attempt_question",
+            ),
+        ]
 
     def __str__(self):
         if not self.selected_choice:

@@ -1,0 +1,71 @@
+{% extends "layout/admin_base_template.html" %}
+
+{% block title %}Affecter des apprenants — {{ course.title }}{% endblock %}
+{% block page_title %}Affecter des apprenants{% endblock %}
+
+{% block content %}
+<section class="max-w-4xl mx-auto space-y-6">
+
+  <div class="org-card p-6">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-black text-slate-900">{{ course.title }}</h1>
+        <p class="text-sm text-slate-500 mt-1">
+          Sélectionnez les apprenants de {{ organization.name }} à inscrire à ce cours.
+        </p>
+      </div>
+
+      <a href="{% url 'organization_course_detail' organization.id course.id %}" class="btn-soft">
+        Retour
+      </a>
+    </div>
+  </div>
+
+  <form method="post" class="org-card p-6 space-y-6">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="rounded-xl bg-red-50 border border-red-200 text-red-700 p-4 text-sm font-semibold">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div>
+      <label class="block text-sm font-black text-slate-700 mb-3">
+        Apprenants
+      </label>
+
+      <div class="grid md:grid-cols-2 gap-3">
+        {% for checkbox in form.learners %}
+          <label class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:bg-blue-50 hover:border-blue-200 transition cursor-pointer">
+            {{ checkbox.tag }}
+            <span class="text-sm font-semibold text-slate-700">
+              {{ checkbox.choice_label }}
+            </span>
+          </label>
+        {% empty %}
+          <div class="md:col-span-2 rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-500">
+            Aucun apprenant disponible dans cette organisation.
+          </div>
+        {% endfor %}
+      </div>
+
+      {% if form.learners.errors %}
+        <p class="text-sm text-red-600 mt-2">{{ form.learners.errors }}</p>
+      {% endif %}
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'organization_course_detail' organization.id course.id %}" class="btn-soft">
+        Annuler
+      </a>
+
+      <button type="submit" class="btn-primary">
+        <i class="fas fa-user-check"></i>
+        Affecter au cours
+      </button>
+    </div>
+  </form>
+
+</section>
+{% endblock %}

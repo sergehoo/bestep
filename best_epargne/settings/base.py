@@ -11,20 +11,43 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
 from pathlib import Path
-
-from django.contrib import staticfiles
-
+from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
+
+def env_bool(name: str, default: bool = False) -> bool:
+    """Parse an environment variable as a boolean."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def env_list(name: str, default: str = "") -> list[str]:
+    """Parse an environment variable as a comma-separated list."""
+    raw = os.getenv(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-r4sdxrvn&z7*csdkxwarumwm*@)r5%cxf+(42t-)@l5^q6t@e-'
-
+# The SECRET_KEY MUST be provided via the DJANGO_SECRET_KEY environment
+# variable. A development fallback is only used when DJANGO_DEBUG is truthy.
+# SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
+SECRET_KEY = config("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = env_bool("DJANGO_DEBUG", False)
 
+if not SECRET_KEY:
+    if DEBUG:
+        # Local / dev fallback — never used in production.
+        SECRET_KEY = "django-insecure-dev-only-do-not-use-in-production"
+    else:
+        raise RuntimeError(
+            "DJANGO_SECRET_KEY is not set. Refusing to start in non-DEBUG mode."
+        )
+
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 # Application definition
 
@@ -36,6 +59,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "rest_framework",
+    "rest_framework.authtoken",
+    "corsheaders",
     'storages',
     "django.contrib.sites",
     'django.contrib.humanize',
@@ -58,17 +83,20 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     "allauth.account.middleware.AccountMiddleware",
     "compte.middleware.OnboardingRequiredMiddleware",
-
 ]
+
+# CORS — allow-list driven by env, default to no cross-origin access.
+CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOW_CREDENTIALS = env_bool("DJANGO_CORS_ALLOW_CREDENTIALS", False)
 
 ROOT_URLCONF = 'best_epargne.urls'
 
@@ -102,9 +130,20 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
+    # Secure by default: endpoints must explicitly opt in to AllowAny.
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("DRF_ANON_THROTTLE", "60/min"),
+        "user": os.getenv("DRF_USER_THROTTLE", "1000/min"),
+    },
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": int(os.getenv("DRF_PAGE_SIZE", "25")),
 }
 
 # Password validation
@@ -219,18 +258,7 @@ CELERY_TIMEZONE = TIME_ZONE
 # Pour django_celery_results
 CELERY_RESULT_EXTENDED = True
 
-# settings.py
-# AWS_ACCESS_KEY_ID = os.getenv("MINIO_ACCESS_KEY", "")
-# AWS_SECRET_ACCESS_KEY = os.getenv("MINIO_SECRET_KEY", "")
-# AWS_STORAGE_BUCKET_NAME = os.getenv("MINIO_BUCKET", "bestepargne")
-# AWS_S3_REGION_NAME = os.getenv("MINIO_REGION", "us-east-1")
 
-# ✅ Endpoint interne (réseau docker) pour que Django upload sur MinIO
-# AWS_S3_ENDPOINT_URL = os.getenv("MINIO_ENDPOINT", "http://bestminio:9000")
-# MINIO_PUBLIC_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://",  "")
-# ------------------------
-# MinIO / S3
-# ------------------------
 MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER", "")
 MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD", "")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "bestepargne")
@@ -241,7 +269,7 @@ MINIO_INTERNAL_ENDPOINT = os.getenv("MINIO_INTERNAL_ENDPOINT", "http://bestminio
 MINIO_PUBLIC_ENDPOINT = os.getenv("MINIO_PUBLIC_ENDPOINT", "https://minio.ayo-group.com")
 
 MINIO_PUBLIC_DOMAIN = os.getenv("MINIO_PUBLIC_DOMAIN", "minio.ayo-group.com").replace("https://", "").replace("http://", "")
-MINIO_SECURE = os.getenv("MINIO_SECURE", "0") in ("1", "true", "True")
+MINIO_SECURE = env_bool("MINIO_SECURE", False)
 MINIO_UPLOAD_PREFIX = os.getenv("MINIO_UPLOAD_PREFIX", "instructors")
 
 AWS_ACCESS_KEY_ID = MINIO_ROOT_USER
@@ -250,19 +278,19 @@ AWS_STORAGE_BUCKET_NAME = MINIO_BUCKET
 AWS_S3_REGION_NAME = MINIO_REGION
 AWS_S3_ENDPOINT_URL = MINIO_INTERNAL_ENDPOINT
 
-AWS_S3_CUSTOM_DOMAIN = f"{MINIO_PUBLIC_DOMAIN}/{MINIO_BUCKET}"
+AWS_S3_CUSTOM_DOMAIN = f"{MINIO_PUBLIC_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}"
 AWS_S3_URL_PROTOCOL = "https:"
-AWS_S3_USE_SSL = False
-AWS_S3_VERIFY = False
+# When MinIO is accessed over HTTPS, enable TLS checks; legacy HTTP endpoints
+# are only accepted for dev/staging via MINIO_SECURE=0.
+AWS_S3_USE_SSL = MINIO_SECURE
+AWS_S3_VERIFY = MINIO_SECURE
 AWS_S3_ADDRESSING_STYLE = "path"
 AWS_S3_SIGNATURE_VERSION = "s3v4"
 AWS_DEFAULT_ACL = None
-AWS_QUERYSTRING_AUTH = os.getenv("MINIO_QUERYSTRING_AUTH", "0") == "1"
+AWS_QUERYSTRING_AUTH = env_bool("MINIO_QUERYSTRING_AUTH", False)
 
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
-
-AWS_S3_CUSTOM_DOMAIN = f"{MINIO_PUBLIC_DOMAIN}/{AWS_STORAGE_BUCKET_NAME}"
 
 TINYMCE_DEFAULT_CONFIG = {
     "height": 500,
@@ -295,3 +323,72 @@ TINYMCE_DEFAULT_CONFIG = {
     "branding": False,
 }
 
+
+# ------------------------
+# Sessions & CSRF
+# ------------------------
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_HTTPONLY = False  # must stay readable for JS-powered forms
+CSRF_COOKIE_SAMESITE = "Lax"
+
+# Secure flags are forced to True in settings/prod.py; dev leaves them off.
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", False)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", False)
+
+# ------------------------
+# Logging
+# ------------------------
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+    },
+    "loggers": {
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
+
+# ------------------------
+# Sentry (optional)
+# ------------------------
+SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+        from sentry_sdk.integrations.celery import CeleryIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration(), CeleryIntegration()],
+            send_default_pii=False,
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+            environment=os.getenv("SENTRY_ENVIRONMENT", "dev" if DEBUG else "prod"),
+        )
+    except ImportError:
+        # sentry-sdk not installed — skip silently.
+        pass

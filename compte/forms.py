@@ -101,12 +101,12 @@ class CustomSignupForm(SignupForm):
         user = super().save(request)  # crée user email + password
         user.full_name = self.cleaned_data["full_name"]
         user.phone = self.cleaned_data["phone"]
+        # Par défaut : utilisateur plateforme "USER" (pas admin).
+        # Le rôle métier "apprenant" est matérialisé par le LearnerProfile
+        # créé juste après.
+        user.save(update_fields=["full_name", "phone"])
 
-        # Rôle par défaut learner (ton model le fait déjà, mais on assure)
-        user.role = User.Role.LEARNER
-        user.save()
-
-        # Profil apprenant (si tu l'utilises)
+        # Profil apprenant : rend user.is_learner == True
         LearnerProfile.objects.get_or_create(user=user)
 
         # KYC

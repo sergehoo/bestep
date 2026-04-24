@@ -1,22 +1,145 @@
-# compte/adapters.py
+"""Adapters django-allauth pour Best Epargne.
+
+Ce module centralise la logique de redirection après login / signup.
+
+Architecture des rôles :
+- ``User.platform_role`` : rôle plateforme (USER ou PLATFORM_ADMIN).
+- ``OrganizationMembership.role`` : rôle au sein d'une organisation
+  (OWNER, ADMIN, MANAGER, INSTRUCTOR, LEARNER).
+
+Un utilisateur peut cumuler plusieurs appartenances (ex. INSTRUCTOR dans une
+organisation ET LEARNER dans une autre). La redirection doit donc appliquer
+une priorité stricte pour éviter les comportements ambigus :
+
+    1. Admin plateforme          → admin_dashboard
+    2. Org owner / admin         → business_dashboard
+    3. Org manager               → business_dashboard
+    4. Formateur (indé. ou org)  → instructor_dashboard
+    5. Apprenant                 → learner_dashboard
+                                   (avec onboarding si jamais complété)
+"""
+
+from __future__ import annotations
+
 from allauth.account.adapter import DefaultAccountAdapter
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
+
+from organizations.models import OrganizationMembership
+
+
+# Rôles org considérés comme "admin" au sens métier (accès business dashboard).
+_ORG_ADMIN_ROLES = (
+    OrganizationMembership.Role.OWNER,
+    OrganizationMembership.Role.ADMIN,
+)
+
+# Rôles org donnant accès à la gestion (dashboard business étendu).
+_ORG_MANAGER_ROLES = _ORG_ADMIN_ROLES + (OrganizationMembership.Role.MANAGER,)
+
+
+def _safe_reverse(url_name: str, fallback: str = "/") -> str:
+    """reverse() robuste : renvoie un fallback si l'URL n'existe pas."""
+    try:
+        return reverse(url_name)
+    except NoReverseMatch:
+        return fallback
+
+
+def _has_active_org_role(user, roles) -> bool:
+    """True si l'utilisateur possède au moins une appartenance active
+    correspondant à l'un des rôles donnés.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    memberships = getattr(user, "organization_memberships", None)
+    if memberships is None:
+        return False
+    return memberships.filter(is_active=True, role__in=roles).exists()
+
+
+def _has_completed_onboarding(user) -> bool:
+    """True si l'apprenant a soumis au moins un quiz d'onboarding.
+
+    Import local pour éviter les imports circulaires au démarrage (le module
+    ``assessments`` dépend lui-même de ``compte`` via le User).
+    """
+    try:
+        from assessments.models import Attempt
+    except Exception:  # pragma: no cover - app absente / migrations partielles
+        return True  # on ne bloque pas si l'app n'est pas dispo
+
+    return Attempt.objects.filter(
+        user=user,
+        quiz__is_onboarding=True,
+        submitted_at__isnull=False,
+    ).exists()
+
+
+def resolve_user_dashboard_url(user) -> str:
+    """Retourne l'URL du dashboard le plus pertinent pour un utilisateur.
+
+    Strictement ordonné : plateforme > org admin > org manager > instructor >
+    learner. Ne suppose rien sur l'existence des URLs cibles (fallback safe).
+    """
+    if not user or not user.is_authenticated:
+        return _safe_reverse("account_login", fallback="/accounts/login/")
+
+    if getattr(user, "is_platform_admin", False):
+        return _safe_reverse("admin_dashboard")
+
+    if _has_active_org_role(user, _ORG_ADMIN_ROLES):
+        return _safe_reverse("business_dashboard")
+
+    if _has_active_org_role(user, (OrganizationMembership.Role.MANAGER,)):
+        return _safe_reverse("business_dashboard")
+
+    if getattr(user, "is_instructor", False):
+        return _safe_reverse("instructor_dashboard")
+
+    return _safe_reverse("learner_dashboard")
 
 
 class AccountAdapter(DefaultAccountAdapter):
+    """Adapter django-allauth customisé pour Best Epargne.
+
+    - ``get_login_redirect_url`` : redirige vers le dashboard correspondant
+      au rôle le plus élevé de l'utilisateur.
+    - ``get_signup_redirect_url`` : idem, avec un détour par l'onboarding
+      quiz si l'utilisateur nouvellement inscrit est un apprenant pur.
+    """
+
     def get_login_redirect_url(self, request):
-        u = request.user
-        if getattr(u, "is_superuser", False) or getattr(u, "is_staff", False):
-            return reverse("admin_dashboard")
-        if getattr(u, "is_instructor", False):
-            return reverse("instructor_dashboard")
-        if getattr(u, "is_company_admin", False):
-            return reverse("business_dashboard")
-        return reverse("learner_dashboard")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return _safe_reverse("account_login", fallback="/accounts/login/")
+        return resolve_user_dashboard_url(user)
 
     def get_signup_redirect_url(self, request):
-        user = request.user
-        # si learner -> onboarding quiz
-        if getattr(user, "role", None) == "LEARNER":
-            return reverse("assessments:onboarding_quiz")
-        return super().get_signup_redirect_url(request)
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return _safe_reverse("account_login", fallback="/accounts/login/")
+
+        # Si l'utilisateur nouvellement inscrit a déjà un rôle élevé (parce
+        # qu'un admin org lui a pré-créé un compte formateur/admin org par
+        # ex.), on le redirige vers son dashboard métier.
+        if getattr(user, "is_platform_admin", False):
+            return _safe_reverse("admin_dashboard")
+
+        if _has_active_org_role(user, _ORG_MANAGER_ROLES):
+            return _safe_reverse("business_dashboard")
+
+        if getattr(user, "is_instructor", False):
+            return _safe_reverse("instructor_dashboard")
+
+        # Apprenant : on force l'onboarding quiz s'il n'a pas encore été
+        # complété. Le middleware OnboardingRequiredMiddleware assure de
+        # toute façon le blocage, mais on évite un premier hop inutile.
+        if not _has_completed_onboarding(user):
+            onboarding_url = _safe_reverse(
+                "assessments:onboarding_quiz",
+                fallback="",
+            )
+            if onboarding_url:
+                return onboarding_url
+
+        return _safe_reverse("learner_dashboard")

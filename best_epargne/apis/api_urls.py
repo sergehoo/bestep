@@ -16,17 +16,15 @@ from best_epargne.apis.views import CategoryViewSet, CourseViewSet, InstructorCo
     InstructorSectionQuizAssignView, InstructorSectionQuizUnassignView, \
     InstructorQuizUpdateView, MediaThumbnailSignedGetView, InstructorMediaDetailView, InstructorMediaUpdateView, \
     InstructorMediaDeleteView, InstructorQuizListApiView, InstructorQuizQuestionUpdateView, \
-    InstructorQuizQuestionDeleteView
+    InstructorQuizQuestionDeleteView, LearnerOrganizationCoursesAPIView
 # from catalog.api.views import CourseViewSet, CategoryViewSet
 from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
-from organizations.api import CompanyMembersViewSet
 
 router = DefaultRouter()
 router.register("categories", CategoryViewSet, basename="categories")
 router.register("courses", CourseViewSet, basename="courses")
 router.register("enrollments", EnrollmentViewSet, basename="enrollments")
 router.register("progress", LessonProgressViewSet, basename="progress")
-router.register("company/members", CompanyMembersViewSet, basename="company-members")
 
 urlpatterns = [
     path("apis/", include(router.urls)),
@@ -82,7 +80,11 @@ urlpatterns = [
     path("learner/courses/<int:course_id>/", LearnerCourseDetailView.as_view(), name="api_learner_course_detail"),
     path("learner/courses/<int:course_id>/progress/", LearnerCourseProgressView.as_view(),
          name="api_learner_course_progress"),
-
+path(
+    "api/learner/organization-courses/",
+    LearnerOrganizationCoursesAPIView.as_view(),
+    name="api_learner_organization_courses",
+),
     path("learner/player/<int:course_id>/", LearnerCoursePlayerDataView.as_view(), name="api_learner_player"),
     path("learner/media/<uuid:asset_id>/signed/", LearnerMediaSignedGetView.as_view(),
          name="api_learner_media_signed"),
