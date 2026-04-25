@@ -77,14 +77,18 @@ class MediaAssetSerializer(serializers.ModelSerializer):
         return "organization"
 
     def get_owner_name(self, obj):
-        if not obj.owner:
+        owner = getattr(obj, "owner", None)
+        if not owner:
             return "—"
 
-        return (
-            getattr(obj.owner, "full_name", None)
-            or obj.owner.get_full_name()
-            or obj.owner.email
+        full_name = (
+                getattr(owner, "full_name", None)
+                or f"{getattr(owner, 'first_name', '')} {getattr(owner, 'last_name', '')}".strip()
+                or getattr(owner, "email", None)
+                or getattr(owner, "username", None)
         )
+
+        return full_name or "Utilisateur"
 
     def get_organization_name(self, obj):
         return obj.organization.name if obj.organization_id else None

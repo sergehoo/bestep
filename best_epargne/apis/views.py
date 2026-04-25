@@ -1196,9 +1196,9 @@ class InstructorMediaListView(APIView):
         q = (request.query_params.get("q") or "").strip()
         if q:
             filters = (
-                Q(title__icontains=q) |
-                Q(object_key__icontains=q) |
-                Q(content_type__icontains=q)
+                    Q(title__icontains=q) |
+                    Q(object_key__icontains=q) |
+                    Q(content_type__icontains=q)
             )
 
             if hasattr(MediaAsset, "processing_status"):
@@ -1242,6 +1242,7 @@ class InstructorMediaListView(APIView):
             "total_pages": total_pages,
             "results": ser.data,
         })
+
 
 class InstructorQuizListApiView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
