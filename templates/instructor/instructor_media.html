@@ -186,32 +186,32 @@
                 </div>
 
             </div>
-              <div class="flex items-center justify-between gap-3 rounded-[24px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-4">
-                            <div class="text-sm text-be-ink-500 dark:text-white/60">
-                                Page <span x-text="pagination.page"></span>
-                                sur <span x-text="pagination.totalPages"></span>
-                                —
-                                <span x-text="pagination.count"></span> média(s)
-                            </div>
+            <div class="flex items-center justify-between gap-3 rounded-[24px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-4">
+                <div class="text-sm text-be-ink-500 dark:text-white/60">
+                    Page <span x-text="pagination.page"></span>
+                    sur <span x-text="pagination.totalPages"></span>
+                    —
+                    <span x-text="pagination.count"></span> média(s)
+                </div>
 
-                            <div class="flex items-center gap-2">
-                                <button
-                                        @click="loadMedia(pagination.page - 1)"
-                                        :disabled="pagination.page <= 1 || loading.media"
-                                        class="px-4 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 text-sm font-semibold disabled:opacity-50"
-                                >
-                                    Précédent
-                                </button>
+                <div class="flex items-center gap-2">
+                    <button
+                            @click="loadMedia(pagination.page - 1)"
+                            :disabled="pagination.page <= 1 || loading.media"
+                            class="px-4 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 text-sm font-semibold disabled:opacity-50"
+                    >
+                        Précédent
+                    </button>
 
-                                <button
-                                        @click="loadMedia(pagination.page + 1)"
-                                        :disabled="pagination.page >= pagination.totalPages || loading.media"
-                                        class="px-4 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold disabled:opacity-50"
-                                >
-                                    Suivant
-                                </button>
-                            </div>
-                        </div>
+                    <button
+                            @click="loadMedia(pagination.page + 1)"
+                            :disabled="pagination.page >= pagination.totalPages || loading.media"
+                            class="px-4 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold disabled:opacity-50"
+                    >
+                        Suivant
+                    </button>
+                </div>
+            </div>
         </section>
         <!-- GRID VIEW -->
         <section x-show="view === 'grid'" class="space-y-4">
@@ -1069,7 +1069,7 @@
                 },
                 pagination: {
                     page: 1,
-                    pageSize: 24,
+                    pageSize: 10,
                     count: 0,
                     totalPages: 1,
                 },
@@ -1317,6 +1317,7 @@
                         this.filteredMedia = this.media;
 
                         this.pagination.count = data.count || 0;
+                        this.stats.total = this.pagination.count;
                         this.pagination.page = data.page || 1;
                         this.pagination.pageSize = data.page_size || 24;
                         this.pagination.totalPages = data.total_pages || 1;
@@ -1405,7 +1406,7 @@
                 },
 
                 computeStats() {
-                    this.stats.total = this.media.length;
+                    this.stats.total = this.pagination.count || this.media.length;
                     this.stats.video = this.media.filter(m => m.kind === "video").length;
                     this.stats.audio = this.media.filter(m => m.kind === "audio").length;
                     this.stats.doc = this.media.filter(m => m.kind === "doc").length;
@@ -1630,6 +1631,10 @@
                         course_id: "",
                         section_id: "",
                         lesson_id: "",
+                        startedAt: null,
+                        etaText: "",
+                        uploadedBytes: 0,
+                        speedText: "",
                     };
                     this.bindSections = [];
                     this.bindLessons = [];
