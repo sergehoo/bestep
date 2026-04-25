@@ -232,64 +232,62 @@
 
                 <div class="grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
                     <template x-for="m in personalMedia()" :key="m.id">
-                        <article
+                       <article
     class="group relative rounded-[30px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden transition hover:-translate-y-1 hover:shadow-xl"
 >
-    <!-- THUMB -->
     <div class="relative aspect-video bg-be-ink-100 dark:bg-white/10 overflow-hidden">
-        
-        <!-- IMAGE / VIDEO THUMB -->
-        <template x-if="m.kind === 'video'">
-            <img
-                :src="thumbCache[m.id] || ''"
-                alt=""
-                class="w-full h-full object-cover transition group-hover:scale-105"
-            >
+        <template x-if="m.kind === 'video' && thumbCache[m.id]">
+            <img :src="thumbCache[m.id]" alt="" class="w-full h-full object-cover transition group-hover:scale-105">
         </template>
 
-        <template x-if="m.kind !== 'video'">
-            <div class="w-full h-full flex items-center justify-center text-4xl text-be-ink-400 dark:text-white/40">
-                <span x-text="m.kind === 'audio' ? '🎧' : '📄'"></span>
+        <template x-if="m.kind === 'video' && !thumbCache[m.id]">
+            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-be-sky-100 to-white dark:from-white/10 dark:to-white/5">
+                <i class="fa-solid fa-play text-4xl text-be-sky-700 dark:text-white/80"></i>
             </div>
         </template>
 
-        <!-- BADGES -->
-        <div class="absolute top-3 left-3 flex flex-col gap-2">
-            <span
-                class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur"
-                :class="kindPill(m.kind)"
-                x-text="kindLabel(m.kind)"
-            ></span>
+        <template x-if="m.kind === 'audio'">
+            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-white dark:from-white/10 dark:to-white/5">
+                <i class="fa-solid fa-headphones text-5xl text-amber-600 dark:text-white/80"></i>
+            </div>
+        </template>
 
-            <span
-                class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur"
-                :class="processingPill(m.processing_status)"
-                x-text="processingLabel(m.processing_status)"
-            ></span>
+        <template x-if="m.kind === 'doc'">
+            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-white/10 dark:to-white/5">
+                <i class="fa-solid fa-file-lines text-5xl text-slate-600 dark:text-white/80"></i>
+            </div>
+        </template>
+
+        <div class="absolute top-3 left-3 flex flex-col gap-2">
+            <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur bg-white/90"
+                  :class="kindPill(m.kind)">
+                <i class="fa-solid mr-1"
+                   :class="m.kind === 'video' ? 'fa-video' : (m.kind === 'audio' ? 'fa-volume-high' : 'fa-file')"></i>
+                <span x-text="kindLabel(m.kind)"></span>
+            </span>
+
+            <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur bg-white/90"
+                  :class="processingPill(m.processing_status)">
+                <i class="fa-solid mr-1"
+                   :class="m.processing_status === 'ready' ? 'fa-circle-check' : (m.processing_status === 'failed' ? 'fa-circle-xmark' : 'fa-clock')"></i>
+                <span x-text="processingLabel(m.processing_status)"></span>
+            </span>
         </div>
 
-        <!-- ACTIONS OVERLAY -->
         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-            <button
-                @click="previewMedia(m)"
-                class="px-3 py-2 rounded-xl bg-white text-be-ink-900 text-xs font-semibold shadow"
-            >
-                Preview
+            <button @click="previewMedia(m)"
+                    class="px-3 py-2 rounded-xl bg-white text-be-ink-900 text-xs font-semibold shadow">
+                <i class="fa-solid fa-eye mr-1"></i> Preview
             </button>
 
-            <button
-                @click="openDetailDrawer(m)"
-                class="px-3 py-2 rounded-xl bg-white text-be-ink-900 text-xs font-semibold shadow"
-            >
-                Détail
+            <button @click="openDetailDrawer(m)"
+                    class="px-3 py-2 rounded-xl bg-white text-be-ink-900 text-xs font-semibold shadow">
+                <i class="fa-solid fa-circle-info mr-1"></i> Détail
             </button>
         </div>
     </div>
 
-    <!-- CONTENT -->
-    <div class="p-4 space-y-3">
-        
-        <!-- TITLE -->
+    <div class="p-4 space-y-4">
         <div>
             <div class="font-semibold text-be-ink-900 dark:text-white line-clamp-2"
                  x-text="m.title || 'Sans titre'"></div>
@@ -298,50 +296,89 @@
                  x-text="m.object_key"></div>
         </div>
 
-        <!-- META -->
-        <div class="flex items-center justify-between text-xs text-be-ink-500 dark:text-white/60">
-            <span x-text="humanBytes(m.size)"></span>
-            <span x-text="formatDate(m.created_at)"></span>
-        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-layer-group mr-1"></i> Type
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="kindLabel(m.kind)"></div>
+            </div>
 
-        <!-- OWNER -->
-        <div class="flex items-center justify-between">
-            <div class="text-xs">
-                <div class="font-semibold text-be-ink-900 dark:text-white"
-                     x-text="m.owner_name || '—'"></div>
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-file-code mr-1"></i> Format
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white truncate"
+                     x-text="m.content_type || '—'"></div>
+            </div>
 
-                <span
-                    class="inline-flex mt-1 text-[11px] px-2.5 py-1 rounded-full border font-semibold"
-                    :class="scopePill(m.scope)"
-                    x-text="scopeLabel(m.scope)"
-                ></span>
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-weight-hanging mr-1"></i> Taille
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
+                     x-text="humanBytes(m.size)"></div>
+            </div>
+
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-calendar-days mr-1"></i> Créé le
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
+                     x-text="formatDate(m.created_at)"></div>
+            </div>
+
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-clock mr-1"></i> Durée
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
+                     x-text="formatDuration(m.duration_seconds)"></div>
+            </div>
+
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-display mr-1"></i> Résolution
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
+                     x-text="formatResolution(m.width, m.height)"></div>
             </div>
         </div>
 
-        <!-- ACTION BUTTONS -->
-        <div class="flex items-center gap-2 flex-wrap pt-2">
-            
-            <button
-                @click="openMedia(m)"
-                class="flex-1 px-3 py-2 rounded-xl bg-be-ink-900 text-white text-xs font-semibold"
-            >
-                Ouvrir
+        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-3">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-be-sky-50 dark:bg-white/10 flex items-center justify-center text-be-sky-700 dark:text-white">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+
+                <div class="min-w-0 flex-1">
+                    <div class="text-xs text-be-ink-500 dark:text-white/50">Propriétaire</div>
+                    <div class="text-sm font-semibold text-be-ink-900 dark:text-white truncate"
+                         x-text="m.owner_name || '—'"></div>
+                </div>
+
+                <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold"
+                      :class="scopePill(m.scope)"
+                      x-text="scopeLabel(m.scope)"></span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap pt-1">
+            <button @click="openMedia(m)"
+                    class="flex-1 px-3 py-2 rounded-xl bg-be-ink-900 text-white text-xs font-semibold">
+                <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Ouvrir
             </button>
 
-            <button
-                x-show="m.can_edit"
-                @click="openEditModal(m)"
-                class="px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-semibold"
-            >
-                Modifier
+            <button x-show="m.can_edit"
+                    @click="openEditModal(m)"
+                    class="px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-semibold">
+                <i class="fa-solid fa-pen mr-1"></i> Modifier
             </button>
 
-            <button
-                x-show="m.can_delete"
-                @click="confirmDelete(m)"
-                class="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold"
-            >
-                Supprimer
+            <button x-show="m.can_delete"
+                    @click="confirmDelete(m)"
+                    class="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold">
+                <i class="fa-solid fa-trash-can mr-1"></i> Supprimer
             </button>
         </div>
     </div>
@@ -358,61 +395,59 @@
                         <article
     class="group relative rounded-[30px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden transition hover:-translate-y-1 hover:shadow-xl"
 >
-    <!-- THUMB -->
     <div class="relative aspect-video bg-be-ink-100 dark:bg-white/10 overflow-hidden">
-        
-        <!-- IMAGE / VIDEO THUMB -->
-        <template x-if="m.kind === 'video'">
-            <img
-                :src="thumbCache[m.id] || ''"
-                alt=""
-                class="w-full h-full object-cover transition group-hover:scale-105"
-            >
+        <template x-if="m.kind === 'video' && thumbCache[m.id]">
+            <img :src="thumbCache[m.id]" alt="" class="w-full h-full object-cover transition group-hover:scale-105">
         </template>
 
-        <template x-if="m.kind !== 'video'">
-            <div class="w-full h-full flex items-center justify-center text-4xl text-be-ink-400 dark:text-white/40">
-                <span x-text="m.kind === 'audio' ? '🎧' : '📄'"></span>
+        <template x-if="m.kind === 'video' && !thumbCache[m.id]">
+            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-be-sky-100 to-white dark:from-white/10 dark:to-white/5">
+                <i class="fa-solid fa-play text-4xl text-be-sky-700 dark:text-white/80"></i>
             </div>
         </template>
 
-        <!-- BADGES -->
-        <div class="absolute top-3 left-3 flex flex-col gap-2">
-            <span
-                class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur"
-                :class="kindPill(m.kind)"
-                x-text="kindLabel(m.kind)"
-            ></span>
+        <template x-if="m.kind === 'audio'">
+            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-white dark:from-white/10 dark:to-white/5">
+                <i class="fa-solid fa-headphones text-5xl text-amber-600 dark:text-white/80"></i>
+            </div>
+        </template>
 
-            <span
-                class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur"
-                :class="processingPill(m.processing_status)"
-                x-text="processingLabel(m.processing_status)"
-            ></span>
+        <template x-if="m.kind === 'doc'">
+            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-white/10 dark:to-white/5">
+                <i class="fa-solid fa-file-lines text-5xl text-slate-600 dark:text-white/80"></i>
+            </div>
+        </template>
+
+        <div class="absolute top-3 left-3 flex flex-col gap-2">
+            <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur bg-white/90"
+                  :class="kindPill(m.kind)">
+                <i class="fa-solid mr-1"
+                   :class="m.kind === 'video' ? 'fa-video' : (m.kind === 'audio' ? 'fa-volume-high' : 'fa-file')"></i>
+                <span x-text="kindLabel(m.kind)"></span>
+            </span>
+
+            <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur bg-white/90"
+                  :class="processingPill(m.processing_status)">
+                <i class="fa-solid mr-1"
+                   :class="m.processing_status === 'ready' ? 'fa-circle-check' : (m.processing_status === 'failed' ? 'fa-circle-xmark' : 'fa-clock')"></i>
+                <span x-text="processingLabel(m.processing_status)"></span>
+            </span>
         </div>
 
-        <!-- ACTIONS OVERLAY -->
         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-            <button
-                @click="previewMedia(m)"
-                class="px-3 py-2 rounded-xl bg-white text-be-ink-900 text-xs font-semibold shadow"
-            >
-                Preview
+            <button @click="previewMedia(m)"
+                    class="px-3 py-2 rounded-xl bg-white text-be-ink-900 text-xs font-semibold shadow">
+                <i class="fa-solid fa-eye mr-1"></i> Preview
             </button>
 
-            <button
-                @click="openDetailDrawer(m)"
-                class="px-3 py-2 rounded-xl bg-white text-be-ink-900 text-xs font-semibold shadow"
-            >
-                Détail
+            <button @click="openDetailDrawer(m)"
+                    class="px-3 py-2 rounded-xl bg-white text-be-ink-900 text-xs font-semibold shadow">
+                <i class="fa-solid fa-circle-info mr-1"></i> Détail
             </button>
         </div>
     </div>
 
-    <!-- CONTENT -->
-    <div class="p-4 space-y-3">
-        
-        <!-- TITLE -->
+    <div class="p-4 space-y-4">
         <div>
             <div class="font-semibold text-be-ink-900 dark:text-white line-clamp-2"
                  x-text="m.title || 'Sans titre'"></div>
@@ -421,50 +456,89 @@
                  x-text="m.object_key"></div>
         </div>
 
-        <!-- META -->
-        <div class="flex items-center justify-between text-xs text-be-ink-500 dark:text-white/60">
-            <span x-text="humanBytes(m.size)"></span>
-            <span x-text="formatDate(m.created_at)"></span>
-        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-layer-group mr-1"></i> Type
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white" x-text="kindLabel(m.kind)"></div>
+            </div>
 
-        <!-- OWNER -->
-        <div class="flex items-center justify-between">
-            <div class="text-xs">
-                <div class="font-semibold text-be-ink-900 dark:text-white"
-                     x-text="m.owner_name || '—'"></div>
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-file-code mr-1"></i> Format
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white truncate"
+                     x-text="m.content_type || '—'"></div>
+            </div>
 
-                <span
-                    class="inline-flex mt-1 text-[11px] px-2.5 py-1 rounded-full border font-semibold"
-                    :class="scopePill(m.scope)"
-                    x-text="scopeLabel(m.scope)"
-                ></span>
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-weight-hanging mr-1"></i> Taille
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
+                     x-text="humanBytes(m.size)"></div>
+            </div>
+
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-calendar-days mr-1"></i> Créé le
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
+                     x-text="formatDate(m.created_at)"></div>
+            </div>
+
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-clock mr-1"></i> Durée
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
+                     x-text="formatDuration(m.duration_seconds)"></div>
+            </div>
+
+            <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
+                <div class="text-be-ink-500 dark:text-white/50">
+                    <i class="fa-solid fa-display mr-1"></i> Résolution
+                </div>
+                <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
+                     x-text="formatResolution(m.width, m.height)"></div>
             </div>
         </div>
 
-        <!-- ACTION BUTTONS -->
-        <div class="flex items-center gap-2 flex-wrap pt-2">
-            
-            <button
-                @click="openMedia(m)"
-                class="flex-1 px-3 py-2 rounded-xl bg-be-ink-900 text-white text-xs font-semibold"
-            >
-                Ouvrir
+        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-3">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-be-sky-50 dark:bg-white/10 flex items-center justify-center text-be-sky-700 dark:text-white">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+
+                <div class="min-w-0 flex-1">
+                    <div class="text-xs text-be-ink-500 dark:text-white/50">Propriétaire</div>
+                    <div class="text-sm font-semibold text-be-ink-900 dark:text-white truncate"
+                         x-text="m.owner_name || '—'"></div>
+                </div>
+
+                <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold"
+                      :class="scopePill(m.scope)"
+                      x-text="scopeLabel(m.scope)"></span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap pt-1">
+            <button @click="openMedia(m)"
+                    class="flex-1 px-3 py-2 rounded-xl bg-be-ink-900 text-white text-xs font-semibold">
+                <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Ouvrir
             </button>
 
-            <button
-                x-show="m.can_edit"
-                @click="openEditModal(m)"
-                class="px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-semibold"
-            >
-                Modifier
+            <button x-show="m.can_edit"
+                    @click="openEditModal(m)"
+                    class="px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-semibold">
+                <i class="fa-solid fa-pen mr-1"></i> Modifier
             </button>
 
-            <button
-                x-show="m.can_delete"
-                @click="confirmDelete(m)"
-                class="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold"
-            >
-                Supprimer
+            <button x-show="m.can_delete"
+                    @click="confirmDelete(m)"
+                    class="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold">
+                <i class="fa-solid fa-trash-can mr-1"></i> Supprimer
             </button>
         </div>
     </div>
@@ -507,7 +581,7 @@
                             <td colspan="8" class="px-4 py-10 text-center text-be-ink-500 dark:text-white/60">Aucun
                                 média trouvé.
                             </td>
-                 
+
                         </tr>
                     </template>
                     <template x-for="m in filteredMedia" :key="m.id">
