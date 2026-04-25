@@ -4,16 +4,6 @@
 {% block title %}best-épargne — Bibliothèque média{% endblock %}
 {% block topbar_subtitle %}Médias instructeur{% endblock %}
 
-{% block topbar_actions %}
-    <div class="flex items-center gap-2 flex-wrap">
-        <button
-                @click="openUploadDrawer()"
-                class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition"
-        >
-            + Importer un média
-        </button>
-    </div>
-{% endblock %}
 
 {% block sidebar %}
     {% include "partials/instructor_side.html" with side_active="media" %}
@@ -1612,40 +1602,40 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                 },
 
                 async startUpload() {
-    try {
-        this.upload.error = "";
+                    try {
+                        this.upload.error = "";
 
-        if (!this.upload.file) {
-            this.upload.error = "Choisissez un fichier.";
-            return;
-        }
+                        if (!this.upload.file) {
+                            this.upload.error = "Choisissez un fichier.";
+                            return;
+                        }
 
-        if (this.upload.bindEnabled) {
-            if (!this.upload.course_id || !this.upload.section_id || !this.upload.lesson_id) {
-                this.upload.error = "Sélectionnez le cours, la section et la leçon à lier.";
-                return;
-            }
-        }
+                        if (this.upload.bindEnabled) {
+                            if (!this.upload.course_id || !this.upload.section_id || !this.upload.lesson_id) {
+                                this.upload.error = "Sélectionnez le cours, la section et la leçon à lier.";
+                                return;
+                            }
+                        }
 
-        this.loading.upload = true;
-        this.upload.progress = 1;
+                        this.loading.upload = true;
+                        this.upload.progress = 1;
 
-        await this.multipartUploadFile();
+                        await this.multipartUploadFile();
 
-        this.upload.progress = 100;
-        this.drawers.upload = false;
+                        this.upload.progress = 100;
+                        this.drawers.upload = false;
 
-        this.showToast("Succès", "Le média a été importé avec succès.");
-        await this.loadMedia();
+                        this.showToast("Succès", "Le média a été importé avec succès.");
+                        await this.loadMedia();
 
-    } catch (e) {
-        console.error(e);
-        this.upload.error = e?.message || "Upload échoué.";
-        this.showToast("Erreur", this.upload.error, "error");
-    } finally {
-        this.loading.upload = false;
-    }
-},
+                    } catch (e) {
+                        console.error(e);
+                        this.upload.error = e?.message || "Upload échoué.";
+                        this.showToast("Erreur", this.upload.error, "error");
+                    } finally {
+                        this.loading.upload = false;
+                    }
+                },
                 uploadStorageKey(file) {
                     return `bestepargne_multipart_${file.name}_${file.size}_${file.lastModified}`;
                 },
@@ -1727,7 +1717,11 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                         }
                     }
 
-                    const uploadedParts = Array.from(uploadedMap.values());
+                    const partProgressMap = new Map();
+
+                    remoteParts.forEach(p => {
+                        partProgressMap.set(Number(p.PartNumber), 1);
+                    });
                     const concurrency = 4;
 
                     const workers = Array(concurrency).fill(null).map(async () => {
@@ -1748,7 +1742,8 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                                 partUrlResp.url,
                                 blob,
                                 partNumber,
-                                totalParts
+                                totalParts,
+                                partProgressMap
                             );
 
                             uploadedMap.set(partNumber, {
@@ -1792,54 +1787,56 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                     this.clearUploadResumeState(file);
                 },
 
-                async uploadPart(url, blob, partNumber, totalParts) {
-    return await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
+                async uploadPart(url, blob, partNumber, totalParts, partProgressMap) {
+                    return await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
 
-        xhr.open("PUT", url, true);
-        xhr.timeout = 0;
+                        xhr.open("PUT", url, true);
+                        xhr.timeout = 0;
 
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const partProgress = e.loaded / e.total;
-                const globalProgress = ((partNumber - 1 + partProgress) / totalParts) * 100;
-                this.upload.progress = Math.max(
-                    1,
-                    Math.min(99, Math.round(globalProgress))
-                );
-            }
-        };
+                        xhr.upload.onprogress = (e) => {
+                            if (e.lengthComputable) {
+                                partProgressMap.set(partNumber, e.loaded / e.total);
 
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                const rawEtag = xhr.getResponseHeader("ETag");
+                                let totalProgress = 0;
+                                for (const value of partProgressMap.values()) {
+                                    totalProgress += value;
+                                }
 
-                if (!rawEtag) {
-                    reject(new Error(
-                        "ETag absent. Vérifie ExposeHeaders CORS côté MinIO."
-                    ));
-                    return;
-                }
+                                this.upload.progress = Math.max(
+                                    1,
+                                    Math.min(99, Math.round((totalProgress / totalParts) * 100))
+                                );
+                            }
+                        };
 
-                resolve(rawEtag.replaceAll('"', ""));
-            } else {
-                reject(new Error(
-                    `Part ${partNumber}/${totalParts} échouée HTTP ${xhr.status}`
-                ));
-            }
-        };
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                const rawEtag = xhr.getResponseHeader("ETag");
 
-        xhr.onerror = () => reject(new Error(
-            `Erreur réseau/CORS/proxy sur la partie ${partNumber}/${totalParts}.`
-        ));
+                                if (!rawEtag) {
+                                    reject(new Error("ETag absent. Vérifie ExposeHeaders CORS côté MinIO."));
+                                    return;
+                                }
 
-        xhr.onabort = () => reject(new Error(
-            `Upload annulé sur la partie ${partNumber}/${totalParts}.`
-        ));
+                                partProgressMap.set(partNumber, 1);
+                                resolve(rawEtag.replaceAll('"', ""));
+                            } else {
+                                reject(new Error(`Part ${partNumber}/${totalParts} échouée HTTP ${xhr.status}`));
+                            }
+                        };
 
-        xhr.send(blob);
-    });
-},
+                        xhr.onerror = () => reject(new Error(
+                            `Erreur réseau/CORS/proxy sur la partie ${partNumber}/${totalParts}.`
+                        ));
+
+                        xhr.onabort = () => reject(new Error(
+                            `Upload annulé sur la partie ${partNumber}/${totalParts}.`
+                        ));
+
+                        xhr.send(blob);
+                    });
+                },
 
                 async putFile(uploadUrl, file, headers) {
                     await new Promise((resolve, reject) => {
