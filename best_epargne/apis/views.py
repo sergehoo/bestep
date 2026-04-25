@@ -22,13 +22,14 @@ from django.db.models import Q, Count, Max, Sum, Avg, DecimalField, IntegerField
 from botocore.client import Config
 
 from assessments.models import Quiz, Attempt, Question, Choice, AttemptAnswer
-from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, Payment
+from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, Payment, MediaUploadLog
 from organizations.models import OrganizationMembership
 from .permissions import IsInstructor
 from .serializers import CourseSerializer, CategorySerializer, CourseSectionSerializer, LessonSerializer, \
     MediaUploadInitSerializer, MediaUploadFinalizeSerializer, MediaAssetListSerializer, MediaAssetUpdateSerializer, \
     MediaAssetDetailSerializer
 from formations.tasks import process_media_asset
+
 
 # from compte.api.permissions import IsInstructor
 
@@ -128,7 +129,7 @@ try:
     from reviews.models import Review, CourseReview
 except Exception:
     Review = None
-    CourseReview = None   # 🔥 IMPORTANT
+    CourseReview = None  # 🔥 IMPORTANT
 
 try:
     from notifications.models import Notification  # adapte si tu as un app notifications
@@ -591,6 +592,7 @@ def s3_public_client():
         verify=True,
     )
 
+
 def build_object_key(user_id: int, kind: str, filename: str) -> str:
     prefix = getattr(settings, "MINIO_UPLOAD_PREFIX", "instructors")
     ext = ""
@@ -634,6 +636,8 @@ class MediaUploadInitView(APIView):
                 "Content-Type": data["content_type"],
             },
         })
+
+
 class MediaUploadFinalizeView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -721,6 +725,7 @@ class MediaUploadFinalizeView(APIView):
             "created_at": asset.created_at,
         }, status=201)
 
+
 class MediaMultipartInitView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -730,23 +735,41 @@ class MediaMultipartInitView(APIView):
         data = ser.validated_data
 
         bucket = settings.MINIO_BUCKET
-        object_key = build_object_key(request.user.id, data["kind"], data["filename"])
+
+        filename = data["filename"]
+        content_type = data["content_type"]
+        size = int(data.get("size") or 0)
+        kind = data["kind"]
+
+        object_key = build_object_key(request.user.id, kind, filename)
 
         client = s3_internal_client()
 
         resp = client.create_multipart_upload(
             Bucket=bucket,
             Key=object_key,
-            ContentType=data["content_type"],
+            ContentType=content_type,
             Metadata={
                 "owner_id": str(request.user.id),
-                "kind": data["kind"],
-                "filename": data["filename"][:180],
+                "kind": kind,
+                "filename": filename[:180],
             },
         )
 
+        upload_id = resp["UploadId"]
+
+        MediaUploadLog.objects.create(
+            user=request.user,
+            object_key=object_key,
+            upload_id=upload_id,
+            filename=filename,
+            size=size,
+            content_type=content_type,
+            status="started",
+        )
+
         return Response({
-            "upload_id": resp["UploadId"],
+            "upload_id": upload_id,
             "bucket": bucket,
             "object_key": object_key,
             "part_size": 25 * 1024 * 1024,
@@ -825,7 +848,21 @@ class MediaMultipartCompleteView(APIView):
                 "Parts": normalized_parts
             },
         )
+        log = MediaUploadLog.objects.filter(
+            upload_id=upload_id,
+            object_key=object_key,
+            user=request.user,
+        ).first()
 
+        if log:
+            log.status = "completed"
+            log.completed_at = timezone.now()
+            log.duration_seconds = int((log.completed_at - log.started_at).total_seconds())
+            log.save(update_fields=[
+                "status",
+                "completed_at",
+                "duration_seconds",
+            ])
         head = client.head_object(Bucket=bucket, Key=object_key)
         remote_size = int(head.get("ContentLength") or 0)
         remote_type = head.get("ContentType") or content_type
@@ -903,6 +940,64 @@ class MediaMultipartAbortView(APIView):
             pass
 
         return Response({"ok": True})
+
+
+class MediaMultipartListPartsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        bucket = settings.MINIO_BUCKET
+        object_key = request.data.get("object_key")
+        upload_id = request.data.get("upload_id")
+
+        if not object_key or not upload_id:
+            return Response({
+                "detail": "object_key et upload_id sont requis."
+            }, status=400)
+
+        log = MediaUploadLog.objects.filter(
+            user=request.user,
+            object_key=object_key,
+            upload_id=upload_id,
+            status="started",
+        ).first()
+
+        if not log:
+            return Response({
+                "detail": "Upload introuvable ou non autorisé."
+            }, status=404)
+
+        client = s3_internal_client()
+
+        parts = []
+        part_number_marker = 0
+
+        while True:
+            resp = client.list_parts(
+                Bucket=bucket,
+                Key=object_key,
+                UploadId=upload_id,
+                PartNumberMarker=part_number_marker,
+            )
+
+            for p in resp.get("Parts", []):
+                parts.append({
+                    "PartNumber": int(p["PartNumber"]),
+                    "ETag": p["ETag"].replace('"', ""),
+                    "Size": int(p.get("Size") or 0),
+                })
+
+            if not resp.get("IsTruncated"):
+                break
+
+            part_number_marker = int(resp.get("NextPartNumberMarker") or 0)
+
+        return Response({
+            "upload_id": upload_id,
+            "object_key": object_key,
+            "parts": parts,
+        })
+
 
 class InstructorMediaDetailView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
@@ -990,6 +1085,7 @@ class InstructorMediaDeleteView(APIView):
     def post(self, request, asset_id):
         return self.delete(request, asset_id)
 
+
 class MediaSignedGetView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1028,6 +1124,7 @@ class MediaSignedGetView(APIView):
             "kind": asset.kind,
         })
 
+
 class MediaThumbnailSignedGetView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1051,7 +1148,6 @@ class MediaThumbnailSignedGetView(APIView):
         return Response({"url": url})
 
 
-
 class InstructorMediaListView(APIView):
     """
     GET /api/instructor/media/?kind=video|audio|doc
@@ -1068,6 +1164,7 @@ class InstructorMediaListView(APIView):
 
         ser = MediaAssetListSerializer(qs[:200], many=True)  # limite simple
         return Response(ser.data)
+
 
 class InstructorQuizListApiView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
@@ -1102,6 +1199,8 @@ class InstructorQuizListApiView(APIView):
             "count": len(results),
             "results": results,
         })
+
+
 class InstructorQuizUpdateView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
 
@@ -1173,6 +1272,8 @@ class InstructorQuizUpdateView(APIView):
             "max_attempts": quiz.max_attempts,
             "is_active": quiz.is_active,
         })
+
+
 class InstructorCourseQuizListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1238,6 +1339,7 @@ class InstructorSectionQuizCreateView(APIView):
             "max_attempts": quiz.max_attempts,
             "questions_count": 0,
         }, status=status.HTTP_201_CREATED)
+
 
 class InstructorQuizQuestionUpdateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1308,6 +1410,8 @@ class InstructorQuizQuestionDeleteView(APIView):
         )
         question.delete()
         return Response({"ok": True})
+
+
 class InstructorSectionQuizAssignView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2045,11 +2149,9 @@ class LearnerExploreCoursesView(LearnerBaseAPIView):
 # /api/learner/courses/<id>/
 # --------------------------------------------
 class LearnerOrganizationCoursesAPIView(APIView):
-
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-
         user = request.user
 
         organization_ids = OrganizationMembership.objects.filter(
@@ -2085,7 +2187,6 @@ class LearnerOrganizationCoursesAPIView(APIView):
         results = []
 
         for course in courses:
-
             results.append({
 
                 "id": course.id,
@@ -2115,6 +2216,8 @@ class LearnerOrganizationCoursesAPIView(APIView):
             "results": results,
 
         })
+
+
 class LearnerCourseDetailView(LearnerBaseAPIView):
     permission_classes = [IsAuthenticated]
 

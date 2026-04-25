@@ -6,6 +6,7 @@ from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 
+from best_epargne.celery import app
 from catalog.models import MediaAsset
 from formations.video_pipeline import (
     ffprobe_metadata,
@@ -118,3 +119,16 @@ def process_media_asset(self, asset_id: str):
             "thumbnail_key": thumbnail_key,
             "optimized_size": optimized_size,
         }
+
+
+@app.task
+def cleanup_stale_multipart_uploads():
+    client = s3_internal_client()
+    resp = client.list_multipart_uploads(Bucket=settings.MINIO_BUCKET)
+
+    for upload in resp.get("Uploads", []):
+        client.abort_multipart_upload(
+            Bucket=settings.MINIO_BUCKET,
+            Key=upload["Key"],
+            UploadId=upload["UploadId"],
+        )

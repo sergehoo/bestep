@@ -15,9 +15,7 @@
 
 {% with active=side_active|default:"dashboard" current_mode=mode|default:"desktop" %}
 
-<nav
-    aria-label="Navigation instructeur"
-    x-data="{
+<nav aria-label="Navigation instructeur" x-data="{
         mode: '{{ current_mode }}',
         collapsed: false,
         init() {

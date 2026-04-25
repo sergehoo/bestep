@@ -195,6 +195,29 @@ class MediaAsset(models.Model):
         return self.object_key
 
 
+class MediaUploadLog(models.Model):
+    STATUS_CHOICES = [
+        ("started", "Started"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    object_key = models.CharField(max_length=500)
+    upload_id = models.TextField(blank=True)
+    filename = models.CharField(max_length=255)
+    size = models.BigIntegerField(default=0)
+    content_type = models.CharField(max_length=120)
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="started")
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    duration_seconds = models.PositiveIntegerField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+
+
 class Lesson(models.Model):
     class LessonType(models.TextChoices):
         VIDEO = "VIDEO", "Vidéo"

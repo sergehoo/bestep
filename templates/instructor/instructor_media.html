@@ -31,6 +31,7 @@ multipartInit: '{% url "api_media_multipart_init" %}',
 multipartPartUrl: '{% url "api_media_multipart_part_url" %}',
 multipartComplete: '{% url "api_media_multipart_complete" %}',
 multipartAbort: '{% url "api_media_multipart_abort" %}',
+multipartListParts: '{% url "api_media_multipart_list_parts" %}',
 
             uploadInit: '{% url "api_media_upload_init" %}',
             uploadFinalize: '{% url "api_media_upload_finalize" %}',
@@ -1611,60 +1612,128 @@ multipartAbort: '{% url "api_media_multipart_abort" %}',
                 },
 
                 async startUpload() {
+    try {
+        this.upload.error = "";
+
+        if (!this.upload.file) {
+            this.upload.error = "Choisissez un fichier.";
+            return;
+        }
+
+        if (this.upload.bindEnabled) {
+            if (!this.upload.course_id || !this.upload.section_id || !this.upload.lesson_id) {
+                this.upload.error = "Sélectionnez le cours, la section et la leçon à lier.";
+                return;
+            }
+        }
+
+        this.loading.upload = true;
+        this.upload.progress = 1;
+
+        await this.multipartUploadFile();
+
+        this.upload.progress = 100;
+        this.drawers.upload = false;
+
+        this.showToast("Succès", "Le média a été importé avec succès.");
+        await this.loadMedia();
+
+    } catch (e) {
+        console.error(e);
+        this.upload.error = e?.message || "Upload échoué.";
+        this.showToast("Erreur", this.upload.error, "error");
+    } finally {
+        this.loading.upload = false;
+    }
+},
+                uploadStorageKey(file) {
+                    return `bestepargne_multipart_${file.name}_${file.size}_${file.lastModified}`;
+                },
+
+                saveUploadResumeState(file, state) {
+                    localStorage.setItem(this.uploadStorageKey(file), JSON.stringify({
+                        ...state,
+                        saved_at: new Date().toISOString()
+                    }));
+                },
+
+                getUploadResumeState(file) {
                     try {
-                        this.upload.error = "";
-
-                        if (!this.upload.file) {
-                            this.upload.error = "Choisissez un fichier.";
-                            return;
-                        }
-
-                        if (this.upload.bindEnabled) {
-                            if (!this.upload.course_id || !this.upload.section_id || !this.upload.lesson_id) {
-                                this.upload.error = "Sélectionnez le cours, la section et la leçon à lier.";
-                                return;
-                            }
-                        }
-
-                        this.loading.upload = true;
-                        this.upload.progress = 1;
-
-                        await this.multipartUploadFile();
-
-                        this.upload.progress = 100;
-                        this.drawers.upload = false;
-
-                        this.showToast("Succès", "Le média a été importé avec succès.");
-                        await this.loadMedia();
-
+                        const raw = localStorage.getItem(this.uploadStorageKey(file));
+                        return raw ? JSON.parse(raw) : null;
                     } catch (e) {
-                        console.error(e);
-                        this.upload.error = e?.message || "Upload échoué.";
-                        this.showToast("Erreur", this.upload.error, "error");
-                    } finally {
-                        this.loading.upload = false;
+                        return null;
                     }
                 },
+
+                clearUploadResumeState(file) {
+                    localStorage.removeItem(this.uploadStorageKey(file));
+                },
+
                 async multipartUploadFile() {
                     const file = this.upload.file;
 
-                    const initResp = await this.apiPost(this.endpoints.multipartInit, {
-                        filename: file.name,
-                        content_type: file.type || "application/octet-stream",
-                        size: file.size,
-                        kind: this.upload.kind,
-                        title: this.upload.title || "",
-                    });
+                    let initResp = this.getUploadResumeState(file);
+
+                    if (!initResp?.upload_id || !initResp?.object_key) {
+                        initResp = await this.apiPost(this.endpoints.multipartInit, {
+                            filename: file.name,
+                            content_type: file.type || "application/octet-stream",
+                            size: file.size,
+                            kind: this.upload.kind,
+                            title: this.upload.title || "",
+                        });
+
+                        this.saveUploadResumeState(file, {
+                            upload_id: initResp.upload_id,
+                            object_key: initResp.object_key,
+                            part_size: initResp.part_size,
+                            uploadedParts: [],
+                        });
+                    }
 
                     this.upload.upload_id = initResp.upload_id;
                     this.upload.object_key = initResp.object_key;
 
                     const partSize = initResp.part_size || (25 * 1024 * 1024);
                     const totalParts = Math.ceil(file.size / partSize);
-                    const uploadedParts = [];
+
+                    let remoteParts = [];
 
                     try {
-                        for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+                        const listResp = await this.apiPost(this.endpoints.multipartListParts, {
+                            upload_id: initResp.upload_id,
+                            object_key: initResp.object_key,
+                        });
+
+                        remoteParts = listResp.parts || [];
+                    } catch (e) {
+                        remoteParts = initResp.uploadedParts || [];
+                    }
+
+                    const uploadedMap = new Map();
+                    remoteParts.forEach(p => {
+                        uploadedMap.set(Number(p.PartNumber), {
+                            PartNumber: Number(p.PartNumber),
+                            ETag: String(p.ETag).replaceAll('"', ""),
+                        });
+                    });
+
+                    const queue = [];
+
+                    for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+                        if (!uploadedMap.has(partNumber)) {
+                            queue.push(partNumber);
+                        }
+                    }
+
+                    const uploadedParts = Array.from(uploadedMap.values());
+                    const concurrency = 4;
+
+                    const workers = Array(concurrency).fill(null).map(async () => {
+                        while (queue.length > 0) {
+                            const partNumber = queue.shift();
+
                             const start = (partNumber - 1) * partSize;
                             const end = Math.min(start + partSize, file.size);
                             const blob = file.slice(start, end);
@@ -1682,82 +1751,95 @@ multipartAbort: '{% url "api_media_multipart_abort" %}',
                                 totalParts
                             );
 
-                            uploadedParts.push({
+                            uploadedMap.set(partNumber, {
                                 PartNumber: partNumber,
                                 ETag: etag,
                             });
+
+                            const currentParts = Array.from(uploadedMap.values())
+                                .sort((a, b) => a.PartNumber - b.PartNumber);
+
+                            this.saveUploadResumeState(file, {
+                                upload_id: initResp.upload_id,
+                                object_key: initResp.object_key,
+                                part_size: partSize,
+                                uploadedParts: currentParts,
+                            });
                         }
+                    });
 
-                        await this.apiPost(this.endpoints.multipartComplete, {
-                            upload_id: initResp.upload_id,
-                            object_key: initResp.object_key,
-                            kind: this.upload.kind,
-                            title: this.upload.title || "",
-                            content_type: file.type || "application/octet-stream",
-                            size: file.size,
-                            duration_seconds: null,
-                            parts: uploadedParts,
-                            bind: this.upload.bindEnabled ? {
-                                course_id: Number(this.upload.course_id),
-                                section_id: Number(this.upload.section_id),
-                                lesson_id: Number(this.upload.lesson_id),
-                            } : null,
-                        });
+                    await Promise.all(workers);
 
-                    } catch (e) {
-                        await this.apiPost(this.endpoints.multipartAbort, {
-                            upload_id: initResp.upload_id,
-                            object_key: initResp.object_key,
-                        });
+                    const finalParts = Array.from(uploadedMap.values())
+                        .sort((a, b) => a.PartNumber - b.PartNumber);
 
-                        throw e;
-                    }
+                    await this.apiPost(this.endpoints.multipartComplete, {
+                        upload_id: initResp.upload_id,
+                        object_key: initResp.object_key,
+                        kind: this.upload.kind,
+                        title: this.upload.title || "",
+                        content_type: file.type || "application/octet-stream",
+                        size: file.size,
+                        duration_seconds: null,
+                        parts: finalParts,
+                        bind: this.upload.bindEnabled ? {
+                            course_id: Number(this.upload.course_id),
+                            section_id: Number(this.upload.section_id),
+                            lesson_id: Number(this.upload.lesson_id),
+                        } : null,
+                    });
+
+                    this.clearUploadResumeState(file);
                 },
 
                 async uploadPart(url, blob, partNumber, totalParts) {
-                    return await new Promise((resolve, reject) => {
-                        const xhr = new XMLHttpRequest();
+    return await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
 
-                        xhr.open("PUT", url, true);
-                        xhr.timeout = 0;
+        xhr.open("PUT", url, true);
+        xhr.timeout = 0;
 
-                        xhr.upload.onprogress = (e) => {
-                            if (e.lengthComputable) {
-                                const partProgress = e.loaded / e.total;
-                                const globalProgress = ((partNumber - 1 + partProgress) / totalParts) * 100;
-                                this.upload.progress = Math.max(1, Math.min(99, Math.round(globalProgress)));
-                            }
-                        };
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const partProgress = e.loaded / e.total;
+                const globalProgress = ((partNumber - 1 + partProgress) / totalParts) * 100;
+                this.upload.progress = Math.max(
+                    1,
+                    Math.min(99, Math.round(globalProgress))
+                );
+            }
+        };
 
-                        xhr.onload = () => {
-                            if (xhr.status >= 200 && xhr.status < 300) {
-                                let etag = xhr.getResponseHeader("ETag");
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                const rawEtag = xhr.getResponseHeader("ETag");
 
-                                if (!etag) {
-                                    return reject(new Error(
-                                        "ETag absent dans la réponse MinIO. Vérifiez ExposeHeaders CORS."
-                                    ));
-                                }
+                if (!rawEtag) {
+                    reject(new Error(
+                        "ETag absent. Vérifie ExposeHeaders CORS côté MinIO."
+                    ));
+                    return;
+                }
 
-                                resolve(etag.replaceAll('"', ""));
-                            } else {
-                                reject(new Error(
-                                    `Part ${partNumber}/${totalParts} échouée HTTP ${xhr.status}: ${xhr.responseText || "Réponse vide"}`
-                                ));
-                            }
-                        };
+                resolve(rawEtag.replaceAll('"', ""));
+            } else {
+                reject(new Error(
+                    `Part ${partNumber}/${totalParts} échouée HTTP ${xhr.status}`
+                ));
+            }
+        };
 
-                        xhr.onerror = () => reject(new Error(
-                            `Erreur réseau/CORS/proxy sur le morceau ${partNumber}/${totalParts}.`
-                        ));
+        xhr.onerror = () => reject(new Error(
+            `Erreur réseau/CORS/proxy sur la partie ${partNumber}/${totalParts}.`
+        ));
 
-                        xhr.onabort = () => reject(new Error(
-                            `Upload annulé sur le morceau ${partNumber}/${totalParts}.`
-                        ));
+        xhr.onabort = () => reject(new Error(
+            `Upload annulé sur la partie ${partNumber}/${totalParts}.`
+        ));
 
-                        xhr.send(blob);
-                    });
-                },
+        xhr.send(blob);
+    });
+},
 
                 async putFile(uploadUrl, file, headers) {
                     await new Promise((resolve, reject) => {

@@ -17,7 +17,7 @@ from best_epargne.apis.views import CategoryViewSet, CourseViewSet, InstructorCo
     InstructorQuizUpdateView, MediaThumbnailSignedGetView, InstructorMediaDetailView, InstructorMediaUpdateView, \
     InstructorMediaDeleteView, InstructorQuizListApiView, InstructorQuizQuestionUpdateView, \
     InstructorQuizQuestionDeleteView, LearnerOrganizationCoursesAPIView, MediaMultipartInitView, \
-    MediaMultipartPartUrlView, MediaMultipartCompleteView, MediaMultipartAbortView
+    MediaMultipartPartUrlView, MediaMultipartCompleteView, MediaMultipartAbortView, MediaMultipartListPartsView
 # from catalog.api.views import CourseViewSet, CategoryViewSet
 from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
 
@@ -186,7 +186,7 @@ path("media/upload/multipart/init/", MediaMultipartInitView.as_view(), name="api
 path("media/upload/multipart/part-url/", MediaMultipartPartUrlView.as_view(), name="api_media_multipart_part_url"),
 path("media/upload/multipart/complete/", MediaMultipartCompleteView.as_view(), name="api_media_multipart_complete"),
 path("media/upload/multipart/abort/", MediaMultipartAbortView.as_view(), name="api_media_multipart_abort"),
-
+path( "media/upload/multipart/list-parts/", MediaMultipartListPartsView.as_view(), name="api_media_multipart_list_parts",),
     path("instructor/media/<uuid:asset_id>/", InstructorMediaDetailView.as_view(),
          name="api_instructor_media_detail"),
     path("instructor/media/<uuid:asset_id>/update/", InstructorMediaUpdateView.as_view(),
