@@ -18,7 +18,42 @@ class MediaAssetSerializer(serializers.ModelSerializer):
     can_delete = serializers.SerializerMethodField()
     scope = serializers.SerializerMethodField()
     owner_name = serializers.SerializerMethodField()
-    organization_name = serializers.SerializerMethodField()
+
+    def get_can_edit(self, obj):
+        user = self.context["request"].user
+
+        if obj.owner_id == user.id:
+            return True
+
+        organization_id = getattr(obj, "organization_id", None)
+        if not organization_id:
+            return False
+
+        return user.organization_memberships.filter(
+            organization_id=organization_id,
+            role__in=["OWNER", "ADMIN"],
+            is_active=True,
+        ).exists()
+
+    def get_can_delete(self, obj):
+        return self.get_can_edit(obj)
+
+    def get_scope(self, obj):
+        user = self.context["request"].user
+        return "personal" if obj.owner_id == user.id else "organization"
+
+    def get_owner_name(self, obj):
+        owner = getattr(obj, "owner", None)
+        if not owner:
+            return "—"
+
+        return (
+            getattr(owner, "full_name", None)
+            or f"{getattr(owner, 'first_name', '')} {getattr(owner, 'last_name', '')}".strip()
+            or getattr(owner, "email", None)
+            or getattr(owner, "username", None)
+            or "Utilisateur"
+        )
 
     class Meta:
         model = MediaAsset
@@ -30,68 +65,13 @@ class MediaAssetSerializer(serializers.ModelSerializer):
             "content_type",
             "size",
             "duration_seconds",
-            "width",
-            "height",
-            "bitrate",
-            "processing_status",
-            "processing_error",
-            "optimized_object_key",
-            "thumbnail_object_key",
             "created_at",
+            "processing_status",
             "can_edit",
             "can_delete",
             "scope",
             "owner_name",
-            "organization_name",
         ]
-
-    def get_can_edit(self, obj):
-        request = self.context.get("request")
-        user = request.user if request else None
-
-        if not user or not user.is_authenticated:
-            return False
-
-        if obj.owner_id == user.id:
-            return True
-
-        if not obj.organization_id:
-            return False
-
-        return user.organization_memberships.filter(
-            organization_id=obj.organization_id,
-            role__in=["OWNER", "ADMIN"],
-            is_active=True,
-        ).exists()
-
-    def get_can_delete(self, obj):
-        return self.get_can_edit(obj)
-
-    def get_scope(self, obj):
-        request = self.context.get("request")
-        user = request.user if request else None
-
-        if user and obj.owner_id == user.id:
-            return "personal"
-
-        return "organization"
-
-    def get_owner_name(self, obj):
-        owner = getattr(obj, "owner", None)
-        if not owner:
-            return "—"
-
-        full_name = (
-                getattr(owner, "full_name", None)
-                or f"{getattr(owner, 'first_name', '')} {getattr(owner, 'last_name', '')}".strip()
-                or getattr(owner, "email", None)
-                or getattr(owner, "username", None)
-        )
-
-        return full_name or "Utilisateur"
-
-    def get_organization_name(self, obj):
-        return obj.organization.name if obj.organization_id else None
 
 class LessonSerializer(serializers.ModelSerializer):
     media_asset = MediaAssetSerializer(read_only=True)
