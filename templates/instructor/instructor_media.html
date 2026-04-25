@@ -166,7 +166,27 @@
                                 Tableau
                             </button>
                         </div>
-                        <div class="flex items-center justify-between gap-3 rounded-[24px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-4">
+
+                    </div>
+
+                    <div class="xl:col-span-2 flex items-end gap-2">
+                        <button
+                                @click="loadMedia()"
+                                class="flex-1 px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
+                        >
+                            Actualiser
+                        </button>
+                        <button
+                                @click="openUploadDrawer()"
+                                class="flex-1 px-4 py-3 rounded-2xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition"
+                        >
+                            Importer
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+              <div class="flex items-center justify-between gap-3 rounded-[24px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-4">
                             <div class="text-sm text-be-ink-500 dark:text-white/60">
                                 Page <span x-text="pagination.page"></span>
                                 sur <span x-text="pagination.totalPages"></span>
@@ -192,24 +212,6 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="xl:col-span-2 flex items-end gap-2">
-                        <button
-                                @click="loadMedia()"
-                                class="flex-1 px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition"
-                        >
-                            Actualiser
-                        </button>
-                        <button
-                                @click="openUploadDrawer()"
-                                class="flex-1 px-4 py-3 rounded-2xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition"
-                        >
-                            Importer
-                        </button>
-                    </div>
-                </div>
-            </div>
         </section>
         <!-- GRID VIEW -->
         <section x-show="view === 'grid'" class="space-y-4">
@@ -1410,9 +1412,9 @@
                 },
 
                 applyFilters() {
-    this.pagination.page = 1;
-    this.loadMedia(1);
-},
+                    this.pagination.page = 1;
+                    this.loadMedia(1);
+                },
 
                 async loadCourses() {
                     try {
@@ -1799,18 +1801,15 @@
                             const end = Math.min(start + partSize, file.size);
                             const blob = file.slice(start, end);
 
-                            const partUrlResp = await this.apiPost(this.endpoints.multipartPartUrl, {
-                                object_key: initResp.object_key,
-                                upload_id: initResp.upload_id,
-                                part_number: partNumber,
-                            });
 
-                            const etag = await this.uploadPart(
-                                partUrlResp.url,
+                            const etag = await this.uploadPartWithFreshUrlRetry(
+                                initResp.object_key,
+                                initResp.upload_id,
                                 blob,
                                 partNumber,
                                 totalParts,
-                                partProgressMap
+                                partProgressMap,
+                                3
                             );
 
                             uploadedMap.set(partNumber, {
@@ -1853,7 +1852,34 @@
 
                     this.clearUploadResumeState(file);
                 },
+                async uploadPartWithFreshUrlRetry(objectKey, uploadId, blob, partNumber, totalParts, partProgressMap, maxRetries = 3) {
+                    let lastError = null;
 
+                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                        try {
+                            const partUrlResp = await this.apiPost(this.endpoints.multipartPartUrl, {
+                                object_key: objectKey,
+                                upload_id: uploadId,
+                                part_number: partNumber,
+                            });
+
+                            return await this.uploadPart(
+                                partUrlResp.url,
+                                blob,
+                                partNumber,
+                                totalParts,
+                                partProgressMap
+                            );
+                        } catch (e) {
+                            lastError = e;
+                            console.warn(`Retry part ${partNumber}/${totalParts}, tentative ${attempt}/${maxRetries}`, e);
+                            partProgressMap.delete(partNumber);
+                            await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+                        }
+                    }
+
+                    throw lastError || new Error(`Part ${partNumber}/${totalParts} échouée après ${maxRetries} tentatives.`);
+                },
                 async uploadPart(url, blob, partNumber, totalParts, partProgressMap) {
                     return await new Promise((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
