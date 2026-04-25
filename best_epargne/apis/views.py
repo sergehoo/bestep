@@ -1149,29 +1149,42 @@ class MediaThumbnailSignedGetView(APIView):
         return Response({"url": url})
 
 
-class InstructorMediaListView(InstructorBaseMixin, APIView):
+class InstructorMediaListView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
+
+    def get_user_organization_ids(self):
+        user = self.request.user
+
+        return list(
+            user.organization_memberships.filter(
+                is_active=True,
+                organization__is_active=True,
+            ).values_list("organization_id", flat=True)
+        )
 
     def get_queryset(self):
         user = self.request.user
         org_ids = self.get_user_organization_ids()
 
-        qs = MediaAsset.objects.select_related(
-            "owner",
-            "organization",
-        )
+        qs = MediaAsset.objects.select_related("owner")
+
+        # seulement si MediaAsset a bien un champ organization
+        if hasattr(MediaAsset, "organization"):
+            qs = qs.select_related("organization")
 
         if getattr(user, "is_platform_admin", False):
             return qs
 
-        return qs.filter(
-            Q(owner=user) |
-            Q(organization_id__in=org_ids)
-        ).distinct()
+        query = Q(owner=user)
+
+        if hasattr(MediaAsset, "organization") and org_ids:
+            query |= Q(organization_id__in=org_ids)
+
+        return qs.filter(query).distinct()
 
     def get(self, request):
         page = max(int(request.query_params.get("page", 1) or 1), 1)
-        page_size = int(request.query_params.get("page_size", 24) or 24)
+        page_size = int(request.query_params.get("page_size", 10) or 10)
         page_size = min(max(page_size, 8), 100)
 
         qs = self.get_queryset()
@@ -1182,14 +1195,19 @@ class InstructorMediaListView(InstructorBaseMixin, APIView):
 
         q = (request.query_params.get("q") or "").strip()
         if q:
-            qs = qs.filter(
+            filters = (
                 Q(title__icontains=q) |
                 Q(object_key__icontains=q) |
-                Q(content_type__icontains=q) |
-                Q(processing_status__icontains=q) |
-                Q(owner__email__icontains=q) |
-                Q(organization__name__icontains=q)
+                Q(content_type__icontains=q)
             )
+
+            if hasattr(MediaAsset, "processing_status"):
+                filters |= Q(processing_status__icontains=q)
+
+            if hasattr(MediaAsset, "organization"):
+                filters |= Q(organization__name__icontains=q)
+
+            qs = qs.filter(filters)
 
         sort = request.query_params.get("sort") or "recent"
 
@@ -1205,14 +1223,13 @@ class InstructorMediaListView(InstructorBaseMixin, APIView):
             qs = qs.order_by("-created_at")
 
         total = qs.count()
-
         total_pages = max(1, (total + page_size - 1) // page_size)
         page = min(page, total_pages)
 
         start = (page - 1) * page_size
         end = start + page_size
 
-        serializer = MediaAssetSerializer(
+        ser = MediaAssetSerializer(
             qs[start:end],
             many=True,
             context={"request": request},
@@ -1223,9 +1240,8 @@ class InstructorMediaListView(InstructorBaseMixin, APIView):
             "page": page,
             "page_size": page_size,
             "total_pages": total_pages,
-            "results": serializer.data,
+            "results": ser.data,
         })
-
 
 class InstructorQuizListApiView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
