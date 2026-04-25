@@ -619,14 +619,23 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                     </div>
 
                     <div x-show="upload.progress > 0"
-                         class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
-                        <div class="text-xs text-be-ink-500 dark:text-white/60">Progression</div>
-                        <div class="mt-2 h-2 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
-                            <div class="h-full rounded-full bg-be-sky-600" :style="`width:${upload.progress}%`"></div>
-                        </div>
-                        <div class="text-[11px] text-be-ink-500 dark:text-white/60 mt-2"
-                             x-text="upload.progress + '%'"></div>
-                    </div>
+     class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+
+    <div class="flex items-center justify-between text-xs text-be-ink-500 dark:text-white/60">
+        <span>Progression</span>
+        <span x-text="upload.progress + '%'"></span>
+    </div>
+
+    <div class="mt-2 h-2 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+        <div class="h-full rounded-full bg-be-sky-600"
+             :style="`width:${upload.progress}%`"></div>
+    </div>
+
+    <div class="mt-2 flex items-center justify-between text-[11px] text-be-ink-500 dark:text-white/60">
+        <span x-text="upload.speedText || 'Débit : —'"></span>
+        <span x-text="upload.etaText || 'Temps restant : —'"></span>
+    </div>
+</div>
 
                     <template x-if="upload.error">
                         <div class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3"
@@ -1078,6 +1087,10 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                     course_id: "",
                     section_id: "",
                     lesson_id: "",
+                    startedAt: null,
+                    etaText: "",
+                    uploadedBytes: 0,
+                    speedText: "",
                 },
 
                 init() {
@@ -1107,7 +1120,35 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                     if (kind === "audio") return "bg-be-sun-50 border-be-sun-200 text-be-sun-800";
                     return "bg-be-ink-50 border-be-ink-200 text-be-ink-700";
                 },
+                updateUploadEta(uploadedBytes, totalBytes) {
+                    this.upload.uploadedBytes = uploadedBytes;
 
+                    const elapsedSeconds = Math.max(1, (Date.now() - this.upload.startedAt) / 1000);
+                    const speed = uploadedBytes / elapsedSeconds;
+
+                    if (!speed || speed <= 0) {
+                        this.upload.etaText = "Temps restant : calcul…";
+                        this.upload.speedText = "Débit : —";
+                        return;
+                    }
+
+                    const remainingBytes = Math.max(0, totalBytes - uploadedBytes);
+                    const etaSeconds = Math.ceil(remainingBytes / speed);
+
+                    this.upload.speedText = `Débit : ${this.humanBytes(speed)}/s`;
+                    this.upload.etaText = `Temps restant : ${this.formatEta(etaSeconds)}`;
+                },
+
+                formatEta(seconds) {
+                    const s = Math.max(0, Number(seconds || 0));
+                    const h = Math.floor(s / 3600);
+                    const m = Math.floor((s % 3600) / 60);
+                    const sec = s % 60;
+
+                    if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+                    if (m > 0) return `${m}m ${String(sec).padStart(2, "0")}s`;
+                    return `${sec}s`;
+                },
                 processingLabel(status) {
                     const map = {
                         pending: "En attente",
@@ -1620,6 +1661,11 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                         this.loading.upload = true;
                         this.upload.progress = 1;
 
+                        this.upload.startedAt = Date.now();
+                        this.upload.etaText = "Calcul en cours…";
+                        this.upload.uploadedBytes = 0;
+                        this.upload.speedText = "";
+
                         await this.multipartUploadFile();
 
                         this.upload.progress = 100;
@@ -1803,9 +1849,20 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                                     totalProgress += value;
                                 }
 
-                                this.upload.progress = Math.max(
+                                const progressPercent = Math.max(
                                     1,
                                     Math.min(99, Math.round((totalProgress / totalParts) * 100))
+                                );
+
+                                this.upload.progress = progressPercent;
+
+                                const estimatedUploadedBytes = Math.round(
+                                    (progressPercent / 100) * this.upload.file.size
+                                );
+
+                                this.updateUploadEta(
+                                    estimatedUploadedBytes,
+                                    this.upload.file.size
                                 );
                             }
                         };
