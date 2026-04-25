@@ -181,6 +181,11 @@ path(
     path("media/<uuid:asset_id>/thumbnail/", MediaThumbnailSignedGetView.as_view(),
          name="api_media_thumbnail_signed_get"),
 
+path("media/upload/multipart/init/", MediaMultipartInitView.as_view(), name="api_media_multipart_init"),
+path("media/upload/multipart/part-url/", MediaMultipartPartUrlView.as_view(), name="api_media_multipart_part_url"),
+path("media/upload/multipart/complete/", MediaMultipartCompleteView.as_view(), name="api_media_multipart_complete"),
+path("media/upload/multipart/abort/", MediaMultipartAbortView.as_view(), name="api_media_multipart_abort"),
+
     path("instructor/media/<uuid:asset_id>/", InstructorMediaDetailView.as_view(),
          name="api_instructor_media_detail"),
     path("instructor/media/<uuid:asset_id>/update/", InstructorMediaUpdateView.as_view(),

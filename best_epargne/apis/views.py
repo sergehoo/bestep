@@ -569,7 +569,10 @@ def s3_internal_client():
         aws_access_key_id=settings.MINIO_ROOT_USER,
         aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
         region_name=settings.MINIO_REGION,
-        config=Config(signature_version="s3v4"),
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+        ),
         verify=False,
     )
 
@@ -581,7 +584,10 @@ def s3_public_client():
         aws_access_key_id=settings.MINIO_ROOT_USER,
         aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
         region_name=settings.MINIO_REGION,
-        config=Config(signature_version="s3v4"),
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+        ),
         verify=True,
     )
 
@@ -593,41 +599,6 @@ def build_object_key(user_id: int, kind: str, filename: str) -> str:
     return f"{prefix}/{user_id}/{kind}/{uuid.uuid4().hex}{ext}"
 
 
-# class MediaUploadInitView(APIView):
-#     permission_classes = [IsAuthenticated, IsInstructor]
-#
-#     def post(self, request):
-#         ser = MediaUploadInitSerializer(data=request.data)
-#         ser.is_valid(raise_exception=True)
-#         data = ser.validated_data
-#
-#         bucket = getattr(settings, "MINIO_BUCKET", None)
-#         if not bucket:
-#             return Response({"detail": "MINIO_BUCKET is not configured"}, status=500)
-#
-#         object_key = build_object_key(request.user.id, data["kind"], data["filename"])
-#         client = s3_public_client()
-#
-#         upload_url = client.generate_presigned_url(
-#             ClientMethod="put_object",
-#             Params={
-#                 "Bucket": bucket,
-#                 "Key": object_key,
-#                 "ContentType": data["content_type"],
-#             },
-#             ExpiresIn=60 * 15,
-#         )
-#
-#         return Response({
-#             "upload_id": uuid.uuid4().hex,
-#             "bucket": bucket,
-#             "object_key": object_key,
-#             "upload_url": upload_url,
-#             "method": "PUT",
-#             "headers": {
-#                 "Content-Type": data["content_type"],
-#             },
-#         })
 class MediaUploadInitView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -650,7 +621,7 @@ class MediaUploadInitView(APIView):
                 "Key": object_key,
                 "ContentType": data["content_type"],
             },
-            ExpiresIn=60 * 60,
+            ExpiresIn=60 * 60 * 6,
         )
 
         return Response({
@@ -750,7 +721,188 @@ class MediaUploadFinalizeView(APIView):
             "created_at": asset.created_at,
         }, status=201)
 
+class MediaMultipartInitView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request):
+        ser = MediaUploadInitSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        data = ser.validated_data
+
+        bucket = settings.MINIO_BUCKET
+        object_key = build_object_key(request.user.id, data["kind"], data["filename"])
+
+        client = s3_internal_client()
+
+        resp = client.create_multipart_upload(
+            Bucket=bucket,
+            Key=object_key,
+            ContentType=data["content_type"],
+            Metadata={
+                "owner_id": str(request.user.id),
+                "kind": data["kind"],
+                "filename": data["filename"][:180],
+            },
+        )
+
+        return Response({
+            "upload_id": resp["UploadId"],
+            "bucket": bucket,
+            "object_key": object_key,
+            "part_size": 25 * 1024 * 1024,
+            "expires_in": 60 * 60 * 6,
+        })
+
+
+class MediaMultipartPartUrlView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        bucket = settings.MINIO_BUCKET
+        object_key = request.data.get("object_key")
+        upload_id = request.data.get("upload_id")
+        part_number = int(request.data.get("part_number") or 0)
+
+        if not object_key or not upload_id or part_number < 1:
+            return Response({"detail": "object_key, upload_id et part_number sont requis."}, status=400)
+
+        client = s3_public_client()
+
+        url = client.generate_presigned_url(
+            ClientMethod="upload_part",
+            Params={
+                "Bucket": bucket,
+                "Key": object_key,
+                "UploadId": upload_id,
+                "PartNumber": part_number,
+            },
+            ExpiresIn=60 * 60 * 6,
+        )
+
+        return Response({
+            "url": url,
+            "part_number": part_number,
+        })
+
+
+class MediaMultipartCompleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        bucket = settings.MINIO_BUCKET
+
+        object_key = request.data.get("object_key")
+        upload_id = request.data.get("upload_id")
+        parts = request.data.get("parts") or []
+
+        kind = request.data.get("kind")
+        title = request.data.get("title") or ""
+        content_type = request.data.get("content_type") or "application/octet-stream"
+        size = int(request.data.get("size") or 0)
+        duration_seconds = request.data.get("duration_seconds")
+        bind = request.data.get("bind")
+
+        if not object_key or not upload_id or not parts:
+            return Response({"detail": "object_key, upload_id et parts sont requis."}, status=400)
+
+        normalized_parts = []
+        for p in parts:
+            normalized_parts.append({
+                "PartNumber": int(p["PartNumber"]),
+                "ETag": p["ETag"],
+            })
+
+        normalized_parts.sort(key=lambda x: x["PartNumber"])
+
+        client = s3_internal_client()
+
+        client.complete_multipart_upload(
+            Bucket=bucket,
+            Key=object_key,
+            UploadId=upload_id,
+            MultipartUpload={
+                "Parts": normalized_parts
+            },
+        )
+
+        head = client.head_object(Bucket=bucket, Key=object_key)
+        remote_size = int(head.get("ContentLength") or 0)
+        remote_type = head.get("ContentType") or content_type
+
+        if remote_size <= 0:
+            raise ValidationError({"size": "Remote size invalid."})
+
+        if size and abs(remote_size - size) > 1024 * 1024 * 5:
+            raise ValidationError({
+                "size": f"Size mismatch. local={size} remote={remote_size}"
+            })
+
+        asset, created = MediaAsset.objects.get_or_create(
+            object_key=object_key,
+            defaults=dict(
+                owner=request.user,
+                kind=kind,
+                title=title,
+                content_type=remote_type,
+                size=remote_size,
+                duration_seconds=duration_seconds,
+                processing_status=(
+                    MediaAsset.ProcessingStatus.PENDING
+                    if kind == MediaAsset.Kind.VIDEO
+                    else MediaAsset.ProcessingStatus.READY
+                ),
+            )
+        )
+
+        if not created and asset.owner_id != request.user.id:
+            return Response({"detail": "Forbidden"}, status=403)
+
+        if bind:
+            course = get_object_or_404(Course, id=bind["course_id"])
+            if course.instructor_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
+                return Response({"detail": "Forbidden: course not owned"}, status=403)
+
+            section = get_object_or_404(CourseSection, id=bind["section_id"], course=course)
+            lesson = get_object_or_404(Lesson, id=bind["lesson_id"], section=section)
+
+            lesson.media_asset = asset
+            if asset.kind == MediaAsset.Kind.VIDEO:
+                lesson.lesson_type = Lesson.LessonType.VIDEO
+            else:
+                lesson.lesson_type = Lesson.LessonType.FILE
+
+            lesson.save(update_fields=["media_asset", "lesson_type"])
+
+        if asset.kind == MediaAsset.Kind.VIDEO:
+            process_media_asset.delay(str(asset.id))
+
+        return Response(MediaAssetDetailSerializer(asset).data, status=201)
+
+
+class MediaMultipartAbortView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        bucket = settings.MINIO_BUCKET
+        object_key = request.data.get("object_key")
+        upload_id = request.data.get("upload_id")
+
+        if not object_key or not upload_id:
+            return Response({"detail": "object_key et upload_id requis."}, status=400)
+
+        client = s3_internal_client()
+
+        try:
+            client.abort_multipart_upload(
+                Bucket=bucket,
+                Key=object_key,
+                UploadId=upload_id,
+            )
+        except Exception:
+            pass
+
+        return Response({"ok": True})
 
 class InstructorMediaDetailView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
