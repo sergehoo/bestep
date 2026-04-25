@@ -91,7 +91,39 @@
     {# =========================== NAVIGATION =========================== #}
     <div class="py-4 space-y-5 flex-1 overflow-y-auto no-scrollbar
                 max-h-[calc(100vh-240px)] pr-1">
+{% if can_access_org_admin %}
+<div>
+    <div x-show="!collapsed" x-transition x-cloak
+         class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]
+                text-be-ink-400 dark:text-white/40">
+        Organisation
+    </div>
 
+    <div class="space-y-1.5">
+        {% if can_access_org_admin and org_admin_organization %}
+<a href="{% url 'organization_dashboard' org_admin_organization.id %}"
+   @click="closeMobile()"
+   :title="collapsed ? 'Admin organisation' : ''"
+   class="group flex items-center gap-3 px-3 py-3 rounded-2xl transition-all duration-200
+          text-be-ink-700 dark:text-white/80
+          hover:bg-be-ink-50 dark:hover:bg-white/10">
+
+    <span class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
+                 bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70">
+        🏢
+    </span>
+
+    <div class="min-w-0 flex-1" x-show="!collapsed" x-transition x-cloak>
+        <div class="text-sm font-semibold truncate">Admin organisation</div>
+        <div class="text-[11px] text-be-ink-500 dark:text-white/50 truncate">
+            {{ org_admin_organization.name }}
+        </div>
+    </div>
+</a>
+{% endif %}
+    </div>
+</div>
+{% endif %}
         {# ---- Principal ---- #}
         <div>
             <div x-show="!collapsed" x-transition x-cloak

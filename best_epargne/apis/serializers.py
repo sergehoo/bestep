@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.urls import reverse
 from django.utils.timesince import timesince
 from django.utils.text import slugify
@@ -13,10 +14,80 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class MediaAssetSerializer(serializers.ModelSerializer):
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+    scope = serializers.SerializerMethodField()
+    owner_name = serializers.SerializerMethodField()
+    organization_name = serializers.SerializerMethodField()
+
     class Meta:
         model = MediaAsset
-        fields = ["id", "kind", "title", "object_key", "content_type", "size", "duration_seconds", "created_at"]
+        fields = [
+            "id",
+            "kind",
+            "title",
+            "object_key",
+            "content_type",
+            "size",
+            "duration_seconds",
+            "width",
+            "height",
+            "bitrate",
+            "processing_status",
+            "processing_error",
+            "optimized_object_key",
+            "thumbnail_object_key",
+            "created_at",
+            "can_edit",
+            "can_delete",
+            "scope",
+            "owner_name",
+            "organization_name",
+        ]
 
+    def get_can_edit(self, obj):
+        request = self.context.get("request")
+        user = request.user if request else None
+
+        if not user or not user.is_authenticated:
+            return False
+
+        if obj.owner_id == user.id:
+            return True
+
+        if not obj.organization_id:
+            return False
+
+        return user.organization_memberships.filter(
+            organization_id=obj.organization_id,
+            role__in=["OWNER", "ADMIN"],
+            is_active=True,
+        ).exists()
+
+    def get_can_delete(self, obj):
+        return self.get_can_edit(obj)
+
+    def get_scope(self, obj):
+        request = self.context.get("request")
+        user = request.user if request else None
+
+        if user and obj.owner_id == user.id:
+            return "personal"
+
+        return "organization"
+
+    def get_owner_name(self, obj):
+        if not obj.owner:
+            return "—"
+
+        return (
+            getattr(obj.owner, "full_name", None)
+            or obj.owner.get_full_name()
+            or obj.owner.email
+        )
+
+    def get_organization_name(self, obj):
+        return obj.organization.name if obj.organization_id else None
 
 class LessonSerializer(serializers.ModelSerializer):
     media_asset = MediaAssetSerializer(read_only=True)
@@ -72,7 +143,6 @@ class CourseSerializer(serializers.ModelSerializer):
 
     instructor_name = serializers.CharField(source="instructor.full_name", read_only=True)
 
-    # computed for instructor UI (comme tu as fait)
     sections_count = serializers.IntegerField(read_only=True)
     lessons_count = serializers.IntegerField(read_only=True)
     enrolled_count = serializers.IntegerField(read_only=True)
@@ -82,32 +152,97 @@ class CourseSerializer(serializers.ModelSerializer):
 
     updated_at_human = serializers.SerializerMethodField()
 
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+    scope = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Course
+        fields = [
+            "id",
+            "title",
+            "slug",
+            "subtitle",
+            "description",
+            "course_type",
+            "pricing_type",
+            "price",
+            "currency",
+            "status",
+            "published_at",
+            "thumbnail",
+            "thumbnail_url",
+            "preview_video_url",
+            "preview_media_asset",
+            "preview_media_asset_id",
+            "company_only",
+            "company",
+            "category",
+            "instructor",
+            "instructor_name",
+            "sections_count",
+            "lessons_count",
+            "enrolled_count",
+            "rating_avg",
+            "rating_count",
+            "completion_rate",
+            "updated_at_human",
+            "can_edit",
+            "can_delete",
+            "scope",
+        ]
+        read_only_fields = [
+            "status",
+            "published_at",
+            "instructor",
+            "slug",
+        ]
+
     def get_updated_at_human(self, obj):
         dt = getattr(obj, "updated_at", None)
         return f"il y a {timesince(dt)}" if dt else None
 
     def get_thumbnail_url(self, obj):
         req = self.context.get("request")
+
         if obj.thumbnail and hasattr(obj.thumbnail, "url"):
             return req.build_absolute_uri(obj.thumbnail.url) if req else obj.thumbnail.url
+
         return None
 
-    class Meta:
-        model = Course
-        fields = [
-            "id", "title", "slug", "subtitle", "description",
-            "course_type", "pricing_type", "price", "currency",
-            "status", "published_at",
-            "thumbnail", "thumbnail_url",
-            "preview_video_url", "preview_media_asset", "preview_media_asset_id",
-            "company_only", "company",
-            "category", "instructor", "instructor_name",
-            "sections_count", "lessons_count", "enrolled_count",
-            "rating_avg", "rating_count", "completion_rate",
-            "updated_at_human",
-        ]
-        read_only_fields = ["status", "published_at", "instructor", "slug"]
+    def get_can_edit(self, obj):
+        request = self.context.get("request")
+        user = request.user if request else None
 
+        if not user or not user.is_authenticated:
+            return False
+
+        if getattr(user, "is_platform_admin", False):
+            return True
+
+        if obj.instructor_id == user.id:
+            return True
+
+        if not obj.organization_id:
+            return False
+
+        return user.organization_memberships.filter(
+            organization_id=obj.organization_id,
+            role__in=["OWNER", "ADMIN"],
+            is_active=True,
+        ).exists()
+
+    def get_can_delete(self, obj):
+        return self.get_can_edit(obj)
+
+    def get_scope(self, obj):
+        request = self.context.get("request")
+        user = request.user if request else None
+
+        if user and obj.instructor_id == user.id:
+            return "personal"
+
+        return "organization"
 
 class CheckoutItemSerializer(serializers.Serializer):
     course_id = serializers.IntegerField(required=False)

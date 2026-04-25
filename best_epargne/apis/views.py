@@ -23,11 +23,12 @@ from botocore.client import Config
 
 from assessments.models import Quiz, Attempt, Question, Choice, AttemptAnswer
 from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, Payment, MediaUploadLog
+from formations.Rolemixin import InstructorBaseMixin
 from organizations.models import OrganizationMembership
 from .permissions import IsInstructor
 from .serializers import CourseSerializer, CategorySerializer, CourseSectionSerializer, LessonSerializer, \
     MediaUploadInitSerializer, MediaUploadFinalizeSerializer, MediaAssetListSerializer, MediaAssetUpdateSerializer, \
-    MediaAssetDetailSerializer
+    MediaAssetDetailSerializer, MediaAssetSerializer
 from formations.tasks import process_media_asset
 
 
@@ -1148,15 +1149,32 @@ class MediaThumbnailSignedGetView(APIView):
         return Response({"url": url})
 
 
-class InstructorMediaListView(APIView):
+class InstructorMediaListView(InstructorBaseMixin, APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
+
+    def get_queryset(self):
+        user = self.request.user
+        org_ids = self.get_user_organization_ids()
+
+        qs = MediaAsset.objects.select_related(
+            "owner",
+            "organization",
+        )
+
+        if getattr(user, "is_platform_admin", False):
+            return qs
+
+        return qs.filter(
+            Q(owner=user) |
+            Q(organization_id__in=org_ids)
+        ).distinct()
 
     def get(self, request):
         page = max(int(request.query_params.get("page", 1) or 1), 1)
         page_size = int(request.query_params.get("page_size", 24) or 24)
         page_size = min(max(page_size, 8), 100)
 
-        qs = MediaAsset.objects.filter(owner=request.user).order_by("-created_at")
+        qs = self.get_queryset()
 
         kind = request.query_params.get("kind")
         if kind in ("video", "audio", "doc"):
@@ -1168,10 +1186,13 @@ class InstructorMediaListView(APIView):
                 Q(title__icontains=q) |
                 Q(object_key__icontains=q) |
                 Q(content_type__icontains=q) |
-                Q(processing_status__icontains=q)
+                Q(processing_status__icontains=q) |
+                Q(owner__email__icontains=q) |
+                Q(organization__name__icontains=q)
             )
 
         sort = request.query_params.get("sort") or "recent"
+
         if sort == "oldest":
             qs = qs.order_by("created_at")
         elif sort == "title":
@@ -1184,18 +1205,27 @@ class InstructorMediaListView(APIView):
             qs = qs.order_by("-created_at")
 
         total = qs.count()
+
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        page = min(page, total_pages)
+
         start = (page - 1) * page_size
         end = start + page_size
 
-        ser = MediaAssetListSerializer(qs[start:end], many=True)
+        serializer = MediaAssetSerializer(
+            qs[start:end],
+            many=True,
+            context={"request": request},
+        )
 
         return Response({
             "count": total,
             "page": page,
             "page_size": page_size,
-            "total_pages": max(1, (total + page_size - 1) // page_size),
-            "results": ser.data,
+            "total_pages": total_pages,
+            "results": serializer.data,
         })
+
 
 class InstructorQuizListApiView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
