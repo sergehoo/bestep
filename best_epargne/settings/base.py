@@ -217,7 +217,7 @@ ACCOUNT_SIGNUP_FIELDS = ["email*", "first_name", "last_name", "password1*", "pas
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_USER_MODEL_EMAIL_FIELD = "email"
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = "optional"  # ou "mandatory" en prod
+ACCOUNT_EMAIL_VERIFICATION = "none"  # ou "mandatory" en prod
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 
