@@ -17,11 +17,11 @@
             mediaUpdate: (assetId) => '{% url "api_instructor_media_update" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
             mediaDelete: (assetId) => '{% url "api_instructor_media_delete" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
 
-multipartInit: '{% url "api_media_multipart_init" %}',
-multipartPartUrl: '{% url "api_media_multipart_part_url" %}',
-multipartComplete: '{% url "api_media_multipart_complete" %}',
-multipartAbort: '{% url "api_media_multipart_abort" %}',
-multipartListParts: '{% url "api_media_multipart_list_parts" %}',
+            multipartInit: '{% url "api_media_multipart_init" %}',
+            multipartPartUrl: '{% url "api_media_multipart_part_url" %}',
+            multipartComplete: '{% url "api_media_multipart_complete" %}',
+            multipartAbort: '{% url "api_media_multipart_abort" %}',
+            multipartListParts: '{% url "api_media_multipart_list_parts" %}',
 
             uploadInit: '{% url "api_media_upload_init" %}',
             uploadFinalize: '{% url "api_media_upload_finalize" %}',
@@ -165,6 +165,32 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                             >
                                 Tableau
                             </button>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 rounded-[24px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-4">
+                            <div class="text-sm text-be-ink-500 dark:text-white/60">
+                                Page <span x-text="pagination.page"></span>
+                                sur <span x-text="pagination.totalPages"></span>
+                                —
+                                <span x-text="pagination.count"></span> média(s)
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <button
+                                        @click="loadMedia(pagination.page - 1)"
+                                        :disabled="pagination.page <= 1 || loading.media"
+                                        class="px-4 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 text-sm font-semibold disabled:opacity-50"
+                                >
+                                    Précédent
+                                </button>
+
+                                <button
+                                        @click="loadMedia(pagination.page + 1)"
+                                        :disabled="pagination.page >= pagination.totalPages || loading.media"
+                                        class="px-4 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold disabled:opacity-50"
+                                >
+                                    Suivant
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -619,23 +645,23 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                     </div>
 
                     <div x-show="upload.progress > 0"
-     class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
+                         class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
 
-    <div class="flex items-center justify-between text-xs text-be-ink-500 dark:text-white/60">
-        <span>Progression</span>
-        <span x-text="upload.progress + '%'"></span>
-    </div>
+                        <div class="flex items-center justify-between text-xs text-be-ink-500 dark:text-white/60">
+                            <span>Progression</span>
+                            <span x-text="upload.progress + '%'"></span>
+                        </div>
 
-    <div class="mt-2 h-2 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
-        <div class="h-full rounded-full bg-be-sky-600"
-             :style="`width:${upload.progress}%`"></div>
-    </div>
+                        <div class="mt-2 h-2 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+                            <div class="h-full rounded-full bg-be-sky-600"
+                                 :style="`width:${upload.progress}%`"></div>
+                        </div>
 
-    <div class="mt-2 flex items-center justify-between text-[11px] text-be-ink-500 dark:text-white/60">
-        <span x-text="upload.speedText || 'Débit : —'"></span>
-        <span x-text="upload.etaText || 'Temps restant : —'"></span>
-    </div>
-</div>
+                        <div class="mt-2 flex items-center justify-between text-[11px] text-be-ink-500 dark:text-white/60">
+                            <span x-text="upload.speedText || 'Débit : —'"></span>
+                            <span x-text="upload.etaText || 'Temps restant : —'"></span>
+                        </div>
+                    </div>
 
                     <template x-if="upload.error">
                         <div class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3"
@@ -1039,7 +1065,12 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                     sections: false,
                     lessons: false,
                 },
-
+                pagination: {
+                    page: 1,
+                    pageSize: 24,
+                    count: 0,
+                    totalPages: 1,
+                },
                 drawers: {
                     upload: false,
                     detail: false,
@@ -1262,15 +1293,35 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                     return await res.json();
                 },
 
-                async loadMedia() {
+                async loadMedia(page = null) {
                     try {
                         this.loading.media = true;
+
+                        if (page !== null) {
+                            this.pagination.page = page;
+                        }
+
                         const u = new URL(this.endpoints.mediaList, window.location.origin);
+                        u.searchParams.set("page", this.pagination.page);
+                        u.searchParams.set("page_size", this.pagination.pageSize);
+
+                        if (this.filters.kind) u.searchParams.set("kind", this.filters.kind);
+                        if (this.filters.q) u.searchParams.set("q", this.filters.q);
+                        if (this.filters.sort) u.searchParams.set("sort", this.filters.sort);
+
                         const data = await this.apiGet(u.toString());
-                        this.media = Array.isArray(data) ? data : (data.results || []);
+
+                        this.media = data.results || [];
+                        this.filteredMedia = this.media;
+
+                        this.pagination.count = data.count || 0;
+                        this.pagination.page = data.page || 1;
+                        this.pagination.pageSize = data.page_size || 24;
+                        this.pagination.totalPages = data.total_pages || 1;
+
                         this.computeStats();
-                        this.applyFilters();
                         this.preloadVideoThumbs();
+
                     } catch (e) {
                         console.error(e);
                         this.showToast("Erreur", "Impossible de charger les médias.", "error");
@@ -1359,39 +1410,9 @@ multipartListParts: '{% url "api_media_multipart_list_parts" %}',
                 },
 
                 applyFilters() {
-                    let items = [...this.media];
-
-                    const q = (this.filters.q || "").toLowerCase().trim();
-                    if (q) {
-                        items = items.filter(m => {
-                            return [
-                                m.title || "",
-                                m.object_key || "",
-                                m.content_type || "",
-                                m.kind || "",
-                                m.processing_status || ""
-                            ].join(" ").toLowerCase().includes(q);
-                        });
-                    }
-
-                    if (this.filters.kind) {
-                        items = items.filter(m => m.kind === this.filters.kind);
-                    }
-
-                    if (this.filters.sort === "title") {
-                        items.sort((a, b) => (a.title || a.object_key || "").localeCompare(b.title || b.object_key || "", "fr"));
-                    } else if (this.filters.sort === "oldest") {
-                        items.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
-                    } else if (this.filters.sort === "size_desc") {
-                        items.sort((a, b) => (b.size || 0) - (a.size || 0));
-                    } else if (this.filters.sort === "size_asc") {
-                        items.sort((a, b) => (a.size || 0) - (b.size || 0));
-                    } else {
-                        items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-                    }
-
-                    this.filteredMedia = items;
-                },
+    this.pagination.page = 1;
+    this.loadMedia(1);
+},
 
                 async loadCourses() {
                     try {

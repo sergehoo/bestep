@@ -1149,22 +1149,53 @@ class MediaThumbnailSignedGetView(APIView):
 
 
 class InstructorMediaListView(APIView):
-    """
-    GET /api/instructor/media/?kind=video|audio|doc
-    -> liste les MediaAsset du formateur connecté
-    """
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def get(self, request):
+        page = max(int(request.query_params.get("page", 1) or 1), 1)
+        page_size = int(request.query_params.get("page_size", 24) or 24)
+        page_size = min(max(page_size, 8), 100)
+
         qs = MediaAsset.objects.filter(owner=request.user).order_by("-created_at")
 
         kind = request.query_params.get("kind")
         if kind in ("video", "audio", "doc"):
             qs = qs.filter(kind=kind)
 
-        ser = MediaAssetListSerializer(qs[:200], many=True)  # limite simple
-        return Response(ser.data)
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            qs = qs.filter(
+                Q(title__icontains=q) |
+                Q(object_key__icontains=q) |
+                Q(content_type__icontains=q) |
+                Q(processing_status__icontains=q)
+            )
 
+        sort = request.query_params.get("sort") or "recent"
+        if sort == "oldest":
+            qs = qs.order_by("created_at")
+        elif sort == "title":
+            qs = qs.order_by("title", "-created_at")
+        elif sort == "size_desc":
+            qs = qs.order_by("-size", "-created_at")
+        elif sort == "size_asc":
+            qs = qs.order_by("size", "-created_at")
+        else:
+            qs = qs.order_by("-created_at")
+
+        total = qs.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+
+        ser = MediaAssetListSerializer(qs[start:end], many=True)
+
+        return Response({
+            "count": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": max(1, (total + page_size - 1) // page_size),
+            "results": ser.data,
+        })
 
 class InstructorQuizListApiView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
