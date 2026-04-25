@@ -16,7 +16,8 @@ from best_epargne.apis.views import CategoryViewSet, CourseViewSet, InstructorCo
     InstructorSectionQuizAssignView, InstructorSectionQuizUnassignView, \
     InstructorQuizUpdateView, MediaThumbnailSignedGetView, InstructorMediaDetailView, InstructorMediaUpdateView, \
     InstructorMediaDeleteView, InstructorQuizListApiView, InstructorQuizQuestionUpdateView, \
-    InstructorQuizQuestionDeleteView, LearnerOrganizationCoursesAPIView
+    InstructorQuizQuestionDeleteView, LearnerOrganizationCoursesAPIView, MediaMultipartInitView, \
+    MediaMultipartPartUrlView, MediaMultipartCompleteView, MediaMultipartAbortView
 # from catalog.api.views import CourseViewSet, CategoryViewSet
 from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
 
