@@ -44,7 +44,7 @@
 
                 <div class="lg:col-span-6 flex ">
                     <div class="flex flex-wrap gap-3">
-                        <a href="{% url 'organization_course_assign_learners' organization.id course.id %}"
+                        <a href="{% url 'org:course_assign_learners' organization.id course.id %}"
                            class="btn-soft bg-white/95">
                             <i class="fas fa-user-check"></i>
                             Affecter des apprenants
@@ -135,7 +135,7 @@
                                         </p>
                                     </div>
 
-                                    <a href="{% url 'organization_lesson_create' organization.id course.id section.id %}"
+                                    <a href="{% url 'org:lesson_create' organization.id course.id section.id %}"
                                        class="btn-soft">
                                         <i class="fas fa-plus"></i>
                                         Leçon

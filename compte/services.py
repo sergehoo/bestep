@@ -1,9 +1,17 @@
-from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
-from django.db import transaction
+"""Services applicatifs liés au compte utilisateur.
 
-from compte.models import InstructorProfile, LearnerProfile
+Ce module ne doit JAMAIS importer ``django.contrib.auth.models.User`` :
+le projet utilise ``compte.User`` comme ``AUTH_USER_MODEL``. Pour récupérer
+le modèle, utiliser ``django.contrib.auth.get_user_model()``.
+"""
+
+from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied  # noqa: F401  (utilisé par les imports descendants)
+from django.db import transaction  # noqa: F401  (utilisé par les imports descendants)
+
 from organizations.models import OrganizationMembership
+
+User = get_user_model()
 
 
 class AccessService:

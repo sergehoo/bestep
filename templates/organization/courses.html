@@ -57,12 +57,12 @@
       </div>
 
       <div class="flex flex-wrap gap-3">
-        <a href="{% url 'organization_course_create' organization.id %}" class="btn-yellow">
+        <a href="{% url 'org:course_create' organization.id %}" class="btn-yellow">
           <i class="fas fa-plus-circle"></i>
           Nouveau cours
         </a>
 
-        <a href="{% url 'organization_dashboard' organization.id %}" class="btn-soft bg-white/95">
+        <a href="{% url 'org:dashboard' organization.id %}" class="btn-soft bg-white/95">
           <i class="fas fa-chart-pie"></i>
           Dashboard
         </a>
@@ -278,12 +278,12 @@
               </div>
 
               <div class="mt-5 grid grid-cols-2 gap-2">
-                <a href="{% url 'organization_course_builder' organization.id c.id %}" class="btn-primary text-sm">
+                <a href="{% url 'org:course_builder' organization.id c.id %}" class="btn-primary text-sm">
                   <i class="fas fa-screwdriver-wrench"></i>
                   Builder
                 </a>
 
-               <a href="{% url 'organization_course_detail' organization.id c.id %}" class="btn-soft text-sm">
+               <a href="{% url 'org:course_detail' organization.id c.id %}" class="btn-soft text-sm">
   <i class="fas fa-eye"></i>
   Voir
 </a>
@@ -297,7 +297,7 @@
             </div>
             <h3 class="font-black text-slate-900">Aucun cours interne</h3>
             <p class="text-sm text-slate-500 mt-1">Créez votre premier cours pour cette organisation.</p>
-            <a href="{% url 'organization_course_create' organization.id %}" class="btn-primary mt-5">
+            <a href="{% url 'org:course_create' organization.id %}" class="btn-primary mt-5">
               <i class="fas fa-plus"></i>
               Créer un cours
             </a>
@@ -368,15 +368,15 @@
       <div class="org-card p-5">
         <h2 class="text-sm font-black text-slate-900">Actions rapides</h2>
         <div class="mt-4 space-y-3">
-          <a href="{% url 'organization_course_create' organization.id %}" class="btn-primary w-full">
+          <a href="{% url 'org:course_create' organization.id %}" class="btn-primary w-full">
             <i class="fas fa-plus-circle"></i>
             Créer un cours
           </a>
-          <a href="{% url 'organization_instructor_create' organization.id %}" class="btn-soft w-full">
+          <a href="{% url 'org:instructor_create' organization.id %}" class="btn-soft w-full">
             <i class="fas fa-chalkboard-teacher"></i>
             Ajouter formateur
           </a>
-          <a href="{% url 'organization_learner_create' organization.id %}" class="btn-soft w-full">
+          <a href="{% url 'org:learner_create' organization.id %}" class="btn-soft w-full">
             <i class="fas fa-user-graduate"></i>
             Ajouter apprenant
           </a>

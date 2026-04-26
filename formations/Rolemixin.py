@@ -31,12 +31,12 @@ def _redirect_by_role(user):
         return "business_dashboard"
 
     if getattr(user, "is_instructor", False):
-        return "instructor_dashboard"
+        return "instructor:dashboard"
 
     if getattr(user, "is_learner", False):
-        return "learner_dashboard"
+        return "learner:dashboard"
 
-    return "learner_dashboard"
+    return "learner:dashboard"
 
 
 class RoleRequiredMixin(UserPassesTestMixin):
@@ -244,23 +244,33 @@ class InstructorBaseMixin(LoginRequiredMixin, InstructorRequiredMixin):
         return context
 
     def get_instructor_course(self, course_id=None):
+        """Retourne un cours auquel l'utilisateur a accès en tant qu'instructeur.
+
+        Règle de visibilité :
+        - admin plateforme : tous les cours ;
+        - sinon : cours dont il est l'auteur (``instructor=user``) OU cours
+          rattachés à une organisation où il est membre actif
+          (``Course.company`` ∈ ses orgs).
+
+        NOTE : le champ FK Course → Organization s'appelle ``company``
+        (cf. ``catalog/models.py``), pas ``organization``. Toute référence
+        à ``organization`` ici lèverait ``FieldError``.
+        """
         cid = course_id or self.kwargs.get("course_id") or self.kwargs.get("pk")
         user = self.request.user
 
-        qs = Course.objects.select_related("category", "instructor", "organization")
+        qs = Course.objects.select_related("category", "instructor", "company")
 
         if getattr(user, "is_platform_admin", False):
             return get_object_or_404(qs, id=cid)
 
         org_ids = self.get_user_organization_ids()
 
-        return get_object_or_404(
-            qs.filter(
-                Q(instructor=user) |
-                Q(organization_id__in=org_ids)
-            ).distinct(),
-            id=cid,
-        )
+        scope = Q(instructor=user)
+        if org_ids:
+            scope |= Q(company_id__in=org_ids)
+
+        return get_object_or_404(qs.filter(scope).distinct(), id=cid)
 
     def _humanize_date(self, dt):
         if not dt:
@@ -336,10 +346,13 @@ class InstructorBaseMixin(LoginRequiredMixin, InstructorRequiredMixin):
         completion_rate = self._course_completion_avg(course)
         issues = self._course_issues(course, thumbnail_url=thumbnail_url)
 
+        # NOTE : Course → Organization s'appelle ``company`` dans le modèle
+        # (cf. catalog/models.py). ``course.organization_id`` n'existe pas
+        # et planterait silencieusement à l'évaluation lazy.
         can_manage = (
             getattr(user, "is_platform_admin", False)
             or course.instructor_id == user.id
-            or self.can_manage_organization_content(course.organization_id)
+            or self.can_manage_organization_content(course.company_id)
         )
 
         return {
@@ -370,7 +383,7 @@ class InstructorBaseMixin(LoginRequiredMixin, InstructorRequiredMixin):
             "can_delete": can_manage,
             "is_owner": course.instructor_id == user.id,
             "scope": "personal" if course.instructor_id == user.id else "organization",
-            "builder_url": reverse("instructor_course_builder", kwargs={"course_id": course.id}),
-            "detail_url": reverse("instructor_course_detail", kwargs={"course_id": course.id}),
-            "edit_url": f'{reverse("instructor_dashboard")}?tab=courses&edit={course.id}',
+            "builder_url": reverse("instructor:course_builder", kwargs={"course_id": course.id}),
+            "detail_url": reverse("instructor:course_detail", kwargs={"course_id": course.id}),
+            "edit_url": f'{reverse("instructor:dashboard")}?tab=courses&edit={course.id}',
         }

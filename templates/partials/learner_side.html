@@ -21,13 +21,16 @@
     </div>
 
     <nav class="p-2" aria-label="Navigation apprenant">
+      
+        {% include "partials/workspace_pill.html" %}
+
         <div class="px-2 pt-2 pb-1" x-show="!collapsed">
             <div class="text-[11px] font-semibold text-be-ink-500 dark:text-white/60 uppercase tracking-wide">
                 Apprentissage
             </div>
         </div>
 
-        <a href="{% url 'learner_dashboard' %}"
+        <a href="{% url 'learner:dashboard' %}"
            :class="linkClass('dashboard')"
            class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1">
             <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 shrink-0">
@@ -39,7 +42,7 @@
             </span>
         </a>
 
-        <a href="{% url 'learner_dashboard' %}?tab=my_courses"
+        <a href="{% url 'learner:dashboard' %}?tab=my_courses"
            :class="linkClass('my_courses')"
            class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1">
             <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 shrink-0">
@@ -51,7 +54,7 @@
             </span>
         </a>
 
-        <a href="{% url 'learner_dashboard' %}?tab=progress"
+        <a href="{% url 'learner:dashboard' %}?tab=progress"
            :class="linkClass('progress', 'sun')"
            class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1">
             <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 shrink-0">
@@ -63,7 +66,7 @@
             </span>
         </a>
 
-        <a href="{% url 'learner_explore' %}"
+        <a href="{% url 'learner:explore' %}"
            :class="linkClass('explore')"
            class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1">
             <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 shrink-0">
@@ -83,7 +86,7 @@
             </div>
         </div>
 
-        <a href="{% url 'learner_dashboard' %}?tab=notifications"
+        <a href="{% url 'learner:dashboard' %}?tab=notifications"
            :class="linkClass('notifications', 'ink')"
            class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition">
             <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 shrink-0">
@@ -98,7 +101,7 @@
                   class="ml-auto text-[11px] px-2 py-1 rounded-full border border-be-ink-100 bg-white/70 dark:bg-white/5"></span>
         </a>
 
-        <a href="{% url 'learner_dashboard' %}?tab=payments"
+        <a href="{% url 'learner:dashboard' %}?tab=payments"
            :class="linkClass('payments', 'sun')"
            class="group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl transition mt-1">
             <span class="w-10 h-10 rounded-xl flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/5 shrink-0">
@@ -120,14 +123,14 @@
                 </div>
 
                 <div class="mt-2 grid gap-2" :class="collapsed ? 'grid-cols-1' : 'grid-cols-2'">
-                    <a href="{% url 'learner_explore' %}"
+                    <a href="{% url 'learner:explore' %}"
                        class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-xs font-semibold hover:bg-be-sky-700 transition text-center">
                         <i class="fa-solid fa-compass mr-1" x-show="!collapsed"></i>
                         <span x-show="!collapsed">Explorer</span>
                         <i class="fa-solid fa-compass" x-show="collapsed"></i>
                     </a>
 
-                    <a href="{% url 'learner_dashboard' %}?tab=support"
+                    <a href="{% url 'learner:dashboard' %}?tab=support"
                        class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-semibold transition text-center">
                         <i class="fa-solid fa-headset mr-1" x-show="!collapsed"></i>
                         <span x-show="!collapsed">Support</span>
@@ -145,7 +148,7 @@
             </div>
 
             <div class="flex gap-2">
-                <a href="{% url 'learner_dashboard' %}?tab=settings"
+                <a href="{% url 'learner:dashboard' %}?tab=settings"
                    class="w-10 h-10 rounded-xl inline-flex items-center justify-center border border-be-ink-100/70 dark:border-white/10 hover:bg-be-ink-50/60 dark:hover:bg-white/10 transition"
                    title="Paramètres">
                     <i class="fa-solid fa-gear"></i>

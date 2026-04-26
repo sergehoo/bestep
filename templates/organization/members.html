@@ -45,11 +45,11 @@
       </div>
 
       <div class="flex flex-wrap gap-3">
-        <a href="{% url 'organization_instructor_create' organization.id %}" class="btn-yellow">
+        <a href="{% url 'org:instructor_create' organization.id %}" class="btn-yellow">
           <i class="fas fa-chalkboard-teacher"></i>
           Ajouter formateur
         </a>
-        <a href="{% url 'organization_learner_create' organization.id %}" class="btn-soft bg-white/95">
+        <a href="{% url 'org:learner_create' organization.id %}" class="btn-soft bg-white/95">
           <i class="fas fa-user-graduate"></i>
           Ajouter apprenant
         </a>
@@ -151,7 +151,7 @@
         <h2 class="text-sm font-black text-slate-900">Liste des membres</h2>
         <p class="text-xs text-slate-500 mt-1">Membres actifs rattachés à {{ organization.name }}</p>
       </div>
-      <a href="{% url 'organization_member_create' organization.id %}" class="btn-primary">
+      <a href="{% url 'org:member_create' organization.id %}" class="btn-primary">
         <i class="fas fa-plus"></i>
         Ajouter
       </a>
@@ -250,7 +250,7 @@
                 </div>
                 <h3 class="text-lg font-black text-slate-900">Aucun membre trouvé</h3>
                 <p class="text-sm text-slate-500 mt-1">Ajoutez vos formateurs et apprenants pour démarrer.</p>
-                <a href="{% url 'organization_member_create' organization.id %}" class="btn-primary mt-5">
+                <a href="{% url 'org:member_create' organization.id %}" class="btn-primary mt-5">
                   <i class="fas fa-user-plus"></i>
                   Ajouter un membre
                 </a>

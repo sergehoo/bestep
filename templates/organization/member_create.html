@@ -23,7 +23,7 @@
         </p>
       </div>
 
-      <a href="{% url 'organization_members' organization.id %}" class="btn-soft bg-white/95">
+      <a href="{% url 'org:members' organization.id %}" class="btn-soft bg-white/95">
         <i class="fas fa-arrow-left"></i>
         Membres
       </a>
@@ -102,7 +102,7 @@
             Créer le membre
           </button>
 
-          <a href="{% url 'organization_members' organization.id %}" class="btn-soft">
+          <a href="{% url 'org:members' organization.id %}" class="btn-soft">
             Annuler
           </a>
         </div>

@@ -1,0 +1,83 @@
+
+<style>
+/* Défaut : palette sky (learner / non identifié) */
+:root {
+    --accent-50:  #F2FAFF;
+    --accent-100: #DEF3FF;
+    --accent-200: #BEE8FF;
+    --accent-500: #1EA7FF;
+    --accent-600: #0C87D6;
+    --accent-700: #0B6FAE;
+    --accent-800: #0C5C8E;
+    --accent-text: #FFFFFF;
+}
+/* Instructor → violet */
+[data-workspace="instructor"] {
+    --accent-50:  #F5F3FF;
+    --accent-100: #EDE9FE;
+    --accent-200: #DDD6FE;
+    --accent-500: #8B5CF6;
+    --accent-600: #7C3AED;
+    --accent-700: #6D28D9;
+    --accent-800: #5B21B6;
+}
+/* Org → emerald */
+[data-workspace="org"] {
+    --accent-50:  #ECFDF5;
+    --accent-100: #D1FAE5;
+    --accent-200: #A7F3D0;
+    --accent-500: #10B981;
+    --accent-600: #059669;
+    --accent-700: #047857;
+    --accent-800: #065F46;
+}
+/* Platform admin → rose */
+[data-workspace="platform_admin"] {
+    --accent-50:  #FFF1F2;
+    --accent-100: #FFE4E6;
+    --accent-200: #FECDD3;
+    --accent-500: #F43F5E;
+    --accent-600: #E11D48;
+    --accent-700: #BE123C;
+    --accent-800: #9F1239;
+}
+
+/* Dark mode : on assombrit les fonds doux pour éviter le néon. */
+.dark [data-workspace="instructor"],
+.dark[data-workspace="instructor"] {
+    --accent-50:  rgba(139, 92, 246, 0.10);
+    --accent-100: rgba(139, 92, 246, 0.18);
+    --accent-200: rgba(139, 92, 246, 0.28);
+}
+.dark [data-workspace="org"],
+.dark[data-workspace="org"] {
+    --accent-50:  rgba(16, 185, 129, 0.10);
+    --accent-100: rgba(16, 185, 129, 0.18);
+    --accent-200: rgba(16, 185, 129, 0.28);
+}
+.dark [data-workspace="platform_admin"],
+.dark[data-workspace="platform_admin"] {
+    --accent-50:  rgba(244, 63, 94, 0.10);
+    --accent-100: rgba(244, 63, 94, 0.18);
+    --accent-200: rgba(244, 63, 94, 0.28);
+}
+.dark :root,
+.dark[data-workspace="learner"],
+.dark [data-workspace="learner"] {
+    --accent-50:  rgba(30, 167, 255, 0.10);
+    --accent-100: rgba(30, 167, 255, 0.18);
+    --accent-200: rgba(30, 167, 255, 0.28);
+}
+
+/* Helpers utilitaires : accent-bg-* / accent-text-* / accent-border-*.
+   Utilisables tels quels dans les classes HTML. */
+.accent-bg-soft   { background-color: var(--accent-100); }
+.accent-bg-strong { background-color: var(--accent-600); color: var(--accent-text); }
+.accent-text      { color: var(--accent-700); }
+.accent-text-strong { color: var(--accent-800); }
+.accent-border    { border-color: var(--accent-200); }
+.accent-ring      { box-shadow: 0 0 0 4px var(--accent-100); }
+
+.dark .accent-text       { color: var(--accent-200); }
+.dark .accent-text-strong{ color: var(--accent-200); }
+</style>

@@ -150,6 +150,27 @@ class MediaAsset(models.Model):
         related_name="media_assets",
     )
 
+    # Organisation à laquelle ce média est rattaché. Permet le partage entre
+    # membres d'une même organisation : un membre actif voit en lecture les
+    # médias des autres membres de l'org. La modification reste réservée à
+    # ``owner`` ou aux admins de l'org (cf. permissions).
+    #
+    # NULL = média strictement personnel (créateur indépendant, hors org).
+    # NULL est aussi utilisé pendant le backfill des assets existants si
+    # l'owner a 0 ou plusieurs orgs (le rattachement automatique ne peut pas
+    # trancher).
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_assets",
+        help_text=(
+            "Organisation propriétaire du média (partagé en lecture entre "
+            "ses membres). NULL = média personnel."
+        ),
+    )
+
     kind = models.CharField(max_length=20, choices=Kind.choices)
     title = models.CharField(max_length=255, blank=True, default="")
     object_key = models.CharField(max_length=500, unique=True)
@@ -183,6 +204,14 @@ class MediaAsset(models.Model):
             models.Index(fields=["owner", "kind"]),
             models.Index(fields=["owner", "created_at"]),
             models.Index(fields=["processing_status"]),
+            models.Index(
+                fields=["organization", "kind"],
+                name="catalog_med_org_kind_idx",
+            ),
+            models.Index(
+                fields=["organization", "created_at"],
+                name="catalog_med_org_created_idx",
+            ),
         ]
 
     def __str__(self):

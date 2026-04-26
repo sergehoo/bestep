@@ -47,11 +47,11 @@ from reviews.models import CourseReview
 #         return reverse("admin_dashboard")
 #
 #     if user.role == user.Role.INSTRUCTOR:
-#         return reverse("instructor_dashboard")
+#         return reverse("instructor:dashboard")
 #
 #     if user.role == user.Role.COMPANY_ADMIN:
 #         return reverse("business_dashboard")
-#     return reverse("learner_dashboard")
+#     return reverse("learner:dashboard")
 
 def resolve_user_dashboard_url(user):
     """
@@ -75,9 +75,9 @@ def resolve_user_dashboard_url(user):
             return "business_dashboard"
 
     if getattr(user, "is_instructor", False):
-        return "instructor_dashboard"
+        return "instructor:dashboard"
 
-    return "learner_dashboard"
+    return "learner:dashboard"
 
 
 def _month_bounds(now=None):
@@ -902,6 +902,11 @@ class StudentDashboard(LoginRequiredMixin, LearnerRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         # endpoints côté template (pratique pour Alpine)
+        # /!\ Ces clés sont consommées par Alpine côté JS (cf. learner/
+        # student_dash.html — ``loadOrganizationCourses`` lit
+        # ``endpoints.organization_courses``). Elles n'ont aucun lien avec les
+        # noms d'URL Django : ne pas y appliquer le mapping de rebrand
+        # ``organization_courses → org:courses``.
         ctx["learner_endpoints"] = {
             "me": "/api/learner/me/",
             "kpis": "/api/learner/kpis/",
@@ -928,61 +933,72 @@ class LearnerCoursePlayerView(LoginRequiredMixin, LearnerRequiredMixin, Template
         return ctx
 
 
-class OrganisationDashboard(LoginRequiredMixin, OrganizationAdminRequiredMixin, TemplateView):
-    template_name = "instructor/admin_dash.html"
+class OrganisationDashboard(LoginRequiredMixin, TemplateView):
+    """Vue de redirection pour ``business_dashboard``.
+
+    Cette URL était autrefois branchée sur un dashboard générique qui :
+    - exigeait ``is_staff or is_superuser`` (incompatible avec un OWNER
+      d'organisation non-staff → boucle de redirection),
+    - et affichait des KPIs **globaux à la plateforme** (``Course.objects.count()``,
+      ``User.objects.count()``...) à n'importe quel admin org → fuite de données.
+
+    Comportement corrigé :
+    1. user non authentifié → redirect login ;
+    2. admin plateforme ET aucune org admin → redirect platform admin
+       (ou home si la route n'existe pas encore) ;
+    3. exactement 1 org accessible (admin/owner/manager) → redirect direct
+       vers ``organization_dashboard`` de cette org ;
+    4. plusieurs orgs accessibles → redirect vers la 1re et stocke un
+       message UX (le switcher de la Vague 2 prendra le relais) ;
+    5. aucune org → redirect vers ``learner_dashboard`` (l'utilisateur
+       n'a pas l'accréditation pour le business dashboard).
+
+    Aucun template n'est rendu : c'est une porte d'entrée routante.
+    """
+
+    template_name = "organization/dashboard.html"  # fallback uniquement
+
+    # rôles "manager" autorisés (cf. OrganizationScopedMixin)
+    _MANAGER_ROLES = (
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+        OrganizationMembership.Role.MANAGER,
+    )
 
     def dispatch(self, request, *args, **kwargs):
         user = request.user
-
         if not user.is_authenticated:
-            return self.handle_no_permission()
+            return redirect_to_login(request.get_full_path())
 
-        if not (user.is_staff or user.is_superuser):
-            return redirect(_redirect_by_role(user))
-
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        now = timezone.now()
-
-        # Remplace ces requêtes selon tes modèles réels
-        total_courses = Course.objects.count()
-        published_courses = Course.objects.filter(status="published").count() if hasattr(Course,
-                                                                                         "status") else total_courses
-        total_enrollments = Enrollment.objects.count()
-        total_lessons = Lesson.objects.count()
-        total_categories = Category.objects.count()
-        total_users = User.objects.count()
-
-        recent_courses = Course.objects.order_by("-id")[:6]
-        recent_users = User.objects.order_by("-date_joined")[:6] if hasattr(User,
-                                                                            "date_joined") else User.objects.order_by(
-            "-id")[:6]
-
-        top_categories = (
-            Category.objects.annotate(course_count=Count("courses"))
-            .order_by("-course_count")[:5]
-            if Category.objects.exists()
-            else []
+        # 1. Liste des orgs accessibles côté management (admin/owner/manager).
+        accessible_orgs = list(
+            user.organization_memberships
+            .filter(
+                is_active=True,
+                organization__is_active=True,
+                role__in=self._MANAGER_ROLES,
+            )
+            .select_related("organization")
+            .order_by("organization__name")[:5]
         )
 
-        context.update({
-            "page_title": "Tableau de bord administrateur",
-            "current_date": now,
-            "stats": {
-                "total_courses": total_courses,
-                "published_courses": published_courses,
-                "total_enrollments": total_enrollments,
-                "total_lessons": total_lessons,
-                "total_categories": total_categories,
-                "total_users": total_users,
-            },
-            "recent_courses": recent_courses,
-            "recent_users": recent_users,
-            "top_categories": top_categories,
-        })
-        return context
+        # 2. Cas admin plateforme sans org : on n'a pas (encore) d'admin
+        #    plateforme dédié → fallback home.
+        if not accessible_orgs:
+            if getattr(user, "is_platform_admin", False):
+                # Pas de dashboard plateforme dédié pour l'instant : on
+                # renvoie sur la home plutôt que sur learner.
+                return redirect("home")
+            # Pas d'org → l'utilisateur n'est pas admin business.
+            return redirect("learner:dashboard")
+
+        # 3. Une seule org → redirect direct.
+        first = accessible_orgs[0]
+        try:
+            return redirect("org:dashboard", organization_id=first.organization_id)
+        except Exception:
+            # Fallback ultime si la route n'est pas montée
+            return redirect("home")
 
 
 class HomeView(TemplateView):

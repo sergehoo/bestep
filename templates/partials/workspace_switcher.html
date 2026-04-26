@@ -1,0 +1,140 @@
+
+
+{% if request.user.is_authenticated and available_workspaces and available_workspaces|length > 1 %}
+<div x-data="{ open: false }"
+     @keydown.escape.window="open = false"
+     @click.outside="open = false"
+     class="relative shrink-0">
+
+    {# ----- Bouton déclencheur ----- #}
+    <button
+        type="button"
+        @click="open = !open"
+        :aria-expanded="open.toString()"
+        aria-haspopup="menu"
+        class="inline-flex items-center gap-2 pl-2.5 pr-2 py-2 rounded-xl
+               border border-be-ink-100/70 dark:border-white/10
+               bg-white/80 dark:bg-white/5
+               hover:bg-be-ink-50/60 dark:hover:bg-white/10
+               focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
+               transition text-sm">
+
+        {# Pastille colorée selon le kind de l'espace actif #}
+        <span class="w-7 h-7 rounded-lg flex items-center justify-center text-[13px] font-bold shrink-0
+                     {% if active_workspace.kind == 'platform_admin' %}
+                       bg-rose-100 text-rose-700
+                     {% elif active_workspace.kind == 'org' %}
+                       bg-be-sky-100 text-be-sky-700
+                     {% elif active_workspace.kind == 'instructor' %}
+                       bg-be-sun-100 text-be-sun-800
+                     {% else %}
+                       bg-emerald-100 text-emerald-700
+                     {% endif %}">
+            {% if active_workspace.kind == 'platform_admin' %}A
+            {% elif active_workspace.kind == 'org' %}{{ active_workspace.organization_name|slice:":1"|upper|default:"O" }}
+            {% elif active_workspace.kind == 'instructor' %}F
+            {% else %}L{% endif %}
+        </span>
+
+        <span class="hidden sm:flex flex-col leading-tight text-left">
+            <span class="text-[10px] uppercase tracking-wide text-be-ink-500 dark:text-white/60">
+                Espace
+            </span>
+            <span class="text-sm font-semibold truncate max-w-[160px]">
+                {{ active_workspace.label }}
+            </span>
+        </span>
+
+        <svg class="w-4 h-4 text-be-ink-500 dark:text-white/60" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+
+    {# ----- Dropdown ----- #}
+    <div
+        x-show="open"
+        x-transition.opacity.duration.150ms
+        x-cloak
+        role="menu"
+        class="absolute right-0 mt-2 w-72 rounded-2xl
+               border border-be-ink-100/70 dark:border-white/10
+               bg-white dark:bg-be-ink-900
+               shadow-xl ring-1 ring-black/5 z-50 overflow-hidden">
+
+        <div class="px-4 py-3 border-b border-be-ink-100/70 dark:border-white/10">
+            <div class="text-[10px] uppercase tracking-wide text-be-ink-500 dark:text-white/50">
+                Basculer vers
+            </div>
+            <div class="text-xs text-be-ink-500 dark:text-white/60 mt-0.5">
+                Vos rôles donnent accès à plusieurs interfaces.
+            </div>
+        </div>
+
+        <ul class="py-2 max-h-[60vh] overflow-y-auto">
+            {% for ws in available_workspaces %}
+                <li>
+                    <form method="post" action="{% url 'switch_workspace' %}" class="m-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="kind" value="{{ ws.kind }}">
+                        {% if ws.organization_id %}
+                            <input type="hidden" name="organization_id" value="{{ ws.organization_id }}">
+                        {% endif %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+
+                        <button type="submit"
+                                role="menuitem"
+                                class="w-full flex items-center gap-3 px-4 py-2.5
+                                       hover:bg-be-ink-50/70 dark:hover:bg-white/5
+                                       focus:bg-be-ink-50 dark:focus:bg-white/10
+                                       focus:outline-none transition text-left
+                                       {% if active_workspace and ws.kind == active_workspace.kind and ws.organization_id == active_workspace.organization_id %}
+                                       bg-be-sky-50/60 dark:bg-white/5
+                                       {% endif %}">
+
+                            <span class="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0
+                                {% if ws.kind == 'platform_admin' %}
+                                  bg-rose-100 text-rose-700
+                                {% elif ws.kind == 'org' %}
+                                  bg-be-sky-100 text-be-sky-700
+                                {% elif ws.kind == 'instructor' %}
+                                  bg-be-sun-100 text-be-sun-800
+                                {% else %}
+                                  bg-emerald-100 text-emerald-700
+                                {% endif %}">
+                                {% if ws.kind == 'platform_admin' %}A
+                                {% elif ws.kind == 'org' %}{{ ws.organization_name|slice:":1"|upper|default:"O" }}
+                                {% elif ws.kind == 'instructor' %}F
+                                {% else %}L{% endif %}
+                            </span>
+
+                            <span class="min-w-0 flex-1">
+                                <span class="block text-sm font-semibold truncate
+                                             text-be-ink-900 dark:text-white">
+                                    {{ ws.label }}
+                                </span>
+                                <span class="block text-[11px] text-be-ink-500 dark:text-white/60 truncate">
+                                    {% if ws.kind == 'platform_admin' %}
+                                        Pilotage de la plateforme
+                                    {% elif ws.kind == 'org' %}
+                                        {% if ws.role == 'OWNER' %}Propriétaire{% elif ws.role == 'ADMIN' %}Administrateur{% elif ws.role == 'MANAGER' %}Manager{% else %}Membre{% endif %}
+                                    {% elif ws.kind == 'instructor' %}
+                                        Mes cours et médias
+                                    {% else %}
+                                        Mon parcours d'apprentissage
+                                    {% endif %}
+                                </span>
+                            </span>
+
+                            {% if active_workspace and ws.kind == active_workspace.kind and ws.organization_id == active_workspace.organization_id %}
+                                <svg class="w-4 h-4 text-be-sky-600 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            {% endif %}
+                        </button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}

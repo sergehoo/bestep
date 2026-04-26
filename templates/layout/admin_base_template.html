@@ -247,10 +247,14 @@
     .premium-scroll::-webkit-scrollbar-track{background:transparent;}
   </style>
 
+  {# Thème par espace (CSS vars : --accent-*) #}
+  {% include "partials/theme_styles.html" %}
+
   {% block extra_head %}{% endblock %}
 </head>
 
-<body class="text-slate-900">
+<body data-workspace="{{ active_workspace.kind|default:'org' }}"
+      class="text-slate-900 dark:text-be-ink-50 dark:bg-be-ink-900">
 
 <div class="min-h-screen flex">
 
@@ -291,40 +295,40 @@
     <nav class="flex-1 px-4 py-5 space-y-2 overflow-y-auto premium-scroll">
       <div class="px-3 pb-2 text-[11px] uppercase tracking-widest font-black text-slate-400">Pilotage</div>
 
-      <a href="{% url 'organization_dashboard' organization.id %}"
-         class="sidebar-link {% if request.resolver_match.url_name == 'organization_dashboard' %}sidebar-active{% endif %}">
+      <a href="{% url 'org:dashboard' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:dashboard' %}sidebar-active{% endif %}">
         <i class="fas fa-chart-pie"></i> Dashboard
       </a>
 
-      <a href="{% url 'organization_members' organization.id %}"
-         class="sidebar-link {% if request.resolver_match.url_name == 'organization_members' %}sidebar-active{% endif %}">
+      <a href="{% url 'org:members' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:members' %}sidebar-active{% endif %}">
         <i class="fas fa-users"></i> Membres
       </a>
 
-      <a href="{% url 'organization_courses' organization.id %}"
-         class="sidebar-link {% if request.resolver_match.url_name == 'organization_courses' or request.resolver_match.url_name == 'organization_course_detail' %}sidebar-active{% endif %}">
+      <a href="{% url 'org:courses' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:courses' or request.resolver_match.view_name == 'org:course_detail' %}sidebar-active{% endif %}">
         <i class="fas fa-book-open"></i> Cours internes
       </a>
 
       <div class="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest font-black text-slate-400">Création</div>
 
-      <a href="{% url 'organization_instructor_create' organization.id %}"
-         class="sidebar-link {% if request.resolver_match.url_name == 'organization_instructor_create' %}sidebar-active{% endif %}">
+      <a href="{% url 'org:instructor_create' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:instructor_create' %}sidebar-active{% endif %}">
         <i class="fas fa-chalkboard-teacher"></i> Ajouter formateur
       </a>
 
-      <a href="{% url 'organization_learner_create' organization.id %}"
-         class="sidebar-link {% if request.resolver_match.url_name == 'organization_learner_create' %}sidebar-active{% endif %}">
+      <a href="{% url 'org:learner_create' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:learner_create' %}sidebar-active{% endif %}">
         <i class="fas fa-user-graduate"></i> Ajouter apprenant
       </a>
 
-      <a href="{% url 'organization_course_create' organization.id %}"
-         class="sidebar-link {% if request.resolver_match.url_name == 'organization_course_create' %}sidebar-active{% endif %}">
+      <a href="{% url 'org:course_create' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:course_create' %}sidebar-active{% endif %}">
         <i class="fas fa-plus-circle"></i> Créer un cours
       </a>
 
       <div class="pt-5 mt-5 border-t border-slate-100">
-        <a href="{% url 'learner_dashboard' %}" class="sidebar-link">
+        <a href="{% url 'learner:dashboard' %}" class="sidebar-link">
           <i class="fas fa-user"></i> Mon espace personnel
         </a>
 
@@ -380,11 +384,11 @@
             </form>
           {% endif %}
 
-          <a href="{% url 'organization_member_create' organization.id %}" class="btn-soft">
+          <a href="{% url 'org:member_create' organization.id %}" class="btn-soft">
             <i class="fas fa-user-plus"></i> Membre
           </a>
 
-          <a href="{% url 'organization_course_create' organization.id %}" class="btn-primary">
+          <a href="{% url 'org:course_create' organization.id %}" class="btn-primary">
             <i class="fas fa-plus"></i> Cours
           </a>
         </div>
@@ -395,11 +399,11 @@
       </div>
 
       <div id="mobile-menu" class="hidden lg:hidden border-t border-slate-100 bg-white px-4 py-4 space-y-2">
-        <a href="{% url 'organization_dashboard' organization.id %}" class="sidebar-link">Dashboard</a>
-        <a href="{% url 'organization_members' organization.id %}" class="sidebar-link">Membres</a>
-        <a href="{% url 'organization_courses' organization.id %}" class="sidebar-link">Cours internes</a>
-        <a href="{% url 'organization_instructor_create' organization.id %}" class="sidebar-link">Ajouter formateur</a>
-        <a href="{% url 'organization_learner_create' organization.id %}" class="sidebar-link">Ajouter apprenant</a>
+        <a href="{% url 'org:dashboard' organization.id %}" class="sidebar-link">Dashboard</a>
+        <a href="{% url 'org:members' organization.id %}" class="sidebar-link">Membres</a>
+        <a href="{% url 'org:courses' organization.id %}" class="sidebar-link">Cours internes</a>
+        <a href="{% url 'org:instructor_create' organization.id %}" class="sidebar-link">Ajouter formateur</a>
+        <a href="{% url 'org:learner_create' organization.id %}" class="sidebar-link">Ajouter apprenant</a>
         <a href="{% url 'account_logout' %}" class="sidebar-link text-red-600">Déconnexion</a>
       </div>
     </header>

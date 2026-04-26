@@ -248,7 +248,7 @@
         </div>
         <h4 class="text-lg font-semibold text-gray-800 mb-2">Reprenez votre apprentissage</h4>
         <p class="text-gray-600 mb-4">Accédez à votre tableau de bord et continuez vos cours.</p>
-        <a href="{% url 'learner_dashboard' %}"
+        <a href="{% url 'learner:dashboard' %}"
            class="inline-block bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-lg font-medium">
           Aller au tableau de bord
         </a>
@@ -261,7 +261,7 @@
         </div>
         <h4 class="text-lg font-semibold text-gray-800 mb-2">Accédez à vos statistiques de cours</h4>
         <p class="text-gray-600 mb-4">Consultez votre tableau de bord instructeur et pilotez vos contenus.</p>
-        <a href="{% url 'instructor_dashboard' %}"
+        <a href="{% url 'instructor:dashboard' %}"
            class="inline-block bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-lg font-medium">
           Aller au tableau de bord
         </a>
@@ -287,7 +287,7 @@
         </div>
         <h4 class="text-lg font-semibold text-gray-800 mb-2">Accédez à votre espace</h4>
         <p class="text-gray-600 mb-4">Retrouvez votre tableau de bord personnel.</p>
-        <a href="{% url 'learner_dashboard' %}"
+        <a href="{% url 'learner:dashboard' %}"
            class="inline-block bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-lg font-medium">
           Aller au tableau de bord
         </a>
@@ -505,7 +505,7 @@
             S'inscrire comme apprenant
           </a>
         {% else %}
-          <a href="{% url 'learner_dashboard' %}"
+          <a href="{% url 'learner:dashboard' %}"
              class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition block text-center">
             Accéder à mon espace
           </a>
@@ -530,7 +530,7 @@
             S'inscrire comme entreprise
           </a>
         {% else %}
-          <a href="{% url 'learner_dashboard' %}"
+          <a href="{% url 'learner:dashboard' %}"
              class="bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition block text-center">
             Accéder à l'espace entreprise
           </a>
@@ -555,7 +555,7 @@
             Devenir formateur
           </a>
         {% else %}
-          <a href="{% url 'learner_dashboard' %}"
+          <a href="{% url 'learner:dashboard' %}"
              class="bg-gradient-to-r from-green-500 to-green-400 text-white px-5 py-3 rounded-lg font-medium w-full hover:shadow-lg transition block text-center">
             Accéder à l'espace formateur
           </a>

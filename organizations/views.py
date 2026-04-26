@@ -351,11 +351,11 @@ class OrganisationDashboard(OrganizationScopedMixin, TemplateView):
             "top_categories": top_categories,
             "courses_needing_work": courses_needing_work,
             "member_create_url": reverse(
-                "organization_member_create",
+                "org:member_create",
                 kwargs={"organization_id": organization.id},
             ),
             "course_create_url": reverse(
-                "organization_course_create",
+                "org:course_create",
                 kwargs={"organization_id": organization.id},
             ),
         })
@@ -392,14 +392,14 @@ class OrganizationMemberCreateView(OrganizationScopedMixin, FormView):
 
         return redirect(
             reverse(
-                "organization_members",
+                "org:members",
                 kwargs={"organization_id": self.organization.id},
             )
         )
 
     def get_success_url(self):
         return reverse(
-            "organization_members",
+            "org:members",
             kwargs={"organization_id": self.organization.id},
         )
 
@@ -444,7 +444,7 @@ class OrganizationCourseCreateView(OrganizationScopedMixin, FormView):
 
     def get_success_url(self, course=None):
         return reverse(
-            "organization_dashboard",
+            "org:dashboard",
             kwargs={"organization_id": self.organization.id},
         )
 
@@ -550,7 +550,7 @@ class OrganizationCourseBuilderView(OrganizationScopedMixin, TemplateView):
             "sections": sections,
             "page_title": f"Builder — {course.title}",
             "section_create_url": reverse(
-                "organization_course_section_create",
+                "org:section_create",
                 kwargs={
                     "organization_id": self.organization.id,
                     "course_id": course.id,
@@ -582,7 +582,7 @@ class OrganizationCourseSectionCreateView(OrganizationScopedMixin, FormView):
 
     def get_success_url(self):
         return reverse(
-            "organization_course_builder",
+            "org:course_builder",
             kwargs={
                 "organization_id": self.organization.id,
                 "course_id": self.kwargs["course_id"],
@@ -631,7 +631,7 @@ class OrganizationLessonCreateView(OrganizationScopedMixin, FormView):
 
     def get_success_url(self):
         return reverse(
-            "organization_course_builder",
+            "org:course_builder",
             kwargs={
                 "organization_id": self.organization.id,
                 "course_id": self.kwargs["course_id"],
@@ -753,22 +753,22 @@ class OrganizationCourseDetailView(OrganizationScopedMixin, DetailView):
             "progress_avg": progress_avg,
             "issues": issues,
             "builder_url": reverse(
-                "organization_course_builder",
+                "org:course_builder",
                 kwargs={
                     "organization_id": self.organization.id,
                     "course_id": course.id,
                 },
             ),
             "courses_url": reverse(
-                "organization_courses",
+                "org:courses",
                 kwargs={"organization_id": self.organization.id},
             ),
             "course_create_url": reverse(
-                "organization_course_create",
+                "org:course_create",
                 kwargs={"organization_id": self.organization.id},
             ),
             "section_create_url": reverse(
-                "organization_course_section_create",
+                "org:section_create",
                 kwargs={
                     "organization_id": self.organization.id,
                     "course_id": course.id,
@@ -832,7 +832,7 @@ class OrganizationCourseAssignLearnersView(OrganizationScopedMixin, FormView):
 
     def get_success_url(self):
         return reverse(
-            "organization_course_detail",
+            "org:course_detail",
             kwargs={
                 "organization_id": self.organization.id,
                 "course_id": self.get_course().id,

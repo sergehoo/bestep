@@ -31,7 +31,7 @@
             courseSections: (courseId) => `/api/instructor/courses/${courseId}/sections/`,
             sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`,
 
-            mediaDetailPage: (assetId) => '{% url "instructor_media_detail_page" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
+            mediaDetailPage: (assetId) => '{% url "instructor:media_detail" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
         }
     })"
          x-init="init()"

@@ -6,7 +6,7 @@
 {% block topbar_subtitle %}Catalogue formateur{% endblock %}
 
 {% block topbar_search %}
-<form method="get" action="{% url 'instructor_courses' %}" class="w-full">
+<form method="get" action="{% url 'instructor:courses' %}" class="w-full">
     <div class="relative w-full">
         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/50">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
@@ -34,7 +34,7 @@
 
 {% block topbar_actions %}
 <div class="flex items-center gap-2">
-    <a href="{% url 'instructor_course_create_page' %}"
+    <a href="{% url 'instructor:course_create' %}"
        class="hidden sm:inline-flex px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 transition text-sm font-semibold shadow-soft">
         + Nouveau cours
     </a>
@@ -66,14 +66,14 @@
                     </p>
 
                     <div class="mt-5 flex flex-wrap gap-3">
-                        <a href="{% url 'instructor_course_create_page' %}"
+                        <a href="{% url 'instructor:course_create' %}"
                            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-be-ink-900 text-white text-sm font-semibold hover:opacity-90 transition shadow-soft">
                             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
                                 <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
                             Créer un cours
                         </a>
-                        <a href="{% url 'instructor_dashboard' %}?tab=builder"
+                        <a href="{% url 'instructor:dashboard' %}?tab=builder"
                            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
                             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
                                 <path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -216,13 +216,13 @@
                             Affinez l’affichage selon le statut, le pricing et le type de cours.
                         </div>
                     </div>
-                    <a href="{% url 'instructor_courses' %}"
+                    <a href="{% url 'instructor:courses' %}"
                        class="px-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-xs font-semibold transition">
                         Réinitialiser
                     </a>
                 </div>
 
-                <form method="get" action="{% url 'instructor_courses' %}" class="p-5">
+                <form method="get" action="{% url 'instructor:courses' %}" class="p-5">
                     <div class="grid lg:grid-cols-6 gap-3">
                         <div class="lg:col-span-2">
                             <label class="text-xs font-semibold text-be-ink-600 dark:text-white/60">Recherche</label>
@@ -276,7 +276,7 @@
                                 class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
                             Appliquer
                         </button>
-                        <a href="{% url 'instructor_courses' %}"
+                        <a href="{% url 'instructor:courses' %}"
                            class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
                             Effacer
                         </a>
@@ -293,7 +293,7 @@
                             {{ paginator.count }} cours trouvé{{ paginator.count|pluralize }}.
                         </div>
                     </div>
-                    <a href="{% url 'instructor_course_create_page' %}"
+                    <a href="{% url 'instructor:course_create' %}"
                        class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold transition">
                         + Ajouter un cours
                     </a>
@@ -305,7 +305,7 @@
                             <div class="p-5 hover:bg-be-ink-50/50 dark:hover:bg-white/5 transition">
                                 <div class="flex flex-col xl:flex-row xl:items-center gap-4">
                                     <div class="flex items-start gap-4 min-w-0 flex-1">
-                                       <a href="{% url 'instructor_course_detail' course_id=course.id %}">  <div class="w-28 h-20 rounded-2xl overflow-hidden border border-be-ink-100 dark:border-white/10 bg-be-ink-50 dark:bg-white/5 shrink-0">
+                                       <a href="{% url 'instructor:course_detail' course_id=course.id %}">  <div class="w-28 h-20 rounded-2xl overflow-hidden border border-be-ink-100 dark:border-white/10 bg-be-ink-50 dark:bg-white/5 shrink-0">
                                             {% if course.thumbnail_url %}
                                                 <img src="{{ course.thumbnail_url }}" alt="{{ course.title }}" class="w-full h-full object-cover">
                                             {% else %}
@@ -321,7 +321,7 @@
                                         <div class="min-w-0 flex-1">
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <h3 class="text-base font-semibold truncate text-be-ink-900 dark:text-white">
-                                                    <a href="{% url 'instructor_course_detail' course_id=course.id %}"> {{ course.title }}</a>
+                                                    <a href="{% url 'instructor:course_detail' course_id=course.id %}"> {{ course.title }}</a>
                                                 </h3>
 
                                                 {% if course.status == "PUBLISHED" %}
@@ -397,9 +397,9 @@
                                     <div class="flex flex-wrap xl:flex-col gap-2 xl:w-[170px]">
                                       
                                     
-                                    <a href="{% url 'instructor_course_builder' course.id %}"  class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold text-center transition">
+                                    <a href="{% url 'instructor:course_builder' course.id %}"  class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold text-center transition">
                                            Builder</a>
-                                        <a href="{% url 'instructor_course_update' course.id %}"
+                                        <a href="{% url 'instructor:course_update' course.id %}"
    class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold text-center transition">
     Éditer
 </a>
@@ -456,11 +456,11 @@
                             Aucun résultat ne correspond à vos filtres actuels, ou vous n’avez pas encore créé de cours.
                         </p>
                         <div class="mt-5 flex items-center justify-center gap-2">
-                            <a href="{% url 'instructor_courses' %}"
+                            <a href="{% url 'instructor:courses' %}"
                                class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
                                 Réinitialiser
                             </a>
-                            <a href="{% url 'instructor_dashboard' %}?tab=courses&action=create"
+                            <a href="{% url 'instructor:dashboard' %}?tab=courses&action=create"
                                class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
                                 Créer un cours
                             </a>
@@ -482,7 +482,7 @@
                 <div class="p-5 space-y-3">
                     {% if featured_courses %}
                         {% for course in featured_courses %}
-                            <a href="{% url 'instructor_dashboard' %}?tab=builder&course={{ course.id }}"
+                            <a href="{% url 'instructor:dashboard' %}?tab=builder&course={{ course.id }}"
                                class="block rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 p-4 transition">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
@@ -512,7 +512,7 @@
                 <div class="p-5 space-y-3">
                     {% if recent_drafts %}
                         {% for course in recent_drafts %}
-                            <a href="{% url 'instructor_dashboard' %}?tab=courses&edit={{ course.id }}"
+                            <a href="{% url 'instructor:dashboard' %}?tab=courses&edit={{ course.id }}"
                                class="block rounded-2xl border border-be-ink-100 dark:border-white/10 p-4 hover:bg-be-ink-50 dark:hover:bg-white/10 transition">
                                 <div class="text-sm font-semibold truncate">{{ course.title }}</div>
                                 <div class="mt-1 text-[12px] text-be-ink-500 dark:text-white/50">
@@ -535,7 +535,7 @@
                 <div class="p-5 space-y-3">
                     {% if courses_needing_work %}
                         {% for item in courses_needing_work %}
-                            <a href="{% url 'instructor_dashboard' %}?tab=courses&edit={{ item.id }}"
+                            <a href="{% url 'instructor:dashboard' %}?tab=courses&edit={{ item.id }}"
                                class="block rounded-2xl border border-rose-100 bg-rose-50/60 hover:bg-rose-50 p-4 transition">
                                 <div class="text-sm font-semibold text-rose-800 truncate">{{ item.title }}</div>
                                 <div class="mt-2 flex flex-wrap gap-2">

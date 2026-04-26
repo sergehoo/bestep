@@ -96,10 +96,14 @@
         }
     </style>
 
+    {# Thème par espace (CSS vars : --accent-*) #}
+    {% include "partials/theme_styles.html" %}
+
     {% block extra_head %}{% endblock %}
 </head>
 
-<body class="h-full bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50 dark:from-be-ink-900 dark:via-be-ink-900 dark:to-black text-be-ink-900 dark:text-be-ink-50 overflow-x-hidden">
+<body data-workspace="{{ active_workspace.kind|default:'org' }}"
+      class="h-full bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50 dark:from-be-ink-900 dark:via-be-ink-900 dark:to-black text-be-ink-900 dark:text-be-ink-50 overflow-x-hidden">
     <!-- Mobile Sidebar Drawer -->
     <div
         x-show="sidebar.mobileOpen"
@@ -195,6 +199,9 @@
                     <!-- Right -->
                     <div class="flex items-center gap-2 shrink-0">
                         {% block topbar_actions %}{% endblock %}
+
+                        {# Workspace switcher (multi-rôles). #}
+                        {% include "partials/workspace_switcher.html" %}
 
                         <!-- Theme toggle -->
                         <button

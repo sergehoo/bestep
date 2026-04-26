@@ -70,7 +70,7 @@
 
     <div class="flex items-center space-x-3">
       {% if user.is_authenticated %}
-        <a href="{% url 'learner_dashboard' %}"
+        <a href="{% url 'learner:dashboard' %}"
            class="hidden md:inline-flex px-4 py-2 rounded-lg bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition">
           <i class="fas fa-gauge-high mr-2"></i>Tableau de bord
         </a>
@@ -600,7 +600,7 @@
   // ✅ injecter les endpoints depuis Django (zéro risque de mauvais préfixe)
   const PUBLIC_DETAIL_BASE  = "{% url 'api_public_course_detail' 0 %}".replace("/0/", "/");
   const LEARNER_DETAIL_BASE = "{% url 'api_learner_course_detail' 0 %}".replace("/0/", "/"); 
-   const PLAYER_PAGE_BASE = "{% url 'learner_course_player' 0 %}".replace("/0/", "/");
+   const PLAYER_PAGE_BASE = "{% url 'learner:course_player' 0 %}".replace("/0/", "/");
   // exemple final: "/dashboard/learner/courses/"
   // ↑ adapte le name ci-dessus à ton urls.py (ex: 'api_learner_course_detail')
 </script>

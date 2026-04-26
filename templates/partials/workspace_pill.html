@@ -1,0 +1,32 @@
+
+{% if active_workspace %}
+<div class="mx-1 mb-3 rounded-2xl px-3 py-3 accent-bg-soft accent-border border">
+
+    <div class="flex items-center gap-3">
+        {# Pastille colorée — utilise --accent-600 pour rester thème-cohérent #}
+        <span class="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 accent-bg-strong">
+            {% if active_workspace.kind == 'platform_admin' %}A
+            {% elif active_workspace.kind == 'org' %}{{ active_workspace.organization_name|slice:":1"|upper|default:"O" }}
+            {% elif active_workspace.kind == 'instructor' %}F
+            {% else %}L{% endif %}
+        </span>
+
+        <div class="min-w-0 flex-1" x-show="!collapsed" x-transition x-cloak>
+            <div class="text-[10px] uppercase tracking-wide accent-text-strong">
+                Espace actif
+            </div>
+            <div class="text-sm font-semibold truncate text-be-ink-900 dark:text-white">
+                {{ active_workspace.label }}
+            </div>
+            {% if active_workspace.kind == 'org' and active_workspace.role %}
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 truncate">
+                {% if active_workspace.role == 'OWNER' %}Propriétaire
+                {% elif active_workspace.role == 'ADMIN' %}Administrateur
+                {% elif active_workspace.role == 'MANAGER' %}Manager
+                {% else %}Membre{% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}

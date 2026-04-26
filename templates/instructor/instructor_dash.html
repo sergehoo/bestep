@@ -16,7 +16,7 @@
 {% endblock %}
 
 {% block topbar_actions %}
-<a href="{% url 'instructor_course_create_page' %}"
+<a href="{% url 'instructor:course_create' %}"
    class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
     + Nouveau cours
 </a>
@@ -292,7 +292,7 @@
                             class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
                         Actualiser
                     </button>
-                    <a href="{% url 'instructor_course_create_page' %}"
+                    <a href="{% url 'instructor:course_create' %}"
                        class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
                         + Nouveau cours
                     </a>
@@ -1074,7 +1074,7 @@
 {% block extra_js %}
 <script>
 window.URLS = {
-    courseDetail: (id) => "{% url 'instructor_course_detail' course_id=0 %}".replace("/0/", `/${id}/`)
+    courseDetail: (id) => "{% url 'instructor:course_detail' course_id=0 %}".replace("/0/", `/${id}/`)
 };
 </script>
 

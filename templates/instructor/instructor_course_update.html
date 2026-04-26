@@ -6,15 +6,15 @@
 
 {% block topbar_actions %}
 <div class="flex items-center gap-2 flex-wrap">
-    <a href="{% url 'instructor_course_detail' course.id %}"
+    <a href="{% url 'instructor:course_detail' course.id %}"
        class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
         Détails
     </a>
-    <a href="{% url 'instructor_course_builder' course.id %}"
+    <a href="{% url 'instructor:course_builder' course.id %}"
        class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
         Builder
     </a>
-    <a href="{% url 'instructor_courses' %}"
+    <a href="{% url 'instructor:courses' %}"
        class="px-4 py-2.5 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold transition">
         ← Retour
     </a>
@@ -359,19 +359,19 @@
                 </div>
 
                 <div class="p-5 grid grid-cols-2 gap-2">
-                    <a href="{% url 'instructor_course_builder' course.id %}"
+                    <a href="{% url 'instructor:course_builder' course.id %}"
                        class="px-3 py-2.5 rounded-xl bg-be-ink-900 text-white text-sm font-semibold text-center hover:opacity-90 transition">
                         Builder
                     </a>
-                    <a href="{% url 'instructor_course_detail' course.id %}"
+                    <a href="{% url 'instructor:course_detail' course.id %}"
                        class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold text-center transition">
                         Détails
                     </a>
-                    <a href="{% url 'instructor_dashboard' %}?tab=courses"
+                    <a href="{% url 'instructor:dashboard' %}?tab=courses"
                        class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold text-center transition">
                         Dashboard
                     </a>
-                    <a href="{% url 'instructor_courses' %}"
+                    <a href="{% url 'instructor:courses' %}"
                        class="px-3 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold text-center transition">
                         Mes cours
                     </a>

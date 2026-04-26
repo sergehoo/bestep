@@ -6,7 +6,7 @@
 
 {% block topbar_actions %}
 <div class="flex items-center gap-2">
-    <a href="{% url 'instructor_courses' %}"
+    <a href="{% url 'instructor:courses' %}"
        class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
         ← Retour aux cours
     </a>
@@ -316,11 +316,11 @@
                     </p>
 
                     <div class="mt-4 grid grid-cols-2 gap-2">
-                        <a href="{% url 'instructor_courses' %}"
+                        <a href="{% url 'instructor:courses' %}"
                            class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-center text-sm font-semibold hover:bg-be-ink-50 dark:hover:bg-white/10 transition">
                             Mes cours
                         </a>
-                        <a href="{% url 'instructor_dashboard' %}?tab=courses"
+                        <a href="{% url 'instructor:dashboard' %}?tab=courses"
                            class="px-3 py-2.5 rounded-xl bg-be-sky-600 text-white text-center text-sm font-semibold hover:bg-be-sky-700 transition">
                             Dashboard
                         </a>

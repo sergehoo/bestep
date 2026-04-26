@@ -24,6 +24,12 @@ from __future__ import annotations
 from allauth.account.adapter import DefaultAccountAdapter
 from django.urls import NoReverseMatch, reverse
 
+from compte.workspaces import (
+    SESSION_KEY as WORKSPACE_SESSION_KEY,
+    get_active_workspace,
+    list_available_workspaces,
+    resolve_workspace_url,
+)
 from organizations.models import OrganizationMembership
 
 
@@ -94,9 +100,9 @@ def resolve_user_dashboard_url(user) -> str:
         return _safe_reverse("business_dashboard")
 
     if getattr(user, "is_instructor", False):
-        return _safe_reverse("instructor_dashboard")
+        return _safe_reverse("instructor:dashboard")
 
-    return _safe_reverse("learner_dashboard")
+    return _safe_reverse("learner:dashboard")
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -109,9 +115,30 @@ class AccountAdapter(DefaultAccountAdapter):
     """
 
     def get_login_redirect_url(self, request):
+        """Redirection après connexion.
+
+        Stratégie :
+        1. Si la session contient un ``active_workspace`` toujours valide
+           (l'user n'a pas perdu le rôle), on respecte ce choix — confort
+           pour l'utilisateur multi-rôles qui revient.
+        2. Sinon, on retombe sur le 1er espace pertinent dans
+           ``list_available_workspaces`` (= la priorité historique).
+        3. Sinon, fallback ``learner_dashboard`` puis "/".
+        """
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
             return _safe_reverse("account_login", fallback="/accounts/login/")
+
+        active = get_active_workspace(request)
+        if active is not None:
+            url = resolve_workspace_url(active, fallback="")
+            if url:
+                # On persiste l'espace actif (utile au tout premier login
+                # quand la session ne contient encore rien).
+                request.session[WORKSPACE_SESSION_KEY] = active.to_session()
+                return url
+
+        # Fallback historique (compatible avec les anciennes URLs/tests).
         return resolve_user_dashboard_url(user)
 
     def get_signup_redirect_url(self, request):
@@ -129,7 +156,7 @@ class AccountAdapter(DefaultAccountAdapter):
             return _safe_reverse("business_dashboard")
 
         if getattr(user, "is_instructor", False):
-            return _safe_reverse("instructor_dashboard")
+            return _safe_reverse("instructor:dashboard")
 
         # Apprenant : on force l'onboarding quiz s'il n'a pas encore été
         # complété. Le middleware OnboardingRequiredMiddleware assure de
@@ -142,4 +169,4 @@ class AccountAdapter(DefaultAccountAdapter):
             if onboarding_url:
                 return onboarding_url
 
-        return _safe_reverse("learner_dashboard")
+        return _safe_reverse("learner:dashboard")

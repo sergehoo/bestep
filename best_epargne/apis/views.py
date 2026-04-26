@@ -23,6 +23,13 @@ from botocore.client import Config
 
 from assessments.models import Quiz, Attempt, Question, Choice, AttemptAnswer
 from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, Payment, MediaUploadLog
+from catalog.services import (
+    can_modify_media,
+    get_instructor_courses_qs,
+    get_visible_media_qs,
+    resolve_default_organization_for_user,
+)
+from compte.workspaces import get_active_workspace
 from formations.Rolemixin import InstructorBaseMixin
 from organizations.models import OrganizationMembership
 from .permissions import IsInstructor
@@ -63,14 +70,24 @@ class CourseViewSet(ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsInstructor], url_path="my")
     def my_courses(self, request):
+        # Portée des cours visibles : centralisée dans
+        # ``catalog.services.get_instructor_courses_qs`` afin que la page
+        # template (InstructorCourseView via InstructorBaseMixin) et l'API
+        # renvoient le même périmètre. Si l'user est sur un espace org actif,
+        # on restreint à ce scope.
+        active = get_active_workspace(request)
+        current_org_id = active.organization_id if active and active.is_org else None
+
         qs = (
-            Course.objects.filter(instructor=request.user)
-            .select_related("category", "instructor")
+            get_instructor_courses_qs(
+                request.user,
+                current_organization_id=current_org_id,
+            )
             .prefetch_related("sections__lessons")
             .annotate(
                 sections_count=Count("sections", distinct=True),
                 lessons_count=Count("sections__lessons", distinct=True),
-                enrolled_count=Count("enrollments", distinct=True),  # requires related_name="enrollments"
+                enrolled_count=Count("enrollments", distinct=True),
             )
             .order_by("-updated_at", "-created_at")
         )
@@ -672,10 +689,17 @@ class MediaUploadFinalizeView(APIView):
                 "size": f"Size mismatch. local={data['size']} remote={remote_size}"
             })
 
+        # Rattachement org automatique : si l'utilisateur n'a qu'une seule
+        # org "active" en tant qu'instructeur/manager/admin/owner, on
+        # rattache le média à cette org pour qu'il soit partagé en lecture
+        # avec les autres membres. Sinon on laisse NULL (média personnel).
+        default_org = resolve_default_organization_for_user(request.user)
+
         asset, created = MediaAsset.objects.get_or_create(
             object_key=data["object_key"],
             defaults=dict(
                 owner=request.user,
+                organization=default_org,
                 kind=data["kind"],
                 title=(data.get("title") or ""),
                 content_type=remote_type,
@@ -876,10 +900,15 @@ class MediaMultipartCompleteView(APIView):
                 "size": f"Size mismatch. local={size} remote={remote_size}"
             })
 
+        # Rattachement org automatique (cf. MediaUploadFinalizeView pour la
+        # règle complète).
+        default_org = resolve_default_organization_for_user(request.user)
+
         asset, created = MediaAsset.objects.get_or_create(
             object_key=object_key,
             defaults=dict(
                 owner=request.user,
+                organization=default_org,
                 kind=kind,
                 title=title,
                 content_type=remote_type,
@@ -1000,62 +1029,83 @@ class MediaMultipartListPartsView(APIView):
         })
 
 
+def _get_visible_media_or_404(request, asset_id):
+    """Récupère un MediaAsset si visible par ``request.user``.
+
+    Visibilité = ``catalog.services.get_visible_media_qs`` :
+    - admin plateforme : tout ;
+    - sinon : owner OU membre actif de l'org du média.
+
+    Si l'asset n'est pas visible : 404 (on ne leak pas son existence
+    en renvoyant 403, qui révélerait que l'objet existe).
+    """
+    active = get_active_workspace(request)
+    current_org_id = active.organization_id if active and active.is_org else None
+    qs = get_visible_media_qs(request.user, current_organization_id=current_org_id)
+    return get_object_or_404(qs, id=asset_id)
+
+
+def _get_modifiable_media_or_403(request, asset_id):
+    """Comme ``_get_visible_media_or_404`` mais exige aussi que l'user
+    puisse modifier l'asset (auteur OU admin/owner de l'org de l'asset).
+
+    Lève DRF ``PermissionDenied`` (403) si visible mais non modifiable.
+    """
+    from rest_framework.exceptions import PermissionDenied
+    asset = _get_visible_media_or_404(request, asset_id)
+    if not can_modify_media(request.user, asset):
+        raise PermissionDenied("Vous ne pouvez pas modifier ce média.")
+    return asset
+
+
 class InstructorMediaDetailView(APIView):
+    """Détail d'un média.
+
+    Lecture autorisée pour : owner, membres actifs de l'org du média,
+    admin plateforme. Voir ``catalog.services.get_visible_media_qs``.
+    """
     permission_classes = [IsAuthenticated, IsInstructor]
 
-    def get_object(self, request, asset_id):
-        asset = get_object_or_404(MediaAsset, id=asset_id)
-        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Forbidden")
-        return asset
-
     def get(self, request, asset_id):
-        asset = self.get_object(request, asset_id)
+        asset = _get_visible_media_or_404(request, asset_id)
         serializer = MediaAssetDetailSerializer(asset)
         return Response(serializer.data)
 
 
 class InstructorMediaUpdateView(APIView):
-    permission_classes = [IsAuthenticated, IsInstructor]
+    """Modification d'un média.
 
-    def get_object(self, request, asset_id):
-        asset = get_object_or_404(MediaAsset, id=asset_id)
-        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Forbidden")
-        return asset
+    Réservée à : owner OU admin/owner de l'org du média OU admin plateforme.
+    Voir ``catalog.services.can_modify_media``.
+    """
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     @transaction.atomic
     def post(self, request, asset_id):
-        asset = self.get_object(request, asset_id)
+        asset = _get_modifiable_media_or_403(request, asset_id)
         serializer = MediaAssetUpdateSerializer(instance=asset, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
-        output = MediaAssetDetailSerializer(asset)
-        return Response(output.data, status=status.HTTP_200_OK)
+        return Response(MediaAssetDetailSerializer(asset).data, status=status.HTTP_200_OK)
 
     @transaction.atomic
     def patch(self, request, asset_id):
-        asset = self.get_object(request, asset_id)
+        asset = _get_modifiable_media_or_403(request, asset_id)
         serializer = MediaAssetUpdateSerializer(instance=asset, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
-        output = MediaAssetDetailSerializer(asset)
-        return Response(output.data, status=status.HTTP_200_OK)
+        return Response(MediaAssetDetailSerializer(asset).data, status=status.HTTP_200_OK)
 
 
 class InstructorMediaDeleteView(APIView):
+    """Suppression d'un média (S3 + DB).
+
+    Mêmes règles que la modification (owner / admin org / admin plateforme).
+    """
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def get_object(self, request, asset_id):
-        asset = get_object_or_404(MediaAsset, id=asset_id)
-        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Forbidden")
-        return asset
+        return _get_modifiable_media_or_403(request, asset_id)
 
     @transaction.atomic
     def delete(self, request, asset_id):
@@ -1150,37 +1200,28 @@ class MediaThumbnailSignedGetView(APIView):
 
 
 class InstructorMediaListView(APIView):
+    """Bibliothèque média de l'espace instructeur.
+
+    Délègue la logique de scope à ``catalog.services.get_visible_media_qs``
+    pour rester cohérent avec les vues template et les futures interfaces
+    (org dashboard).
+
+    Portée :
+    - espace ``instructor`` : médias persos + médias de toutes ses orgs ;
+    - espace ``org`` : médias persos + médias de l'org courante uniquement
+      (permet à un user qui pivote dans l'espace d'une de ses orgs de ne
+      pas voir le bruit des autres).
+    """
+
     permission_classes = [IsAuthenticated, IsInstructor]
 
-    def get_user_organization_ids(self):
-        user = self.request.user
-
-        return list(
-            user.organization_memberships.filter(
-                is_active=True,
-                organization__is_active=True,
-            ).values_list("organization_id", flat=True)
-        )
-
     def get_queryset(self):
-        user = self.request.user
-        org_ids = self.get_user_organization_ids()
-
-        qs = MediaAsset.objects.select_related("owner")
-
-        # seulement si MediaAsset a bien un champ organization
-        if hasattr(MediaAsset, "organization"):
-            qs = qs.select_related("organization")
-
-        if getattr(user, "is_platform_admin", False):
-            return qs
-
-        query = Q(owner=user)
-
-        if hasattr(MediaAsset, "organization") and org_ids:
-            query |= Q(organization_id__in=org_ids)
-
-        return qs.filter(query).distinct()
+        active = get_active_workspace(self.request)
+        current_org_id = active.organization_id if active and active.is_org else None
+        return get_visible_media_qs(
+            self.request.user,
+            current_organization_id=current_org_id,
+        )
 
     def get(self, request):
         page = max(int(request.query_params.get("page", 1) or 1), 1)
