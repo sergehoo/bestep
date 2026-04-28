@@ -4,12 +4,23 @@ from django.urls import path
 from .views import (
     PublicExploreCoursesView,
     LearnerExploreCoursesView,
-    LearnerCourseDetailView, CourseDetailPageView, PublicCourseDetailView, PublicCourseRelatedView,
+    LearnerCourseDetailView, CourseDetailPageView, PublicCourseDetailView, PublicCourseRelatedView, BusinessLandingView,
+    CategoryProfessionalCourseDetailView,
 )
 
 urlpatterns = [
     path("public/courses/", PublicExploreCoursesView.as_view(), name="landing_public_courses_explore"),
     path("courses/<int:course_id>/", CourseDetailPageView.as_view(), name="course_detail"),
+    path("business/", BusinessLandingView.as_view(), name="business_landing"),
+path(
+
+        "business/categories/<slug:slug>/",
+
+        CategoryProfessionalCourseDetailView.as_view(),
+
+        name="business_category_detail",
+
+    ),
 
     path("api/public/courses/<int:course_id>/", PublicCourseDetailView.as_view(), name="api_public_course_detail"),
 

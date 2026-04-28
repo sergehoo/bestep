@@ -17,7 +17,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.text import slugify
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, DetailView
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -1003,6 +1003,176 @@ class OrganisationDashboard(LoginRequiredMixin, TemplateView):
 
 class HomeView(TemplateView):
     template_name = "home/index.html"
+
+
+class BusinessLandingView(TemplateView):
+    template_name = "business/landing.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        categories = (
+
+            Category.objects
+
+            .annotate(
+
+                professional_courses_count=Count(
+
+                    "courses",
+
+                    filter=Q(
+
+                        courses__status=Course.Status.PUBLISHED,
+
+                        courses__course_type=Course.CourseType.PROFESSIONNELLE,
+
+                    )
+
+                )
+
+            )
+
+            .filter(professional_courses_count__gt=0)
+
+            .order_by("name")
+
+        )
+
+        professional_courses = (
+
+            Course.objects
+
+            .select_related("category", "instructor")
+
+            .filter(
+
+                status=Course.Status.PUBLISHED,
+
+                course_type=Course.CourseType.PROFESSIONNELLE,
+
+            )
+
+            .order_by("-published_at", "-created_at")[:8]
+
+        )
+
+        context.update({
+
+            "hero": {
+
+                "title": "Développez les compétences de votre organisation",
+
+                "subtitle": "Une plateforme e-learning complète pour former, suivre et optimiser les performances de vos équipes.",
+
+                "cta_primary": "Demander une démo",
+
+                "cta_secondary": "Créer un compte entreprise",
+
+            },
+
+            "categories": categories,
+
+            "professional_courses": professional_courses,
+
+            "features": [
+
+                {
+
+                    "title": "Gestion multi-utilisateurs",
+
+                    "desc": "Administrez vos collaborateurs, formateurs et apprenants en toute simplicité.",
+
+                    "icon": "users",
+
+                },
+
+                {
+
+                    "title": "Suivi des performances",
+
+                    "desc": "Analysez les progrès grâce à des dashboards intelligents.",
+
+                    "icon": "chart-line",
+
+                },
+
+                {
+
+                    "title": "Bibliothèque centralisée",
+
+                    "desc": "Accédez aux contenus de tous les membres de votre organisation.",
+
+                    "icon": "book-open",
+
+                },
+
+                {
+
+                    "title": "IA pédagogique",
+
+                    "desc": "Générez automatiquement des parcours de formation adaptés.",
+
+                    "icon": "robot",
+
+                },
+
+            ],
+
+            "stats": [
+
+                {"value": "500+", "label": "Formations"},
+
+                {"value": "50K+", "label": "Utilisateurs"},
+
+                {"value": "120+", "label": "Entreprises"},
+
+            ],
+
+        })
+
+        return context
+
+
+class CategoryProfessionalCourseDetailView(DetailView):
+    model = Category
+
+    template_name = "business/category_detail.html"
+
+    context_object_name = "category"
+
+    slug_field = "slug"
+
+    slug_url_kwarg = "slug"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        courses = (
+
+            Course.objects
+
+            .select_related("category", "instructor")
+
+            .filter(
+
+                category=self.object,
+
+                status=Course.Status.PUBLISHED,
+
+                course_type=Course.CourseType.PROFESSIONNELLE,
+
+            )
+
+            .order_by("-published_at", "-created_at")
+
+        )
+
+        context["courses"] = courses
+
+        context["courses_count"] = courses.count()
+
+        return context
 
 
 class PublicExploreCoursesView(APIView):
