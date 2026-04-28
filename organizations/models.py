@@ -196,3 +196,30 @@ class OrganizationInvitation(models.Model):
 
     def __str__(self):
         return f"{self.email} invited to {self.organization.name} as {self.get_role_display()}"
+
+
+class BusinessInterestRequest(models.Model):
+    organization_name = models.CharField("Nom de l'organisation", max_length=180)
+    contact_name = models.CharField("Nom du contact", max_length=160)
+    email = models.EmailField("Email professionnel")
+    phone = models.CharField("Téléphone", max_length=40, blank=True)
+    learners_count = models.PositiveIntegerField("Nombre d'apprenants estimé", default=1)
+    categories = models.ManyToManyField("catalog.Category",
+        blank=True,
+        related_name="business_interest_requests",
+        verbose_name="Catégories souhaitées",)
+    courses = models.ManyToManyField(
+        "catalog.Course",
+        blank=True,
+        related_name="business_interest_requests",
+        verbose_name="Formations souhaitées",
+    )
+    message = models.TextField("Besoin spécifique", blank=True)
+    is_processed = models.BooleanField("Traité", default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+    class Meta:
+        verbose_name = "Manifestation d’intérêt entreprise"
+        verbose_name_plural = "Manifestations d’intérêt entreprises"
+        ordering = ["-created_at"]
+    def __str__(self):
+        return f"{self.organization_name} — {self.contact_name}"

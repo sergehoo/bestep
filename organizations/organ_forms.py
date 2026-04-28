@@ -2,9 +2,9 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
-from catalog.models import Course, CourseSection, Lesson, MediaAsset
+from catalog.models import Course, CourseSection, Lesson, MediaAsset, Category
 from compte.models import InstructorProfile, LearnerProfile
-from organizations.models import Organization, OrganizationMembership
+from organizations.models import Organization, OrganizationMembership, BusinessInterestRequest
 
 User = get_user_model()
 
@@ -64,6 +64,7 @@ class OrganizationMemberCreateForm(forms.Form):
             )
 
         return cleaned
+
 
 class OrganizationCourseCreateForm(forms.ModelForm):
     class Meta:
@@ -184,3 +185,23 @@ class OrganizationCourseAssignLearnersForm(forms.Form):
             organization_memberships__role=OrganizationMembership.Role.LEARNER,
             is_active=True,
         ).distinct().order_by("full_name", "email")
+
+
+class BusinessInterestRequestForm(forms.ModelForm):
+    categories = forms.ModelMultipleChoiceField(
+        queryset=Category.objects.all().order_by("name"),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Formations / domaines souhaités",
+    )
+    class Meta:
+        model = BusinessInterestRequest
+        fields = [
+            "organization_name",
+            "contact_name",
+            "email",
+            "phone",
+            "learners_count",
+            "categories",
+            "message",
+        ]

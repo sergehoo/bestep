@@ -8,20 +8,14 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
   <style>
     * { font-family: 'Inter', system-ui, sans-serif; }
-    .card-lift{transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;}
-    .card-lift:hover{transform:translateY(-2px); box-shadow:0 18px 40px rgba(2,6,23,.12); border-color: rgba(148,163,184,.75);}
-    .line-clamp-2{
-      display:-webkit-box;
-      -webkit-line-clamp:2;
-      -webkit-box-orient:vertical;
-      overflow:hidden;
-    }
+    .card-lift{transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;}
+    .card-lift:hover{transform:translateY(-4px); box-shadow:0 20px 45px rgba(2,6,23,.13); border-color:rgba(37,99,235,.35);}
+    .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .line-clamp-3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
   </style>
 </head>
 
@@ -35,33 +29,78 @@
         <h1 class="text-2xl font-bold text-blue-600">
           Best-<span class="text-yellow-500">Épargne</span>
         </h1>
-        <p class="text-xs text-gray-500 -mt-1">Apprentissage financier</p>
+        <p class="text-xs text-gray-500 -mt-1">Business Learning</p>
       </div>
     </a>
 
-    <a href="{% url 'business_landing' %}"
-       class="px-4 py-2 rounded-xl bg-blue-50 text-blue-600 font-semibold hover:bg-blue-100 transition">
-      <i class="fas fa-arrow-left mr-2"></i>Retour
-    </a>
+    <div class="flex items-center gap-3">
+      <button type="button"
+              id="open-interest-modal"
+              class="hidden sm:inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
+        <i class="fas fa-file-invoice mr-2"></i>Demander un devis
+      </button>
+
+      <a href="{% url 'business_landing' %}"
+         class="px-4 py-2 rounded-xl bg-blue-50 text-blue-600 font-semibold hover:bg-blue-100 transition">
+        <i class="fas fa-arrow-left mr-2"></i>Retour
+      </a>
+    </div>
   </div>
 </nav>
 
-<section class="bg-gradient-to-r from-blue-50 to-blue-100 py-14">
-  <div class="container mx-auto px-4">
-    <div class="max-w-3xl">
-      <p class="text-blue-600 font-semibold mb-2">
-        Catégorie professionnelle
-      </p>
-      <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900">
-        {{ category.name }}
-      </h1>
-      <p class="text-gray-600 text-lg mt-4">
-        Découvrez les formations professionnelles publiées dans cette catégorie.
-      </p>
+<section class="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-yellow-50 py-16">
+  <div class="absolute right-0 top-0 w-72 h-72 bg-blue-200/40 rounded-full blur-3xl"></div>
+  <div class="absolute left-0 bottom-0 w-72 h-72 bg-yellow-200/40 rounded-full blur-3xl"></div>
 
-      <div class="mt-6 inline-flex items-center px-4 py-2 rounded-xl bg-white border border-blue-100 text-blue-700 font-semibold">
-        <i class="fas fa-graduation-cap mr-2"></i>
-        {{ courses_count }} formation{{ courses_count|pluralize }} disponible{{ courses_count|pluralize }}
+  <div class="container mx-auto px-4 relative">
+    <div class="grid lg:grid-cols-2 gap-10 items-center">
+      <div>
+        <div class="inline-flex items-center px-4 py-2 rounded-full bg-white border border-blue-100 text-blue-700 text-sm font-bold mb-5">
+          <i class="fas fa-layer-group mr-2"></i>
+          Catégorie professionnelle
+        </div>
+
+        <h1 class="text-4xl md:text-6xl font-extrabold text-gray-900 leading-tight">
+          {{ category.name }}
+        </h1>
+
+        <p class="text-gray-600 text-lg mt-5 max-w-2xl">
+          Découvrez les formations professionnelles disponibles dans ce domaine et sélectionnez celles qui intéressent votre organisation.
+        </p>
+
+        <div class="mt-7 flex flex-wrap gap-3">
+          <div class="inline-flex items-center px-4 py-2 rounded-xl bg-white border border-blue-100 text-blue-700 font-bold shadow-sm">
+            <i class="fas fa-graduation-cap mr-2"></i>
+            {{ courses_count }} formation{{ courses_count|pluralize }}
+          </div>
+
+          <div class="inline-flex items-center px-4 py-2 rounded-xl bg-white border border-yellow-100 text-yellow-700 font-bold shadow-sm">
+            <i class="fas fa-certificate mr-2"></i>
+            Parcours professionnels
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl shadow-2xl p-7 border border-gray-100">
+        <div class="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center mb-5">
+          <i class="fas fa-building text-blue-600 text-2xl"></i>
+        </div>
+
+        <h2 class="text-2xl font-extrabold text-gray-900 mb-3">
+          Votre organisation est intéressée ?
+        </h2>
+
+        <p class="text-gray-600 mb-6">
+          Sélectionnez les formations de cette catégorie et envoyez une manifestation d’intérêt.
+          Un devis personnalisé sera préparé selon votre effectif et vos besoins.
+        </p>
+
+        <button type="button"
+                id="open-interest-modal-hero"
+                class="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transition">
+          <i class="fas fa-paper-plane mr-2"></i>
+          Manifester mon intérêt
+        </button>
       </div>
     </div>
   </div>
@@ -69,10 +108,29 @@
 
 <section class="py-14">
   <div class="container mx-auto px-4">
+
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8">
+      <div>
+        <h2 class="text-3xl font-extrabold text-gray-900">
+          Formations disponibles
+        </h2>
+        <p class="text-gray-600 mt-2">
+          Liste des formations professionnelles publiées dans la catégorie.
+        </p>
+      </div>
+
+      <button type="button"
+              id="open-interest-modal-list"
+              class="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-white border border-gray-200 text-blue-600 font-bold hover:bg-blue-50 transition shadow-sm">
+        <i class="fas fa-file-invoice mr-2"></i>
+        Demander un devis
+      </button>
+    </div>
+
     {% if courses %}
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {% for course in courses %}
-          <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden card-lift">
+          <div class="bg-white rounded-3xl border border-gray-200 overflow-hidden card-lift">
             <div class="relative aspect-[16/9] bg-gradient-to-r from-blue-600 to-blue-500 flex items-center justify-center">
               {% if course.thumbnail %}
                 <img src="{{ course.thumbnail.url }}"
@@ -82,15 +140,21 @@
                 <i class="fas fa-graduation-cap text-white text-5xl"></i>
               {% endif %}
 
-              <div class="absolute top-3 left-3">
+              <div class="absolute top-3 left-3 flex flex-wrap gap-2">
                 <span class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
                   {{ course.get_course_type_display }}
                 </span>
+
+                {% if course.company_only %}
+                  <span class="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-bold">
+                    Entreprise
+                  </span>
+                {% endif %}
               </div>
             </div>
 
-            <div class="p-4">
-              <h3 class="text-[15px] font-extrabold text-slate-900 leading-snug line-clamp-2">
+            <div class="p-5">
+              <h3 class="text-base font-extrabold text-slate-900 leading-snug line-clamp-2">
                 {{ course.title }}
               </h3>
 
@@ -101,7 +165,7 @@
               {% endif %}
 
               <div class="mt-4 flex items-center gap-2">
-                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
                   <span class="text-blue-700 font-bold text-xs">
                     {{ course.instructor.first_name|first|default:course.instructor.get_username|first|upper }}
                   </span>
@@ -114,36 +178,42 @@
                       {{ course.instructor.get_username }}
                     {% endif %}
                   </p>
-                  <p class="text-xs text-gray-500">
-                    Formateur
-                  </p>
+                  <p class="text-xs text-gray-500">Formateur</p>
                 </div>
               </div>
 
-{#              <div class="mt-4 flex items-center justify-between">#}
-{#                {% if course.pricing_type == "FREE" %}#}
-{#                  <span class="font-extrabold text-green-700">Gratuit</span>#}
-{#                {% else %}#}
-{#                  <span class="font-extrabold text-slate-900">#}
-{#                    {{ course.price }} {{ course.currency }}#}
-{#                  </span>#}
-{#                {% endif %}#}
-{##}
-{#                <span class="text-xs text-gray-500">#}
-{#                  {{ course.get_pricing_type_display }}#}
-{#                </span>#}
-{#              </div>#}
+              <div class="mt-4 flex items-center justify-between">
+                {% if course.pricing_type == "FREE" %}
+                  <span class="text-green-700 font-extrabold">Gratuit</span>
+                {% else %}
+                  <span class="text-gray-900 font-extrabold">
+                    {{ course.price }} {{ course.currency }}
+                  </span>
+                {% endif %}
 
-              <a href="{% url "course_public_page" course.slug  course.id %}"
-                 class="block w-full mt-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white text-center font-semibold hover:shadow-lg transition">
-                Voir le cours
-              </a>
+                <span class="text-xs text-gray-500">
+                  {{ course.get_pricing_type_display }}
+                </span>
+              </div>
+
+              <div class="mt-4 grid grid-cols-2 gap-2">
+                <a href="{% url 'course_public_page' course.slug course.id %}"
+                   class="block py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white text-center font-semibold hover:shadow-lg transition">
+                  Voir
+                </a>
+
+                <button type="button"
+                        class="interest-course-btn py-2.5 rounded-xl bg-blue-50 text-blue-700 text-center font-semibold hover:bg-blue-100 transition"
+                        data-course-id="{{ course.id }}">
+                  Devis
+                </button>
+              </div>
             </div>
           </div>
         {% endfor %}
       </div>
     {% else %}
-      <div class="bg-white border border-gray-200 rounded-2xl p-10 text-center">
+      <div class="bg-white border border-gray-200 rounded-3xl p-10 text-center">
         <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
           <i class="fas fa-folder-open text-gray-500 text-2xl"></i>
         </div>
@@ -158,11 +228,221 @@
   </div>
 </section>
 
+<section class="py-16 bg-white">
+  <div class="container mx-auto px-4">
+    <div class="bg-gradient-to-br from-blue-600 to-blue-900 rounded-3xl p-8 md:p-12 text-white">
+      <div class="grid md:grid-cols-2 gap-10 items-center">
+        <div>
+          <h2 class="text-3xl md:text-4xl font-extrabold mb-5">
+            Besoin d’un parcours sur mesure ?
+          </h2>
+          <p class="text-blue-100 text-lg">
+            Nos équipes peuvent vous accompagner pour construire un programme adapté à vos métiers, vos objectifs et votre effectif.
+          </p>
+        </div>
+
+        <div class="bg-white/10 border border-white/20 rounded-2xl p-6 backdrop-blur">
+          <ul class="space-y-4 mb-6">
+            <li class="flex items-center gap-3">
+              <i class="fas fa-check-circle text-yellow-300"></i>
+              <span>Sélection de formations par domaine</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <i class="fas fa-check-circle text-yellow-300"></i>
+              <span>Devis adapté au nombre d’apprenants</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <i class="fas fa-check-circle text-yellow-300"></i>
+              <span>Accompagnement organisationnel</span>
+            </li>
+          </ul>
+
+          <button type="button"
+                  id="open-interest-modal-bottom"
+                  class="block w-full text-center bg-white text-blue-700 px-6 py-4 rounded-xl font-bold shadow hover:shadow-lg transition">
+            Commencer maintenant
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <footer class="bg-gradient-to-r from-blue-900 to-blue-800 text-white py-8">
   <div class="container mx-auto px-4 text-center">
     <p class="text-blue-200 text-sm">© 2026 Best-Épargne. Tous droits réservés.</p>
   </div>
 </footer>
+
+<!-- MODAL MANIFESTATION D’INTÉRÊT -->
+<div id="interest-modal"
+     class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+
+  <div class="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden">
+    <button type="button"
+            id="close-interest-modal"
+            class="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 z-10">
+      <i class="fas fa-times"></i>
+    </button>
+
+    <div class="grid md:grid-cols-5">
+      <div class="md:col-span-2 bg-gradient-to-br from-blue-600 to-blue-900 text-white p-8">
+        <div class="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center mb-6">
+          <i class="fas fa-file-invoice text-2xl"></i>
+        </div>
+
+        <h3 class="text-2xl font-extrabold mb-4">
+          Manifestation d’intérêt
+        </h3>
+
+        <p class="text-blue-100 text-sm leading-relaxed">
+          Sélectionnez les formations de la catégorie <strong>{{ category.name }}</strong>
+          qui intéressent votre organisation. Un devis personnalisé sera préparé.
+        </p>
+
+        <ul class="mt-8 space-y-3 text-sm text-blue-50">
+          <li><i class="fas fa-check-circle text-yellow-300 mr-2"></i>Devis personnalisé</li>
+          <li><i class="fas fa-check-circle text-yellow-300 mr-2"></i>Offre adaptée à l’effectif</li>
+          <li><i class="fas fa-check-circle text-yellow-300 mr-2"></i>Accompagnement entreprise</li>
+        </ul>
+      </div>
+
+      <div class="md:col-span-3 p-6 md:p-8 max-h-[85vh] overflow-y-auto">
+        <form method="post" action="{% url 'business_interest_request' %}" class="space-y-5">
+          {% csrf_token %}
+
+          <input type="hidden" name="categories" value="{{ category.id }}">
+
+          <div>
+            <label class="text-sm font-semibold text-gray-700">Nom de l’organisation</label>
+            <input type="text" name="organization_name" required
+                   class="mt-1 w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                   placeholder="Ex : ABC Finance">
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-semibold text-gray-700">Nom du contact</label>
+              <input type="text" name="contact_name" required
+                     class="mt-1 w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                     placeholder="Nom et prénom">
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-gray-700">Email professionnel</label>
+              <input type="email" name="email" required
+                     class="mt-1 w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                     placeholder="contact@entreprise.com">
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-semibold text-gray-700">Téléphone</label>
+              <input type="text" name="phone"
+                     class="mt-1 w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                     placeholder="+225 ...">
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-gray-700">Nombre d’apprenants estimé</label>
+              <input type="number" name="learners_count" min="1" value="1" required
+                     class="mt-1 w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
+            </div>
+          </div>
+
+          <div>
+            <label class="text-sm font-semibold text-gray-700">
+              Formations souhaitées
+            </label>
+
+            <div class="mt-3 max-h-52 overflow-y-auto border border-gray-200 rounded-2xl p-4 bg-gray-50 space-y-3">
+              {% for course in courses %}
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox"
+                         name="courses"
+                         value="{{ course.id }}"
+                         class="interest-course-checkbox mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <span>
+                    <span class="block font-semibold text-gray-800">{{ course.title }}</span>
+                    <span class="block text-xs text-gray-500">
+                      {{ course.get_course_type_display }} • {{ course.get_pricing_type_display }}
+                    </span>
+                  </span>
+                </label>
+              {% empty %}
+                <p class="text-sm text-gray-500">
+                  Aucune formation disponible dans cette catégorie.
+                </p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div>
+            <label class="text-sm font-semibold text-gray-700">Besoin spécifique</label>
+            <textarea name="message" rows="4"
+                      class="mt-1 w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      placeholder="Décrivez vos objectifs, le public cible, la période souhaitée, le format de formation..."></textarea>
+          </div>
+
+          <button type="submit"
+                  class="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-4 rounded-xl font-bold shadow hover:shadow-lg transition">
+            <i class="fas fa-paper-plane mr-2"></i>
+            Envoyer la demande de devis
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const interestModal = document.getElementById("interest-modal");
+  const closeInterestModal = document.getElementById("close-interest-modal");
+
+  function showInterestModal(courseId = null) {
+    interestModal.classList.remove("hidden");
+    interestModal.classList.add("flex");
+    document.body.classList.add("overflow-hidden");
+
+    if (courseId) {
+      document.querySelectorAll(".interest-course-checkbox").forEach((checkbox) => {
+        checkbox.checked = checkbox.value === String(courseId);
+      });
+    }
+  }
+
+  function hideInterestModal() {
+    interestModal.classList.add("hidden");
+    interestModal.classList.remove("flex");
+    document.body.classList.remove("overflow-hidden");
+  }
+
+  [
+    "open-interest-modal",
+    "open-interest-modal-hero",
+    "open-interest-modal-list",
+    "open-interest-modal-bottom"
+  ].forEach((id) => {
+    document.getElementById(id)?.addEventListener("click", () => showInterestModal());
+  });
+
+  document.querySelectorAll(".interest-course-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      showInterestModal(btn.dataset.courseId);
+    });
+  });
+
+  closeInterestModal?.addEventListener("click", hideInterestModal);
+
+  interestModal?.addEventListener("click", function (e) {
+    if (e.target === interestModal) hideInterestModal();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") hideInterestModal();
+  });
+</script>
 
 </body>
 </html>

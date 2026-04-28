@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from allauth.account.forms import LoginForm
+from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView, redirect_to_login
@@ -17,6 +18,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.text import slugify
+from django.views import View
 from django.views.generic import TemplateView, DetailView
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -34,6 +36,7 @@ from enrollments.models import Enrollment, LessonProgress
 from formations.Rolemixin import RoleRequiredMixin, InstructorBaseMixin, LearnerRequiredMixin, _redirect_by_role, \
     OrganizationAdminRequiredMixin
 from organizations.models import OrganizationMembership
+from organizations.organ_forms import BusinessInterestRequestForm
 from reviews.models import CourseReview
 
 
@@ -1010,127 +1013,67 @@ class BusinessLandingView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         categories = (
-
             Category.objects
-
             .annotate(
-
                 professional_courses_count=Count(
-
                     "courses",
-
                     filter=Q(
-
                         courses__status=Course.Status.PUBLISHED,
-
                         courses__course_type=Course.CourseType.PROFESSIONNELLE,
-
                     )
-
                 )
-
             )
-
             .filter(professional_courses_count__gt=0)
-
             .order_by("name")
-
         )
-
         professional_courses = (
-
             Course.objects
-
             .select_related("category", "instructor")
-
             .filter(
-
                 status=Course.Status.PUBLISHED,
-
                 course_type=Course.CourseType.PROFESSIONNELLE,
-
             )
-
             .order_by("-published_at", "-created_at")[:8]
-
         )
-
+        context["interest_form"] = BusinessInterestRequestForm()
         context.update({
-
             "hero": {
-
                 "title": "Développez les compétences de votre organisation",
-
                 "subtitle": "Une plateforme e-learning complète pour former, suivre et optimiser les performances de vos équipes.",
-
                 "cta_primary": "Demander une démo",
-
                 "cta_secondary": "Créer un compte entreprise",
-
             },
-
             "categories": categories,
-
             "professional_courses": professional_courses,
-
             "features": [
-
                 {
-
                     "title": "Gestion multi-utilisateurs",
-
                     "desc": "Administrez vos collaborateurs, formateurs et apprenants en toute simplicité.",
-
                     "icon": "users",
-
                 },
-
                 {
-
                     "title": "Suivi des performances",
-
                     "desc": "Analysez les progrès grâce à des dashboards intelligents.",
-
                     "icon": "chart-line",
-
                 },
-
                 {
-
                     "title": "Bibliothèque centralisée",
-
                     "desc": "Accédez aux contenus de tous les membres de votre organisation.",
-
                     "icon": "book-open",
-
                 },
-
                 {
-
                     "title": "IA pédagogique",
-
                     "desc": "Générez automatiquement des parcours de formation adaptés.",
-
                     "icon": "robot",
-
                 },
-
             ],
-
             "stats": [
-
                 {"value": "500+", "label": "Formations"},
-
                 {"value": "50K+", "label": "Utilisateurs"},
-
                 {"value": "120+", "label": "Entreprises"},
-
             ],
-
         })
-
         return context
 
 
@@ -1173,6 +1116,23 @@ class CategoryProfessionalCourseDetailView(DetailView):
         context["courses_count"] = courses.count()
 
         return context
+
+
+class BusinessInterestRequestCreateView(View):
+    def post(self, request, *args, **kwargs):
+        form = BusinessInterestRequestForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                "Votre manifestation d’intérêt a bien été envoyée. Un devis personnalisé vous sera transmis."
+            )
+        else:
+            messages.error(
+                request,
+                "Veuillez vérifier les informations renseignées dans le formulaire."
+            )
+        return redirect("business_landing")
 
 
 class PublicExploreCoursesView(APIView):
