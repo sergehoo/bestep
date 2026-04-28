@@ -203,7 +203,7 @@ class BusinessInterestRequest(models.Model):
     contact_name = models.CharField("Nom du contact", max_length=160)
     email = models.EmailField("Email professionnel")
     phone = models.CharField("Téléphone", max_length=40, blank=True)
-    learners_count = models.PositiveIntegerField("Nombre d'apprenants estimé", default=1)
+    learners_count = models.PositiveIntegerField("Apprenants estimé", default=1)
     categories = models.ManyToManyField("catalog.Category",
         blank=True,
         related_name="business_interest_requests",

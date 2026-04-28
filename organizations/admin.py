@@ -118,3 +118,73 @@ class OrganizationInvitationAdmin(admin.ModelAdmin):
         if obj.is_expired:
             return "Expirée"
         return "En attente"
+
+# admin.py
+
+from django.contrib import admin
+
+from .models import BusinessInterestRequest
+
+
+@admin.register(BusinessInterestRequest)
+class BusinessInterestRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        "organization_name",
+        "contact_name",
+        "email",
+        "phone",
+        "learners_count",
+        "is_processed",
+        "created_at",
+    )
+    list_filter = (
+        "is_processed",
+        "categories",
+        "courses",
+        "created_at",
+    )
+    search_fields = (
+        "organization_name",
+        "contact_name",
+        "email",
+        "phone",
+        "message",
+    )
+    filter_horizontal = (
+        "categories",
+        "courses",
+    )
+    readonly_fields = (
+        "created_at",
+    )
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+
+    fieldsets = (
+        ("Informations organisation", {
+            "fields": (
+                "organization_name",
+                "learners_count",
+            )
+        }),
+        ("Contact", {
+            "fields": (
+                "contact_name",
+                "email",
+                "phone",
+            )
+        }),
+        ("Besoins exprimés", {
+            "fields": (
+                "categories",
+                "courses",
+                "message",
+            )
+        }),
+        ("Traitement interne", {
+            "fields": (
+                "is_processed",
+                "created_at",
+            )
+        }),
+    )

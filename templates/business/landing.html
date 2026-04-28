@@ -8,44 +8,23 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
   <style>
     * { font-family: 'Inter', system-ui, sans-serif; }
-
-    @keyframes fadeInUp{
-      from{opacity:0;transform:translateY(30px);}
-      to{opacity:1;transform:translateY(0);}
-    }
-
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);}}
     .animate-fade-in-up{animation:fadeInUp .6s ease-out forwards;}
     .animate-delay-1{animation-delay:.2s;}
-
-    .card-lift{
-      transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
-    }
-
-    .card-lift:hover{
-      transform:translateY(-3px);
-      box-shadow:0 18px 40px rgba(2,6,23,.12);
-      border-color:rgba(74,144,226,.45);
-    }
-
-    .line-clamp-2{
-      display:-webkit-box;
-      -webkit-line-clamp:2;
-      -webkit-box-orient:vertical;
-      overflow:hidden;
-    }
+    .card-lift{transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;}
+    .card-lift:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(2,6,23,.12);border-color:rgba(74,144,226,.45);}
+    .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   </style>
 </head>
 
 <body class="bg-gray-50 text-slate-900">
 
-<!-- NAV -->
 <nav class="bg-white shadow-md sticky top-0 z-50">
   <div class="container mx-auto px-4 py-3 flex justify-between items-center">
     <a href="/" class="flex items-center space-x-2">
@@ -53,9 +32,7 @@
         <img src="{% static 'img/logo_img.png' %}" width="70" alt="Best-Épargne">
       </div>
       <div>
-        <h1 class="text-2xl font-bold text-blue-600">
-          Best-<span class="text-yellow-500">Épargne</span>
-        </h1>
+        <h1 class="text-2xl font-bold text-blue-600">Best-<span class="text-yellow-500">Épargne</span></h1>
         <p class="text-xs text-gray-500 -mt-1">Business Learning</p>
       </div>
     </a>
@@ -70,23 +47,20 @@
 
     <div class="hidden md:flex items-center space-x-4">
       {% if user.is_authenticated %}
-        <a href="{% url 'learner:dashboard' %}"
-           class="px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+        <a href="{% url 'learner:dashboard' %}" class="px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
           <i class="fas fa-gauge-high mr-2"></i>Tableau de bord
         </a>
-        <a href="{% url 'account_logout' %}"
-           class="px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
+        <a href="{% url 'account_logout' %}" class="px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
           <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
         </a>
       {% else %}
-        <a href="{% url 'account_login' %}"
-           class="px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+        <a href="{% url 'account_login' %}" class="px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
           <i class="fas fa-sign-in-alt mr-2"></i>Connexion
         </a>
-        <a href="{% url 'account_signup' %}?role=organisation"
-           class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
-          <i class="fas fa-building mr-2"></i>Créer un compte entreprise
-        </a>
+        <button type="button"
+                class="open-interest-modal bg-gradient-to-r from-blue-600 to-blue-500 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition">
+          <i class="fas fa-building mr-2"></i>Demander un devis
+        </button>
       {% endif %}
     </div>
 
@@ -111,16 +85,15 @@
         <a href="{% url 'account_login' %}" class="text-blue-600 py-2 block">
           <i class="fas fa-sign-in-alt mr-2"></i>Connexion
         </a>
-        <a href="{% url 'account_signup' %}?role=organisation"
-           class="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-4 py-2 rounded-lg font-medium text-center block">
-          Créer un compte entreprise
-        </a>
+        <button type="button"
+                class="open-interest-modal bg-gradient-to-r from-blue-600 to-blue-500 text-white px-4 py-2 rounded-lg font-medium text-center block">
+          Demander un devis
+        </button>
       {% endif %}
     </div>
   </div>
 </nav>
 
-<!-- HERO -->
 <section class="bg-gradient-to-r from-blue-50 to-blue-100 py-12 md:py-20 overflow-hidden">
   <div class="container mx-auto px-4">
     <div class="flex flex-col md:flex-row items-center gap-12">
@@ -145,10 +118,10 @@
             <i class="fas fa-calendar-check mr-2"></i>{{ hero.cta_primary }}
           </a>
 
-          <a href="{% url 'account_signup' %}?role=organisation"
-             class="bg-white text-blue-600 border border-blue-600 px-6 py-3 rounded-lg font-semibold shadow-sm hover:shadow transition flex items-center justify-center">
+          <button type="button"
+                  class="open-interest-modal bg-white text-blue-600 border border-blue-600 px-6 py-3 rounded-lg font-semibold shadow-sm hover:shadow transition flex items-center justify-center">
             <i class="fas fa-rocket mr-2"></i>{{ hero.cta_secondary }}
-          </a>
+          </button>
         </div>
 
         <div class="mt-12 grid grid-cols-3 gap-6 text-center">
@@ -217,10 +190,10 @@
               </div>
             </div>
 
-            <a href="{% url 'account_signup' %}?role=organisation"
-               class="block w-full text-center mt-8 py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-xl transition">
-              Commencer avec mon organisation
-            </a>
+            <button type="button"
+                    class="open-interest-modal block w-full text-center mt-8 py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-xl transition">
+              Commencer maintenant
+            </button>
           {% endif %}
         </div>
       </div>
@@ -229,7 +202,6 @@
   </div>
 </section>
 
-<!-- LOGOS -->
 <section class="py-10 bg-white border-b">
   <div class="container mx-auto px-4">
     <div class="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -249,7 +221,6 @@
   </div>
 </section>
 
-<!-- CATEGORIES -->
 <section id="categories" class="py-16 bg-gray-50">
   <div class="container mx-auto px-4">
     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
@@ -262,10 +233,10 @@
         </p>
       </div>
 
-      <a href="#business"
-         class="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-white border border-gray-200 text-blue-600 font-semibold hover:bg-blue-50 transition">
+      <button type="button"
+              class="open-interest-modal inline-flex items-center justify-center px-5 py-3 rounded-xl bg-white border border-gray-200 text-blue-600 font-semibold hover:bg-blue-50 transition">
         <i class="fas fa-building mr-2"></i>Former mon organisation
-      </a>
+      </button>
     </div>
 
     {% if categories %}
@@ -273,7 +244,6 @@
         {% for category in categories %}
           <a href="{% url 'business_category_detail' category.slug %}"
              class="group bg-white border border-gray-200 rounded-2xl p-6 shadow-sm card-lift">
-
             <div class="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center mb-5 group-hover:bg-blue-600 transition">
               <i class="fas fa-layer-group text-blue-600 group-hover:text-white text-xl"></i>
             </div>
@@ -307,7 +277,6 @@
   </div>
 </section>
 
-<!-- HOW IT WORKS -->
 <section class="py-16 bg-white">
   <div class="container mx-auto px-4">
     <div class="text-center mb-12">
@@ -325,9 +294,7 @@
           <i class="fas fa-sitemap text-blue-600 text-xl"></i>
         </div>
         <h3 class="text-xl font-bold text-gray-800">1) Structurez</h3>
-        <p class="text-gray-600 mt-2">
-          Organisez vos collaborateurs par équipe, département ou cohorte.
-        </p>
+        <p class="text-gray-600 mt-2">Organisez vos collaborateurs par équipe, département ou cohorte.</p>
       </div>
 
       <div class="bg-white rounded-2xl p-8 shadow card-lift border border-gray-100">
@@ -335,9 +302,7 @@
           <i class="fas fa-book-open text-yellow-600 text-xl"></i>
         </div>
         <h3 class="text-xl font-bold text-gray-800">2) Assignez</h3>
-        <p class="text-gray-600 mt-2">
-          Affectez des formations professionnelles selon les métiers et objectifs.
-        </p>
+        <p class="text-gray-600 mt-2">Affectez des formations professionnelles selon les métiers et objectifs.</p>
       </div>
 
       <div class="bg-white rounded-2xl p-8 shadow card-lift border border-gray-100">
@@ -345,26 +310,21 @@
           <i class="fas fa-chart-simple text-green-600 text-xl"></i>
         </div>
         <h3 class="text-xl font-bold text-gray-800">3) Suivez</h3>
-        <p class="text-gray-600 mt-2">
-          Analysez la progression, les certificats et les performances des équipes.
-        </p>
+        <p class="text-gray-600 mt-2">Analysez la progression, les certificats et les performances des équipes.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- FEATURES -->
 <section id="features" class="py-16 bg-gray-50">
   <div class="container mx-auto px-4">
-    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12">
-      <div>
-        <h2 class="text-3xl font-bold text-gray-800">
-          Une expérience <span class="text-blue-600">Business premium</span>
-        </h2>
-        <p class="text-gray-600 mt-2 max-w-2xl">
-          Tous les outils nécessaires pour piloter la formation professionnelle au sein de votre organisation.
-        </p>
-      </div>
+    <div class="mb-12">
+      <h2 class="text-3xl font-bold text-gray-800">
+        Une expérience <span class="text-blue-600">Business premium</span>
+      </h2>
+      <p class="text-gray-600 mt-2 max-w-2xl">
+        Tous les outils nécessaires pour piloter la formation professionnelle au sein de votre organisation.
+      </p>
     </div>
 
     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -381,7 +341,6 @@
   </div>
 </section>
 
-<!-- BUSINESS CTA -->
 <section id="business" class="py-16 bg-white">
   <div class="container mx-auto px-4">
     <div class="bg-gradient-to-br from-blue-600 to-blue-900 rounded-3xl p-8 md:p-12 text-white overflow-hidden relative">
@@ -414,22 +373,58 @@
           </ul>
 
           <button type="button"
-        id="open-interest-modal"
-        class="block w-full text-center bg-white text-blue-700 px-6 py-4 rounded-xl font-bold shadow hover:shadow-lg transition">
-  Commencer maintenant
-</button>
-
-
-
+                  class="open-interest-modal block w-full text-center bg-white text-blue-700 px-6 py-4 rounded-xl font-bold shadow hover:shadow-lg transition">
+            Commencer maintenant
+          </button>
         </div>
       </div>
     </div>
   </div>
-    <div id="interest-modal"
+</section>
+
+<section id="faq" class="py-16 bg-gray-50">
+  <div class="container mx-auto px-4">
+    <div class="text-center mb-10">
+      <h2 class="text-3xl font-bold text-gray-800">FAQ</h2>
+      <p class="text-gray-600 mt-2">Les questions fréquentes sur Best-Épargne Business.</p>
+    </div>
+
+    <div class="max-w-3xl mx-auto space-y-4">
+      <details class="bg-white border border-gray-200 rounded-2xl p-5">
+        <summary class="cursor-pointer font-semibold text-gray-800">Puis-je former plusieurs équipes ?</summary>
+        <p class="text-gray-600 mt-2">Oui, l’espace organisation permet de structurer les collaborateurs par équipe, cohorte ou département.</p>
+      </details>
+
+      <details class="bg-white border border-gray-200 rounded-2xl p-5">
+        <summary class="cursor-pointer font-semibold text-gray-800">Les formations professionnelles sont-elles certifiantes ?</summary>
+        <p class="text-gray-600 mt-2">Oui, selon les cours publiés. Les certificats peuvent être utilisés pour valider les acquis.</p>
+      </details>
+
+      <details class="bg-white border border-gray-200 rounded-2xl p-5">
+        <summary class="cursor-pointer font-semibold text-gray-800">Les membres peuvent-ils accéder aux contenus internes ?</summary>
+        <p class="text-gray-600 mt-2">Oui, les formations internes peuvent être réservées à une organisation afin de centraliser les contenus d’entreprise.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer class="bg-gradient-to-r from-blue-900 to-blue-800 text-white pt-10 pb-8">
+  <div class="container mx-auto px-4">
+    <div class="border-t border-blue-700 pt-6 flex flex-col md:flex-row justify-between items-center">
+      <p class="text-blue-300 text-sm mb-4 md:mb-0">© 2026 Best-Épargne. Tous droits réservés.</p>
+      <div class="flex space-x-6">
+        <a href="#" class="text-blue-300 hover:text-white text-sm">Mentions légales</a>
+        <a href="#" class="text-blue-300 hover:text-white text-sm">Confidentialité</a>
+        <a href="#" class="text-blue-300 hover:text-white text-sm">CGU</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<div id="interest-modal"
      class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/60 backdrop-blur-sm px-4">
 
   <div class="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden">
-
     <button type="button"
             id="close-interest-modal"
             class="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 z-10">
@@ -442,9 +437,7 @@
           <i class="fas fa-building text-2xl"></i>
         </div>
 
-        <h3 class="text-2xl font-extrabold mb-4">
-          Manifestation d’intérêt
-        </h3>
+        <h3 class="text-2xl font-extrabold mb-4">Manifestation d’intérêt</h3>
 
         <p class="text-blue-100 text-sm leading-relaxed">
           Sélectionnez les formations ou domaines qui intéressent votre organisation.
@@ -501,9 +494,7 @@
           </div>
 
           <div>
-            <label class="text-sm font-semibold text-gray-700">
-              Formations / domaines souhaités
-            </label>
+            <label class="text-sm font-semibold text-gray-700">Formations / domaines souhaités</label>
 
             <div class="mt-3 max-h-48 overflow-y-auto border border-gray-200 rounded-2xl p-4 bg-gray-50 space-y-3">
               {% for category in categories %}
@@ -515,14 +506,14 @@
                   <span>
                     <span class="block font-semibold text-gray-800">{{ category.name }}</span>
                     <span class="block text-xs text-gray-500">
-                      {{ category.professional_courses_count }} formation{{ category.professional_courses_count|pluralize }} professionnelle{{ category.professional_courses_count|pluralize }}
+                      {{ category.professional_courses_count }}
+                      formation{{ category.professional_courses_count|pluralize }}
+                      professionnelle{{ category.professional_courses_count|pluralize }}
                     </span>
                   </span>
                 </label>
               {% empty %}
-                <p class="text-sm text-gray-500">
-                  Aucune catégorie disponible pour le moment.
-                </p>
+                <p class="text-sm text-gray-500">Aucune catégorie disponible pour le moment.</p>
               {% endfor %}
             </div>
           </div>
@@ -544,65 +535,9 @@
     </div>
   </div>
 </div>
-</section>
 
-<!-- FAQ -->
-<section id="faq" class="py-16 bg-gray-50">
-  <div class="container mx-auto px-4">
-    <div class="text-center mb-10">
-      <h2 class="text-3xl font-bold text-gray-800">FAQ</h2>
-      <p class="text-gray-600 mt-2">Les questions fréquentes sur Best-Épargne Business.</p>
-    </div>
-
-    <div class="max-w-3xl mx-auto space-y-4">
-      <details class="bg-white border border-gray-200 rounded-2xl p-5">
-        <summary class="cursor-pointer font-semibold text-gray-800">
-          Puis-je former plusieurs équipes ?
-        </summary>
-        <p class="text-gray-600 mt-2">
-          Oui, l’espace organisation permet de structurer les collaborateurs par équipe, cohorte ou département.
-        </p>
-      </details>
-
-      <details class="bg-white border border-gray-200 rounded-2xl p-5">
-        <summary class="cursor-pointer font-semibold text-gray-800">
-          Les formations professionnelles sont-elles certifiantes ?
-        </summary>
-        <p class="text-gray-600 mt-2">
-          Oui, selon les cours publiés. Les certificats peuvent être utilisés pour valider les acquis.
-        </p>
-      </details>
-
-      <details class="bg-white border border-gray-200 rounded-2xl p-5">
-        <summary class="cursor-pointer font-semibold text-gray-800">
-          Les membres peuvent-ils accéder aux contenus internes ?
-        </summary>
-        <p class="text-gray-600 mt-2">
-          Oui, les formations internes peuvent être réservées à une organisation afin de centraliser les contenus d’entreprise.
-        </p>
-      </details>
-    </div>
-  </div>
-</section>
-
-<!-- FOOTER -->
-<footer class="bg-gradient-to-r from-blue-900 to-blue-800 text-white pt-10 pb-8">
-  <div class="container mx-auto px-4">
-    <div class="border-t border-blue-700 pt-6 flex flex-col md:flex-row justify-between items-center">
-      <p class="text-blue-300 text-sm mb-4 md:mb-0">
-        © 2026 Best-Épargne. Tous droits réservés.
-      </p>
-      <div class="flex space-x-6">
-        <a href="#" class="text-blue-300 hover:text-white text-sm">Mentions légales</a>
-        <a href="#" class="text-blue-300 hover:text-white text-sm">Confidentialité</a>
-        <a href="#" class="text-blue-300 hover:text-white text-sm">CGU</a>
-      </div>
-    </div>
-  </div>
-</footer>
 <script>
   const interestModal = document.getElementById("interest-modal");
-  const openInterestModal = document.getElementById("open-interest-modal");
   const closeInterestModal = document.getElementById("close-interest-modal");
 
   function showInterestModal() {
@@ -617,25 +552,22 @@
     document.body.classList.remove("overflow-hidden");
   }
 
-  openInterestModal?.addEventListener("click", showInterestModal);
+  document.querySelectorAll(".open-interest-modal").forEach((button) => {
+    button.addEventListener("click", showInterestModal);
+  });
+
   closeInterestModal?.addEventListener("click", hideInterestModal);
 
   interestModal?.addEventListener("click", function (e) {
-    if (e.target === interestModal) {
-      hideInterestModal();
-    }
+    if (e.target === interestModal) hideInterestModal();
   });
 
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") {
-      hideInterestModal();
-    }
+    if (e.key === "Escape") hideInterestModal();
   });
-</script>
-<script>
-  document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
-    const menu = document.getElementById('mobile-menu');
-    menu.classList.toggle('hidden');
+
+  document.getElementById("mobile-menu-btn")?.addEventListener("click", function () {
+    document.getElementById("mobile-menu")?.classList.toggle("hidden");
   });
 </script>
 
