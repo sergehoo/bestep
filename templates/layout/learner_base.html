@@ -123,6 +123,9 @@
       :class="{ 'dark': theme === 'dark' }"
       @keydown.window.escape="sidebar.mobileOpen = false">
 
+{# ================== BANDEAU D'IDENTITÉ DE L'ESPACE ================== #}
+{% include "partials/workspace_identity.html" %}
+
 <div class="min-h-full">
 
     {# ---------- Mobile sidebar overlay ---------- #}

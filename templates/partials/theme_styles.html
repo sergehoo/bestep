@@ -1,45 +1,73 @@
 
 <style>
+/* ===================================================================
+   1. Variables d'accent par espace.
+   =================================================================== */
+
 /* Défaut : palette sky (learner / non identifié) */
 :root {
     --accent-50:  #F2FAFF;
     --accent-100: #DEF3FF;
     --accent-200: #BEE8FF;
+    --accent-300: #8AD7FF;
+    --accent-400: #4FBFFF;
     --accent-500: #1EA7FF;
     --accent-600: #0C87D6;
     --accent-700: #0B6FAE;
     --accent-800: #0C5C8E;
+    --accent-900: #093F62;
     --accent-text: #FFFFFF;
+    --accent-soft-bg: #F2FAFF;
+    --accent-grad-from: #0C87D6;
+    --accent-grad-to:   #1EA7FF;
 }
 /* Instructor → violet */
 [data-workspace="instructor"] {
     --accent-50:  #F5F3FF;
     --accent-100: #EDE9FE;
     --accent-200: #DDD6FE;
+    --accent-300: #C4B5FD;
+    --accent-400: #A78BFA;
     --accent-500: #8B5CF6;
     --accent-600: #7C3AED;
     --accent-700: #6D28D9;
     --accent-800: #5B21B6;
+    --accent-900: #4C1D95;
+    --accent-soft-bg: #F5F3FF;
+    --accent-grad-from: #7C3AED;
+    --accent-grad-to:   #A78BFA;
 }
 /* Org → emerald */
 [data-workspace="org"] {
     --accent-50:  #ECFDF5;
     --accent-100: #D1FAE5;
     --accent-200: #A7F3D0;
+    --accent-300: #6EE7B7;
+    --accent-400: #34D399;
     --accent-500: #10B981;
     --accent-600: #059669;
     --accent-700: #047857;
     --accent-800: #065F46;
+    --accent-900: #064E3B;
+    --accent-soft-bg: #ECFDF5;
+    --accent-grad-from: #047857;
+    --accent-grad-to:   #34D399;
 }
 /* Platform admin → rose */
 [data-workspace="platform_admin"] {
     --accent-50:  #FFF1F2;
     --accent-100: #FFE4E6;
     --accent-200: #FECDD3;
+    --accent-300: #FDA4AF;
+    --accent-400: #FB7185;
     --accent-500: #F43F5E;
     --accent-600: #E11D48;
     --accent-700: #BE123C;
     --accent-800: #9F1239;
+    --accent-900: #881337;
+    --accent-soft-bg: #FFF1F2;
+    --accent-grad-from: #BE123C;
+    --accent-grad-to:   #FB7185;
 }
 
 /* Dark mode : on assombrit les fonds doux pour éviter le néon. */
@@ -48,18 +76,21 @@
     --accent-50:  rgba(139, 92, 246, 0.10);
     --accent-100: rgba(139, 92, 246, 0.18);
     --accent-200: rgba(139, 92, 246, 0.28);
+    --accent-soft-bg: rgba(139, 92, 246, 0.08);
 }
 .dark [data-workspace="org"],
 .dark[data-workspace="org"] {
     --accent-50:  rgba(16, 185, 129, 0.10);
     --accent-100: rgba(16, 185, 129, 0.18);
     --accent-200: rgba(16, 185, 129, 0.28);
+    --accent-soft-bg: rgba(16, 185, 129, 0.08);
 }
 .dark [data-workspace="platform_admin"],
 .dark[data-workspace="platform_admin"] {
     --accent-50:  rgba(244, 63, 94, 0.10);
     --accent-100: rgba(244, 63, 94, 0.18);
     --accent-200: rgba(244, 63, 94, 0.28);
+    --accent-soft-bg: rgba(244, 63, 94, 0.08);
 }
 .dark :root,
 .dark[data-workspace="learner"],
@@ -67,17 +98,174 @@
     --accent-50:  rgba(30, 167, 255, 0.10);
     --accent-100: rgba(30, 167, 255, 0.18);
     --accent-200: rgba(30, 167, 255, 0.28);
+    --accent-soft-bg: rgba(30, 167, 255, 0.08);
 }
 
-/* Helpers utilitaires : accent-bg-* / accent-text-* / accent-border-*.
-   Utilisables tels quels dans les classes HTML. */
-.accent-bg-soft   { background-color: var(--accent-100); }
-.accent-bg-strong { background-color: var(--accent-600); color: var(--accent-text); }
-.accent-text      { color: var(--accent-700); }
-.accent-text-strong { color: var(--accent-800); }
-.accent-border    { border-color: var(--accent-200); }
-.accent-ring      { box-shadow: 0 0 0 4px var(--accent-100); }
+/* ===================================================================
+   2. Helpers utilitaires (à privilégier dans les nouveaux templates).
+   =================================================================== */
 
-.dark .accent-text       { color: var(--accent-200); }
-.dark .accent-text-strong{ color: var(--accent-200); }
+.accent-bg-soft     { background-color: var(--accent-100); }
+.accent-bg-strong   { background-color: var(--accent-600); color: var(--accent-text); }
+.accent-bg-page     { background-color: var(--accent-soft-bg); }
+.accent-text        { color: var(--accent-700); }
+.accent-text-strong { color: var(--accent-800); }
+.accent-border      { border-color: var(--accent-200); }
+.accent-border-strong { border-color: var(--accent-600); }
+.accent-ring        { box-shadow: 0 0 0 4px var(--accent-100); }
+.accent-grad-bg     { background-image: linear-gradient(135deg, var(--accent-grad-from), var(--accent-grad-to)); color: var(--accent-text); }
+
+.dark .accent-text        { color: var(--accent-200); }
+.dark .accent-text-strong { color: var(--accent-200); }
+
+/* ===================================================================
+   3. Bandeau d'identité visuelle ("workspace identity strip").
+   =================================================================== */
+
+.workspace-identity-strip {
+    height: 4px;
+    background-image: linear-gradient(
+        90deg,
+        var(--accent-grad-from),
+        var(--accent-grad-to)
+    );
+    width: 100%;
+}
+
+.workspace-identity-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background-color: var(--accent-50);
+    border-bottom: 1px solid var(--accent-200);
+    color: var(--accent-800);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.dark .workspace-identity-banner {
+    background-color: var(--accent-50);
+    border-bottom-color: var(--accent-200);
+    color: var(--accent-200);
+}
+
+/* ===================================================================
+   4. Compatibility layer : remappe les classes Tailwind ``be-sky-*``
+      historiques sur la couleur de l'espace courant, pour que les
+      templates existants (instructeur, organisation) ne restent pas
+      bleus partout.
+
+      On NE touche PAS quand l'espace est ``learner`` (la palette
+      ``be-sky`` est déjà la bonne).
+   =================================================================== */
+
+[data-workspace="instructor"] .bg-be-sky-50,
+[data-workspace="org"] .bg-be-sky-50,
+[data-workspace="platform_admin"] .bg-be-sky-50         { background-color: var(--accent-50)  !important; }
+[data-workspace="instructor"] .bg-be-sky-100,
+[data-workspace="org"] .bg-be-sky-100,
+[data-workspace="platform_admin"] .bg-be-sky-100        { background-color: var(--accent-100) !important; }
+[data-workspace="instructor"] .bg-be-sky-200,
+[data-workspace="org"] .bg-be-sky-200,
+[data-workspace="platform_admin"] .bg-be-sky-200        { background-color: var(--accent-200) !important; }
+[data-workspace="instructor"] .bg-be-sky-500,
+[data-workspace="org"] .bg-be-sky-500,
+[data-workspace="platform_admin"] .bg-be-sky-500        { background-color: var(--accent-500) !important; }
+[data-workspace="instructor"] .bg-be-sky-600,
+[data-workspace="org"] .bg-be-sky-600,
+[data-workspace="platform_admin"] .bg-be-sky-600        { background-color: var(--accent-600) !important; color: var(--accent-text); }
+[data-workspace="instructor"] .bg-be-sky-700,
+[data-workspace="org"] .bg-be-sky-700,
+[data-workspace="platform_admin"] .bg-be-sky-700        { background-color: var(--accent-700) !important; color: var(--accent-text); }
+
+[data-workspace="instructor"] .text-be-sky-500,
+[data-workspace="org"] .text-be-sky-500,
+[data-workspace="platform_admin"] .text-be-sky-500      { color: var(--accent-500) !important; }
+[data-workspace="instructor"] .text-be-sky-600,
+[data-workspace="org"] .text-be-sky-600,
+[data-workspace="platform_admin"] .text-be-sky-600      { color: var(--accent-600) !important; }
+[data-workspace="instructor"] .text-be-sky-700,
+[data-workspace="org"] .text-be-sky-700,
+[data-workspace="platform_admin"] .text-be-sky-700      { color: var(--accent-700) !important; }
+[data-workspace="instructor"] .text-be-sky-800,
+[data-workspace="org"] .text-be-sky-800,
+[data-workspace="platform_admin"] .text-be-sky-800      { color: var(--accent-800) !important; }
+
+[data-workspace="instructor"] .border-be-sky-100,
+[data-workspace="org"] .border-be-sky-100,
+[data-workspace="platform_admin"] .border-be-sky-100    { border-color: var(--accent-100) !important; }
+[data-workspace="instructor"] .border-be-sky-200,
+[data-workspace="org"] .border-be-sky-200,
+[data-workspace="platform_admin"] .border-be-sky-200    { border-color: var(--accent-200) !important; }
+[data-workspace="instructor"] .border-be-sky-300,
+[data-workspace="org"] .border-be-sky-300,
+[data-workspace="platform_admin"] .border-be-sky-300    { border-color: var(--accent-300) !important; }
+
+[data-workspace="instructor"] .ring-be-sky-100,
+[data-workspace="org"] .ring-be-sky-100,
+[data-workspace="platform_admin"] .ring-be-sky-100,
+[data-workspace="instructor"] .ring-be-sky-200,
+[data-workspace="org"] .ring-be-sky-200,
+[data-workspace="platform_admin"] .ring-be-sky-200,
+[data-workspace="instructor"] .focus\:ring-be-sky-200,
+[data-workspace="org"] .focus\:ring-be-sky-200,
+[data-workspace="platform_admin"] .focus\:ring-be-sky-200,
+[data-workspace="instructor"] .focus-visible\:ring-be-sky-200\/60,
+[data-workspace="org"] .focus-visible\:ring-be-sky-200\/60,
+[data-workspace="platform_admin"] .focus-visible\:ring-be-sky-200\/60 {
+    --tw-ring-color: var(--accent-200) !important;
+    box-shadow: 0 0 0 4px var(--accent-100);
+}
+
+[data-workspace="instructor"] .hover\:bg-be-sky-700:hover,
+[data-workspace="org"] .hover\:bg-be-sky-700:hover,
+[data-workspace="platform_admin"] .hover\:bg-be-sky-700:hover {
+    background-color: var(--accent-700) !important;
+}
+[data-workspace="instructor"] .hover\:bg-be-sky-50\/60:hover,
+[data-workspace="org"] .hover\:bg-be-sky-50\/60:hover,
+[data-workspace="platform_admin"] .hover\:bg-be-sky-50\/60:hover {
+    background-color: var(--accent-50) !important;
+}
+
+/* Gradients hero et badges (utilisés sur les dashboards) */
+[data-workspace="instructor"] .from-be-sky-500,
+[data-workspace="org"] .from-be-sky-500,
+[data-workspace="platform_admin"] .from-be-sky-500,
+[data-workspace="instructor"] .from-be-sky-600,
+[data-workspace="org"] .from-be-sky-600,
+[data-workspace="platform_admin"] .from-be-sky-600,
+[data-workspace="instructor"] .from-blue-500,
+[data-workspace="org"] .from-blue-500,
+[data-workspace="platform_admin"] .from-blue-500,
+[data-workspace="instructor"] .from-blue-600,
+[data-workspace="org"] .from-blue-600,
+[data-workspace="platform_admin"] .from-blue-600 {
+    --tw-gradient-from: var(--accent-grad-from) !important;
+    --tw-gradient-to: rgba(0,0,0,0);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+[data-workspace="instructor"] .to-sky-400,
+[data-workspace="org"] .to-sky-400,
+[data-workspace="platform_admin"] .to-sky-400,
+[data-workspace="instructor"] .to-be-sky-400,
+[data-workspace="org"] .to-be-sky-400,
+[data-workspace="platform_admin"] .to-be-sky-400,
+[data-workspace="instructor"] .to-be-sky-500,
+[data-workspace="org"] .to-be-sky-500,
+[data-workspace="platform_admin"] .to-be-sky-500 {
+    --tw-gradient-to: var(--accent-grad-to) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+[data-workspace="instructor"] .via-be-sky-500,
+[data-workspace="org"] .via-be-sky-500,
+[data-workspace="platform_admin"] .via-be-sky-500,
+[data-workspace="instructor"] .via-blue-500,
+[data-workspace="org"] .via-blue-500,
+[data-workspace="platform_admin"] .via-blue-500 {
+    --tw-gradient-via: var(--accent-grad-from) !important;
+}
 </style>

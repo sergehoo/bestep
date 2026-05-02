@@ -133,6 +133,9 @@
              text-be-ink-900 dark:text-be-ink-50
              overflow-x-hidden antialiased selection:bg-be-sky-200 selection:text-be-ink-900">
 
+{# ================== BANDEAU D'IDENTITÉ DE L'ESPACE ================== #}
+{% include "partials/workspace_identity.html" %}
+
 {# ================== DRAWER MOBILE ================== #}
 <div x-show="sidebar.mobileOpen" x-transition.opacity @keydown.escape.window="closeMobileSidebar()"
      class="fixed inset-0 z-[90] lg:hidden" x-cloak>

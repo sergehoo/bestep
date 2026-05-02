@@ -6,7 +6,7 @@ from django.db import models
 from django.db.models import Avg, Q
 from django.db.models.functions import Coalesce
 from django.shortcuts import redirect, get_object_or_404
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from catalog.models import Course, CourseSection, Lesson
 from enrollments.models import LessonProgress
@@ -14,14 +14,29 @@ from organizations.models import OrganizationMembership
 
 
 def _redirect_by_role(user):
+    """
+    Renvoie le NOM d'URL du dashboard cible pour un utilisateur donné.
+
+    Ordre de priorité :
+        org owner/admin/manager → admin plateforme (PLATFORM_ADMIN) →
+        formateur → staff technique pur → apprenant.
+
+    L'org membership prime volontairement sur ``is_platform_admin`` :
+    un OWNER d'organisation qui est aussi ``is_staff=True`` doit
+    atterrir sur l'espace de son organisation, pas sur ``admin:index``.
+
+    ``admin_dashboard`` est une vue métier dédiée
+    (cf. ``best_epargne.urls`` → ``PlatformAdminDashboard``). Elle est
+    distincte de ``admin:index`` qui reste réservé au staff Django pour
+    les opérations techniques.
+    """
     if not user or not user.is_authenticated:
         return "account_login"
 
-    if getattr(user, "is_platform_admin", False):
-        return "admin_dashboard"
-
+    # 1. Rôle d'organisation — toujours prioritaire.
     if user.organization_memberships.filter(
             is_active=True,
+            organization__is_active=True,
             role__in=[
                 OrganizationMembership.Role.OWNER,
                 OrganizationMembership.Role.ADMIN,
@@ -30,12 +45,24 @@ def _redirect_by_role(user):
     ).exists():
         return "business_dashboard"
 
+    # 2. Admin plateforme métier (rôle PLATFORM_ADMIN ou superuser).
+    role_cls = getattr(user.__class__, "PlatformRole", None)
+    is_platform_admin_role = (
+        role_cls is not None
+        and getattr(user, "platform_role", None) == role_cls.PLATFORM_ADMIN
+    )
+    if is_platform_admin_role or user.is_superuser:
+        return "admin_dashboard"
+
+    # 3. Formateur (profil ou rôle org INSTRUCTOR).
     if getattr(user, "is_instructor", False):
         return "instructor:dashboard"
 
-    if getattr(user, "is_learner", False):
-        return "learner:dashboard"
+    # 4. Pur staff technique sans aucun rôle métier → admin Django.
+    if user.is_staff:
+        return "admin:index"
 
+    # 5. Apprenant (cas par défaut).
     return "learner:dashboard"
 
 
@@ -147,12 +174,26 @@ class RoleRequiredMixin(UserPassesTestMixin):
             return redirect_to_login(self.request.get_full_path())
 
         target_name = self.get_no_permission_redirect_url()
-        target_url = reverse(target_name)
+
+        # ``reverse`` peut lever NoReverseMatch si la route cible n'est pas
+        # encore déclarée (ex. ``admin_dashboard`` historique). Dans ce cas
+        # on se rabat sur la home pour éviter un 500 brutal sur un simple
+        # défaut d'autorisation. C'était l'origine d'une boucle / d'une
+        # 500 lorsqu'un user perdait ses droits sur un espace.
+        try:
+            target_url = reverse(target_name)
+        except NoReverseMatch:
+            try:
+                target_url = reverse("home")
+            except NoReverseMatch:
+                target_url = "/"
 
         # Si l'utilisateur est déjà sur sa bonne interface,
         # on évite la boucle en affichant une vraie 403.
         if self.request.path == target_url:
-            return redirect(target_url)
+            raise PermissionDenied(
+                "Vous n’avez pas les droits requis pour accéder à cette page."
+            )
 
         return redirect(target_url)
 

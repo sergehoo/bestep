@@ -136,12 +136,23 @@ def list_available_workspaces(user) -> List[Workspace]:
 
     spaces: List[Workspace] = []
 
-    # 1. Plateforme
-    if getattr(user, "is_platform_admin", False) or user.is_superuser or user.is_staff:
+    # 1. Plateforme — vue métier dédiée (PlatformAdminDashboard).
+    #    On distingue deux cas :
+    #    - rôle ``PLATFORM_ADMIN`` (ou superuser) : espace métier
+    #      ``admin_dashboard`` ;
+    #    - pur staff Django : on ne pollue pas le switcher avec
+    #      ``admin:index`` (réservé à l'admin technique, accessible
+    #      directement via /admin/).
+    role_cls = getattr(user.__class__, "PlatformRole", None)
+    is_platform_admin_role = (
+        role_cls is not None
+        and getattr(user, "platform_role", None) == role_cls.PLATFORM_ADMIN
+    )
+    if is_platform_admin_role or user.is_superuser:
         spaces.append(Workspace(
             kind=WORKSPACE_PLATFORM_ADMIN,
             label="Administration plateforme",
-            url_name="admin:index",  # fallback : pas de dashboard plateforme dédié
+            url_name="admin_dashboard",
         ))
 
     # 2. Organisations (rôles manager+)

@@ -19,7 +19,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from compte.views import switch_workspace
-from formations.views import HomeView, OrganisationDashboard
+from formations.views import HomeView, OrganisationDashboard, PlatformAdminDashboard
 
 
 urlpatterns = [
@@ -55,6 +55,14 @@ urlpatterns = [
     # résolution. Conservée à l'identique pour la compat des anciens liens
     # (allauth, bookmarks). Voir formations.views.OrganisationDashboard.
     path("dashboard/business/", OrganisationDashboard.as_view(), name="business_dashboard"),
+
+    # Dashboard administrateur plateforme (PLATFORM_ADMIN, distinct de
+    # l'admin Django ``admin:index`` qui reste réservé au staff technique).
+    path(
+        "dashboard/admin/",
+        PlatformAdminDashboard.as_view(),
+        name="admin_dashboard",
+    ),
 
     path("", HomeView.as_view(), name="home"),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

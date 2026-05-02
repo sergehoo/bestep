@@ -15,7 +15,7 @@ from django.db.models import (
 from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponsePermanentRedirect
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse, reverse_lazy
+from django.urls import NoReverseMatch, reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views import View
@@ -59,27 +59,53 @@ from reviews.models import CourseReview
 def resolve_user_dashboard_url(user):
     """
     Détermine le dashboard principal selon le profil effectif.
+
+    Renvoie un NOM d'URL résolvable par ``django.urls.reverse``.
+
+    Ordre de priorité (aligné avec ``Rolemixin._redirect_by_role`` et
+    ``compte.adapters.resolve_user_dashboard_url``) :
+        org admin/manager > admin plateforme > formateur >
+        staff technique pur > apprenant.
+
+    L'org membership prime sur ``is_platform_admin`` : un OWNER d'org
+    qui est aussi ``is_staff`` ne doit pas être routé vers ``admin:index``.
     """
     if not user or not user.is_authenticated:
         return "account_login"
 
-    if getattr(user, "is_platform_admin", False):
-        return "admin_dashboard"
-
+    # 1. Rôle d'organisation — toujours prioritaire.
     memberships = getattr(user, "organization_memberships", None)
     if memberships is not None:
         if memberships.filter(
                 is_active=True,
+                organization__is_active=True,
                 role__in=[
                     OrganizationMembership.Role.OWNER,
                     OrganizationMembership.Role.ADMIN,
+                    OrganizationMembership.Role.MANAGER,
                 ],
         ).exists():
             return "business_dashboard"
 
+    # 2. Admin plateforme métier (PLATFORM_ADMIN / superuser) → vue dédiée
+    #    et NON ``admin:index`` (réservé au staff technique).
+    role_cls = getattr(user.__class__, "PlatformRole", None)
+    is_platform_admin_role = (
+        role_cls is not None
+        and getattr(user, "platform_role", None) == role_cls.PLATFORM_ADMIN
+    )
+    if is_platform_admin_role or user.is_superuser:
+        return "admin_dashboard"
+
+    # 3. Formateur.
     if getattr(user, "is_instructor", False):
         return "instructor:dashboard"
 
+    # 4. Pur staff technique → admin Django.
+    if user.is_staff:
+        return "admin:index"
+
+    # 5. Apprenant (cas par défaut).
     return "learner:dashboard"
 
 
@@ -985,27 +1011,168 @@ class OrganisationDashboard(LoginRequiredMixin, TemplateView):
             .order_by("organization__name")[:5]
         )
 
-        # 2. Cas admin plateforme sans org : on n'a pas (encore) d'admin
-        #    plateforme dédié → fallback home.
+        # 2. Cas sans org accessible : on aiguille selon le profil effectif.
         if not accessible_orgs:
-            if getattr(user, "is_platform_admin", False):
-                # Pas de dashboard plateforme dédié pour l'instant : on
-                # renvoie sur la home plutôt que sur learner.
-                return redirect("home")
-            # Pas d'org → l'utilisateur n'est pas admin business.
+            # 2a. Admin plateforme (rôle PLATFORM_ADMIN / superuser)
+            #     → vue métier dédiée. ``admin:index`` est réservé au staff
+            #     technique et reste accessible depuis ``admin_dashboard``.
+            role_cls = getattr(user.__class__, "PlatformRole", None)
+            is_platform_admin_role = (
+                role_cls is not None
+                and getattr(user, "platform_role", None) == role_cls.PLATFORM_ADMIN
+            )
+            if is_platform_admin_role or user.is_superuser:
+                try:
+                    return redirect("admin_dashboard")
+                except NoReverseMatch:
+                    return redirect("home")
+
+            # 2b. Pur staff technique → admin Django.
+            if user.is_staff:
+                try:
+                    return redirect("admin:index")
+                except NoReverseMatch:
+                    return redirect("home")
+
+            if getattr(user, "is_instructor", False):
+                # Un formateur sans rôle org doit aller sur son espace
+                # formateur, pas sur l'espace apprenant — ça évitait un
+                # aller-retour learner → instructor lorsqu'il cliquait sur
+                # un ancien lien ``business_dashboard``.
+                return redirect("instructor:dashboard")
+            # Pas d'org / pas de rôle élevé → espace apprenant.
             return redirect("learner:dashboard")
 
-        # 3. Une seule org → redirect direct.
+        # 3. Plusieurs orgs accessibles : on prend la 1re mais on signale à
+        #    l'utilisateur qu'il peut basculer via le switcher de la topbar.
         first = accessible_orgs[0]
+        if len(accessible_orgs) > 1:
+            messages.info(
+                request,
+                "Vous avez accès à plusieurs organisations. Affichage de "
+                f"« {first.organization.name} » par défaut — utilisez le "
+                "sélecteur d’espace en haut à droite pour changer.",
+            )
+
+        # 4. Redirect vers le dashboard org (URL namespacée + org_id).
         try:
             return redirect("org:dashboard", organization_id=first.organization_id)
-        except Exception:
+        except NoReverseMatch:
             # Fallback ultime si la route n'est pas montée
             return redirect("home")
 
 
+class PlatformAdminDashboard(LoginRequiredMixin, TemplateView):
+    """Dashboard dédié aux administrateurs plateforme (rôle PLATFORM_ADMIN).
+
+    Cet espace est volontairement séparé de ``admin:index`` (l'admin
+    technique Django, réservé au staff). On y centralise le pilotage
+    métier : vue d'ensemble des organisations, des utilisateurs, du
+    catalogue.
+
+    Règles d'accès :
+    - utilisateur anonyme → renvoi vers le login ;
+    - utilisateur sans rôle ``PLATFORM_ADMIN`` ni ``is_superuser`` →
+      redirection vers son dashboard métier (``_redirect_by_role``) ;
+    - utilisateur autorisé → rendu de ``platform/admin_dashboard.html``.
+    """
+
+    template_name = "platform/admin_dashboard.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return redirect_to_login(request.get_full_path())
+
+        # NOTE: on n'utilise pas ``is_platform_admin`` du modèle car cette
+        # propriété matche aussi ``is_staff`` ; or un staff Django sans
+        # rôle PLATFORM_ADMIN n'a pas vocation à voir ce dashboard métier
+        # — il a son admin Django dédié.
+        is_platform_admin_role = (
+            getattr(user, "platform_role", None)
+            == getattr(user.__class__, "PlatformRole", None).PLATFORM_ADMIN
+        ) if hasattr(user, "platform_role") else False
+
+        if not (is_platform_admin_role or user.is_superuser):
+            from formations.Rolemixin import _redirect_by_role
+            try:
+                return redirect(_redirect_by_role(user))
+            except NoReverseMatch:
+                return redirect("home")
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # KPIs simples ; on évite les requêtes coûteuses à ce stade,
+        # ce dashboard est une porte d'entrée — les drilldowns vivront
+        # dans des sous-vues dédiées.
+        try:
+            from organizations.models import Organization
+            total_orgs = Organization.objects.filter(is_active=True).count()
+        except Exception:
+            total_orgs = 0
+        try:
+            total_users = User.objects.filter(is_active=True).count()
+        except Exception:
+            total_users = 0
+        try:
+            total_courses = Course.objects.count()
+        except Exception:
+            total_courses = 0
+        try:
+            published_courses = Course.objects.filter(
+                status=Course.Status.PUBLISHED
+            ).count()
+        except Exception:
+            published_courses = 0
+
+        context.update({
+            "stats": {
+                "total_organizations": total_orgs,
+                "total_users": total_users,
+                "total_courses": total_courses,
+                "published_courses": published_courses,
+            },
+            "kpi_cards": [
+                {"label": "Organisations actives", "value": total_orgs},
+                {"label": "Utilisateurs actifs", "value": total_users},
+                {"label": "Cours (total)", "value": total_courses},
+                {"label": "Cours publiés", "value": published_courses},
+            ],
+        })
+        return context
+
+
 class HomeView(TemplateView):
+    """Landing publique de la plateforme.
+
+    Comportement :
+    - utilisateur anonyme → rendu normal de ``home/index.html`` ;
+    - utilisateur connecté → redirection vers son espace de travail le
+      plus pertinent (cf. ``compte.adapters.resolve_user_dashboard_url``).
+
+    Cela évite qu'un apprenant / formateur / admin connecté retombe sur la
+    page marketing publique après une navigation arrière, un bookmark ou
+    un appui sur le logo.
+    """
+
     template_name = "home/index.html"
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        if user.is_authenticated:
+            # Import local pour éviter les imports circulaires entre
+            # ``formations.views`` et ``compte.adapters``.
+            from compte.adapters import resolve_user_dashboard_url
+
+            target = resolve_user_dashboard_url(user)
+            # ``resolve_user_dashboard_url`` peut renvoyer "/" si aucune
+            # URL n'a pu être résolue : dans ce cas on ne tente pas de
+            # boucle "/" → "/" et on rend la home.
+            if target and target not in ("/", request.path):
+                return redirect(target)
+        return super().get(request, *args, **kwargs)
 
 
 class BusinessLandingView(TemplateView):

@@ -1,0 +1,26 @@
+
+
+{% if active_workspace %}
+<div class="workspace-identity-strip" aria-hidden="true"></div>
+<div class="workspace-identity-banner">
+    <span class="inline-flex items-center gap-2">
+        <span class="inline-block w-1.5 h-1.5 rounded-full"
+              style="background-color: var(--accent-600);"></span>
+        {% if active_workspace.kind == 'platform_admin' %}
+            Espace administrateur plateforme
+        {% elif active_workspace.kind == 'org' %}
+            Espace organisation
+            {% if active_workspace.organization_name %}
+                · {{ active_workspace.organization_name }}
+            {% endif %}
+        {% elif active_workspace.kind == 'instructor' %}
+            Espace formateur
+        {% else %}
+            Espace apprenant
+        {% endif %}
+    </span>
+    <span class="hidden sm:inline-flex items-center gap-1 text-[10px] opacity-80">
+        Best Épargne
+    </span>
+</div>
+{% endif %}

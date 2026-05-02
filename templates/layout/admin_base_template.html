@@ -256,6 +256,9 @@
 <body data-workspace="{{ active_workspace.kind|default:'org' }}"
       class="text-slate-900 dark:text-be-ink-50 dark:bg-be-ink-900">
 
+{# ================== BANDEAU D'IDENTITÉ DE L'ESPACE ================== #}
+{% include "partials/workspace_identity.html" %}
+
 <div class="min-h-screen flex">
 
   <!-- SIDEBAR -->

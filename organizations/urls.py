@@ -87,8 +87,12 @@ urlpatterns = [
         OrganizationLessonCreateView.as_view(),
         name="lesson_create",
     ),
+    # Pattern remis dans la même hiérarchie que les autres routes Cours
+    # (anciennement ``course_assign/<org>/courses/<id>/-learners/`` qui
+    # cassait la cohérence du préfixe ``<int:organization_id>/courses/...``
+    # et exposait un ``/-learners/`` peu engageant côté URL).
     path(
-        "course_assign/<int:organization_id>/courses/<int:course_id>/-learners/",
+        "<int:organization_id>/courses/<int:course_id>/assign-learners/",
         OrganizationCourseAssignLearnersView.as_view(),
         name="course_assign_learners",
     ),

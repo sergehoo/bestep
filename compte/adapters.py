@@ -11,12 +11,24 @@ Un utilisateur peut cumuler plusieurs appartenances (ex. INSTRUCTOR dans une
 organisation ET LEARNER dans une autre). La redirection doit donc appliquer
 une priorité stricte pour éviter les comportements ambigus :
 
-    1. Admin plateforme          → admin_dashboard
-    2. Org owner / admin         → business_dashboard
-    3. Org manager               → business_dashboard
-    4. Formateur (indé. ou org)  → instructor_dashboard
-    5. Apprenant                 → learner_dashboard
-                                   (avec onboarding si jamais complété)
+    1. Org owner / admin / manager → business_dashboard
+    2. Admin plateforme            → admin_dashboard (vue dédiée)
+    3. Formateur (indé. ou org)    → instructor:dashboard
+    4. Apprenant                   → learner:dashboard
+                                     (avec onboarding si jamais complété)
+
+Notes importantes :
+
+- L'org membership prime sur ``is_platform_admin``. Sinon un user qui
+  est à la fois owner d'une organisation ET ``is_staff=True`` (ce qui
+  active ``is_platform_admin`` côté modèle) atterrirait sur l'admin
+  Django alors qu'il vient surtout pour piloter son organisation.
+
+- ``admin_dashboard`` est une vue dédiée (cf. ``best_epargne.urls`` →
+  ``PlatformAdminDashboard``). On NE redirige PLUS vers ``admin:index``
+  pour le rôle plateforme : ``admin:index`` est réservé au staff
+  technique (Django admin) et reste accessible depuis le dashboard
+  plateforme via un raccourci.
 """
 
 from __future__ import annotations
@@ -81,27 +93,59 @@ def _has_completed_onboarding(user) -> bool:
     ).exists()
 
 
+def _is_pure_platform_admin_role(user) -> bool:
+    """True si l'utilisateur a explicitement le rôle plateforme
+    ``PLATFORM_ADMIN`` (ou est ``is_superuser``).
+
+    On évite ``user.is_platform_admin`` qui matche aussi ``is_staff`` —
+    un staff Django sans rôle métier plateforme n'a pas vocation à voir
+    le dashboard métier ``admin_dashboard`` ; il a son admin technique.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    role_cls = getattr(user.__class__, "PlatformRole", None)
+    if role_cls is None:
+        return False
+    return getattr(user, "platform_role", None) == role_cls.PLATFORM_ADMIN
+
+
 def resolve_user_dashboard_url(user) -> str:
     """Retourne l'URL du dashboard le plus pertinent pour un utilisateur.
 
-    Strictement ordonné : plateforme > org admin > org manager > instructor >
-    learner. Ne suppose rien sur l'existence des URLs cibles (fallback safe).
+    Ordre (du plus métier au plus large) :
+        org admin/manager > admin plateforme > instructor > learner.
+
+    L'org membership prime volontairement sur ``is_platform_admin`` pour
+    qu'un OWNER d'organisation qui est aussi ``is_staff`` n'atterrisse
+    pas sur l'admin Django alors qu'il vient piloter son organisation.
+
+    Ne suppose rien sur l'existence des URLs cibles (fallback safe).
     """
     if not user or not user.is_authenticated:
-        return _safe_reverse("account_login", fallback="/accounts/login/")
+        return _safe_reverse("account_login", fallback="/account/login/")
 
-    if getattr(user, "is_platform_admin", False):
+    # 1. Rôle d'organisation (OWNER / ADMIN / MANAGER) — toujours prioritaire.
+    if _has_active_org_role(user, _ORG_MANAGER_ROLES):
+        return _safe_reverse("business_dashboard")
+
+    # 2. Rôle plateforme (PLATFORM_ADMIN / superuser) → vue métier dédiée.
+    #    ``admin:index`` n'est PAS la cible : il est réservé au staff
+    #    technique. ``admin_dashboard`` existe désormais
+    #    (cf. ``best_epargne.urls``).
+    if _is_pure_platform_admin_role(user):
         return _safe_reverse("admin_dashboard")
 
-    if _has_active_org_role(user, _ORG_ADMIN_ROLES):
-        return _safe_reverse("business_dashboard")
-
-    if _has_active_org_role(user, (OrganizationMembership.Role.MANAGER,)):
-        return _safe_reverse("business_dashboard")
-
+    # 3. Formateur (profil ou rôle org INSTRUCTOR).
     if getattr(user, "is_instructor", False):
         return _safe_reverse("instructor:dashboard")
 
+    # 4. Pur staff technique sans aucun rôle métier → admin Django.
+    if user.is_staff:
+        return _safe_reverse("admin:index")
+
+    # 5. Apprenant (cas par défaut).
     return _safe_reverse("learner:dashboard")
 
 
@@ -118,16 +162,31 @@ class AccountAdapter(DefaultAccountAdapter):
         """Redirection après connexion.
 
         Stratégie :
+        0. Si l'utilisateur arrive avec un ``?next=`` sûr (URL relative,
+           même host) — typiquement quand il a cliqué sur un lien protégé
+           sans être logué — on respecte ce ``next``. C'est l'attente
+           standard d'un utilisateur web.
         1. Si la session contient un ``active_workspace`` toujours valide
            (l'user n'a pas perdu le rôle), on respecte ce choix — confort
            pour l'utilisateur multi-rôles qui revient.
         2. Sinon, on retombe sur le 1er espace pertinent dans
            ``list_available_workspaces`` (= la priorité historique).
-        3. Sinon, fallback ``learner_dashboard`` puis "/".
+        3. Sinon, fallback dashboard métier puis "/".
         """
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
-            return _safe_reverse("account_login", fallback="/accounts/login/")
+            return _safe_reverse("account_login", fallback="/account/login/")
+
+        # 0. Honorer un éventuel ``?next=`` si — et seulement si — c'est
+        # une URL relative qui pointe vers le même host. Un ``next``
+        # vide / mal formé / externe est ignoré silencieusement.
+        next_url = (
+            request.POST.get("next")
+            or request.GET.get("next")
+            or ""
+        ).strip()
+        if next_url.startswith("/") and not next_url.startswith("//"):
+            return next_url
 
         active = get_active_workspace(request)
         if active is not None:
@@ -144,19 +203,26 @@ class AccountAdapter(DefaultAccountAdapter):
     def get_signup_redirect_url(self, request):
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
-            return _safe_reverse("account_login", fallback="/accounts/login/")
+            return _safe_reverse("account_login", fallback="/account/login/")
 
         # Si l'utilisateur nouvellement inscrit a déjà un rôle élevé (parce
         # qu'un admin org lui a pré-créé un compte formateur/admin org par
         # ex.), on le redirige vers son dashboard métier.
-        if getattr(user, "is_platform_admin", False):
-            return _safe_reverse("admin_dashboard")
-
+        # IMPORTANT : on garde la même priorité que le login — le rôle
+        # d'organisation prime sur ``is_platform_admin`` pour ne jamais
+        # router un org admin vers l'admin Django.
         if _has_active_org_role(user, _ORG_MANAGER_ROLES):
             return _safe_reverse("business_dashboard")
 
+        if _is_pure_platform_admin_role(user):
+            return _safe_reverse("admin_dashboard")
+
         if getattr(user, "is_instructor", False):
             return _safe_reverse("instructor:dashboard")
+
+        # Pur staff technique → admin Django.
+        if user.is_staff:
+            return _safe_reverse("admin:index")
 
         # Apprenant : on force l'onboarding quiz s'il n'a pas encore été
         # complété. Le middleware OnboardingRequiredMiddleware assure de

@@ -47,14 +47,23 @@ def switch_workspace(request):
       on redirige là plutôt que vers le dashboard de l'espace.
     """
     kind = (request.POST.get("kind") or "").strip()
+
+    # On préfère un message UX + redirect vers le referer plutôt qu'une
+    # 400 brute : l'utilisateur tombe sinon sur une page blanche "Bad
+    # Request" sans savoir comment revenir.
     if kind not in _VALID_KINDS:
-        return HttpResponseBadRequest("Invalid workspace kind.")
+        messages.error(request, "Espace de travail inconnu.")
+        return HttpResponseRedirect(request.META.get("HTTP_REFERER") or "/")
 
     org_id_raw = request.POST.get("organization_id") or ""
     organization_id = None
     if kind == WORKSPACE_ORG:
         if not org_id_raw.isdigit():
-            return HttpResponseBadRequest("organization_id required for org workspace.")
+            messages.error(
+                request,
+                "Aucune organisation sélectionnée pour cet espace.",
+            )
+            return HttpResponseRedirect(request.META.get("HTTP_REFERER") or "/")
         organization_id = int(org_id_raw)
 
     try:
@@ -64,6 +73,11 @@ def switch_workspace(request):
         # membership actif côté user).
         messages.error(request, "Vous n'avez pas accès à cet espace.")
         return HttpResponseRedirect(request.META.get("HTTP_REFERER") or "/")
+
+    # Petit feedback positif : l'utilisateur voit clairement que le
+    # contexte a basculé, ce qui évite la confusion "rien ne s'est passé"
+    # quand le dashboard cible ressemble visuellement au précédent.
+    messages.success(request, f"Espace actif : {ws.label}.")
 
     # Redirection : ``next`` si fourni et plausible (même host), sinon le
     # dashboard de l'espace.
