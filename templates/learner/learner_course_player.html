@@ -429,11 +429,129 @@
 
                             <!-- QUIZ -->
                             <template x-if="lesson.type === 'QUIZ'">
-                                <div class="rounded-2xl border border-be-ink-100 p-5 bg-be-ink-50/40">
-                                    <div class="text-sm font-extrabold text-slate-900">Quiz</div>
-                                    <div class="text-xs text-be-ink-500 mt-1">
-                                        Connecte ton UI de quiz ici (ou ouvre un lien).
-                                    </div>
+                                <div class="space-y-4">
+
+                                    <!-- Chargement -->
+                                    <template x-if="quiz.loading">
+                                        <div class="rounded-2xl border border-be-ink-100 p-6 text-center text-sm text-be-ink-500">
+                                            <div class="inline-block w-5 h-5 border-2 border-be-sky-300 border-t-be-sky-600 rounded-full animate-spin mb-2"></div>
+                                            <div>Chargement du quiz…</div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Erreur chargement -->
+                                    <template x-if="!quiz.loading && quiz.error && !quiz.loaded">
+                                        <div class="rounded-2xl border border-red-100 bg-red-50 p-5 text-sm text-red-700" x-text="quiz.error"></div>
+                                    </template>
+
+                                    <!-- Quiz chargé — déjà soumis (résultat) -->
+                                    <template x-if="quiz.loaded && quiz.result">
+                                        <div>
+                                            <!-- Résultat -->
+                                            <div :class="quiz.result.passed
+                                                    ? 'border-emerald-100 bg-emerald-50'
+                                                    : 'border-amber-100 bg-amber-50'"
+                                                 class="rounded-2xl border p-5">
+                                                <div class="flex items-center gap-3">
+                                                    <div :class="quiz.result.passed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                                                         class="w-10 h-10 rounded-xl flex items-center justify-center text-lg">
+                                                        <template x-if="quiz.result.passed"><i class="fas fa-circle-check"></i></template>
+                                                        <template x-if="!quiz.result.passed"><i class="fas fa-rotate-right"></i></template>
+                                                    </div>
+                                                    <div>
+                                                        <div :class="quiz.result.passed ? 'text-emerald-900' : 'text-amber-900'"
+                                                             class="font-semibold text-sm"
+                                                             x-text="quiz.result.passed ? '🎉 Bravo, tu as réussi !' : 'Continue à t\'entraîner'"></div>
+                                                        <div class="text-xs mt-0.5"
+                                                             :class="quiz.result.passed ? 'text-emerald-700' : 'text-amber-700'">
+                                                            Score : <span class="font-bold" x-text="quiz.result.score_percent + '%'"></span>
+                                                            · Score requis : <span x-text="quiz.result.passing_score + '%'"></span>
+                                                            · <span x-text="quiz.result.good_answers + '/' + quiz.result.total_questions"></span> bonne(s) réponse(s)
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Réessayer si tentatives restantes -->
+                                            <template x-if="!quiz.result.passed && quiz.data && quiz.attemptsLeft > 0">
+                                                <button @click="resetQuiz()"
+                                                        class="mt-3 w-full py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
+                                                    Réessayer
+                                                    (<span x-text="quiz.attemptsLeft"></span> tentative<span x-show="quiz.attemptsLeft > 1">s</span> restante<span x-show="quiz.attemptsLeft > 1">s</span>)
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </template>
+
+                                    <!-- Quiz chargé — formulaire de réponses -->
+                                    <template x-if="quiz.loaded && !quiz.result && quiz.data">
+                                        <div class="space-y-4">
+                                            <!-- En-tête quiz -->
+                                            <div class="rounded-2xl border border-be-sky-100 bg-be-sky-50 px-5 py-4 flex items-center justify-between gap-3">
+                                                <div>
+                                                    <div class="text-sm font-extrabold text-be-sky-900" x-text="quiz.data.title"></div>
+                                                    <div class="text-xs text-be-sky-700 mt-0.5">
+                                                        Score requis : <span class="font-semibold" x-text="quiz.data.passing_score + '%'"></span>
+                                                        · Max tentatives : <span class="font-semibold" x-text="quiz.data.max_attempts"></span>
+                                                        · Tentatives effectuées : <span class="font-semibold" x-text="quiz.data.attempts_count"></span>
+                                                    </div>
+                                                </div>
+                                                <i class="fas fa-clipboard-question text-be-sky-400 text-xl"></i>
+                                            </div>
+
+                                            <!-- Questions -->
+                                            <template x-for="(q, qi) in (quiz.data.questions || [])" :key="q.id">
+                                                <div class="rounded-2xl border border-be-ink-100 bg-white p-5">
+                                                    <div class="text-sm font-semibold text-slate-900 mb-3"
+                                                         x-text="(qi + 1) + '. ' + q.prompt"></div>
+                                                    <div class="space-y-2">
+                                                        <template x-for="c in (q.choices || [])" :key="c.id">
+                                                            <label :class="quiz.answers[q.id] == c.id
+                                                                        ? 'border-be-sky-400 bg-be-sky-50 text-be-sky-800'
+                                                                        : 'border-be-ink-100 bg-white text-be-ink-700 hover:border-be-ink-200 hover:bg-be-ink-50'"
+                                                                   class="flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition">
+                                                                <input type="radio"
+                                                                       :name="'q_' + q.id"
+                                                                       :value="c.id"
+                                                                       :checked="quiz.answers[q.id] == c.id"
+                                                                       @change="quiz.answers[q.id] = c.id"
+                                                                       class="accent-be-sky-600 flex-shrink-0">
+                                                                <span class="text-sm" x-text="c.text"></span>
+                                                            </label>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </template>
+
+                                            <!-- Erreur soumission -->
+                                            <template x-if="quiz.error">
+                                                <div class="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+                                                     x-text="quiz.error"></div>
+                                            </template>
+
+                                            <!-- Bouton soumettre -->
+                                            <button @click="submitQuiz()"
+                                                    :disabled="quiz.submitting || !quizAllAnswered()"
+                                                    class="w-full py-3 rounded-2xl bg-gradient-to-r from-be-sky-600 to-be-sky-500 text-white font-semibold shadow-soft hover:brightness-[1.02] transition disabled:opacity-50 flex items-center justify-center gap-2">
+                                                <span x-show="quiz.submitting"
+                                                      class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+                                                <i x-show="!quiz.submitting" class="fas fa-paper-plane"></i>
+                                                <span x-text="quiz.submitting ? 'Envoi…' : 'Soumettre mes réponses'"></span>
+                                            </button>
+                                            <p class="text-[11px] text-be-ink-400 text-center"
+                                               x-show="!quizAllAnswered()">
+                                                Réponds à toutes les questions avant de soumettre.
+                                            </p>
+                                        </div>
+                                    </template>
+
+                                    <!-- Max tentatives atteint, pas encore de résultat -->
+                                    <template x-if="quiz.loaded && !quiz.result && !quiz.data">
+                                        <div class="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
+                                            <i class="fas fa-lock mr-2"></i>
+                                            Nombre maximal de tentatives atteint pour ce quiz.
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
 
@@ -564,6 +682,19 @@
                     isDesktop: false,
                     toast: {show: false, msg: "", type: "ok", t: null}
                 },
+
+                // ── État quiz ──────────────────────────────────────────────────
+                quiz: {
+                    loading:     false,
+                    loaded:      false,
+                    data:        null,   // { id, title, passing_score, max_attempts, attempts_count, questions }
+                    answers:     {},     // { question_id: choice_id }
+                    submitting:  false,
+                    result:      null,   // { score_percent, passed, passing_score, good_answers, total_questions }
+                    error:       null,
+                    attemptsLeft: 0,
+                },
+                // ──────────────────────────────────────────────────────────────
 
                 _outlineRefreshTimer: null,
                 _videoSeekDone: false,
@@ -778,6 +909,106 @@
                     this.ui.openSections[sectionId] = !this.ui.openSections[sectionId];
                 },
 
+                // ── Quiz helpers ───────────────────────────────────────────────
+                /** Trouve le section_id de la leçon courante en parcourant le plan. */
+                findSectionIdForLesson(lessonId) {
+                    for (const s of (this.sections || [])) {
+                        for (const l of (s.lessons || [])) {
+                            if (Number(l.id) === Number(lessonId)) return s.id;
+                        }
+                    }
+                    return null;
+                },
+
+                /** Charge le quiz de la section contenant la leçon courante. */
+                async loadQuiz() {
+                    this.quiz = {
+                        loading: true, loaded: false, data: null,
+                        answers: {}, submitting: false, result: null, error: null, attemptsLeft: 0
+                    };
+                    const sectionId = this.findSectionIdForLesson(this.currentLessonId);
+                    if (!sectionId) {
+                        this.quiz.loading = false;
+                        this.quiz.loaded  = true;
+                        this.quiz.error   = "Section introuvable pour ce quiz.";
+                        return;
+                    }
+                    try {
+                        const url = `/api/learner/courses/${this.courseId}/sections/${sectionId}/quiz/`;
+                        const data = await this.apiGet(url);
+                        this.quiz.data         = data;
+                        this.quiz.attemptsLeft = Math.max(0, (data.max_attempts || 0) - (data.attempts_count || 0));
+                        this.quiz.loaded       = true;
+                    } catch (e) {
+                        this.quiz.error  = e?.detail || "Impossible de charger le quiz.";
+                        this.quiz.loaded = true;
+                    } finally {
+                        this.quiz.loading = false;
+                    }
+                },
+
+                /** Vérifie que toutes les questions ont une réponse. */
+                quizAllAnswered() {
+                    if (!this.quiz.data?.questions?.length) return false;
+                    return this.quiz.data.questions.every(q => this.quiz.answers[q.id] != null);
+                },
+
+                /** Soumet les réponses du quiz. */
+                async submitQuiz() {
+                    if (!this.quizAllAnswered()) return;
+                    this.quiz.submitting = true;
+                    this.quiz.error      = null;
+                    const sectionId = this.findSectionIdForLesson(this.currentLessonId);
+                    try {
+                        const answers = Object.entries(this.quiz.answers).map(([qid, cid]) => ({
+                            question_id: Number(qid),
+                            choice_id:   Number(cid),
+                        }));
+                        const url    = `/api/learner/courses/${this.courseId}/sections/${sectionId}/quiz/submit/`;
+                        const result = await this.apiPost(url, { answers });
+                        this.quiz.result       = result;
+                        this.quiz.attemptsLeft = Math.max(0, this.quiz.attemptsLeft - 1);
+                        // Rafraîchir la progression globale si le quiz est réussi
+                        if (result?.passed) {
+                            this.$nextTick(() => this.refreshOutlineSilently());
+                        }
+                    } catch (e) {
+                        this.quiz.error = e?.detail || e?.message || "Erreur lors de la soumission.";
+                    } finally {
+                        this.quiz.submitting = false;
+                    }
+                },
+
+                /** Permet de réessayer le quiz (recharge pour avoir le bon attempts_count). */
+                async resetQuiz() {
+                    await this.loadQuiz();
+                },
+
+                /** Rafraîchit silencieusement le plan de cours (progression). */
+                async refreshOutlineSilently() {
+                    try {
+                        const data = await this.apiGet(this.api.outline);
+                        this.progress = {
+                            percent: Number(data?.progress?.percent ?? 0),
+                            completed_lessons: Number(data?.progress?.completed_lessons ?? 0),
+                            total_lessons: Number(data?.progress?.total_lessons ?? 0)
+                        };
+                        // Mettre à jour l'état is_completed dans la sidebar
+                        (data?.sections || []).forEach(s => {
+                            const sec = this.sections.find(x => x.id === s.id);
+                            if (!sec) return;
+                            (s.lessons || []).forEach(l => {
+                                const lesson = sec.lessons.find(x => x.id === l.id);
+                                if (lesson) {
+                                    lesson.is_completed   = !!(l.completed ?? l.is_completed);
+                                    lesson.percent        = Number(l.progress_percent ?? l.percent ?? 0);
+                                }
+                            });
+                        });
+                    } catch (_) { /* silencieux */ }
+                },
+                // ──────────────────────────────────────────────────────────────
+
                 expandAll(open) {
                     (this.sections || []).forEach(s => {
                         this.ui.openSections[s.id] = !!open;
@@ -872,6 +1103,7 @@
                             this.$nextTick(() => {
                                 if (this.lesson.type === "TEXT") this.setupTextAutoComplete();
                                 if (this.lesson.type === "VIDEO") this.seekVideoIfPossible();
+                                if (this.lesson.type === "QUIZ")  this.loadQuiz();
                             });
                             return;
                         }
@@ -887,6 +1119,7 @@
                         this.$nextTick(() => {
                             if (this.lesson.type === "TEXT") this.setupTextAutoComplete();
                             if (this.lesson.type === "VIDEO") this.seekVideoIfPossible();
+                            if (this.lesson.type === "QUIZ")  this.loadQuiz();
                         });
                     } catch (e) {
                         console.error("loadLesson error", e);

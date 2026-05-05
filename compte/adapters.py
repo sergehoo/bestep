@@ -127,7 +127,29 @@ def resolve_user_dashboard_url(user) -> str:
         return _safe_reverse("account_login", fallback="/account/login/")
 
     # 1. Rôle d'organisation (OWNER / ADMIN / MANAGER) — toujours prioritaire.
+    #    Optimisation : si l'utilisateur n'a qu'UNE seule org accessible, on
+    #    cible directement ``org:dashboard`` au lieu de passer par la porte
+    #    d'entrée ``business_dashboard`` (qui re-redirige). Cela supprime
+    #    le double aller-retour HTTP visible à l'écran après login.
     if _has_active_org_role(user, _ORG_MANAGER_ROLES):
+        try:
+            manager_orgs = list(
+                user.organization_memberships
+                .filter(
+                    is_active=True,
+                    organization__is_active=True,
+                    role__in=_ORG_MANAGER_ROLES,
+                )
+                .values_list("organization_id", flat=True)[:2]
+            )
+            if len(manager_orgs) == 1:
+                return reverse(
+                    "org:dashboard",
+                    kwargs={"organization_id": manager_orgs[0]},
+                )
+        except (NoReverseMatch, Exception):
+            # Fallback safe : porte d'entrée historique.
+            pass
         return _safe_reverse("business_dashboard")
 
     # 2. Rôle plateforme (PLATFORM_ADMIN / superuser) → vue métier dédiée.

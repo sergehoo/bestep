@@ -49,6 +49,16 @@
                             <i class="fas fa-user-check"></i>
                             Affecter des apprenants
                         </a>
+                        <a href="{% url 'org:course_assign_instructor' organization.id course.id %}"
+                           class="btn-soft bg-white/95">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                            Affecter un formateur
+                        </a>
+                        <a href="{% url 'org:quiz_list' organization.id course.id %}"
+                           class="btn-soft bg-white/95">
+                            <i class="fas fa-clipboard-question"></i>
+                            Quiz
+                        </a>
                         <a href="{{ builder_url }}" class="btn-yellow">
                             <i class="fas fa-screwdriver-wrench"></i>Builder
                         </a>

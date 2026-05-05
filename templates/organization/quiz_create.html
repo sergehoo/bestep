@@ -1,0 +1,63 @@
+{% extends "layout/admin_base_template.html" %}
+
+{% block title %}Créer un quiz — {{ course.title }}{% endblock %}
+{% block page_title %}Créer un quiz{% endblock %}
+
+{% block content %}
+<section class="max-w-3xl mx-auto space-y-6">
+
+  <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
+    <h1 class="text-2xl md:text-3xl font-black">Créer un quiz</h1>
+    <p class="mt-2 text-blue-50 text-sm">{{ course.title }}</p>
+  </div>
+
+  <form method="post" class="org-card p-6 space-y-5">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div>
+      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Titre</label>
+      <div class="mt-1">{{ form.title }}</div>
+      {% if form.title.errors %}<p class="mt-1 text-sm text-rose-600">{{ form.title.errors|join:", " }}</p>{% endif %}
+    </div>
+
+    <div>
+      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Section (optionnel)</label>
+      <div class="mt-1">{{ form.section }}</div>
+      <p class="mt-1 text-xs text-slate-500">{{ form.section.help_text }}</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Note de passage (%)</label>
+        <div class="mt-1">{{ form.passing_score }}</div>
+      </div>
+      <div>
+        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Tentatives max</label>
+        <div class="mt-1">{{ form.max_attempts }}</div>
+      </div>
+    </div>
+
+    <label class="flex items-center gap-2 text-sm text-slate-700">
+      {{ form.is_active }}
+      <span>Quiz actif (visible des apprenants)</span>
+    </label>
+
+    <div class="flex gap-3 pt-2">
+      <button class="btn-primary flex-1">
+        <i class="fas fa-plus"></i>
+        Créer le quiz
+      </button>
+      <a href="{% url 'org:quiz_list' organization.id course.id %}" class="btn-soft">
+        Annuler
+      </a>
+    </div>
+  </form>
+
+</section>
+{% endblock %}

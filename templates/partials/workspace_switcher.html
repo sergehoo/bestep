@@ -19,16 +19,15 @@
                focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
                transition text-sm">
 
-        {# Pastille colorée selon le kind de l'espace actif #}
         <span class="w-7 h-7 rounded-lg flex items-center justify-center text-[13px] font-bold shrink-0
                      {% if active_workspace.kind == 'platform_admin' %}
                        bg-rose-100 text-rose-700
                      {% elif active_workspace.kind == 'org' %}
-                       bg-be-sky-100 text-be-sky-700
-                     {% elif active_workspace.kind == 'instructor' %}
-                       bg-be-sun-100 text-be-sun-800
-                     {% else %}
                        bg-emerald-100 text-emerald-700
+                     {% elif active_workspace.kind == 'instructor' %}
+                       bg-violet-100 text-violet-700
+                     {% else %}
+                       bg-be-sky-100 text-be-sky-700
                      {% endif %}">
             {% if active_workspace.kind == 'platform_admin' %}A
             {% elif active_workspace.kind == 'org' %}{{ active_workspace.organization_name|slice:":1"|upper|default:"O" }}
@@ -95,11 +94,11 @@
                                 {% if ws.kind == 'platform_admin' %}
                                   bg-rose-100 text-rose-700
                                 {% elif ws.kind == 'org' %}
-                                  bg-be-sky-100 text-be-sky-700
-                                {% elif ws.kind == 'instructor' %}
-                                  bg-be-sun-100 text-be-sun-800
-                                {% else %}
                                   bg-emerald-100 text-emerald-700
+                                {% elif ws.kind == 'instructor' %}
+                                  bg-violet-100 text-violet-700
+                                {% else %}
+                                  bg-be-sky-100 text-be-sky-700
                                 {% endif %}">
                                 {% if ws.kind == 'platform_admin' %}A
                                 {% elif ws.kind == 'org' %}{{ ws.organization_name|slice:":1"|upper|default:"O" }}

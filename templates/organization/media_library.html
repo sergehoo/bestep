@@ -1,0 +1,141 @@
+{% extends "layout/admin_base_template.html" %}
+{% load humanize %}
+
+{% block title %}Bibliothèque média — {{ organization.name }}{% endblock %}
+{% block page_title %}Bibliothèque média{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+
+  <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black">Bibliothèque média</h1>
+        <p class="mt-2 text-blue-50 text-sm">
+          Vidéos et fichiers partagés au sein de
+          <span class="font-semibold">{{ organization.name }}</span>.
+        </p>
+      </div>
+      <a href="{% url 'instructor:media' %}" class="btn-yellow">
+        <i class="fas fa-cloud-upload-alt"></i>
+        Uploader un média
+      </a>
+    </div>
+  </div>
+
+  <!-- Totaux -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="org-card p-5">
+      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Total</p>
+      <p class="mt-2 text-3xl font-black text-slate-900">{{ totals.all|intcomma }}</p>
+    </div>
+    <div class="org-card p-5">
+      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Vidéos</p>
+      <p class="mt-2 text-3xl font-black text-blue-600">{{ totals.video|intcomma }}</p>
+    </div>
+    <div class="org-card p-5">
+      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Audio</p>
+      <p class="mt-2 text-3xl font-black text-purple-600">{{ totals.audio|intcomma }}</p>
+    </div>
+    <div class="org-card p-5">
+      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Documents</p>
+      <p class="mt-2 text-3xl font-black text-amber-600">{{ totals.doc|intcomma }}</p>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <form method="get" class="org-card p-4 flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-[200px]">
+      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Recherche</label>
+      <input type="text" name="q" value="{{ filter_q }}"
+             placeholder="Titre ou clé S3…"
+             class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-400">
+    </div>
+    <div>
+      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Type</label>
+      <select name="kind" class="mt-1 rounded-xl border border-slate-200 px-3 py-2 text-sm">
+        <option value="">Tous</option>
+        <option value="video" {% if filter_kind == "video" %}selected{% endif %}>Vidéos</option>
+        <option value="audio" {% if filter_kind == "audio" %}selected{% endif %}>Audio</option>
+        <option value="doc" {% if filter_kind == "doc" %}selected{% endif %}>Documents</option>
+      </select>
+    </div>
+    <button class="btn-primary">
+      <i class="fas fa-filter"></i>
+      Filtrer
+    </button>
+    {% if filter_q or filter_kind %}
+      <a href="{% url 'org:media_library' organization.id %}" class="btn-soft">
+        Réinitialiser
+      </a>
+    {% endif %}
+  </form>
+
+  <!-- Grille -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    {% for asset in assets %}
+      <div class="org-card overflow-hidden card-lift">
+        <div class="aspect-[16/9] bg-slate-100 flex items-center justify-center text-slate-400">
+          {% if asset.kind == "video" %}
+            <i class="fas fa-film text-4xl"></i>
+          {% elif asset.kind == "audio" %}
+            <i class="fas fa-music text-4xl"></i>
+          {% else %}
+            <i class="fas fa-file-alt text-4xl"></i>
+          {% endif %}
+        </div>
+        <div class="p-4">
+          <div class="font-bold text-slate-900 truncate" title="{{ asset.title }}">
+            {{ asset.title|default:"(sans titre)" }}
+          </div>
+          <div class="mt-1 text-xs text-slate-500 truncate">
+            {{ asset.owner.full_name|default:asset.owner.email }}
+          </div>
+          <div class="mt-2 flex items-center justify-between">
+            <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full
+                         {% if asset.processing_status == 'ready' %}bg-emerald-100 text-emerald-700
+                         {% elif asset.processing_status == 'failed' %}bg-rose-100 text-rose-700
+                         {% else %}bg-amber-100 text-amber-700{% endif %}">
+              {{ asset.processing_status }}
+            </span>
+            <span class="text-[10px] uppercase tracking-wider text-slate-400">
+              {{ asset.kind }}
+            </span>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-span-full org-card p-8 text-center text-sm text-slate-500">
+        Aucun média trouvé.
+        {% if not filter_q and not filter_kind %}
+          <a href="{% url 'instructor:media' %}" class="text-blue-600 font-semibold ml-1">
+            Uploader le premier média →
+          </a>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+    <div class="flex items-center justify-center gap-2 pt-4">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if filter_kind %}&kind={{ filter_kind }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}"
+           class="btn-soft text-xs">
+          <i class="fas fa-chevron-left"></i> Précédent
+        </a>
+      {% endif %}
+      <span class="text-xs text-slate-500 px-3">
+        Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      </span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if filter_kind %}&kind={{ filter_kind }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}"
+           class="btn-soft text-xs">
+          Suivant <i class="fas fa-chevron-right"></i>
+        </a>
+      {% endif %}
+    </div>
+  {% endif %}
+
+</section>
+{% endblock %}

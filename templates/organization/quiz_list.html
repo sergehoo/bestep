@@ -1,0 +1,83 @@
+{% extends "layout/admin_base_template.html" %}
+{% load humanize %}
+
+{% block title %}Quiz — {{ course.title }}{% endblock %}
+{% block page_title %}Quiz du cours{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+
+  <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black">Quiz</h1>
+        <p class="mt-2 text-blue-50 text-sm">{{ course.title }}</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="{{ quiz_create_url }}" class="btn-yellow">
+          <i class="fas fa-plus"></i>
+          Nouveau quiz
+        </a>
+        <a href="{% url 'org:course_builder' organization.id course.id %}" class="btn-soft bg-white/95">
+          <i class="fas fa-cube"></i>
+          Builder
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="org-card overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-sm font-black text-slate-900">
+        {{ quizzes|length }} quiz
+      </h2>
+    </div>
+
+    <div class="divide-y divide-slate-100">
+      {% for q in quizzes %}
+        <div class="px-5 py-4 flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <a href="{% url 'org:quiz_detail' organization.id course.id q.id %}"
+                 class="font-bold text-slate-900 hover:text-blue-600 truncate">
+                {{ q.title }}
+              </a>
+              {% if not q.is_active %}
+                <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                  inactif
+                </span>
+              {% endif %}
+              {% if q.is_onboarding %}
+                <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                  onboarding
+                </span>
+              {% endif %}
+            </div>
+            <div class="mt-1 text-xs text-slate-500">
+              {% if q.section %}Section : {{ q.section.title }} · {% endif %}
+              {{ q.question_count }} question{{ q.question_count|pluralize }} ·
+              Note de passage : {{ q.passing_score }}% ·
+              {{ q.attempt_count }} tentative{{ q.attempt_count|pluralize }}
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <a href="{% url 'org:quiz_detail' organization.id course.id q.id %}"
+               class="btn-soft text-xs">
+              <i class="fas fa-pen"></i>
+              Éditer
+            </a>
+          </div>
+        </div>
+      {% empty %}
+        <div class="p-6 text-sm text-slate-500">
+          Aucun quiz pour ce cours pour le moment.
+          <a href="{{ quiz_create_url }}" class="text-blue-600 font-semibold ml-1">
+            Créer le premier quiz →
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</section>
+{% endblock %}

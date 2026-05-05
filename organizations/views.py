@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from decimal import Decimal
 from functools import cached_property
 
@@ -8,18 +9,27 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Avg, Count, DecimalField, IntegerField, Q, Sum, Value, FloatField
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncDate
 from django.http import Http404
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import NoReverseMatch, reverse
-from django.views.generic import FormView, TemplateView, DetailView
-from catalog.models import Category, Course, Lesson, Payment, CourseSection
+from django.utils import timezone
+from django.views.generic import FormView, TemplateView, DetailView, ListView
+from assessments.models import Quiz
+from catalog.models import Category, Course, Lesson, MediaAsset, Payment, CourseSection
 from enrollments.models import Enrollment, LessonProgress
 from formations.Rolemixin import RoleRequiredMixin
 from formations.views import _redirect_by_role
 from organizations.models import OrganizationMembership, Organization
-from organizations.organ_forms import OrganizationMemberCreateForm, OrganizationCourseCreateForm, \
-    OrganizationSectionCreateForm, OrganizationLessonCreateForm, OrganizationCourseAssignLearnersForm
+from organizations.organ_forms import (
+    OrganizationCourseAssignInstructorForm,
+    OrganizationCourseAssignLearnersForm,
+    OrganizationCourseCreateForm,
+    OrganizationLessonCreateForm,
+    OrganizationMemberCreateForm,
+    OrganizationQuizCreateForm,
+    OrganizationSectionCreateForm,
+)
 from organizations.services import OrganizationMemberManagementService
 from organizations.utils import get_current_organization_for_user, get_user_admin_organizations
 
@@ -342,6 +352,160 @@ class OrganisationDashboard(OrganizationScopedMixin, TemplateView):
                     "issues": issues,
                 })
 
+        # ============================================================
+        # Statistiques avancées : tendances, top cours, distribution.
+        # ============================================================
+        now = timezone.now()
+        last_30 = now - datetime.timedelta(days=30)
+        last_90 = now - datetime.timedelta(days=90)
+
+        # Top 5 cours par nombre d'inscrits.
+        top_courses_by_enrollments = (
+            courses_qs
+            .select_related("category", "instructor")
+            .annotate(
+                enrolled_count=Coalesce(
+                    Count("enrollments", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                rating_avg=Coalesce(
+                    Avg(
+                        "reviews__rating",
+                        filter=Q(reviews__is_public=True),
+                        output_field=FloatField(),
+                    ),
+                    Value(0.0),
+                    output_field=FloatField(),
+                ),
+            )
+            .order_by("-enrolled_count", "-updated_at")[:5]
+        )
+
+        # Top 5 cours « tendance » : inscrits sur les 30 derniers jours.
+        trending_courses = (
+            courses_qs
+            .select_related("category", "instructor")
+            .annotate(
+                recent_enrollments=Coalesce(
+                    Count(
+                        "enrollments",
+                        filter=Q(enrollments__enrolled_at__gte=last_30),
+                        distinct=True,
+                    ),
+                    0,
+                    output_field=IntegerField(),
+                ),
+            )
+            .filter(recent_enrollments__gt=0)
+            .order_by("-recent_enrollments")[:5]
+        )
+
+        # Top 5 cours par note moyenne (avec au moins 1 review publique).
+        top_courses_by_rating = (
+            courses_qs
+            .select_related("category", "instructor")
+            .annotate(
+                rating_avg=Coalesce(
+                    Avg(
+                        "reviews__rating",
+                        filter=Q(reviews__is_public=True),
+                        output_field=FloatField(),
+                    ),
+                    Value(0.0),
+                    output_field=FloatField(),
+                ),
+                rating_count=Coalesce(
+                    Count(
+                        "reviews",
+                        filter=Q(reviews__is_public=True),
+                        distinct=True,
+                    ),
+                    0,
+                    output_field=IntegerField(),
+                ),
+            )
+            .filter(rating_count__gt=0)
+            .order_by("-rating_avg", "-rating_count")[:5]
+        )
+
+        # Tendance : inscriptions par jour sur les 30 derniers jours.
+        # (groupé en JOUR pour rester lisible côté graph et léger côté DB)
+        enrollments_trend_qs = (
+            enrollments_qs.filter(enrolled_at__gte=last_30)
+            .annotate(day=TruncDate("enrolled_at"))
+            .values("day")
+            .annotate(n=Count("id"))
+            .order_by("day")
+        )
+        enrollments_trend = [
+            {"day": row["day"].isoformat() if row["day"] else "", "count": row["n"]}
+            for row in enrollments_trend_qs
+        ]
+
+        # Top 5 formateurs de l'org par nombre d'inscrits cumulés sur
+        # leurs cours (utile pour l'admin qui veut savoir quels
+        # formateurs portent l'audience).
+        top_instructors = (
+            User.objects.filter(
+                organization_memberships__organization=organization,
+                organization_memberships__is_active=True,
+                organization_memberships__role=(
+                    OrganizationMembership.Role.INSTRUCTOR
+                ),
+            )
+            .annotate(
+                courses_count=Coalesce(
+                    Count(
+                        "courses",
+                        filter=Q(courses__company=organization),
+                        distinct=True,
+                    ),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                enrolled_total=Coalesce(
+                    Count(
+                        "courses__enrollments",
+                        filter=Q(courses__company=organization),
+                        distinct=True,
+                    ),
+                    0,
+                    output_field=IntegerField(),
+                ),
+            )
+            .filter(courses_count__gt=0)
+            .order_by("-enrolled_total", "-courses_count")[:5]
+        )
+
+        # Statistiques quiz et complétion (signaux qualité du contenu).
+        quiz_qs = Quiz.objects.filter(course__company=organization)
+        completed_enrollments = enrollments_qs.filter(
+            status=Enrollment.Status.COMPLETED
+        ).count() if hasattr(Enrollment, "Status") else 0
+
+        stats.update({
+            "new_enrollments_30d": enrollments_qs.filter(
+                enrolled_at__gte=last_30
+            ).count(),
+            "new_enrollments_90d": enrollments_qs.filter(
+                enrolled_at__gte=last_90
+            ).count(),
+            "new_courses_30d": courses_qs.filter(
+                created_at__gte=last_30
+            ).count(),
+            "completed_enrollments": completed_enrollments,
+            "completion_rate": (
+                (completed_enrollments / stats["total_enrollments"] * 100.0)
+                if stats["total_enrollments"] else 0.0
+            ),
+            "total_quizzes": quiz_qs.count(),
+            "active_quizzes": quiz_qs.filter(is_active=True).count(),
+            "courses_unassigned": courses_qs.filter(
+                instructor__isnull=True
+            ).count(),
+        })
+
         context.update({
             "page_title": f"Dashboard — {organization.name}",
             "stats": stats,
@@ -350,12 +514,21 @@ class OrganisationDashboard(OrganizationScopedMixin, TemplateView):
             "recent_learners": recent_learners,
             "top_categories": top_categories,
             "courses_needing_work": courses_needing_work,
+            "top_courses_by_enrollments": top_courses_by_enrollments,
+            "trending_courses": trending_courses,
+            "top_courses_by_rating": top_courses_by_rating,
+            "top_instructors": top_instructors,
+            "enrollments_trend": enrollments_trend,
             "member_create_url": reverse(
                 "org:member_create",
                 kwargs={"organization_id": organization.id},
             ),
             "course_create_url": reverse(
                 "org:course_create",
+                kwargs={"organization_id": organization.id},
+            ),
+            "media_library_url": reverse(
+                "org:media_library",
                 kwargs={"organization_id": organization.id},
             ),
         })
@@ -617,6 +790,11 @@ class OrganizationLessonCreateView(OrganizationScopedMixin, FormView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
+        # On expose les médias appartenant à l'organisation, pas seulement
+        # ceux de l'utilisateur courant : un org admin doit pouvoir
+        # rattacher une leçon à un média uploadé par n'importe quel
+        # formateur de l'organisation.
+        kwargs["organization"] = self.organization
         return kwargs
 
     def form_valid(self, form):
@@ -848,4 +1026,289 @@ class OrganizationCourseAssignLearnersView(OrganizationScopedMixin, FormView):
             "page_title": f"Affecter des apprenants — {course.title}",
         })
 
+        return context
+
+
+# ----------------------------------------------------------------------
+# Affectation d'un cours à un FORMATEUR de l'organisation.
+#
+# Règle métier (cf. demande user) : on ne peut affecter un formateur
+# QUE si le cours appartient à l'organisation (``company == org``) ; ce
+# qui est garanti par ``get_object_or_404(... company=self.organization)``
+# couplé au ``clean()`` du formulaire.
+# ----------------------------------------------------------------------
+class OrganizationCourseAssignInstructorView(OrganizationScopedMixin, FormView):
+    template_name = "organization/course_assign_instructor.html"
+    form_class = OrganizationCourseAssignInstructorForm
+
+    # Réservé aux OWNER / ADMIN — pas aux MANAGER.
+    allowed_org_roles = (
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    )
+
+    def get_course(self):
+        if not hasattr(self, "_course"):
+            self._course = get_object_or_404(
+                Course.objects.select_related("instructor"),
+                pk=self.kwargs["course_id"],
+                company=self.organization,
+            )
+        return self._course
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["organization"] = self.organization
+        kwargs["course"] = self.get_course()
+        return kwargs
+
+    def form_valid(self, form):
+        course = self.get_course()
+        new_instructor = form.cleaned_data["instructor"]
+
+        previous = course.instructor
+        course.instructor = new_instructor
+        course.save(update_fields=["instructor", "updated_at"])
+
+        if previous and previous.pk == new_instructor.pk:
+            messages.info(
+                self.request,
+                f"« {course.title} » est déjà affecté à "
+                f"{new_instructor.full_name or new_instructor.email}.",
+            )
+        else:
+            messages.success(
+                self.request,
+                f"« {course.title} » a été affecté à "
+                f"{new_instructor.full_name or new_instructor.email}.",
+            )
+
+        return redirect(self.get_success_url())
+
+    def get_success_url(self):
+        return reverse(
+            "org:course_detail",
+            kwargs={
+                "organization_id": self.organization.id,
+                "course_id": self.kwargs["course_id"],
+            },
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        course = self.get_course()
+        context.update({
+            "course": course,
+            "page_title": f"Affecter un formateur — {course.title}",
+        })
+        return context
+
+
+# ----------------------------------------------------------------------
+# Quiz côté organisation.
+#
+# Pré-requis : le cours doit être rattaché à l'organisation (``company``).
+# C'est ce qui garantit qu'un OWNER ne peut pas créer de quiz sur un
+# cours externe à son périmètre.
+# ----------------------------------------------------------------------
+class _OrganizationQuizScopedMixin(OrganizationScopedMixin):
+    """Helpers communs aux vues quiz côté org."""
+
+    def get_course(self):
+        if not hasattr(self, "_course"):
+            self._course = get_object_or_404(
+                Course.objects.select_related("instructor", "company"),
+                pk=self.kwargs["course_id"],
+                company=self.organization,
+            )
+        return self._course
+
+    def get_quiz(self):
+        if not hasattr(self, "_quiz"):
+            course = self.get_course()
+            self._quiz = get_object_or_404(
+                Quiz.objects.select_related("course", "section"),
+                pk=self.kwargs["quiz_id"],
+                course=course,
+            )
+        return self._quiz
+
+
+class OrganizationCourseQuizListView(_OrganizationQuizScopedMixin, TemplateView):
+    template_name = "organization/quiz_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        course = self.get_course()
+        quizzes = (
+            Quiz.objects.filter(course=course)
+            .select_related("section")
+            .annotate(
+                question_count=Count("questions", distinct=True),
+                attempt_count=Count("attempts", distinct=True),
+                pass_rate=Coalesce(
+                    Avg(
+                        "attempts__score_percent",
+                        filter=Q(attempts__submitted_at__isnull=False),
+                    ),
+                    Value(0.0),
+                    output_field=FloatField(),
+                ),
+            )
+            .order_by("section__order", "title")
+        )
+        context.update({
+            "course": course,
+            "quizzes": quizzes,
+            "page_title": f"Quiz — {course.title}",
+            "quiz_create_url": reverse(
+                "org:quiz_create",
+                kwargs={
+                    "organization_id": self.organization.id,
+                    "course_id": course.id,
+                },
+            ),
+        })
+        return context
+
+
+class OrganizationQuizCreateView(_OrganizationQuizScopedMixin, FormView):
+    template_name = "organization/quiz_create.html"
+    form_class = OrganizationQuizCreateForm
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["course"] = self.get_course()
+        return kwargs
+
+    def form_valid(self, form):
+        quiz = form.save()
+        messages.success(
+            self.request,
+            f"Le quiz « {quiz.title} » a été créé. Vous pouvez maintenant "
+            "ajouter des questions.",
+        )
+        return redirect(
+            "org:quiz_detail",
+            organization_id=self.organization.id,
+            course_id=self.kwargs["course_id"],
+            quiz_id=quiz.id,
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        course = self.get_course()
+        context.update({
+            "course": course,
+            "page_title": f"Créer un quiz — {course.title}",
+        })
+        return context
+
+
+class OrganizationQuizDetailView(_OrganizationQuizScopedMixin, FormView):
+    """Détail + édition rapide d'un quiz côté organisation.
+
+    L'édition fine des questions/réponses passe par les endpoints API
+    instructor existants (qui acceptent désormais aussi les org admins
+    grâce à l'élargissement de ``IsInstructor``).
+    """
+
+    template_name = "organization/quiz_detail.html"
+    form_class = OrganizationQuizCreateForm
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["course"] = self.get_course()
+        kwargs["instance"] = self.get_quiz()
+        return kwargs
+
+    def form_valid(self, form):
+        quiz = form.save()
+        messages.success(self.request, "Le quiz a été mis à jour.")
+        return redirect(
+            "org:quiz_detail",
+            organization_id=self.organization.id,
+            course_id=self.kwargs["course_id"],
+            quiz_id=quiz.id,
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        course = self.get_course()
+        quiz = self.get_quiz()
+        questions = (
+            quiz.questions
+            .prefetch_related("choices")
+            .order_by("order", "id")
+        )
+        attempts_qs = quiz.attempts.filter(submitted_at__isnull=False)
+        attempts_count = attempts_qs.count()
+        passed_count = attempts_qs.filter(passed=True).count()
+        avg_score = attempts_qs.aggregate(
+            v=Coalesce(Avg("score_percent"), Value(0.0), output_field=FloatField())
+        )["v"]
+
+        context.update({
+            "course": course,
+            "quiz": quiz,
+            "questions": questions,
+            "stats": {
+                "questions_count": questions.count(),
+                "attempts_count": attempts_count,
+                "passed_count": passed_count,
+                "pass_rate": (passed_count / attempts_count * 100.0) if attempts_count else 0.0,
+                "avg_score": avg_score,
+            },
+            "page_title": f"Quiz — {quiz.title}",
+        })
+        return context
+
+
+# ----------------------------------------------------------------------
+# Bibliothèque média côté organisation.
+#
+# On filtre sur ``MediaAsset.organization == self.organization`` ; les
+# médias purement personnels d'un membre (sans org) ne fuitent pas vers
+# l'admin org.
+# ----------------------------------------------------------------------
+class OrganizationMediaLibraryView(OrganizationScopedMixin, ListView):
+    template_name = "organization/media_library.html"
+    context_object_name = "assets"
+    paginate_by = 24
+
+    def get_queryset(self):
+        qs = (
+            MediaAsset.objects.filter(organization=self.organization)
+            .select_related("owner")
+            .order_by("-created_at")
+        )
+        kind = (self.request.GET.get("kind") or "").strip()
+        if kind:
+            qs = qs.filter(kind=kind)
+        q = (self.request.GET.get("q") or "").strip()
+        if q:
+            qs = qs.filter(Q(title__icontains=q) | Q(object_key__icontains=q))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        all_qs = MediaAsset.objects.filter(organization=self.organization)
+        context.update({
+            "page_title": f"Bibliothèque média — {self.organization.name}",
+            "filter_kind": self.request.GET.get("kind", ""),
+            "filter_q": self.request.GET.get("q", ""),
+            "totals": {
+                "all": all_qs.count(),
+                "video": all_qs.filter(kind="video").count(),
+                "audio": all_qs.filter(kind="audio").count(),
+                "doc": all_qs.filter(kind="doc").count(),
+                "pending": all_qs.filter(processing_status="pending").count(),
+                "processing": all_qs.filter(processing_status="processing").count(),
+                "ready": all_qs.filter(processing_status="ready").count(),
+                "failed": all_qs.filter(processing_status="failed").count(),
+            },
+            # Endpoint API existant utilisé par le widget d'upload.
+            "media_upload_init_url": "/api/media/upload/init/",
+            "media_upload_finalize_url": "/api/media/upload/finalize/",
+        })
         return context

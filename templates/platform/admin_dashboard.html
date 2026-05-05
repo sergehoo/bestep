@@ -1,5 +1,5 @@
 {% extends "layout/admin_base.html" %}
-{% load static %}
+{% load static humanize %}
 
 {% block title %}Administration plateforme — Best Épargne{% endblock %}
 
@@ -17,7 +17,7 @@
             </h1>
             <p class="text-be-ink-500 mt-1">
                 Pilotage transverse de Best Épargne — utilisateurs, organisations,
-                contenus, paiements.
+                contenus, paiements, tendances.
             </p>
         </div>
 
@@ -28,20 +28,20 @@
                       bg-white/80 dark:bg-white/5
                       hover:bg-be-ink-50/60 dark:hover:bg-white/10
                       text-sm font-medium transition">
-                <i class="fa-regular fa-screwdriver-wrench"></i>
+                <i class="fa-solid fa-screwdriver-wrench"></i>
                 Admin technique (Django)
             </a>
         </div>
     </header>
 
-    {# ----- KPIs ----- #}
+    {# ----- KPIs principaux ----- #}
     <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
         {% for card in kpi_cards %}
         <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10
                     bg-white dark:bg-white/[0.03] p-4">
             <p class="text-[11px] uppercase tracking-wide text-be-ink-500">{{ card.label }}</p>
             <p class="text-2xl font-bold mt-1 text-be-ink-900 dark:text-white">
-                {{ card.value }}
+                {{ card.value|intcomma }}
             </p>
             {% if card.sub %}
                 <p class="text-xs text-be-ink-500 mt-0.5">{{ card.sub }}</p>
@@ -50,29 +50,262 @@
         {% endfor %}
     </section>
 
-    {# ----- Raccourcis ----- #}
-    <section class="grid md:grid-cols-2 gap-4">
-        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10
-                    bg-white dark:bg-white/[0.03] p-5">
-            <h2 class="font-semibold text-be-ink-900 dark:text-white">Organisations</h2>
-            <p class="text-sm text-be-ink-500 mt-1">
-                Vue d'ensemble des entreprises et de leurs membres.
-            </p>
-            <p class="mt-3 text-2xl font-bold text-be-ink-900 dark:text-white">
-                {{ stats.total_organizations|default:0 }}
-            </p>
-            <p class="text-xs text-be-ink-500">organisations actives</p>
+    {# ----- Statuts des cours / qualité du catalogue ----- #}
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-4">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">Brouillons</p>
+            <p class="text-2xl font-bold mt-1 text-be-ink-900 dark:text-white">{{ stats.draft_courses|intcomma }}</p>
+            <p class="text-xs text-be-ink-500 mt-0.5">cours en construction</p>
         </div>
-        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10
-                    bg-white dark:bg-white/[0.03] p-5">
-            <h2 class="font-semibold text-be-ink-900 dark:text-white">Utilisateurs</h2>
-            <p class="text-sm text-be-ink-500 mt-1">
-                Comptes plateforme tous rôles confondus.
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-4">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">En revue</p>
+            <p class="text-2xl font-bold mt-1 text-be-ink-900 dark:text-white">{{ stats.review_courses|intcomma }}</p>
+            <p class="text-xs text-be-ink-500 mt-0.5">à valider</p>
+        </div>
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-4">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">Sans formateur</p>
+            <p class="text-2xl font-bold mt-1 {% if stats.courses_unassigned %}text-rose-600{% else %}text-be-ink-900 dark:text-white{% endif %}">
+                {{ stats.courses_unassigned|intcomma }}
             </p>
-            <p class="mt-3 text-2xl font-bold text-be-ink-900 dark:text-white">
-                {{ stats.total_users|default:0 }}
+            <p class="text-xs text-be-ink-500 mt-0.5">à affecter</p>
+        </div>
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-4">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">Sans section</p>
+            <p class="text-2xl font-bold mt-1 {% if stats.courses_no_sections %}text-amber-600{% else %}text-be-ink-900 dark:text-white{% endif %}">
+                {{ stats.courses_no_sections|intcomma }}
             </p>
-            <p class="text-xs text-be-ink-500">apprenants, formateurs, admins</p>
+            <p class="text-xs text-be-ink-500 mt-0.5">contenu vide</p>
+        </div>
+    </section>
+
+    {# ----- Indicateurs métier transverses ----- #}
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-5">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">Revenus plateforme</p>
+            <p class="text-3xl font-bold mt-2 text-be-ink-900 dark:text-white">
+                {{ stats.total_revenue|floatformat:0|intcomma }}
+            </p>
+            <p class="text-xs text-be-ink-500 mt-1">XOF — paiements confirmés</p>
+        </div>
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-5">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">Taux de complétion</p>
+            <p class="text-3xl font-bold mt-2 text-emerald-600">
+                {{ stats.completion_rate|floatformat:0 }}%
+            </p>
+            <p class="text-xs text-be-ink-500 mt-1">
+                {{ stats.completed_enrollments|intcomma }} parcours terminés
+            </p>
+        </div>
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-5">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">Quiz actifs</p>
+            <p class="text-3xl font-bold mt-2 text-be-ink-900 dark:text-white">
+                {{ stats.active_quizzes|intcomma }}
+            </p>
+            <p class="text-xs text-be-ink-500 mt-1">{{ stats.total_quizzes|intcomma }} au total</p>
+        </div>
+    </section>
+
+    {# ----- Tendances : top organisations / top cours / top tendance ----- #}
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {# Top organisations #}
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100/70 dark:border-white/10">
+                <h2 class="font-semibold text-be-ink-900 dark:text-white">
+                    <i class="fa-solid fa-building text-emerald-500 mr-1"></i>
+                    Top organisations
+                </h2>
+                <p class="text-xs text-be-ink-500 mt-0.5">Par inscriptions cumulées</p>
+            </div>
+            <ul class="divide-y divide-be-ink-100/70 dark:divide-white/10">
+                {% for org in top_organizations %}
+                    <li class="px-5 py-3 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="font-semibold text-be-ink-900 dark:text-white truncate">
+                                {{ org.name }}
+                            </div>
+                            <div class="text-xs text-be-ink-500">
+                                {{ org.courses_count }} cours · {{ org.members_count }} membres
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-lg font-bold text-emerald-600">
+                                {{ org.enrollments_count|intcomma }}
+                            </div>
+                            <div class="text-[10px] uppercase tracking-wider text-be-ink-500">inscrits</div>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="p-5 text-sm text-be-ink-500">Aucune donnée pour le moment.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {# Top cours plateforme-wide #}
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100/70 dark:border-white/10">
+                <h2 class="font-semibold text-be-ink-900 dark:text-white">
+                    <i class="fa-solid fa-fire text-orange-500 mr-1"></i>
+                    Cours les plus suivis
+                </h2>
+                <p class="text-xs text-be-ink-500 mt-0.5">Plateforme — tous</p>
+            </div>
+            <ul class="divide-y divide-be-ink-100/70 dark:divide-white/10">
+                {% for c in top_courses %}
+                    <li class="px-5 py-3 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="font-semibold text-be-ink-900 dark:text-white truncate">
+                                {{ c.title }}
+                            </div>
+                            <div class="text-xs text-be-ink-500 truncate">
+                                {{ c.instructor.full_name|default:c.instructor.email|default:"—" }}
+                                {% if c.company %} · {{ c.company.name }}{% endif %}
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-lg font-bold text-be-sky-600">
+                                {{ c.enrolled_count|intcomma }}
+                            </div>
+                            <div class="text-[10px] uppercase tracking-wider text-be-ink-500">inscrits</div>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="p-5 text-sm text-be-ink-500">Aucun cours actif.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {# Cours en tendance #}
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100/70 dark:border-white/10">
+                <h2 class="font-semibold text-be-ink-900 dark:text-white">
+                    <i class="fa-solid fa-chart-line text-emerald-500 mr-1"></i>
+                    Cours en tendance
+                </h2>
+                <p class="text-xs text-be-ink-500 mt-0.5">+ d'inscrits sur 30 jours</p>
+            </div>
+            <ul class="divide-y divide-be-ink-100/70 dark:divide-white/10">
+                {% for c in trending_courses %}
+                    <li class="px-5 py-3 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="font-semibold text-be-ink-900 dark:text-white truncate">
+                                {{ c.title }}
+                            </div>
+                            <div class="text-xs text-be-ink-500 truncate">
+                                {{ c.category.name|default:"—" }}
+                                {% if c.company %} · {{ c.company.name }}{% endif %}
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-lg font-bold text-emerald-600">
+                                +{{ c.recent_enrollments|intcomma }}
+                            </div>
+                            <div class="text-[10px] uppercase tracking-wider text-be-ink-500">30j</div>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="p-5 text-sm text-be-ink-500">Aucune progression récente.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+    </section>
+
+    {# ----- Top formateurs + Sparkline tendance ----- #}
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {# Top formateurs #}
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100/70 dark:border-white/10">
+                <h2 class="font-semibold text-be-ink-900 dark:text-white">
+                    <i class="fa-solid fa-chalkboard-user text-violet-500 mr-1"></i>
+                    Top formateurs
+                </h2>
+                <p class="text-xs text-be-ink-500 mt-0.5">Inscriptions cumulées sur leurs cours</p>
+            </div>
+            <ul class="divide-y divide-be-ink-100/70 dark:divide-white/10">
+                {% for u in top_instructors %}
+                    <li class="px-5 py-3 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold shrink-0">
+                            {{ u.full_name|default:u.email|first|upper }}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="font-semibold text-be-ink-900 dark:text-white truncate">
+                                {{ u.full_name|default:u.email }}
+                            </div>
+                            <div class="text-xs text-be-ink-500">
+                                {{ u.courses_count }} cours
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-lg font-bold text-violet-600">{{ u.enrolled_total|intcomma }}</div>
+                            <div class="text-[10px] uppercase tracking-wider text-be-ink-500">inscrits</div>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="p-5 text-sm text-be-ink-500">Pas encore de formateur actif.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {# Tendance inscriptions 30j (sparkline CSS pur) #}
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] overflow-hidden">
+            <div class="px-5 py-4 border-b border-be-ink-100/70 dark:border-white/10">
+                <h2 class="font-semibold text-be-ink-900 dark:text-white">
+                    <i class="fa-solid fa-wave-square text-be-sky-500 mr-1"></i>
+                    Inscriptions plateforme — 30 jours
+                </h2>
+                <p class="text-xs text-be-ink-500 mt-0.5">
+                    {{ enrollments_trend|length }} jour{{ enrollments_trend|length|pluralize }} avec activité
+                </p>
+            </div>
+            <div class="p-5">
+                {% if enrollments_trend %}
+                    <div class="flex items-end gap-1 h-32">
+                        {% for d in enrollments_trend %}
+                            <div class="flex-1 flex flex-col items-center justify-end" title="{{ d.day }} · {{ d.count }} inscrits">
+                                <div class="w-full rounded-t bg-gradient-to-t from-be-sky-500 to-be-sky-300 hover:from-be-sky-600 transition"
+                                     style="height: {% widthratio d.count 100 100 %}%; min-height: 4px;"></div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-3 flex items-center justify-between text-xs text-be-ink-500">
+                        <span>{{ enrollments_trend.0.day|default:"" }}</span>
+                        <span>aujourd'hui</span>
+                    </div>
+                {% else %}
+                    <div class="text-sm text-be-ink-500 py-6 text-center">
+                        Pas d'inscriptions sur les 30 derniers jours.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    {# ----- Catégories dominantes ----- #}
+    <section class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] overflow-hidden">
+        <div class="px-5 py-4 border-b border-be-ink-100/70 dark:border-white/10">
+            <h2 class="font-semibold text-be-ink-900 dark:text-white">
+                <i class="fa-solid fa-layer-group text-amber-500 mr-1"></i>
+                Catégories dominantes
+            </h2>
+            <p class="text-xs text-be-ink-500 mt-0.5">Cours publiés par catégorie</p>
+        </div>
+        <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for cat in top_categories %}
+                <div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="font-medium text-be-ink-900 dark:text-white">{{ cat.name }}</span>
+                        <span class="text-xs text-be-ink-500">{{ cat.published_count }} cours</span>
+                    </div>
+                    <div class="mt-2 h-2 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+                        <div class="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300"
+                             style="width: {% widthratio cat.published_count stats.published_courses 100 %}%;"></div>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-sm text-be-ink-500">Aucune catégorie active.</p>
+            {% endfor %}
         </div>
     </section>
 

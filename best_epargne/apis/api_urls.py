@@ -16,7 +16,7 @@ from best_epargne.apis.views import CategoryViewSet, CourseViewSet, InstructorCo
     InstructorSectionQuizAssignView, InstructorSectionQuizUnassignView, \
     InstructorQuizUpdateView, MediaThumbnailSignedGetView, InstructorMediaDetailView, InstructorMediaUpdateView, \
     InstructorMediaDeleteView, InstructorQuizListApiView, InstructorQuizQuestionUpdateView, \
-    InstructorQuizQuestionDeleteView, LearnerOrganizationCoursesAPIView, MediaMultipartInitView, \
+    InstructorQuizQuestionDeleteView, LearnerOrganizationCoursesAPIView, InstructorQuizCreateView, MediaMultipartInitView, \
     MediaMultipartPartUrlView, MediaMultipartCompleteView, MediaMultipartAbortView, MediaMultipartListPartsView
 # from catalog.api.views import CourseViewSet, CategoryViewSet
 from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
@@ -112,6 +112,11 @@ path(
         "instructor/quizzes/",
         InstructorQuizListApiView.as_view(),
         name="api_instructor_quiz_list"
+    ),
+    path(
+        "instructor/quizzes/create/",
+        InstructorQuizCreateView.as_view(),
+        name="api_instructor_quiz_create"
     ),
     path(
         "instructor/courses/<int:course_id>/quizzes/",

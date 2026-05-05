@@ -20,32 +20,63 @@
         </div>
     </section>
 
+    <!-- Message d'erreur -->
+    <template x-if="errorMsg">
+        <div class="rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-700" x-text="errorMsg"></div>
+    </template>
+
     <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
         <div class="p-6 space-y-4">
+            <!-- Titre -->
             <div>
-                <label class="text-xs font-semibold text-be-ink-600">Titre</label>
-                <input x-model="form.title" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                <label class="text-xs font-semibold text-be-ink-600">
+                    Titre du quiz <span class="text-red-500">*</span>
+                </label>
+                <input x-model="form.title" placeholder="Ex : Quiz — Module Épargne"
+                       class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm focus:outline-none focus:ring-2 focus:ring-be-sky-400">
             </div>
 
-            <div class="grid md:grid-cols-3 gap-4">
+            <div class="grid md:grid-cols-2 gap-4">
+                <!-- Cours -->
                 <div>
-                    <label class="text-xs font-semibold text-be-ink-600">Cours</label>
-                    <select x-model="form.course_id" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
-                        <option value="">— Sélectionner —</option>
+                    <label class="text-xs font-semibold text-be-ink-600">
+                        Cours <span class="text-red-500">*</span>
+                    </label>
+                    <select x-model="form.course_id" @change="onCourseChange()"
+                            class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-be-sky-400">
+                        <option value="">— Sélectionner un cours —</option>
                         <template x-for="c in courses" :key="c.id">
                             <option :value="c.id" x-text="c.title"></option>
                         </template>
                     </select>
                 </div>
 
+                <!-- Section (optionnel) -->
                 <div>
-                    <label class="text-xs font-semibold text-be-ink-600">Score de réussite</label>
-                    <input type="number" x-model="form.passing_score" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                    <label class="text-xs font-semibold text-be-ink-600">
+                        Section
+                        <span class="text-be-ink-400 font-normal">(optionnel)</span>
+                    </label>
+                    <select x-model="form.section_id" :disabled="!sections.length"
+                            class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-be-sky-400 disabled:opacity-50">
+                        <option value="">— Pas de section —</option>
+                        <template x-for="s in sections" :key="s.id">
+                            <option :value="s.id" x-text="s.title"></option>
+                        </template>
+                    </select>
                 </div>
+            </div>
 
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs font-semibold text-be-ink-600">Score de réussite (%)</label>
+                    <input type="number" min="1" max="100" x-model="form.passing_score"
+                           class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm focus:outline-none focus:ring-2 focus:ring-be-sky-400">
+                </div>
                 <div>
                     <label class="text-xs font-semibold text-be-ink-600">Max tentatives</label>
-                    <input type="number" x-model="form.max_attempts" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm">
+                    <input type="number" min="1" x-model="form.max_attempts"
+                           class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 text-sm focus:outline-none focus:ring-2 focus:ring-be-sky-400">
                 </div>
             </div>
         </div>
@@ -55,10 +86,11 @@
                class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
                 Annuler
             </a>
-
-            <button @click="saveQuiz()"
-                    class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft">
-                Créer
+            <button @click="saveQuiz()" :disabled="saving"
+                    class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft disabled:opacity-60 flex items-center gap-2">
+                <span x-show="saving"
+                      class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+                <span x-text="saving ? 'Création…' : 'Créer le quiz'"></span>
             </button>
         </div>
     </section>
@@ -68,9 +100,13 @@
 function quizCreatePage() {
     return {
         courses: [],
+        sections: [],
+        saving: false,
+        errorMsg: "",
         form: {
             title: "",
             course_id: "",
+            section_id: "",
             passing_score: 70,
             max_attempts: 3
         },
@@ -80,12 +116,12 @@ function quizCreatePage() {
         },
 
         async apiGet(url) {
-            const res = await fetch(url, {headers: {"Accept":"application/json"}, credentials:"same-origin"});
-            if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
-            return await res.json();
+            const res = await fetch(url, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+            if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
+            return res.json();
         },
 
-        async apiPost(url, payload={}) {
+        async apiPost(url, payload = {}) {
             const m = document.cookie.match(/csrftoken=([^;]+)/);
             const csrf = m ? m[1] : "";
             const res = await fetch(url, {
@@ -98,30 +134,57 @@ function quizCreatePage() {
                 body: JSON.stringify(payload),
                 credentials: "same-origin"
             });
-            if (!res.ok) throw new Error(`POST ${url} -> ${res.status}`);
-            return await res.json();
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body?.detail || `POST ${url} → ${res.status}`);
+            return body;
         },
 
         async loadCourses() {
-            const data = await this.apiGet("/api/instructor/courses/");
-            this.courses = data.results || data;
+            try {
+                const data = await this.apiGet("/api/instructor/courses/");
+                this.courses = data.results || data;
+            } catch (e) {
+                this.errorMsg = "Impossible de charger les cours.";
+            }
+        },
+
+        async onCourseChange() {
+            this.sections = [];
+            this.form.section_id = "";
+            if (!this.form.course_id) return;
+            try {
+                const data = await this.apiGet(`/api/instructor/courses/${this.form.course_id}/sections/`);
+                this.sections = data.results || data;
+            } catch (_) {
+                // Sections indisponibles — l'utilisateur peut continuer sans
+            }
         },
 
         async saveQuiz() {
-            if (!this.form.course_id) return alert("Veuillez sélectionner un cours.");
+            this.errorMsg = "";
+            if (!this.form.title.trim()) { this.errorMsg = "Le titre est obligatoire."; return; }
+            if (!this.form.course_id)   { this.errorMsg = "Veuillez sélectionner un cours."; return; }
 
-            const payload = {
-                title: this.form.title,
-                passing_score: this.form.passing_score,
-                max_attempts: this.form.max_attempts
-            };
-
-            const quiz = await this.apiPost(`/api/instructor/courses/${this.form.course_id}/sections/0/quiz/create/`, payload);
-            if (quiz?.id) {
-                window.location.href = `/dashboard/instructor/quizzes/${quiz.id}/`;
+            this.saving = true;
+            try {
+                const payload = {
+                    title:         this.form.title.trim(),
+                    course_id:     this.form.course_id,
+                    section_id:    this.form.section_id || null,
+                    passing_score: Number(this.form.passing_score) || 70,
+                    max_attempts:  Number(this.form.max_attempts)  || 3,
+                };
+                const quiz = await this.apiPost("/api/instructor/quizzes/create/", payload);
+                if (quiz?.id) {
+                    window.location.href = `/dashboard/instructor/quizzes/${quiz.id}/`;
+                }
+            } catch (e) {
+                this.errorMsg = e.message || "Erreur lors de la création du quiz.";
+            } finally {
+                this.saving = false;
             }
         }
-    }
+    };
 }
 </script>
 {% endblock %}

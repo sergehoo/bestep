@@ -122,6 +122,92 @@ def _course_owned(course_id, user):
     return get_object_or_404(Course, id=course_id, instructor=user)
 
 
+# ----------------------------------------------------------------------
+# Helpers de scoping : qui peut écrire sur les ressources pédagogiques
+# (cours, quiz, questions) ?
+#
+# Historiquement les vues ``Instructor*`` filtraient sur
+# ``course__instructor=request.user``, ce qui empêchait :
+#  - un admin plateforme d'éditer le contenu de n'importe quel cours ;
+#  - un OWNER / ADMIN / MANAGER d'organisation d'éditer un quiz d'un
+#    cours rattaché à son organisation mais créé par un autre formateur.
+#
+# Les helpers ci-dessous centralisent la règle d'accès en écriture pour
+# qu'un seul endroit décide qui peut quoi.
+# ----------------------------------------------------------------------
+
+# Rôles qui donnent un droit d'édition sur les cours d'une organisation
+# (alignés sur ``permissions.PermissionUtils.ORG_MANAGER_ROLES``).
+_ORG_WRITE_ROLES = (
+    OrganizationMembership.Role.OWNER,
+    OrganizationMembership.Role.ADMIN,
+    OrganizationMembership.Role.MANAGER,
+)
+
+
+def _user_writable_org_ids(user) -> list[int]:
+    """IDs des organisations où ``user`` a un droit d'écriture pédagogique."""
+    if not user or not user.is_authenticated:
+        return []
+    return list(
+        user.organization_memberships
+        .filter(
+            is_active=True,
+            organization__is_active=True,
+            role__in=_ORG_WRITE_ROLES,
+        )
+        .values_list("organization_id", flat=True)
+    )
+
+
+def _writable_courses_qs(user):
+    """QuerySet des cours sur lesquels ``user`` peut écrire (créer un quiz,
+    une question, etc.).
+
+    Règles :
+    - admin plateforme : tous les cours ;
+    - autres : cours dont ``instructor == user`` OU dont
+      ``company`` est une organisation où l'user a un rôle OWNER /
+      ADMIN / MANAGER.
+    """
+    if not user or not user.is_authenticated:
+        return Course.objects.none()
+    if getattr(user, "is_platform_admin", False):
+        return Course.objects.all()
+    org_ids = _user_writable_org_ids(user)
+    scope = Q(instructor=user)
+    if org_ids:
+        scope |= Q(company_id__in=org_ids)
+    return Course.objects.filter(scope).distinct()
+
+
+def _get_writable_course(course_id, user):
+    """Renvoie le cours ``course_id`` si ``user`` peut écrire dessus, sinon 404."""
+    return get_object_or_404(_writable_courses_qs(user), id=course_id)
+
+
+def _get_writable_quiz(quiz_id, user, *, select_related=None, prefetch_related=None):
+    """Renvoie le quiz ``quiz_id`` si ``user`` peut écrire sur le cours
+    associé, sinon 404."""
+    qs = Quiz.objects.filter(course__in=_writable_courses_qs(user))
+    if select_related:
+        qs = qs.select_related(*select_related)
+    if prefetch_related:
+        qs = qs.prefetch_related(*prefetch_related)
+    return get_object_or_404(qs, id=quiz_id)
+
+
+def _get_writable_question(question_id, user):
+    """Renvoie la question ``question_id`` si ``user`` peut écrire sur le
+    cours du quiz parent, sinon 404."""
+    return get_object_or_404(
+        Question.objects
+        .select_related("quiz", "quiz__course")
+        .filter(quiz__course__in=_writable_courses_qs(user)),
+        id=question_id,
+    )
+
+
 User = get_user_model()
 
 # ---- OPTIONAL imports (si ces modèles n'existent pas encore, on renvoie vide)
@@ -1291,7 +1377,7 @@ class InstructorQuizListApiView(APIView):
     def get(self, request):
         quizzes = (
             Quiz.objects
-            .filter(course__instructor=request.user)
+            .filter(course__in=_writable_courses_qs(request.user))
             .select_related("course", "section", "lesson")
             .prefetch_related("questions")
             .order_by("-id")
@@ -1324,10 +1410,11 @@ class InstructorQuizUpdateView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def get(self, request, quiz_id: int):
-        quiz = get_object_or_404(
-            Quiz.objects.select_related("course", "section").prefetch_related("questions__choices"),
-            id=quiz_id,
-            course__instructor=request.user
+        quiz = _get_writable_quiz(
+            quiz_id,
+            request.user,
+            select_related=("course", "section"),
+            prefetch_related=("questions__choices",),
         )
 
         return Response({
@@ -1362,7 +1449,7 @@ class InstructorQuizUpdateView(APIView):
         })
 
     def post(self, request, quiz_id: int):
-        quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user)
+        quiz = _get_writable_quiz(quiz_id, request.user)
 
         title = (request.data.get("title") or quiz.title).strip()
         if not title:
@@ -1394,10 +1481,10 @@ class InstructorQuizUpdateView(APIView):
 
 
 class InstructorCourseQuizListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def get(self, request, course_id: int):
-        course = get_object_or_404(Course, id=course_id, instructor=request.user)
+        course = _get_writable_course(course_id, request.user)
 
         quizzes = (
             Quiz.objects
@@ -1424,11 +1511,64 @@ class InstructorCourseQuizListView(APIView):
         return Response(results)
 
 
+class InstructorQuizCreateView(APIView):
+    """
+    POST /api/instructor/quizzes/create/
+    Crée un quiz au niveau cours, avec section optionnelle.
+    Payload : { title, course_id, section_id (opt), passing_score, max_attempts }
+    """
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def post(self, request):
+        course_id = request.data.get("course_id")
+        if not course_id:
+            return Response({"detail": "course_id requis."}, status=status.HTTP_400_BAD_REQUEST)
+        course = _get_writable_course(course_id, request.user)
+
+        section_id = request.data.get("section_id") or None
+        section = None
+        if section_id:
+            section = get_object_or_404(CourseSection, id=section_id, course=course)
+
+        title = (request.data.get("title") or "").strip()
+        if not title:
+            return Response({"detail": "Le titre est requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            passing_score = int(request.data.get("passing_score") or 70)
+            max_attempts = int(request.data.get("max_attempts") or 3)
+        except (ValueError, TypeError):
+            return Response({"detail": "passing_score / max_attempts doivent être des entiers."}, status=status.HTTP_400_BAD_REQUEST)
+
+        quiz = Quiz.objects.create(
+            title=title,
+            course=course,
+            section=section,
+            passing_score=passing_score,
+            max_attempts=max_attempts,
+            is_onboarding=False,
+            is_active=True,
+        )
+
+        return Response({
+            "id": quiz.id,
+            "title": quiz.title,
+            "slug": quiz.slug,
+            "course_id": quiz.course_id,
+            "course_title": course.title,
+            "section_id": quiz.section_id,
+            "section_title": section.title if section else "",
+            "passing_score": quiz.passing_score,
+            "max_attempts": quiz.max_attempts,
+            "questions_count": 0,
+        }, status=status.HTTP_201_CREATED)
+
+
 class InstructorSectionQuizCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, course_id: int, section_id: int):
-        course = get_object_or_404(Course, id=course_id, instructor=request.user)
+        course = _get_writable_course(course_id, request.user)
         section = get_object_or_404(CourseSection, id=section_id, course=course)
 
         title = (request.data.get("title") or "").strip()
@@ -1461,14 +1601,10 @@ class InstructorSectionQuizCreateView(APIView):
 
 
 class InstructorQuizQuestionUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, question_id: int):
-        question = get_object_or_404(
-            Question.objects.select_related("quiz", "quiz__course"),
-            id=question_id,
-            quiz__course__instructor=request.user
-        )
+        question = _get_writable_question(question_id, request.user)
 
         prompt = (request.data.get("prompt") or "").strip()
         topic = (request.data.get("topic") or "").strip()
@@ -1519,23 +1655,19 @@ class InstructorQuizQuestionUpdateView(APIView):
 
 
 class InstructorQuizQuestionDeleteView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, question_id: int):
-        question = get_object_or_404(
-            Question.objects.select_related("quiz", "quiz__course"),
-            id=question_id,
-            quiz__course__instructor=request.user
-        )
+        question = _get_writable_question(question_id, request.user)
         question.delete()
         return Response({"ok": True})
 
 
 class InstructorSectionQuizAssignView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, course_id: int, section_id: int):
-        course = get_object_or_404(Course, id=course_id, instructor=request.user)
+        course = _get_writable_course(course_id, request.user)
         section = get_object_or_404(CourseSection, id=section_id, course=course)
 
         quiz_id = request.data.get("quiz_id")
@@ -1560,10 +1692,10 @@ class InstructorSectionQuizAssignView(APIView):
 
 
 class InstructorSectionQuizUnassignView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, course_id: int, section_id: int):
-        course = get_object_or_404(Course, id=course_id, instructor=request.user)
+        course = _get_writable_course(course_id, request.user)
         section = get_object_or_404(CourseSection, id=section_id, course=course)
 
         quiz = Quiz.objects.filter(course=course, section=section).first()
@@ -1577,10 +1709,10 @@ class InstructorSectionQuizUnassignView(APIView):
 
 
 class InstructorQuizQuestionCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, quiz_id: int):
-        quiz = get_object_or_404(Quiz, id=quiz_id, course__instructor=request.user)
+        quiz = _get_writable_quiz(quiz_id, request.user)
 
         prompt = (request.data.get("prompt") or "").strip()
         topic = (request.data.get("topic") or "").strip()
@@ -1635,13 +1767,14 @@ class InstructorQuizQuestionCreateView(APIView):
 
 
 class InstructorQuizDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def get(self, request, quiz_id: int):
-        quiz = get_object_or_404(
-            Quiz.objects.select_related("course", "section").prefetch_related("questions__choices"),
-            id=quiz_id,
-            course__instructor=request.user
+        quiz = _get_writable_quiz(
+            quiz_id,
+            request.user,
+            select_related=("course", "section"),
+            prefetch_related=("questions__choices",),
         )
 
         return Response({
@@ -1720,6 +1853,7 @@ class LearnerSectionQuizSubmitView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, course_id: int, section_id: int):
+        from django.db.models import Avg as _Avg
         course = get_object_or_404(Course, id=course_id)
         section = get_object_or_404(CourseSection, id=section_id, course=course)
 
@@ -1727,8 +1861,12 @@ class LearnerSectionQuizSubmitView(APIView):
         if not enrollment:
             return Response({"detail": "Inscription requise."}, status=status.HTTP_403_FORBIDDEN)
 
-        quiz = Quiz.objects.filter(course=course, section=section, is_active=True).prefetch_related(
-            "questions__choices").first()
+        quiz = (
+            Quiz.objects
+            .filter(course=course, section=section, is_active=True)
+            .prefetch_related("questions__choices")
+            .first()
+        )
         if not quiz:
             return Response({"detail": "Quiz introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1736,9 +1874,16 @@ class LearnerSectionQuizSubmitView(APIView):
         if attempts_count >= quiz.max_attempts:
             return Response({"detail": "Nombre maximal de tentatives atteint."}, status=status.HTTP_400_BAD_REQUEST)
 
-        answers = request.data.get("answers") or []
-        if not isinstance(answers, list):
+        raw_answers = request.data.get("answers") or []
+        if not isinstance(raw_answers, list):
             return Response({"detail": "Format answers invalide."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ── Déduplication : on garde la dernière réponse par question ──────────
+        deduped: dict = {}
+        for item in raw_answers:
+            qid = item.get("question_id")
+            if qid is not None:
+                deduped[int(qid)] = item.get("choice_id")
 
         attempt = Attempt.objects.create(
             quiz=quiz,
@@ -1746,34 +1891,35 @@ class LearnerSectionQuizSubmitView(APIView):
             started_at=timezone.now(),
         )
 
-        total_questions = quiz.questions.count()
-        good = 0
-
-        question_map = {q.id: q for q in quiz.questions.all()}
+        # ── Construire les maps en une seule passe (évite le N+1) ─────────────
+        question_map = {}
         choice_map = {}
         for q in quiz.questions.all():
+            question_map[q.id] = q
             for c in q.choices.all():
                 choice_map[c.id] = c
 
-        for item in answers:
-            qid = item.get("question_id")
-            cid = item.get("choice_id")
-            question = question_map.get(qid)
-            choice = choice_map.get(cid)
+        total_questions = len(question_map)
+        good = 0
+        bulk_answers = []
 
+        for qid, cid in deduped.items():
+            question = question_map.get(qid)
             if not question:
                 continue
+            choice = choice_map.get(cid) if cid else None
             if choice and choice.question_id != question.id:
                 choice = None
 
-            AttemptAnswer.objects.create(
+            bulk_answers.append(AttemptAnswer(
                 attempt=attempt,
                 question=question,
                 selected_choice=choice,
-            )
-
+            ))
             if choice and choice.is_correct:
                 good += 1
+
+        AttemptAnswer.objects.bulk_create(bulk_answers, ignore_conflicts=True)
 
         score = int(round((good / total_questions) * 100)) if total_questions else 0
         passed = score >= quiz.passing_score
@@ -1782,6 +1928,36 @@ class LearnerSectionQuizSubmitView(APIView):
         attempt.passed = passed
         attempt.submitted_at = timezone.now()
         attempt.save(update_fields=["score_percent", "passed", "submitted_at"])
+
+        # ── Mise à jour de la progression du learner ──────────────────────────
+        # Si le quiz est rattaché à une leçon, on marque cette leçon terminée
+        if quiz.lesson_id and enrollment:
+            try:
+                lp, _ = LessonProgress.objects.get_or_create(
+                    enrollment=enrollment,
+                    lesson_id=quiz.lesson_id,
+                    defaults={"progress_percent": 0, "completed": False, "last_position_sec": 0},
+                )
+                if not lp.completed:
+                    lp.completed = True
+                    lp.progress_percent = 100
+                    lp.save(update_fields=["completed", "progress_percent", "updated_at"])
+
+                # Recalcul du pourcentage global d'inscription
+                lessons_qs = Lesson.objects.filter(section__course=course)
+                total_l = lessons_qs.count()
+                if total_l > 0:
+                    avg = LessonProgress.objects.filter(
+                        enrollment=enrollment,
+                        lesson__in=lessons_qs,
+                    ).aggregate(a=_Avg("progress_percent"))["a"] or 0
+                    enrollment.progress_percent = int(round(avg))
+                    save_fields = ["progress_percent"]
+                    if hasattr(enrollment, "updated_at"):
+                        save_fields.append("updated_at")
+                    enrollment.save(update_fields=save_fields)
+            except Exception:
+                pass  # Ne jamais bloquer la soumission pour un bug de progression
 
         return Response({
             "attempt_id": attempt.id,

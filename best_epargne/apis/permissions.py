@@ -183,6 +183,17 @@ class PermissionUtils:
         if bool(getattr(user, "is_instructor", False)):
             return True
 
+        # Un OWNER / ADMIN / MANAGER d'organisation a, par construction,
+        # le droit de produire du contenu pédagogique pour son
+        # organisation (cours, sections, leçons, quiz). Sans cette
+        # extension les vues ``InstructorQuiz*`` rejetaient les org
+        # admins, ce qui les empêchait d'enrichir leurs cours internes.
+        if PermissionUtils.has_org_role(
+            user,
+            PermissionUtils.ORG_MANAGER_ROLES,
+        ):
+            return True
+
         return PermissionUtils.has_org_role(
             user,
             PermissionUtils.ORG_TEACHING_ROLES,

@@ -1088,27 +1088,50 @@ class PlatformAdminDashboard(LoginRequiredMixin, TemplateView):
         # propriété matche aussi ``is_staff`` ; or un staff Django sans
         # rôle PLATFORM_ADMIN n'a pas vocation à voir ce dashboard métier
         # — il a son admin Django dédié.
-        is_platform_admin_role = (
-            getattr(user, "platform_role", None)
-            == getattr(user.__class__, "PlatformRole", None).PLATFORM_ADMIN
-        ) if hasattr(user, "platform_role") else False
+        #
+        # Implémentation robuste : on évite la chaîne fragile
+        # ``getattr(user.__class__, "PlatformRole", None).PLATFORM_ADMIN``
+        # qui plante (AttributeError) si ``PlatformRole`` n'est pas attaché
+        # au modèle (cas test/mocks) — ce qui faisait retomber le user dans
+        # ``_redirect_by_role`` puis recréer une boucle de redirection
+        # pour les vrais admins plateforme.
+        role_cls = getattr(user.__class__, "PlatformRole", None)
+        is_platform_admin_role = bool(
+            role_cls is not None
+            and getattr(user, "platform_role", None) == role_cls.PLATFORM_ADMIN
+        )
 
         if not (is_platform_admin_role or user.is_superuser):
             from formations.Rolemixin import _redirect_by_role
             try:
-                return redirect(_redirect_by_role(user))
+                target = _redirect_by_role(user)
+                # Garde anti-boucle : ``_redirect_by_role`` ne doit jamais
+                # nous renvoyer sur nous-mêmes ; si c'est le cas (mauvaise
+                # config), on tombe en mode safe sur ``home``.
+                if target == "admin_dashboard":
+                    return redirect("home")
+                return redirect(target)
             except NoReverseMatch:
                 return redirect("home")
 
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        import datetime
+
+        from django.db.models import FloatField, Value
+        from django.db.models.functions import TruncDate
+        from organizations.models import Organization, OrganizationMembership
+
         context = super().get_context_data(**kwargs)
-        # KPIs simples ; on évite les requêtes coûteuses à ce stade,
-        # ce dashboard est une porte d'entrée — les drilldowns vivront
-        # dans des sous-vues dédiées.
+
+        now = timezone.now()
+        last_7 = now - datetime.timedelta(days=7)
+        last_30 = now - datetime.timedelta(days=30)
+        last_90 = now - datetime.timedelta(days=90)
+
+        # ---------- KPIs cœur ------------------------------------------------
         try:
-            from organizations.models import Organization
             total_orgs = Organization.objects.filter(is_active=True).count()
         except Exception:
             total_orgs = 0
@@ -1118,27 +1141,268 @@ class PlatformAdminDashboard(LoginRequiredMixin, TemplateView):
             total_users = 0
         try:
             total_courses = Course.objects.count()
-        except Exception:
-            total_courses = 0
-        try:
             published_courses = Course.objects.filter(
                 status=Course.Status.PUBLISHED
             ).count()
+            draft_courses = Course.objects.filter(status=Course.Status.DRAFT).count()
+            review_courses = Course.objects.filter(status=Course.Status.REVIEW).count()
+            archived_courses = Course.objects.filter(status=Course.Status.ARCHIVED).count()
         except Exception:
-            published_courses = 0
+            total_courses = published_courses = 0
+            draft_courses = review_courses = archived_courses = 0
+
+        try:
+            total_enrollments = Enrollment.objects.count()
+            active_enrollments = (
+                Enrollment.objects.filter(status=Enrollment.Status.ACTIVE).count()
+                if hasattr(Enrollment, "Status")
+                else total_enrollments
+            )
+            completed_enrollments = (
+                Enrollment.objects.filter(status=Enrollment.Status.COMPLETED).count()
+                if hasattr(Enrollment, "Status")
+                else 0
+            )
+        except Exception:
+            total_enrollments = active_enrollments = completed_enrollments = 0
+
+        try:
+            total_quizzes = Quiz.objects.count()
+            active_quizzes = Quiz.objects.filter(is_active=True).count()
+        except Exception:
+            total_quizzes = active_quizzes = 0
+
+        # Revenus globaux (paiements PAID).
+        try:
+            total_revenue = Payment.objects.filter(
+                status=Payment.Status.PAID
+            ).aggregate(
+                v=Coalesce(
+                    Sum("amount"),
+                    Value(Decimal("0.00")),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                )
+            )["v"]
+        except Exception:
+            total_revenue = Decimal("0.00")
+
+        # Tendances : nouveaux users / nouveaux cours / nouveaux inscrits.
+        try:
+            new_users_7d = User.objects.filter(date_joined__gte=last_7).count() \
+                if hasattr(User, "date_joined") \
+                else User.objects.filter(created_at__gte=last_7).count()
+            new_users_30d = User.objects.filter(date_joined__gte=last_30).count() \
+                if hasattr(User, "date_joined") \
+                else User.objects.filter(created_at__gte=last_30).count()
+        except Exception:
+            new_users_7d = new_users_30d = 0
+
+        try:
+            new_courses_30d = Course.objects.filter(created_at__gte=last_30).count()
+            new_enrollments_30d = Enrollment.objects.filter(
+                enrolled_at__gte=last_30
+            ).count()
+            new_enrollments_90d = Enrollment.objects.filter(
+                enrolled_at__gte=last_90
+            ).count()
+        except Exception:
+            new_courses_30d = new_enrollments_30d = new_enrollments_90d = 0
+
+        # ---------- TOPS -----------------------------------------------------
+
+        # Top 5 organisations par nombre de cours et d'inscrits.
+        top_organizations = (
+            Organization.objects.filter(is_active=True)
+            .annotate(
+                courses_count=Coalesce(
+                    Count("courses", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                enrollments_count=Coalesce(
+                    Count("courses__enrollments", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                members_count=Coalesce(
+                    Count(
+                        "memberships",
+                        filter=Q(memberships__is_active=True),
+                        distinct=True,
+                    ),
+                    0,
+                    output_field=IntegerField(),
+                ),
+            )
+            .order_by("-enrollments_count", "-courses_count")[:5]
+        )
+
+        # Top 5 cours plateforme-wide par inscrits.
+        top_courses = (
+            Course.objects
+            .select_related("category", "instructor", "company")
+            .annotate(
+                enrolled_count=Coalesce(
+                    Count("enrollments", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                rating_avg=Coalesce(
+                    Avg(
+                        "reviews__rating",
+                        filter=Q(reviews__is_public=True),
+                        output_field=FloatField(),
+                    ),
+                    Value(0.0),
+                    output_field=FloatField(),
+                ),
+            )
+            .order_by("-enrolled_count")[:5]
+        )
+
+        # Tendance : top 5 cours par inscrits sur les 30 derniers jours.
+        trending_courses = (
+            Course.objects
+            .select_related("category", "instructor", "company")
+            .annotate(
+                recent_enrollments=Coalesce(
+                    Count(
+                        "enrollments",
+                        filter=Q(enrollments__enrolled_at__gte=last_30),
+                        distinct=True,
+                    ),
+                    0,
+                    output_field=IntegerField(),
+                ),
+            )
+            .filter(recent_enrollments__gt=0)
+            .order_by("-recent_enrollments")[:5]
+        )
+
+        # Top 5 formateurs plateforme-wide par inscriptions cumulées.
+        top_instructors = (
+            User.objects.filter(is_active=True)
+            .annotate(
+                courses_count=Coalesce(
+                    Count("courses", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                enrolled_total=Coalesce(
+                    Count("courses__enrollments", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+            )
+            .filter(courses_count__gt=0)
+            .order_by("-enrolled_total", "-courses_count")[:5]
+        )
+
+        # Top 5 catégories par cours publiés.
+        top_categories = (
+            Category.objects
+            .annotate(
+                published_count=Coalesce(
+                    Count(
+                        "courses",
+                        filter=Q(courses__status=Course.Status.PUBLISHED),
+                        distinct=True,
+                    ),
+                    0,
+                    output_field=IntegerField(),
+                ),
+            )
+            .filter(published_count__gt=0)
+            .order_by("-published_count")[:5]
+        )
+
+        # Tendance d'inscriptions par jour sur 30 jours (sparkline).
+        try:
+            enrollments_trend_qs = (
+                Enrollment.objects.filter(enrolled_at__gte=last_30)
+                .annotate(day=TruncDate("enrolled_at"))
+                .values("day")
+                .annotate(n=Count("id"))
+                .order_by("day")
+            )
+            enrollments_trend = [
+                {
+                    "day": row["day"].isoformat() if row["day"] else "",
+                    "count": row["n"],
+                }
+                for row in enrollments_trend_qs
+            ]
+        except Exception:
+            enrollments_trend = []
+
+        # Signaux qualité : ce qui mérite une attention plateforme.
+        try:
+            courses_unassigned = Course.objects.filter(instructor__isnull=True).count()
+            courses_no_sections = Course.objects.annotate(
+                sec=Count("sections")
+            ).filter(sec=0).count()
+            inactive_orgs = Organization.objects.filter(is_active=False).count()
+        except Exception:
+            courses_unassigned = courses_no_sections = inactive_orgs = 0
+
+        # ---------- Compose context -----------------------------------------
+        stats = {
+            "total_organizations": total_orgs,
+            "inactive_organizations": inactive_orgs,
+            "total_users": total_users,
+            "total_courses": total_courses,
+            "published_courses": published_courses,
+            "draft_courses": draft_courses,
+            "review_courses": review_courses,
+            "archived_courses": archived_courses,
+            "total_enrollments": total_enrollments,
+            "active_enrollments": active_enrollments,
+            "completed_enrollments": completed_enrollments,
+            "completion_rate": (
+                (completed_enrollments / total_enrollments * 100.0)
+                if total_enrollments else 0.0
+            ),
+            "total_quizzes": total_quizzes,
+            "active_quizzes": active_quizzes,
+            "total_revenue": total_revenue,
+            "new_users_7d": new_users_7d,
+            "new_users_30d": new_users_30d,
+            "new_courses_30d": new_courses_30d,
+            "new_enrollments_30d": new_enrollments_30d,
+            "new_enrollments_90d": new_enrollments_90d,
+            "courses_unassigned": courses_unassigned,
+            "courses_no_sections": courses_no_sections,
+        }
 
         context.update({
-            "stats": {
-                "total_organizations": total_orgs,
-                "total_users": total_users,
-                "total_courses": total_courses,
-                "published_courses": published_courses,
-            },
+            "stats": stats,
+            "top_organizations": top_organizations,
+            "top_courses": top_courses,
+            "trending_courses": trending_courses,
+            "top_instructors": top_instructors,
+            "top_categories": top_categories,
+            "enrollments_trend": enrollments_trend,
             "kpi_cards": [
-                {"label": "Organisations actives", "value": total_orgs},
-                {"label": "Utilisateurs actifs", "value": total_users},
-                {"label": "Cours (total)", "value": total_courses},
-                {"label": "Cours publiés", "value": published_courses},
+                {
+                    "label": "Organisations actives",
+                    "value": total_orgs,
+                    "sub": f"{inactive_orgs} inactives",
+                },
+                {
+                    "label": "Utilisateurs actifs",
+                    "value": total_users,
+                    "sub": f"+{new_users_30d} sur 30j",
+                },
+                {
+                    "label": "Cours publiés",
+                    "value": published_courses,
+                    "sub": f"{total_courses} au total",
+                },
+                {
+                    "label": "Inscriptions",
+                    "value": total_enrollments,
+                    "sub": f"+{new_enrollments_30d} sur 30j",
+                },
             ],
         })
         return context

@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
+from assessments.models import Quiz
 from catalog.models import Course, CourseSection, Lesson, MediaAsset, Category
 from compte.models import InstructorProfile, LearnerProfile
 from organizations.models import Organization, OrganizationMembership, BusinessInterestRequest
@@ -160,11 +161,124 @@ class OrganizationLessonCreateForm(forms.ModelForm):
             "media_asset",
         ]
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, user=None, organization=None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if user and "media_asset" in self.fields:
-            self.fields["media_asset"].queryset = MediaAsset.objects.filter(owner=user)
+        # On élargit la queryset ``media_asset`` aux médias visibles dans
+        # l'organisation courante (et plus seulement ceux dont ``owner``
+        # est le user) : un org admin doit pouvoir réutiliser les médias
+        # uploadés par n'importe quel membre INSTRUCTOR de son org.
+        if "media_asset" in self.fields:
+            qs = MediaAsset.objects.none()
+            if organization is not None:
+                qs = MediaAsset.objects.filter(organization=organization)
+                if user is not None:
+                    qs = qs | MediaAsset.objects.filter(owner=user)
+            elif user is not None:
+                qs = MediaAsset.objects.filter(owner=user)
+            self.fields["media_asset"].queryset = qs.distinct()
+
+
+class OrganizationCourseAssignInstructorForm(forms.Form):
+    """Affecte un cours d'organisation à un formateur de cette organisation.
+
+    Règles métier :
+    - le cours doit déjà être rattaché à l'organisation (``company=org``) ;
+    - le formateur cible doit être un membership actif ``INSTRUCTOR`` de
+      cette même organisation (filtre côté queryset).
+    """
+
+    instructor = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=True,
+        label="Formateur",
+        help_text="Choisissez un formateur rattaché à cette organisation.",
+    )
+
+    def __init__(self, *args, organization=None, course=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.organization = organization
+        self.course = course
+
+        if organization is not None:
+            self.fields["instructor"].queryset = (
+                User.objects.filter(
+                    organization_memberships__organization=organization,
+                    organization_memberships__is_active=True,
+                    organization_memberships__role=(
+                        OrganizationMembership.Role.INSTRUCTOR
+                    ),
+                    is_active=True,
+                )
+                .distinct()
+                .order_by("full_name", "email")
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+
+        # Garde-fou : on ne laisse affecter un formateur QUE si le cours
+        # est bien créé pour / rattaché à l'organisation. Cela couvre la
+        # contrainte demandée : « uniquement si le cours est créé par
+        # l'admin ou un membre de l'organisation ».
+        if self.course is None or self.organization is None:
+            raise forms.ValidationError(
+                "Contexte d'affectation invalide."
+            )
+
+        if self.course.company_id != self.organization.id:
+            raise forms.ValidationError(
+                "Ce cours n'appartient pas à votre organisation et ne "
+                "peut donc pas être réaffecté ici."
+            )
+
+        return cleaned
+
+
+class OrganizationQuizCreateForm(forms.ModelForm):
+    """Création / édition d'un quiz lié à un cours d'organisation.
+
+    Le ``course`` est imposé par la vue (FK courante d'URL) — on ne le
+    met PAS dans le formulaire pour éviter qu'un user manipule la
+    requête. Idem pour ``section`` qui est limité aux sections du cours.
+    """
+
+    class Meta:
+        model = Quiz
+        fields = [
+            "title",
+            "section",
+            "passing_score",
+            "max_attempts",
+            "is_active",
+        ]
+        widgets = {
+            "passing_score": forms.NumberInput(attrs={"min": 0, "max": 100}),
+            "max_attempts": forms.NumberInput(attrs={"min": 1}),
+        }
+
+    def __init__(self, *args, course=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.course = course
+
+        if course is not None and "section" in self.fields:
+            self.fields["section"].required = False
+            self.fields["section"].queryset = (
+                CourseSection.objects.filter(course=course).order_by("order")
+            )
+            self.fields["section"].help_text = (
+                "Optionnel : rattachez le quiz à une section précise du "
+                "cours pour qu'il s'affiche au bon endroit."
+            )
+
+    def save(self, commit=True):
+        quiz = super().save(commit=False)
+        if self.course is not None:
+            quiz.course = self.course
+        if commit:
+            quiz.save()
+            self.save_m2m()
+        return quiz
 
 
 class OrganizationCourseAssignLearnersForm(forms.Form):

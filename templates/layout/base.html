@@ -81,6 +81,47 @@
       transform:translateY(6px);
       transition:opacity .16s ease, transform .16s ease;
     }
+
+    /* ===== Compatibilité navigateurs ===== */
+
+    /* aspect-ratio fallback (Safari < 15, Chrome < 88) — utilisé sur les
+       vignettes des cartes cours via .aspect-[16/9] de Tailwind. On ajoute
+       un fallback par padding-top pour les vieux navigateurs. */
+    @supports not (aspect-ratio: 16 / 9) {
+      .aspect-\[16\/9\] {
+        position: relative;
+      }
+      .aspect-\[16\/9\]::before {
+        content: "";
+        display: block;
+        padding-top: 56.25%; /* 9/16 */
+      }
+      .aspect-\[16\/9\] > * {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    }
+
+    /* backdrop-filter : Safari < 16 nécessite -webkit-backdrop-filter.
+       Tailwind émet backdrop-filter sans préfixe via le CDN, on
+       redouble côté navigateur Apple. */
+    .backdrop-blur-sm,
+    .backdrop-blur,
+    .backdrop-blur-md,
+    .backdrop-blur-lg,
+    .backdrop-blur-xl {
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .backdrop-blur-sm  { -webkit-backdrop-filter: blur(4px); }
+    .backdrop-blur     { -webkit-backdrop-filter: blur(8px); }
+    .backdrop-blur-md  { -webkit-backdrop-filter: blur(12px); }
+    .backdrop-blur-lg  { -webkit-backdrop-filter: blur(16px); }
+    .backdrop-blur-xl  { -webkit-backdrop-filter: blur(24px); }
+
+    /* position: sticky : Safari ancien réclame le préfixe webkit. */
+    .sticky { position: -webkit-sticky; position: sticky; }
   </style>
 
 </head>
@@ -746,10 +787,17 @@
 
 <script>
   // Menu mobile
-  document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
-    const menu = document.getElementById('mobile-menu');
-    menu.classList.toggle('hidden');
-  });
+  // NB: on évite l'optional chaining (?.) ici pour rester compatible
+  // avec les navigateurs anciens (Chrome < 80 / Safari < 13.1) qui
+  // refusent encore d'exécuter le script entier sinon.
+  (function () {
+    var btn = document.getElementById('mobile-menu-btn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var menu = document.getElementById('mobile-menu');
+      if (menu) menu.classList.toggle('hidden');
+    });
+  })();
 
   // Animation des compteurs
   function animateCounter(element) {
@@ -819,8 +867,9 @@
   }
 
   function getEndpoint() {
-    if (window.BE?.isAuth && window.BE?.learnerExploreUrl) return window.BE.learnerExploreUrl;
-    return window.BE?.exploreUrl || "#";
+    var BE = window.BE || {};
+    if (BE.isAuth && BE.learnerExploreUrl) return BE.learnerExploreUrl;
+    return BE.exploreUrl || "#";
   }
 
   function showLoading(show) {
@@ -850,7 +899,11 @@
   }
 
   function safeText(s) {
-    return String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    // ``s ?? ""`` (nullish coalescing) et ``replaceAll`` cassent sur Safari
+    // < 13.1 / Chrome < 85. On utilise le triplet : `== null` + replace
+    // global pour rester compatible.
+    var v = (s == null) ? "" : String(s);
+    return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
   function badge(label, color = "blue") {
@@ -879,7 +932,7 @@
     const level = (els.level.value || "").trim();
     const type = (els.type.value || "").trim();
     const pricing = (els.pricing.value || "").trim();
-    const mine = (els.mine?.value || "0").trim();
+    const mine = ((els.mine && els.mine.value) || "0").trim();
 
     if (resetOffset) {
       state.offset = 0;
@@ -900,7 +953,7 @@
     if (pricing) params.set("pricing_type", pricing);
 
     // mine uniquement si connecté
-    if (window.BE?.isAuth && mine === "1") params.set("mine", "1");
+    if (window.BE && window.BE.isAuth && mine === "1") params.set("mine", "1");
 
     // tri (si ton API le supporte, sinon c’est tri front fallback)
     if (state.sort) params.set("sort", state.sort);
@@ -935,7 +988,7 @@
     const levelColor = course.level_color || "blue";
 
     const enrolledCount = Number(course.enrolled_count || 0).toLocaleString("fr-FR");
-    const rating = (typeof course.rating === "number") ? course.rating.toFixed(1) : (course.rating ?? "—");
+    const rating = (typeof course.rating === "number") ? course.rating.toFixed(1) : (course.rating == null ? "—" : course.rating);
     const isPopular = !!course.is_popular;
 
     const instructorName = course.instructor_name || "Formateur";
@@ -953,8 +1006,9 @@
     const isEnrolled = !!course.is_enrolled;
     const continueUrl = course.continue_url || detailUrl;
 
-    const ctaLabel = isEnrolled ? "Continuer" : (window.BE?.isAuth ? "S'inscrire" : "Voir le cours");
-    const ctaUrl = isEnrolled ? continueUrl : (window.BE?.isAuth ? enrollUrl : previewUrl);
+    const _isAuth = !!(window.BE && window.BE.isAuth);
+    const ctaLabel = isEnrolled ? "Continuer" : (_isAuth ? "S'inscrire" : "Voir le cours");
+    const ctaUrl = isEnrolled ? continueUrl : (_isAuth ? enrollUrl : previewUrl);
 
     // Prix
     const isFree = (course.pricing_type === "FREE") || Number(price) === 0;
@@ -1254,24 +1308,33 @@
       el.addEventListener("change", () => fetchCourses({reset: true}));
     });
 
-    // Tri (toggle)
-    els.sortPopular?.addEventListener("click", () => {
-      state.sort = (state.sort === "popular") ? "" : "popular";
-      // UI
-      els.sortPopular.classList.toggle("bg-slate-900", state.sort === "popular");
-      els.sortPopular.classList.toggle("text-white", state.sort === "popular");
-      els.sortRecent.classList.remove("bg-slate-900", "text-white");
-      fetchCourses({reset: true});
-    });
+    // Tri (toggle) — pas d'optional chaining pour rester compat anciens
+    // navigateurs.
+    if (els.sortPopular) {
+      els.sortPopular.addEventListener("click", () => {
+        state.sort = (state.sort === "popular") ? "" : "popular";
+        // UI
+        els.sortPopular.classList.toggle("bg-slate-900", state.sort === "popular");
+        els.sortPopular.classList.toggle("text-white", state.sort === "popular");
+        if (els.sortRecent) {
+          els.sortRecent.classList.remove("bg-slate-900", "text-white");
+        }
+        fetchCourses({reset: true});
+      });
+    }
 
-    els.sortRecent?.addEventListener("click", () => {
-      state.sort = (state.sort === "recent") ? "" : "recent";
-      // UI
-      els.sortRecent.classList.toggle("bg-slate-900", state.sort === "recent");
-      els.sortRecent.classList.toggle("text-white", state.sort === "recent");
-      els.sortPopular.classList.remove("bg-slate-900", "text-white");
-      fetchCourses({reset: true});
-    });
+    if (els.sortRecent) {
+      els.sortRecent.addEventListener("click", () => {
+        state.sort = (state.sort === "recent") ? "" : "recent";
+        // UI
+        els.sortRecent.classList.toggle("bg-slate-900", state.sort === "recent");
+        els.sortRecent.classList.toggle("text-white", state.sort === "recent");
+        if (els.sortPopular) {
+          els.sortPopular.classList.remove("bg-slate-900", "text-white");
+        }
+        fetchCourses({reset: true});
+      });
+    }
   });
 </script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

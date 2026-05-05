@@ -12,17 +12,22 @@ from django.urls import path
 
 from organizations.views import (
     OrganisationDashboard,
+    OrganizationCourseAssignInstructorView,
     OrganizationCourseAssignLearnersView,
     OrganizationCourseBuilderView,
     OrganizationCourseCreateView,
     OrganizationCourseDetailView,
+    OrganizationCourseQuizListView,
     OrganizationCourseSectionCreateView,
     OrganizationCoursesView,
     OrganizationInstructorCreateView,
     OrganizationLearnerCreateView,
     OrganizationLessonCreateView,
+    OrganizationMediaLibraryView,
     OrganizationMemberCreateView,
     OrganizationMembersView,
+    OrganizationQuizCreateView,
+    OrganizationQuizDetailView,
 )
 
 app_name = "org"
@@ -95,5 +100,37 @@ urlpatterns = [
         "<int:organization_id>/courses/<int:course_id>/assign-learners/",
         OrganizationCourseAssignLearnersView.as_view(),
         name="course_assign_learners",
+    ),
+
+    # Affectation d'un cours à un formateur de l'organisation.
+    # Réservé OWNER / ADMIN (cf. allowed_org_roles dans la vue).
+    path(
+        "<int:organization_id>/courses/<int:course_id>/assign-instructor/",
+        OrganizationCourseAssignInstructorView.as_view(),
+        name="course_assign_instructor",
+    ),
+
+    # Quiz : list / création / détail au sein d'un cours d'organisation.
+    path(
+        "<int:organization_id>/courses/<int:course_id>/quizzes/",
+        OrganizationCourseQuizListView.as_view(),
+        name="quiz_list",
+    ),
+    path(
+        "<int:organization_id>/courses/<int:course_id>/quizzes/create/",
+        OrganizationQuizCreateView.as_view(),
+        name="quiz_create",
+    ),
+    path(
+        "<int:organization_id>/courses/<int:course_id>/quizzes/<int:quiz_id>/",
+        OrganizationQuizDetailView.as_view(),
+        name="quiz_detail",
+    ),
+
+    # Bibliothèque média rattachée à l'organisation.
+    path(
+        "<int:organization_id>/media/",
+        OrganizationMediaLibraryView.as_view(),
+        name="media_library",
     ),
 ]
