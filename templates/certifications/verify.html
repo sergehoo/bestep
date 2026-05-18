@@ -1,0 +1,88 @@
+{% extends "layout/base.html" %}
+{% load static humanize %}
+
+{% comment %}
+  Template public de vérification d'un certificat — CORRECTIF V2.A (CERT-01).
+  Page accessible sans authentification, indexable par les employeurs/évaluateurs.
+{% endcomment %}
+
+{% block title %}Vérification certificat — {{ certificate.serial }}{% endblock %}
+
+{% block content %}
+<section class="max-w-3xl mx-auto px-4 py-12">
+
+  {% if certificate.verified %}
+    <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 shadow-sm">
+      <div class="flex items-center gap-4 mb-6">
+        <div class="w-14 h-14 rounded-full bg-emerald-600 text-white flex items-center justify-center"
+             aria-hidden="true">
+          <i class="fas fa-check-circle text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-emerald-900">Certificat authentique</h1>
+          <p class="text-emerald-700">Ce document a bien été émis par Best Épargne.</p>
+        </div>
+      </div>
+
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="font-semibold text-gray-600">Titulaire</dt>
+          <dd class="text-gray-900">{{ certificate.holder.name }}</dd>
+        </div>
+        <div>
+          <dt class="font-semibold text-gray-600">Cours validé</dt>
+          <dd class="text-gray-900">{{ certificate.course_title|default:"—" }}</dd>
+        </div>
+        <div>
+          <dt class="font-semibold text-gray-600">Date d'émission</dt>
+          <dd class="text-gray-900">{{ certificate.issued_at }}</dd>
+        </div>
+        <div>
+          <dt class="font-semibold text-gray-600">Score obtenu</dt>
+          <dd class="text-gray-900">{{ certificate.score_percent }}%</dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="font-semibold text-gray-600">Numéro de série</dt>
+          <dd class="text-gray-900 font-mono text-xs break-all">{{ certificate.serial }}</dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="font-semibold text-gray-600">Hash de vérification</dt>
+          <dd class="text-gray-900 font-mono text-xs break-all">{{ certificate.verification_hash }}</dd>
+        </div>
+      </dl>
+    </div>
+  {% else %}
+    <div class="rounded-2xl border border-rose-200 bg-rose-50 p-8 shadow-sm">
+      <div class="flex items-center gap-4 mb-6">
+        <div class="w-14 h-14 rounded-full bg-rose-600 text-white flex items-center justify-center"
+             aria-hidden="true">
+          <i class="fas fa-ban text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-rose-900">Certificat révoqué</h1>
+          <p class="text-rose-700">
+            Ce certificat a été révoqué et n'est plus considéré comme valide.
+          </p>
+        </div>
+      </div>
+      <dl class="text-sm space-y-2">
+        <div>
+          <dt class="font-semibold text-gray-600 inline">Date de révocation :</dt>
+          <dd class="inline text-gray-900">{{ certificate.revoked_at|default:"—" }}</dd>
+        </div>
+        {% if certificate.revoked_reason %}
+        <div>
+          <dt class="font-semibold text-gray-600">Motif</dt>
+          <dd class="text-gray-900">{{ certificate.revoked_reason }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+  {% endif %}
+
+  <p class="text-xs text-gray-500 mt-6 text-center">
+    En cas de doute, contactez le support à l'adresse indiquée sur le site officiel
+    de Best Épargne.
+  </p>
+</section>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% comment %}
+  partials/lesson_player.html — Player vidéo sécurisé (V5.D / SEC-33).
+
+  Avant : ``<video :src="lesson.video_url" controls>`` exposait l'URL MinIO
+  brute dans le DOM → téléchargement trivial des cours payants.
+
+  Après :
+  - on charge l'URL signée (60s) côté JS via fetch sur
+    ``/learn/api/lessons/<id>/stream/`` ;
+  - ``controlsList="nodownload noremoteplayback"`` empêche les options
+    natives du menu contextuel ;
+  - ``oncontextmenu="return false"`` désactive le clic-droit ;
+  - ``disablePictureInPicture`` empêche le PiP ;
+  - on rafraîchit l'URL automatiquement avant expiration (50s) si la
+    lecture continue.
+
+  Variables requises :
+    - lesson_id : ID de la Lesson Django (entier).
+    - poster_url : optionnelle, URL d'image de fallback.
+    - title : optionnel, pour aria-label.
+
+  Usage côté template parent :
+      {% include "partials/lesson_player.html" with lesson_id=lesson.id poster_url=lesson.thumbnail_url title=lesson.title %}
+{% endcomment %}
+
+<div x-data="lessonPlayer({{ lesson_id }})"
+     x-init="loadStream()"
+     class="rounded-2xl overflow-hidden bg-slate-950 aspect-video relative">
+
+  {# Skeleton tant qu'on n'a pas l'URL. #}
+  <div x-show="loading"
+       class="absolute inset-0 flex items-center justify-center text-slate-400"
+       aria-live="polite" role="status">
+    <i class="fas fa-circle-notch fa-spin text-2xl mr-2" aria-hidden="true"></i>
+    <span>Chargement de la vidéo…</span>
+  </div>
+
+  {# Erreur (réseau, droits, expiration). #}
+  <div x-show="error"
+       x-cloak
+       class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-rose-100 bg-rose-950/70"
+       role="alert" aria-live="assertive">
+    <i class="fas fa-triangle-exclamation text-3xl mb-3" aria-hidden="true"></i>
+    <p x-text="error"></p>
+    <button type="button"
+            @click="loadStream()"
+            class="mt-4 px-4 py-2 rounded-lg bg-rose-700 text-white text-sm font-semibold hover:bg-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-300">
+      Réessayer
+    </button>
+  </div>
+
+  {# Vidéo MP4 / HLS protégée. #}
+  <template x-if="!loading && !error && kind === 'mp4'">
+    <video x-ref="video"
+           :src="url"
+           {% if poster_url %}poster="{{ poster_url }}"{% endif %}
+           controls
+           controlsList="nodownload noremoteplayback noplaybackrate"
+           disablePictureInPicture
+           oncontextmenu="return false"
+           preload="metadata"
+           crossorigin="anonymous"
+           aria-label="Lecteur vidéo {{ title|default:'leçon' }}"
+           @error="onMediaError($event)"
+           @timeupdate="onTimeUpdate($event)"
+           class="w-full h-full bg-black"></video>
+  </template>
+
+  {# Fallback iframe (YouTube/Vimeo). NB : pas de signed URL possible.
+     On documente côté audit (UX-35) que le track de progression n'est
+     pas disponible pour ces sources. #}
+  <template x-if="!loading && !error && kind === 'external'">
+    <iframe x-ref="iframe"
+            :src="url"
+            class="absolute inset-0 w-full h-full"
+            allowfullscreen
+            sandbox="allow-same-origin allow-scripts allow-presentation"
+            referrerpolicy="strict-origin-when-cross-origin"
+            title="{{ title|default:'Vidéo externe' }}"></iframe>
+  </template>
+</div>
+
+<script>
+  function lessonPlayer(lessonId) {
+    return {
+      lessonId: lessonId,
+      loading: true,
+      error: null,
+      url: null,
+      kind: null,
+      _expiresAt: null,
+      _refreshTimer: null,
+      async loadStream() {
+        this.loading = true;
+        this.error = null;
+        try {
+          const resp = await fetch(`/learn/api/lessons/${this.lessonId}/stream/`, {
+            credentials: "same-origin",
+            headers: { "Accept": "application/json" },
+          });
+          if (resp.status === 404) {
+            this.error = "Vidéo introuvable ou accès non autorisé.";
+            return;
+          }
+          if (resp.status === 401 || resp.status === 403) {
+            this.error = "Vous devez être inscrit pour visionner cette leçon.";
+            return;
+          }
+          if (!resp.ok) {
+            this.error = "Impossible de charger la vidéo (erreur réseau).";
+            return;
+          }
+          const data = await resp.json();
+          this.url = data.url;
+          this.kind = data.kind || "mp4";
+          if (data.expires_in && data.expires_in > 10) {
+            // Rafraîchit 10s avant expiration.
+            this._scheduleRefresh(data.expires_in - 10);
+          }
+        } catch (err) {
+          this.error = "Erreur réseau. Vérifiez votre connexion.";
+        } finally {
+          this.loading = false;
+        }
+      },
+      _scheduleRefresh(seconds) {
+        if (this._refreshTimer) clearTimeout(this._refreshTimer);
+        this._refreshTimer = setTimeout(() => {
+          // On ne rafraîchit que si la vidéo est en cours de lecture.
+          const v = this.$refs.video;
+          if (v && !v.paused) {
+            this.loadStream();
+          }
+        }, seconds * 1000);
+      },
+      onMediaError(ev) {
+        this.error = "La lecture a échoué. Cliquez sur Réessayer.";
+      },
+      onTimeUpdate(ev) {
+        // Hook pour reporter la progression côté serveur — à brancher
+        // (PATCH /api/lesson-progress/<id>/) avec debounce.
+      },
+    };
+  }
+</script>

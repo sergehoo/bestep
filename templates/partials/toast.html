@@ -1,0 +1,82 @@
+{% comment %}
+  partials/toast.html — Composant de notification toast mutualisé.
+
+  CORRECTIF V5.A (CQ-23) + V5.A (A11Y-10) : un seul markup pour les toasts,
+  ARIA `role="status"` + `aria-live="polite"` pour les lecteurs d'écran.
+
+  Usage côté template :
+      {% include "partials/toast.html" %}
+
+  Usage côté JS :
+      window.toast.show({type: "success", message: "Sauvegardé !", duration: 4000});
+
+  Types acceptés : "success" | "error" | "info" | "warning".
+{% endcomment %}
+
+<div x-data="bestepargneToast()"
+     x-init="init()"
+     class="fixed top-4 right-4 z-[70] flex flex-col gap-2 pointer-events-none"
+     aria-live="polite" aria-atomic="true" role="status">
+  <template x-for="t in toasts" :key="t.id">
+    <div x-show="true"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-auto min-w-[260px] max-w-sm flex items-start gap-3 px-4 py-3 rounded-2xl shadow-lg border"
+         :class="{
+           'bg-emerald-50 border-emerald-200 text-emerald-900': t.type === 'success',
+           'bg-rose-50 border-rose-200 text-rose-900': t.type === 'error',
+           'bg-amber-50 border-amber-200 text-amber-900': t.type === 'warning',
+           'bg-sky-50 border-sky-200 text-sky-900': !['success','error','warning'].includes(t.type)
+         }">
+      <i class="fas mt-0.5"
+         :class="{
+           'fa-check-circle': t.type === 'success',
+           'fa-times-circle': t.type === 'error',
+           'fa-exclamation-triangle': t.type === 'warning',
+           'fa-info-circle': !['success','error','warning'].includes(t.type)
+         }"
+         aria-hidden="true"></i>
+      <div class="text-sm flex-1" x-text="t.message"></div>
+      <button type="button"
+              @click="dismiss(t.id)"
+              class="text-current opacity-60 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current rounded"
+              aria-label="Fermer la notification">
+        <i class="fas fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+  </template>
+</div>
+
+<script>
+  function bestepargneToast() {
+    return {
+      toasts: [],
+      _id: 0,
+      init() {
+        // Expose une API globale partagée par tous les Alpine scopes.
+        const self = this;
+        window.toast = {
+          show(opts) { self.show(opts); },
+          success(message, opts = {}) { self.show({...opts, type: "success", message}); },
+          error(message, opts = {}) { self.show({...opts, type: "error", message}); },
+          warning(message, opts = {}) { self.show({...opts, type: "warning", message}); },
+          info(message, opts = {}) { self.show({...opts, type: "info", message}); },
+        };
+      },
+      show({ type = "info", message = "", duration = 4000 } = {}) {
+        const id = ++this._id;
+        this.toasts.push({ id, type, message });
+        if (duration > 0) {
+          setTimeout(() => this.dismiss(id), duration);
+        }
+      },
+      dismiss(id) {
+        this.toasts = this.toasts.filter(t => t.id !== id);
+      }
+    };
+  }
+</script>

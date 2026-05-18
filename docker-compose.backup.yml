@@ -1,0 +1,104 @@
+# docker-compose.backup.yml — Sidecars de backup (V_OPS.A / INFRA-21).
+#
+# Usage : docker compose -f docker-compose.yml -f docker-compose.backup.yml up -d
+#
+# Crée deux services :
+#   1. postgres-backup : dumps Postgres horaires/quotidiens/hebdo/mensuels
+#      via prodrigestivill/postgres-backup-local (rotation incluse).
+#   2. minio-mirror   : sync MinIO local vers un S3 externe (rétention DR)
+#      via une boucle mc mirror.
+#
+# Volumes :
+#   - postgres_backups : dumps locaux (à brancher sur stockage externe rsync/SFTP).
+#   - minio_mirror_state : état du mirror pour reprise sur incident.
+
+volumes:
+  postgres_backups:
+  minio_mirror_state:
+
+services:
+
+  postgres-backup:
+    image: prodrigestivill/postgres-backup-local:16
+    container_name: best_epargne_pg_backup
+    restart: unless-stopped
+    depends_on:
+      bestDB:
+        condition: service_healthy
+    networks:
+      - internal
+    environment:
+      POSTGRES_HOST: bestDB
+      POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
+      POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_EXTRA_OPTS: "-Z6 --schema=public --blobs"
+      # Stratégie de rétention (env-configurable). Défaut sain :
+      # - 24h glissantes, 7j, 4 semaines, 6 mois.
+      SCHEDULE: "@hourly"
+      BACKUP_KEEP_DAYS: "7"
+      BACKUP_KEEP_WEEKS: "4"
+      BACKUP_KEEP_MONTHS: "6"
+      HEALTHCHECK_PORT: "8080"
+    volumes:
+      - postgres_backups:/backups
+    # Healthcheck HTTP exposé par l'image.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080 || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+    # Durcissement.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  minio-mirror:
+    image: minio/mc:latest
+    container_name: best_epargne_minio_mirror
+    restart: unless-stopped
+    depends_on:
+      - bestminio
+    networks:
+      - internal
+    env_file:
+      - .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-bestepargne}
+      # Cible DR (S3 externe — à configurer). Si vide, le service ne fait rien.
+      DR_S3_ENDPOINT: ${DR_S3_ENDPOINT:-}
+      DR_S3_ACCESS_KEY: ${DR_S3_ACCESS_KEY:-}
+      DR_S3_SECRET_KEY: ${DR_S3_SECRET_KEY:-}
+      DR_S3_BUCKET: ${DR_S3_BUCKET:-}
+      # Intervalle entre 2 mirror complets (mc mirror est incrémental, donc rapide).
+      MIRROR_INTERVAL_SECONDS: "${MIRROR_INTERVAL_SECONDS:-3600}"
+    volumes:
+      - minio_mirror_state:/state
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        if [ -z "$DR_S3_ENDPOINT" ] || [ -z "$DR_S3_ACCESS_KEY" ] || [ -z "$DR_S3_BUCKET" ]; then
+          echo "[mirror] DR_S3_* non configuré — service idle."
+          while true; do sleep 3600; done
+        fi
+        mc alias set src http://bestminio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+        mc alias set dr "$DR_S3_ENDPOINT" "$DR_S3_ACCESS_KEY" "$DR_S3_SECRET_KEY"
+        while true; do
+          echo "[mirror] $(date -Iseconds) — début sync"
+          mc mirror --overwrite --remove src/"$MINIO_BUCKET" dr/"$DR_S3_BUCKET" \
+            && echo "[mirror] sync OK" \
+            || echo "[mirror] sync KO (continuera au prochain cycle)"
+          sleep "$MIRROR_INTERVAL_SECONDS"
+        done
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

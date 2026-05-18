@@ -1,0 +1,60 @@
+{% comment %}
+  partials/kpi_card.html — Carte KPI mutualisée.
+
+  CORRECTIF V5.A (CQ-22) : remplace 20+ implémentations divergentes
+  (organization/dashboard, instructor/admin_dash, platform/admin_dashboard,
+  instructor/instructor_dash).
+
+  Usage :
+      {% include "partials/kpi_card.html" with icon="fa-users" color="sky" label="Apprenants actifs" value=stats.learners hint="vs mois dernier" %}
+
+  Variables :
+    - icon (obligatoire) : nom de la classe FA (sans le préfixe `fas`)
+    - color : sky (défaut) | emerald | amber | rose | indigo | slate
+    - label : libellé
+    - value : valeur (passe |intcomma côté caller si besoin)
+    - hint : sous-texte optionnel
+    - trend : "up" | "down" | "flat" (optionnel)
+    - trend_value : ex. "+12%"
+{% endcomment %}
+{% with color=color|default:"sky" %}
+<article class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm">
+  <div class="flex items-start justify-between gap-4">
+    <div class="flex-1 min-w-0">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+        {{ label|default:"—" }}
+      </p>
+      <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+        {{ value|default:"—" }}
+      </p>
+      {% if hint %}
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ hint }}</p>
+      {% endif %}
+    </div>
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center
+      {% if color == 'emerald' %}bg-emerald-100 text-emerald-700
+      {% elif color == 'amber' %}bg-amber-100 text-amber-700
+      {% elif color == 'rose' %}bg-rose-100 text-rose-700
+      {% elif color == 'indigo' %}bg-indigo-100 text-indigo-700
+      {% elif color == 'slate' %}bg-slate-100 text-slate-700
+      {% else %}bg-sky-100 text-sky-700{% endif %}"
+         aria-hidden="true">
+      <i class="fas {{ icon }} text-lg"></i>
+    </div>
+  </div>
+
+  {% if trend %}
+    <div class="mt-3 flex items-center text-xs">
+      <span class="inline-flex items-center gap-1
+        {% if trend == 'up' %}text-emerald-700
+        {% elif trend == 'down' %}text-rose-700
+        {% else %}text-slate-500{% endif %}">
+        {% if trend == 'up' %}<i class="fas fa-arrow-up" aria-hidden="true"></i>
+        {% elif trend == 'down' %}<i class="fas fa-arrow-down" aria-hidden="true"></i>
+        {% else %}<i class="fas fa-minus" aria-hidden="true"></i>{% endif %}
+        {{ trend_value|default:"" }}
+      </span>
+    </div>
+  {% endif %}
+</article>
+{% endwith %}

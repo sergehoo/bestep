@@ -1,0 +1,49 @@
+{% extends "layout/base.html" %}
+{% load humanize %}
+
+{% block title %}Invitation à {{ invitation.organization.name }}{% endblock %}
+
+{% block content %}
+<section class="max-w-2xl mx-auto px-4 py-12">
+  <div class="rounded-2xl border border-sky-200 bg-white shadow-sm p-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-2">
+      Invitation à rejoindre {{ invitation.organization.name }}
+    </h1>
+    <p class="text-gray-600 mb-6">
+      Vous avez été invité à rejoindre cette organisation en tant que
+      <strong>{{ invitation.get_role_display }}</strong>.
+    </p>
+
+    {% if invitation.is_expired %}
+      <div class="rounded-xl bg-rose-50 border border-rose-200 p-4 text-rose-800">
+        Cette invitation a expiré le {{ invitation.expires_at|naturaltime }}. Demandez à un
+        administrateur de l'organisation de vous renvoyer une invitation.
+      </div>
+    {% elif invitation.is_accepted %}
+      <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-800">
+        Cette invitation a déjà été acceptée.
+      </div>
+    {% else %}
+      <form method="post" class="space-y-4">
+        {% csrf_token %}
+        <p class="text-sm text-gray-700">
+          En cliquant sur « Accepter », vous activez votre accès à l'organisation
+          et acceptez les conditions générales d'utilisation.
+        </p>
+        <div class="flex items-center gap-3">
+          <button type="submit"
+                  class="px-5 py-2.5 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 transition">
+            Accepter l'invitation
+          </button>
+          <a href="/" class="text-sm text-gray-500 hover:text-gray-700">Plus tard</a>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+
+  <p class="text-xs text-gray-500 mt-6 text-center">
+    Vous recevez cet écran parce qu'un email d'invitation vous a été envoyé.
+    Si vous pensez recevoir cette invitation par erreur, vous pouvez l'ignorer.
+  </p>
+</section>
+{% endblock %}

@@ -1,0 +1,132 @@
+# pyproject.toml — Outillage qualité (V8.B).
+#
+# CORRECTIFS audit (SEC-30, INFRA-19) :
+# - Configuration ruff + black + isort cohérente.
+# - pytest configuré pour Django.
+# - Couverture cible 60% à terme.
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [
+  "migrations",
+  "staticfiles",
+  "venv",
+  ".venv",
+  "node_modules",
+]
+
+[tool.ruff.lint]
+# Sélection raisonnable pour commencer ; on durcira progressivement.
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "W",    # pycodestyle warnings
+  "I",    # isort
+  "B",    # flake8-bugbear
+  "C90",  # mccabe complexity
+  "DJ",   # flake8-django
+  "PIE",  # flake8-pie
+  "SIM",  # flake8-simplify
+  "RUF",  # ruff-specific
+]
+ignore = [
+  "E501",   # ligne trop longue — on a déjà line-length=100
+  "B008",   # mutable default args dans Django (Q, F, OuterRef)
+  "RUF012", # mutable class attributes
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/migrations/*.py" = ["E", "F", "I", "B", "C90"]
+"tests/*.py" = ["E501", "B"]
+"manage.py" = ["E"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+extend-exclude = '''
+(
+  migrations
+  | staticfiles
+  | venv
+  | \.venv
+)
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = [
+  "best_epargne",
+  "core",
+  "compte",
+  "organizations",
+  "catalog",
+  "assessments",
+  "certifications",
+  "commerce",
+  "enrollments",
+  "reviews",
+  "formations",
+]
+skip = ["migrations", "staticfiles", "venv", ".venv"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "best_epargne.settings.dev"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+testpaths = ["tests"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+  "--reuse-db",
+]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::PendingDeprecationWarning",
+]
+markers = [
+  "slow: tests lents (pipeline vidéo, certs)",
+  "integration: tests d'intégration (DB, Redis, MinIO)",
+]
+
+[tool.coverage.run]
+source = [
+  "core",
+  "compte",
+  "organizations",
+  "catalog",
+  "assessments",
+  "certifications",
+  "commerce",
+  "enrollments",
+  "reviews",
+  "formations",
+  "best_epargne",
+]
+omit = [
+  "*/migrations/*",
+  "*/management/*",
+  "*/tests.py",
+  "*/admin.py",
+  "manage.py",
+  "*/wsgi.py",
+  "*/asgi.py",
+  "*/celery.py",
+  "venv/*",
+  "staticfiles/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 1
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

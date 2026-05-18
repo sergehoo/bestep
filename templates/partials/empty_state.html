@@ -1,0 +1,33 @@
+{% comment %}
+  partials/empty_state.html — État vide mutualisé.
+
+  CORRECTIF V5.A (UX-37) : remplace les "Aucun cours" texte brut éparpillés.
+
+  Usage :
+      {% include "partials/empty_state.html" with icon="fa-folder-open" title="Aucun cours" message="Vous n'avez encore créé aucun cours." cta_label="Créer mon premier cours" cta_url=create_url %}
+
+  Variables :
+    - icon : classe FA (sans `fas`)
+    - title : titre principal
+    - message : texte explicatif
+    - cta_label, cta_url : appel à l'action (optionnel)
+{% endcomment %}
+<div class="flex flex-col items-center justify-center text-center py-16 px-6 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+  <div class="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4"
+       aria-hidden="true">
+    <i class="fas {{ icon|default:'fa-inbox' }} text-2xl text-slate-400"></i>
+  </div>
+  <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">
+    {{ title|default:"Rien à afficher" }}
+  </h3>
+  {% if message %}
+    <p class="text-sm text-slate-500 dark:text-slate-400 max-w-md">{{ message }}</p>
+  {% endif %}
+  {% if cta_label and cta_url %}
+    <a href="{{ cta_url }}"
+       class="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 text-white text-sm font-semibold hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500">
+      <i class="fas fa-plus" aria-hidden="true"></i>
+      {{ cta_label }}
+    </a>
+  {% endif %}
+</div>

@@ -1,0 +1,114 @@
+/**
+ * static/src/app.css — Entrée Tailwind production (V5.E).
+ *
+ * Compilation :
+ *   npm run build:css   # → static/dist/app.min.css
+ *   npm run watch:css   # → static/dist/app.css (dev, hot reload)
+ *
+ * À inclure dans les layouts :
+ *   <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Layer base — overrides légers
+   ============================================================ */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply antialiased font-sans;
+  }
+  /* Préservation du focus visible (a11y AA). */
+  :focus-visible {
+    outline: 2px solid theme("colors.be.sky.500");
+    outline-offset: 2px;
+  }
+}
+
+/* ============================================================
+   Layer components — design system
+   ============================================================ */
+@layer components {
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl
+           font-semibold text-sm
+           focus:outline-none focus:ring-2 focus:ring-offset-1
+           transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-be-sky-600 text-white hover:bg-be-sky-700
+           focus:ring-be-sky-500;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-slate-700 border border-slate-200
+           hover:bg-slate-50 focus:ring-be-sky-500
+           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700
+           dark:hover:bg-slate-700;
+  }
+  .btn-danger {
+    @apply btn bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-500;
+  }
+
+  .card {
+    @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700
+           rounded-2xl shadow-sm;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 rounded-xl border border-slate-200
+           bg-white dark:bg-slate-800 dark:border-slate-700
+           text-slate-900 dark:text-slate-100
+           placeholder-slate-400 dark:placeholder-slate-500
+           focus:outline-none focus:ring-2 focus:ring-be-sky-500
+           focus:border-be-sky-400 transition;
+  }
+  .label {
+    @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+  .badge-success { @apply badge bg-emerald-100 text-emerald-800; }
+  .badge-warning { @apply badge bg-amber-100 text-amber-800; }
+  .badge-danger  { @apply badge bg-rose-100 text-rose-800; }
+  .badge-neutral { @apply badge bg-slate-100 text-slate-700; }
+}
+
+/* ============================================================
+   Layer utilities — utilitaires custom
+   ============================================================ */
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .skeleton {
+    background: linear-gradient(90deg,
+      theme("colors.slate.100") 25%,
+      theme("colors.slate.200") 37%,
+      theme("colors.slate.100") 63%);
+    background-size: 400% 100%;
+    animation: be-skeleton 1.4s ease infinite;
+  }
+  @keyframes be-skeleton {
+    0%   { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+  }
+}
+
+/* ============================================================
+   prefers-reduced-motion : honoré globalement (A11Y-14)
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

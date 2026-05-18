@@ -1,0 +1,22 @@
+{% comment %}
+  partials/skeleton_card.html — Skeleton de chargement mutualisé.
+
+  CORRECTIF V5.A (UX-36).
+
+  Usage : {% include "partials/skeleton_card.html" with count=4 %}
+  La classe ``.skeleton`` doit être définie globalement
+  (cf. ``best_epargne/templates/layout/admin_base.html`` ou layout commun).
+{% endcomment %}
+{% with count=count|default:3 %}
+{% for _ in count|rjust:count|make_list %}
+<div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+     aria-hidden="true">
+  <div class="h-40 skeleton"></div>
+  <div class="p-4 space-y-2">
+    <div class="h-4 w-3/4 skeleton rounded"></div>
+    <div class="h-3 w-1/2 skeleton rounded"></div>
+    <div class="h-3 w-2/3 skeleton rounded mt-3"></div>
+  </div>
+</div>
+{% endfor %}
+{% endwith %}

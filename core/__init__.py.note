@@ -1,0 +1,2 @@
+Le module `core` existe déjà depuis V1 (core/__init__.py vide + permissions.py).
+On ajoute templatetags/ pour exposer les helpers accessibilité.

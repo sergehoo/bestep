@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ruff
+        run: pip install ruff==0.6.9 black==25.11.0 isort==5.13.2
+
+      - name: ruff lint
+        run: ruff check .
+
+      - name: ruff format check
+        run: ruff format --check .
+
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: best_epargne_test
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_SETTINGS_MODULE: best_epargne.settings.dev
+      DJANGO_SECRET_KEY: ci-secret-key-not-prod
+      DJANGO_DEBUG: "1"
+      DB_NAME: best_epargne_test
+      DB_USER: ci
+      DB_PASSWORD: ci
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      REDIS_URL: redis://localhost:6379/1
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      MINIO_ROOT_USER: ci
+      MINIO_ROOT_PASSWORD: ci
+      MINIO_BUCKET: bestepargne-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg libpq-dev
+
+      - name: Install Python deps
+        run: |
+          pip install -r requirements.txt
+          pip install pytest-cov
+
+      - name: Enable pg_trgm extension
+        env:
+          PGPASSWORD: ci
+        run: |
+          psql -h localhost -U ci -d best_epargne_test \
+            -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+      - name: Migrate
+        run: python manage.py migrate --noinput
+
+      - name: Tests
+        run: pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.run_id }}
+          path: coverage.xml
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: pip-audit (CVE check)
+        run: |
+          pip install pip-audit
+          pip-audit --requirement requirements.txt --strict || \
+            { echo "::warning::pip-audit a trouvé des vulnérabilités"; exit 0; }
+
+      - name: Django security check
+        env:
+          DJANGO_SETTINGS_MODULE: best_epargne.settings.prod
+          DJANGO_SECRET_KEY: ci-secret-key
+          DJANGO_ALLOWED_HOSTS: example.com
+          POSTGRES_PASSWORD: dummy
+        run: |
+          pip install -r requirements.txt
+          python manage.py check --deploy --fail-level WARNING || true
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [lint, tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t best-epargne:${{ github.sha }} .
+
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: best-epargne:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: "0"   # warning only pour démarrer ; passer à "1" plus tard
+          ignore-unfixed: true

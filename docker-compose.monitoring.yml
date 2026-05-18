@@ -1,0 +1,77 @@
+# docker-compose.monitoring.yml — Monitoring Celery (V_OPS.B / INFRA-11).
+#
+# Usage : docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+#
+# Services :
+#   1. flower : UI web de monitoring Celery (queues, tasks, workers) ;
+#      derrière Traefik basicauth pour éviter l'exposition publique.
+#   2. celery-exporter : exporteur Prometheus pour scrape.
+
+services:
+
+  flower:
+    image: mher/flower:2.0
+    container_name: best_epargne_flower
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+      - proxy
+    environment:
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      # Authentification basique obligatoire (anti-exposition).
+      FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:?Set FLOWER_BASIC_AUTH=user:password in .env}
+      FLOWER_URL_PREFIX: ${FLOWER_URL_PREFIX:-flower}
+    command:
+      - celery
+      - --broker=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - flower
+      - --url_prefix=${FLOWER_URL_PREFIX:-flower}
+      - --persistent=true
+      - --db=/data/flower.db
+      - --max_tasks=10000
+    volumes:
+      - flower_data:/data
+    labels:
+      # V_OPS.B : exposé en HTTPS uniquement, sous host dédié.
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.flower.rule=Host(`${FLOWER_HOST:-flower.ayo-group.com}`)"
+      - "traefik.http.routers.flower.entrypoints=websecure"
+      - "traefik.http.routers.flower.tls=true"
+      - "traefik.http.routers.flower.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
+      - "traefik.http.services.flower.loadbalancer.server.port=5555"
+      # Headers sécurité.
+      - "traefik.http.middlewares.flower-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.flower-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.flower-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.flower-headers.headers.framedeny=true"
+      - "traefik.http.routers.flower.middlewares=flower-headers"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  celery-exporter:
+    image: danihodovic/celery-exporter:0.10.10
+    container_name: best_epargne_celery_exporter
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    environment:
+      CE_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CE_BROKER_TRANSPORT_OPTION: "global_keyprefix=celery"
+    ports:
+      - "127.0.0.1:9808:9808"   # /metrics — exposé uniquement en local pour Prometheus.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  flower_data:

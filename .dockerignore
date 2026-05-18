@@ -1,0 +1,79 @@
+# CORRECTIF INFRA-15 : exclure tout ce qui n'a pas à entrer dans l'image
+# (secrets, métadonnées Git, audits internes, builds front, venvs, IDE).
+#
+# IMPORTANT : .env doit toujours être exclu. Les secrets passent par les
+# variables d'environnement docker-compose / Kubernetes / Vault.
+
+# Git & dotfiles
+.git
+.gitignore
+.gitattributes
+
+# Secrets / env locaux
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.virtualenv/
+
+# IDE / éditeurs
+.idea/
+.vscode/
+*.swp
+*~
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Static files générés (collectés à la build)
+staticfiles/
+
+# Médias locaux (production utilise MinIO)
+media/
+
+# Documents internes / audits
+AUDIT_*.md
+UX_*.md
+PATCHES.md
+CHANGELOG_*.md
+audit_*.docx
+
+# Logs
+*.log
+logs/
+
+# Node / front (si jamais)
+node_modules/
+package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests
+.pytest_cache/
+test-reports/
+
+# Docker
+docker-compose.override.yml

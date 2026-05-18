@@ -1,0 +1,187 @@
+{% load static %}
+
+
+{% with current_url=request.resolver_match.url_name|default:"" current_mode=mode|default:"desktop" %}
+
+<nav aria-label="Navigation administrateur plateforme"
+     x-data="{
+        mode: '{{ current_mode }}',
+        collapsed: false,
+        init() {
+            if (this.mode === 'mobile') { this.collapsed = false; return; }
+            this.collapsed = (window.__beShell && window.__beShell.sidebar)
+                ? !!window.__beShell.sidebar.collapsed
+                : (localStorage.getItem('be_sidebar_collapsed') === '1');
+            window.addEventListener('be:sidebar', (e) => {
+                if (this.mode !== 'mobile')
+                    this.collapsed = !!(e.detail && e.detail.collapsed);
+            });
+        },
+        closeMobile() {
+            if (this.mode === 'mobile')
+                window.dispatchEvent(new CustomEvent('be:sidebar-close'));
+        }
+     }"
+     x-init="init()"
+     :class="collapsed ? 'px-2 py-3' : 'p-3 sm:p-4'"
+     class="h-full rounded-[28px] border border-be-ink-100/80 dark:border-white/10
+            bg-white/95 dark:bg-white/5 backdrop-blur-xl shadow-soft
+            overflow-hidden transition-all duration-300 flex flex-col">
+
+    {# ---- En-tête identité plateforme ---- #}
+    <div class="border-b border-be-ink-100/80 dark:border-white/10 pb-4">
+        <div class="flex items-center gap-3 px-2">
+            <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-sm font-black shrink-0">
+                A
+            </div>
+            <div x-show="!collapsed" x-transition x-cloak class="min-w-0">
+                <div class="text-[11px] uppercase tracking-wide text-be-ink-500 dark:text-white/50">
+                    Espace plateforme
+                </div>
+                <div class="text-sm font-semibold text-be-ink-900 dark:text-white truncate">
+                    Administration globale
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ---- Liens principaux : UNIQUEMENT des vues métier de la plateforme ----
+       On n'expose AUCUN lien vers /admin/ ici. L'admin Django reste réservé
+       au staff technique et n'est jamais surfacé dans une sidebar
+       utilisateur (sécurité + clarté UX).                                  #}
+    <div class="py-2 space-y-4 flex-1 overflow-y-auto no-scrollbar pr-1">
+
+        <div>
+            <div x-show="!collapsed" x-transition x-cloak
+                 class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
+                Pilotage
+            </div>
+
+            <a href="{% url 'admin_dashboard' %}"
+               @click="closeMobile()"
+               :title="collapsed ? 'Tableau de bord' : ''"
+               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
+                      {% if current_url == 'admin_dashboard' %}
+                        bg-rose-50 dark:bg-white/10 text-rose-700 dark:text-white
+                        border border-rose-100 dark:border-white/10
+                      {% else %}
+                        text-be-ink-700 dark:text-white/80
+                        hover:bg-be-ink-50 dark:hover:bg-white/10
+                      {% endif %}">
+                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                             {% if current_url == 'admin_dashboard' %}bg-rose-100 text-rose-700
+                             {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70{% endif %}">
+                    <i class="fas fa-chart-line"></i>
+                </span>
+                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
+                      x-show="!collapsed" x-transition x-cloak>Tableau de bord</span>
+            </a>
+        </div>
+
+        <div>
+            <div x-show="!collapsed" x-transition x-cloak
+                 class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
+                Gestion plateforme
+            </div>
+
+            <a href="{% url 'platform_organizations' %}"
+               @click="closeMobile()"
+               :title="collapsed ? 'Organisations' : ''"
+               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
+                      {% if current_url == 'platform_organizations' %}
+                        bg-rose-50 dark:bg-white/10 text-rose-700 dark:text-white
+                        border border-rose-100 dark:border-white/10
+                      {% else %}
+                        text-be-ink-700 dark:text-white/80
+                        hover:bg-be-ink-50 dark:hover:bg-white/10
+                      {% endif %}">
+                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                             {% if current_url == 'platform_organizations' %}bg-rose-100 text-rose-700
+                             {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70{% endif %}">
+                    <i class="fas fa-building"></i>
+                </span>
+                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
+                      x-show="!collapsed" x-transition x-cloak>Organisations</span>
+            </a>
+
+            <a href="{% url 'platform_users' %}"
+               @click="closeMobile()"
+               :title="collapsed ? 'Utilisateurs' : ''"
+               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
+                      {% if current_url == 'platform_users' %}
+                        bg-rose-50 dark:bg-white/10 text-rose-700 dark:text-white
+                        border border-rose-100 dark:border-white/10
+                      {% else %}
+                        text-be-ink-700 dark:text-white/80
+                        hover:bg-be-ink-50 dark:hover:bg-white/10
+                      {% endif %}">
+                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                             {% if current_url == 'platform_users' %}bg-rose-100 text-rose-700
+                             {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70{% endif %}">
+                    <i class="fas fa-users"></i>
+                </span>
+                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
+                      x-show="!collapsed" x-transition x-cloak>Utilisateurs</span>
+            </a>
+        </div>
+
+        <div>
+            <div x-show="!collapsed" x-transition x-cloak
+                 class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
+                Mes espaces
+            </div>
+
+            <a href="{% url 'instructor:dashboard' %}"
+               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
+                      text-be-ink-700 dark:text-white/80
+                      hover:bg-be-ink-50 dark:hover:bg-white/10">
+                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                             bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                </span>
+                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
+                      x-show="!collapsed" x-transition x-cloak>Espace formateur</span>
+            </a>
+
+            <a href="{% url 'learner:dashboard' %}"
+               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
+                      text-be-ink-700 dark:text-white/80
+                      hover:bg-be-ink-50 dark:hover:bg-white/10">
+                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                             bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70">
+                    <i class="fas fa-user-graduate"></i>
+                </span>
+                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
+                      x-show="!collapsed" x-transition x-cloak>Espace apprenant</span>
+            </a>
+
+            <a href="/"
+               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
+                      text-be-ink-700 dark:text-white/80
+                      hover:bg-be-ink-50 dark:hover:bg-white/10">
+                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                             bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70">
+                    <i class="fas fa-house"></i>
+                </span>
+                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
+                      x-show="!collapsed" x-transition x-cloak>Site public</span>
+            </a>
+        </div>
+    </div>
+
+    {# ---- Footer logout ---- #}
+    <div class="pt-3 border-t border-be-ink-100/80 dark:border-white/10">
+        <form method="post" action="{% url 'account_logout' %}" class="m-0">
+            {% csrf_token %}
+            <button type="submit"
+                    :title="collapsed ? 'Déconnexion' : ''"
+                    class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
+                           bg-rose-700 hover:bg-rose-800 text-white text-sm font-semibold transition">
+                <i class="fas fa-sign-out-alt"></i>
+                <span x-show="!collapsed" x-transition x-cloak>Déconnexion</span>
+            </button>
+        </form>
+    </div>
+</nav>
+
+{% endwith %}
