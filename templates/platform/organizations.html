@@ -1,0 +1,145 @@
+{% extends "layout/admin_base.html" %}
+{% load humanize %}
+
+{% block title %}Organisations — plateforme{% endblock %}
+
+{% block sidebar %}
+    {% include "partials/platform_side.html" with mode="desktop" %}
+{% endblock %}
+{% block mobile_sidebar %}
+    {% include "partials/platform_side.html" with mode="mobile" %}
+{% endblock %}
+
+{% block content %}
+<div class="px-6 py-8 max-w-screen-xl mx-auto space-y-6">
+
+    <header class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">
+                Espace administrateur plateforme
+            </p>
+            <h1 class="text-2xl md:text-3xl font-bold text-be-ink-900 dark:text-white">
+                Organisations
+            </h1>
+            <p class="text-be-ink-500 mt-1">
+                Toutes les organisations actives et inactives.
+                {{ totals.active|intcomma }} actives sur {{ totals.all|intcomma }} au total.
+            </p>
+        </div>
+    </header>
+
+    {# ----- KPIs ----- #}
+    <section class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-4">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">Total</p>
+            <p class="text-2xl font-bold mt-1 text-be-ink-900 dark:text-white">{{ totals.all|intcomma }}</p>
+        </div>
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-4">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">Actives</p>
+            <p class="text-2xl font-bold mt-1 text-emerald-600">{{ totals.active|intcomma }}</p>
+        </div>
+        <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-4">
+            <p class="text-[11px] uppercase tracking-wide text-be-ink-500">Inactives</p>
+            <p class="text-2xl font-bold mt-1 text-rose-600">{{ totals.inactive|intcomma }}</p>
+        </div>
+    </section>
+
+    {# ----- Filtres ----- #}
+    <form method="get" class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] p-4 flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[200px]">
+            <label class="text-[11px] uppercase tracking-wide text-be-ink-500">Recherche</label>
+            <input type="text" name="q" value="{{ filter_q }}"
+                   placeholder="Nom, slug, email, ville…"
+                   class="mt-1 w-full rounded-xl border border-be-ink-200/80 px-3 py-2 text-sm bg-white dark:bg-white/5">
+        </div>
+        <div>
+            <label class="text-[11px] uppercase tracking-wide text-be-ink-500">Statut</label>
+            <select name="status" class="mt-1 rounded-xl border border-be-ink-200/80 px-3 py-2 text-sm bg-white dark:bg-white/5">
+                <option value="">Tous</option>
+                <option value="active" {% if filter_status == "active" %}selected{% endif %}>Actives</option>
+                <option value="inactive" {% if filter_status == "inactive" %}selected{% endif %}>Inactives</option>
+            </select>
+        </div>
+        <button class="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-sm font-semibold">
+            <i class="fas fa-filter mr-1"></i> Filtrer
+        </button>
+        {% if filter_q or filter_status %}
+            <a href="{% url 'platform_organizations' %}" class="px-4 py-2 rounded-xl border border-be-ink-200/80 text-sm font-medium hover:bg-be-ink-50">
+                Réinitialiser
+            </a>
+        {% endif %}
+    </form>
+
+    {# ----- Tableau ----- #}
+    <div class="rounded-2xl border border-be-ink-100/70 dark:border-white/10 bg-white dark:bg-white/[0.03] overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-be-ink-50/60 dark:bg-white/[0.03] border-b border-be-ink-100/70">
+                    <tr>
+                        <th class="px-5 py-3 text-left text-[11px] uppercase tracking-wider text-be-ink-500">Organisation</th>
+                        <th class="px-5 py-3 text-left text-[11px] uppercase tracking-wider text-be-ink-500">Ville</th>
+                        <th class="px-5 py-3 text-right text-[11px] uppercase tracking-wider text-be-ink-500">Cours</th>
+                        <th class="px-5 py-3 text-right text-[11px] uppercase tracking-wider text-be-ink-500">Inscrits</th>
+                        <th class="px-5 py-3 text-right text-[11px] uppercase tracking-wider text-be-ink-500">Membres</th>
+                        <th class="px-5 py-3 text-right text-[11px] uppercase tracking-wider text-be-ink-500">Statut</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-be-ink-100/70">
+                    {% for org in page_obj %}
+                        <tr class="hover:bg-be-ink-50/50 dark:hover:bg-white/[0.03] transition">
+                            <td class="px-5 py-3">
+                                <a href="{% url 'org:dashboard' org.id %}" class="font-semibold text-be-ink-900 dark:text-white hover:text-rose-700">
+                                    {{ org.name }}
+                                </a>
+                                <div class="text-[11px] text-be-ink-500">{{ org.email|default:"" }}</div>
+                            </td>
+                            <td class="px-5 py-3 text-be-ink-700 dark:text-white/80">
+                                {{ org.city|default:"—" }}
+                                {% if org.country %}<span class="text-be-ink-400">· {{ org.country }}</span>{% endif %}
+                            </td>
+                            <td class="px-5 py-3 text-right font-semibold">{{ org.courses_count|intcomma }}</td>
+                            <td class="px-5 py-3 text-right font-semibold text-emerald-600">{{ org.enrollments_count|intcomma }}</td>
+                            <td class="px-5 py-3 text-right">{{ org.members_count|intcomma }}</td>
+                            <td class="px-5 py-3 text-right">
+                                {% if org.is_active %}
+                                    <span class="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-100">Actif</span>
+                                {% else %}
+                                    <span class="inline-flex rounded-full bg-rose-50 px-3 py-1 text-[11px] font-bold text-rose-700 border border-rose-100">Inactif</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-5 py-12 text-center text-be-ink-500">
+                                Aucune organisation ne correspond aux filtres.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if is_paginated %}
+            <div class="px-5 py-3 border-t border-be-ink-100/70 flex items-center justify-between text-[12px]">
+                <span class="text-be-ink-500">
+                    Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                </span>
+                <div class="flex items-center gap-2">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% if filter_q %}&q={{ filter_q }}{% endif %}{% if filter_status %}&status={{ filter_status }}{% endif %}"
+                           class="px-3 py-1.5 rounded-lg border border-be-ink-200/80 hover:bg-be-ink-50 font-medium">
+                            ‹ Précédent
+                        </a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if filter_q %}&q={{ filter_q }}{% endif %}{% if filter_status %}&status={{ filter_status }}{% endif %}"
+                           class="px-3 py-1.5 rounded-lg border border-be-ink-200/80 hover:bg-be-ink-50 font-medium">
+                            Suivant ›
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

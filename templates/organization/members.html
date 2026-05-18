@@ -166,6 +166,7 @@
             <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Invitation</th>
             <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Date</th>
             <th class="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">Statut</th>
+            <th class="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">Actions</th>
           </tr>
         </thead>
 
@@ -178,17 +179,18 @@
               class="hover:bg-blue-50/40 transition"
             >
               <td class="px-5 py-4">
-                <div class="flex items-center gap-3">
+                <a href="{% url 'org:member_detail' organization.id m.id %}"
+                   class="flex items-center gap-3 group">
                   <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 text-white flex items-center justify-center font-black">
                     {{ m.user.full_name|default:m.user.email|first|upper }}
                   </div>
                   <div>
-                    <div class="font-bold text-slate-900">
+                    <div class="font-bold text-slate-900 group-hover:text-blue-600 transition">
                       {{ m.user.full_name|default:"Nom non renseigné" }}
                     </div>
                     <div class="text-xs text-slate-500">{{ m.user.email }}</div>
                   </div>
-                </div>
+                </a>
               </td>
 
               <td class="px-5 py-4">
@@ -241,10 +243,44 @@
                   </span>
                 {% endif %}
               </td>
+
+              <td class="px-5 py-4 text-right">
+                <div class="inline-flex items-center gap-1">
+                  <a href="{% url 'org:member_update' organization.id m.id %}"
+                     class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                     title="Modifier">
+                    <i class="fas fa-pen"></i>
+                  </a>
+                  {% if m.is_active %}
+                    <form method="post"
+                          action="{% url 'org:member_deactivate' organization.id m.id %}"
+                          onsubmit="return confirm('Désactiver {{ m.user.full_name|default:m.user.email|escapejs }} ?');"
+                          class="m-0">
+                      {% csrf_token %}
+                      <button type="submit"
+                              class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold transition"
+                              title="Désactiver">
+                        <i class="fas fa-user-slash"></i>
+                      </button>
+                    </form>
+                  {% else %}
+                    <form method="post"
+                          action="{% url 'org:member_reactivate' organization.id m.id %}"
+                          class="m-0">
+                      {% csrf_token %}
+                      <button type="submit"
+                              class="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition"
+                              title="Réactiver">
+                        <i class="fas fa-user-check"></i>
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="5" class="px-5 py-12 text-center">
+              <td colspan="6" class="px-5 py-12 text-center">
                 <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
                   <i class="fas fa-users text-slate-400 text-2xl"></i>
                 </div>

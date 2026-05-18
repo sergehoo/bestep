@@ -1,0 +1,101 @@
+{% extends "layout/app_shell.html" %}
+{% load static humanize a11y %}
+
+{#
+  templates/instructor/instructor_dash.html — DÉMO V_FIN.D (migration vers app_shell).
+
+  Avant : étendait `layout/admin_base.html` (déjà bon en V3, palette
+  be-sky cohérente) MAIS dupliquait les sections KPI (CQ-22) et les
+  cards cours (CQ-20) avec markup différent des autres écrans.
+
+  Après : étend `layout/app_shell.html` + utilise les partials mutualisés.
+  Pattern identique à `organization/dashboard.html.new`.
+
+  Bonus :
+  - KPIs cached côté backend via `core.dashboard_kpis.get_instructor_dashboard_kpis`.
+  - Tableau cours récents avec `course_card`.
+  - États vides élégants via `empty_state`.
+
+  Le `partials/instructor_side.html` actuel reste compatible (il était
+  déjà bien dimensionné pour `app_shell.html`).
+#}
+
+{% block title %}Tableau de bord formateur{% endblock %}
+{% block page_title %}Espace formateur{% endblock %}
+
+{% block sidebar %}
+  {% include "partials/instructor_side.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  {# Hero compact + CTA création de cours. #}
+  <header class="rounded-2xl bg-gradient-to-r from-be-sky-600 to-be-sky-700 text-white p-6 shadow-soft flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <p class="text-sm opacity-80">Bienvenue, {{ user.full_name|default:user.email }}</p>
+      <h2 class="text-2xl font-bold mt-1">Vos cours en un coup d'œil</h2>
+    </div>
+    <a href="{% url 'instructor:course_create' %}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-be-sky-700 font-semibold hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white">
+      <i class="fas fa-plus" aria-hidden="true"></i>
+      Créer un cours
+    </a>
+  </header>
+
+  {# Bande KPI mutualisée — alimentée par get_instructor_dashboard_kpis (cache 30s). #}
+  <section aria-label="Indicateurs clés"
+           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {% include "partials/kpi_card.html" with icon="fa-book-open" color="sky" label="Cours publiés" value=kpis.courses.published|intcomma %}
+    {% include "partials/kpi_card.html" with icon="fa-pen-ruler" color="amber" label="Brouillons" value=kpis.courses.draft|intcomma %}
+    {% include "partials/kpi_card.html" with icon="fa-graduation-cap" color="emerald" label="Inscriptions actives" value=kpis.enrollments.active|intcomma %}
+    {% include "partials/kpi_card.html" with icon="fa-circle-check" color="indigo" label="Complétées" value=kpis.enrollments.completed|intcomma hint="cumulé" %}
+  </section>
+
+  {# Bloc cours récents. #}
+  <section aria-labelledby="recent-courses-heading" class="space-y-3">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <h3 id="recent-courses-heading" class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        Mes cours récents
+      </h3>
+      <a href="{% url 'instructor:courses' %}"
+         class="text-sm text-be-sky-600 hover:text-be-sky-700 focus:outline-none focus:ring-2 focus:ring-be-sky-500 rounded">
+        Voir tous mes cours →
+      </a>
+    </div>
+
+    {% if recent_courses %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for course in recent_courses|slice:":6" %}
+          {% include "partials/course_card.html" with course=course size="md" context="instructor" %}
+        {% endfor %}
+      </div>
+    {% else %}
+      {% include "partials/empty_state.html" with icon="fa-book-open" title="Aucun cours encore" message="Commencez par créer votre premier cours pour publier du contenu." cta_label="Créer mon premier cours" cta_url='/dashboard/instructor/courses/create/' %}
+    {% endif %}
+  </section>
+
+  {# Bloc activité récente — placeholder, à brancher sur notifications. #}
+  <section aria-labelledby="recent-activity-heading" class="space-y-3">
+    <h3 id="recent-activity-heading" class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+      Activité récente
+    </h3>
+    {% if recent_activity %}
+      <ul role="list" class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-800">
+        {% for item in recent_activity %}
+          <li class="p-4 flex items-center gap-3">
+            <i class="fas fa-circle-info text-be-sky-600" aria-hidden="true"></i>
+            <div class="flex-1 min-w-0 text-sm text-slate-700 dark:text-slate-300">
+              {{ item.message }}
+            </div>
+            <span class="text-xs text-slate-500">{{ item.created_at|naturaltime }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      {% include "partials/empty_state.html" with icon="fa-bell" title="Pas d'activité récente" message="Les notifications apparaîtront ici dès qu'un apprenant interagit avec vos cours." %}
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}

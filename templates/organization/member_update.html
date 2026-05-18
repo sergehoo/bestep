@@ -1,0 +1,87 @@
+{% extends "layout/admin_base_template.html" %}
+
+{% block title %}Modifier {{ membership.user.full_name|default:membership.user.email }} — {{ organization.name }}{% endblock %}
+{% block page_title %}Modifier un membre{% endblock %}
+
+{% block content %}
+<section class="max-w-3xl mx-auto space-y-6">
+
+  <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
+    <h1 class="text-2xl md:text-3xl font-black">
+      {{ membership.user.full_name|default:membership.user.email }}
+    </h1>
+    <p class="mt-2 text-blue-50 text-sm">
+      {{ membership.user.email }} ·
+      <span class="font-semibold">{{ membership.get_role_display }}</span>
+      {% if not membership.is_active %}
+        · <span class="rounded-full bg-white/15 px-2 py-0.5 text-xs">désactivé</span>
+      {% endif %}
+    </p>
+  </div>
+
+  <form method="post" class="org-card p-6 space-y-5">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div>
+      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Rôle</label>
+      <div class="mt-1">{{ form.role }}</div>
+      {% if form.role.errors %}<p class="mt-1 text-sm text-rose-600">{{ form.role.errors|join:", " }}</p>{% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Nom complet</label>
+        <div class="mt-1">{{ form.full_name }}</div>
+      </div>
+      <div>
+        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Téléphone</label>
+        <div class="mt-1">{{ form.phone }}</div>
+      </div>
+    </div>
+
+    <label class="flex items-center gap-2 text-sm text-slate-700">
+      {{ form.is_active }}
+      <span>Membre actif</span>
+    </label>
+    <p class="-mt-3 text-xs text-slate-500">{{ form.is_active.help_text }}</p>
+
+    <div class="flex flex-wrap gap-3 pt-2">
+      <button class="btn-primary">
+        <i class="fas fa-save"></i>
+        Enregistrer
+      </button>
+      <a href="{% url 'org:members' organization.id %}" class="btn-soft">
+        Annuler
+      </a>
+
+      {% if membership.is_active %}
+        <form method="post" action="{% url 'org:member_deactivate' organization.id membership.id %}"
+              class="inline-block ml-auto"
+              onsubmit="return confirm('Désactiver ce membre ? Son accès sera suspendu mais l\'historique conservé.');">
+          {% csrf_token %}
+          <button class="btn-soft text-rose-600 hover:bg-rose-50">
+            <i class="fas fa-user-slash"></i>
+            Désactiver
+          </button>
+        </form>
+      {% else %}
+        <form method="post" action="{% url 'org:member_reactivate' organization.id membership.id %}"
+              class="inline-block ml-auto">
+          {% csrf_token %}
+          <button class="btn-soft text-emerald-700 hover:bg-emerald-50">
+            <i class="fas fa-user-check"></i>
+            Réactiver
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </form>
+
+</section>
+{% endblock %}

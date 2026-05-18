@@ -25,6 +25,10 @@ from organizations.views import (
     OrganizationLessonCreateView,
     OrganizationMediaLibraryView,
     OrganizationMemberCreateView,
+    OrganizationMemberDeactivateView,
+    OrganizationMemberDetailView,
+    OrganizationMemberReactivateView,
+    OrganizationMemberUpdateView,
     OrganizationMembersView,
     OrganizationQuizCreateView,
     OrganizationQuizDetailView,
@@ -59,6 +63,33 @@ urlpatterns = [
         "<int:organization_id>/members/create/learner/",
         OrganizationLearnerCreateView.as_view(),
         name="learner_create",
+    ),
+
+    # Vue détaillée d'un membre : profil, inscriptions, progression,
+    # cours pilotés (s'il est formateur), tentatives quiz.
+    path(
+        "<int:organization_id>/members/<int:membership_id>/",
+        OrganizationMemberDetailView.as_view(),
+        name="member_detail",
+    ),
+
+    # Gestion fine d'un membership existant : modification (rôle / identité /
+    # statut), désactivation, réactivation. Les deux dernières sont POST-only
+    # pour empêcher leur déclenchement par un simple GET (CSRF + idempotence).
+    path(
+        "<int:organization_id>/members/<int:membership_id>/edit/",
+        OrganizationMemberUpdateView.as_view(),
+        name="member_update",
+    ),
+    path(
+        "<int:organization_id>/members/<int:membership_id>/deactivate/",
+        OrganizationMemberDeactivateView.as_view(),
+        name="member_deactivate",
+    ),
+    path(
+        "<int:organization_id>/members/<int:membership_id>/reactivate/",
+        OrganizationMemberReactivateView.as_view(),
+        name="member_reactivate",
     ),
 
     # Cours

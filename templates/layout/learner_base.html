@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#F2FAFF" media="(prefers-color-scheme: light)"/>
     <meta name="theme-color" content="#121827" media="(prefers-color-scheme: dark)"/>
     <title>{% block title %}best-épargne — Apprenant{% endblock %}</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     {# ------------------------------------------------------------------ #}
     {#  Anti-FOUC : applique le thème AVANT le rendu pour éviter le flash  #}
     {# ------------------------------------------------------------------ #}
@@ -23,7 +23,8 @@
                 var isDark = saved ? saved === "dark" : prefersDark;
                 if (isDark) document.documentElement.classList.add("dark");
                 document.documentElement.style.colorScheme = isDark ? "dark" : "light";
-            } catch (e) { /* localStorage indisponible (mode privé) */ }
+            } catch (e) { /* localStorage indisponible (mode privé) */
+            }
         })();
     </script>
 
@@ -60,7 +61,7 @@
                         ring: "0 0 0 6px rgba(30,167,255,.12)",
                         lift: "0 12px 40px rgba(18,24,39,.14)"
                     },
-                    borderRadius: { '2.5xl': '1.25rem' },
+                    borderRadius: {'2.5xl': '1.25rem'},
                     transitionTimingFunction: {
                         'soft': 'cubic-bezier(0.22, 1, 0.36, 1)',
                     }
@@ -70,34 +71,59 @@
     </script>
 
     <style>
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        [x-cloak] { display: none !important; }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
 
-        html, body { transition: background-color .25s ease, color .25s ease; }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
 
-        .sidebar-width-expanded { width: 320px; }
-        .sidebar-width-collapsed { width: 104px; }
+        [x-cloak] {
+            display: none !important;
+        }
+
+        html, body {
+            transition: background-color .25s ease, color .25s ease;
+        }
+
+        .sidebar-width-expanded {
+            width: 320px;
+        }
+
+        .sidebar-width-collapsed {
+            width: 104px;
+        }
 
         /* Accessibilité : visible uniquement pour lecteurs d’écran */
         .sr-only {
-            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-            overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
 
         .shell-transition {
             transition: width .25s cubic-bezier(0.22, 1, 0.36, 1),
-                        margin .25s cubic-bezier(0.22, 1, 0.36, 1),
-                        transform .2s ease,
-                        opacity .2s ease,
-                        background-color .25s ease,
-                        color .25s ease,
-                        border-color .25s ease,
-                        box-shadow .25s ease;
+            margin .25s cubic-bezier(0.22, 1, 0.36, 1),
+            transform .2s ease,
+            opacity .2s ease,
+            background-color .25s ease,
+            color .25s ease,
+            border-color .25s ease,
+            box-shadow .25s ease;
         }
 
         /* Verrouillage du scroll lorsque le drawer mobile est ouvert */
-        body.be-no-scroll { overflow: hidden; }
+        body.be-no-scroll {
+            overflow: hidden;
+        }
 
         /* Respect des préférences utilisateurs pour les animations */
         @media (prefers-reduced-motion: reduce) {
@@ -200,7 +226,8 @@
 
                     <a href="{% url 'learner:dashboard' %}" class="flex items-center gap-3 group min-w-0">
                         <div class="w-24 h-12 rounded-xl overflow-hidden flex items-center justify-center">
-                            <img src="{% static 'img/logo-2.png' %}" alt="best-épargne" class="w-24 h-10 object-contain">
+                            <img src="{% static 'img/logo-2.png' %}" alt="best-épargne"
+                                 class="w-24 h-10 object-contain">
                         </div>
 
                         <div class="leading-tight min-w-0">
@@ -308,10 +335,12 @@
         <div class="mt-4 flex gap-4 items-start">
 
             {# Desktop sidebar #}
-            <aside class="hidden lg:block shrink-0 shell-transition" :class="sidebar.collapsed ? 'sidebar-width-collapsed' : 'sidebar-width-expanded'" aria-label="Navigation principale">
+            <aside class="hidden lg:block shrink-0 shell-transition"
+                   :class="sidebar.collapsed ? 'sidebar-width-collapsed' : 'sidebar-width-expanded'"
+                   aria-label="Navigation principale">
                 <div class="sticky top-[92px]">
                     {% block sidebar %}
-                       {% include "partials/learner_side.html" %}
+                        {% include "partials/learner_side.html" %}
                     {% endblock %}
                 </div>
             </aside>
@@ -332,16 +361,20 @@
         const existing = Alpine.store("learner");
         if (!existing) {
             Alpine.store("learner", {
-                filters: { q: "" },
+                filters: {q: ""},
                 me: null,
                 isLoadingEnrollments: false,
-                async loadEnrollments() { return; }
+                async loadEnrollments() {
+                    return;
+                }
             });
         } else {
             existing.filters = existing.filters || {};
             if (typeof existing.filters.q !== "string") existing.filters.q = "";
             if (typeof existing.loadEnrollments !== "function") {
-                existing.loadEnrollments = async function () { return; };
+                existing.loadEnrollments = async function () {
+                    return;
+                };
             }
         }
     });
@@ -360,10 +393,17 @@
             },
 
             _safeGet(key) {
-                try { return localStorage.getItem(key); } catch (e) { return null; }
+                try {
+                    return localStorage.getItem(key);
+                } catch (e) {
+                    return null;
+                }
             },
             _safeSet(key, val) {
-                try { localStorage.setItem(key, val); } catch (e) { /* ignore */ }
+                try {
+                    localStorage.setItem(key, val);
+                } catch (e) { /* ignore */
+                }
             },
 
             initShell() {
@@ -382,7 +422,7 @@
                 window.__beShell = this;
 
                 window.dispatchEvent(new CustomEvent("be:sidebar", {
-                    detail: { collapsed: this.sidebar.collapsed }
+                    detail: {collapsed: this.sidebar.collapsed}
                 }));
 
                 // Verrouillage du scroll lorsque le drawer mobile est ouvert
@@ -419,7 +459,7 @@
                 this.sidebar.collapsed = !this.sidebar.collapsed;
                 this._safeSet("be_sidebar_collapsed", this.sidebar.collapsed ? "1" : "0");
                 window.dispatchEvent(new CustomEvent("be:sidebar", {
-                    detail: { collapsed: this.sidebar.collapsed }
+                    detail: {collapsed: this.sidebar.collapsed}
                 }));
             }
         };
@@ -495,18 +535,21 @@
             // donc il faut lire querystring ET pathname.
             isActive(key) {
                 let url;
-                try { url = new URL(window.location.href); }
-                catch (e) { return false; }
+                try {
+                    url = new URL(window.location.href);
+                } catch (e) {
+                    return false;
+                }
 
                 const path = (url.pathname || "").toLowerCase();
                 const tab = (url.searchParams.get("tab") || "").toLowerCase();
 
                 // 1) Navigation par onglet : le tab l'emporte
                 const tabRules = {
-                    my_courses:    ["my_courses", "courses"],
-                    progress:      ["progress"],
+                    my_courses: ["my_courses", "courses"],
+                    progress: ["progress"],
                     notifications: ["notifications", "alerts"],
-                    payments:      ["payments", "billing"],
+                    payments: ["payments", "billing"],
                 };
 
                 if (tab) {
@@ -518,12 +561,12 @@
 
                 // 2) Navigation par path
                 const pathRules = {
-                    dashboard:     ["/dashboard", "/learner/dashboard", "/student/dashboard"],
-                    my_courses:    ["/courses", "/enrollments", "/learner/courses", "/student/courses"],
-                    progress:      ["/progress", "/tracking", "/learner/progress"],
+                    dashboard: ["/dashboard", "/learner/dashboard", "/student/dashboard"],
+                    my_courses: ["/courses", "/enrollments", "/learner/courses", "/student/courses"],
+                    progress: ["/progress", "/tracking", "/learner/progress"],
                     notifications: ["/notifications", "/alerts"],
-                    payments:      ["/payments", "/billing", "/invoices"],
-                    explore:       ["/explore", "/catalog", "/catalogue", "/learner/explore"]
+                    payments: ["/payments", "/billing", "/invoices"],
+                    explore: ["/explore", "/catalog", "/catalogue", "/learner/explore"]
                 };
 
                 const arr = pathRules[key] || [];

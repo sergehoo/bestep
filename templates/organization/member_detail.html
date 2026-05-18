@@ -1,0 +1,314 @@
+{% extends "layout/admin_base_template.html" %}
+{% load humanize %}
+
+{% block title %}{{ user_obj.full_name|default:user_obj.email }} — {{ organization.name }}{% endblock %}
+{% block page_title %}Fiche membre{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+
+  {# ============== HERO PROFIL ============== #}
+  <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
+    <div class="absolute -right-16 -top-16 w-44 h-44 rounded-full bg-white/10"></div>
+    <div class="absolute -left-10 -bottom-16 w-40 h-40 rounded-full bg-yellow-300/20"></div>
+
+    <div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+      <div class="flex items-center gap-4 min-w-0">
+        <div class="w-16 h-16 rounded-2xl bg-white text-blue-700 flex items-center justify-center text-2xl font-black shrink-0">
+          {{ user_obj.full_name|default:user_obj.email|first|upper }}
+        </div>
+        <div class="min-w-0">
+          <div class="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
+            {% if membership.role == ROLE_OWNER %}<i class="fas fa-crown"></i>{% endif %}
+            {% if membership.role == ROLE_ADMIN %}<i class="fas fa-user-shield"></i>{% endif %}
+            {% if membership.role == ROLE_INSTRUCTOR %}<i class="fas fa-chalkboard-teacher"></i>{% endif %}
+            {% if membership.role == ROLE_LEARNER %}<i class="fas fa-user-graduate"></i>{% endif %}
+            {{ membership.get_role_display }}
+            {% if not membership.is_active %}
+              · <span class="opacity-75">désactivé</span>
+            {% endif %}
+          </div>
+          <h1 class="mt-2 text-2xl md:text-3xl font-black truncate">
+            {{ user_obj.full_name|default:"Nom non renseigné" }}
+          </h1>
+          <div class="mt-1 text-sm text-blue-50 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span><i class="fas fa-envelope mr-1"></i>{{ user_obj.email }}</span>
+            {% if user_obj.phone %}
+              <span><i class="fas fa-phone mr-1"></i>{{ user_obj.phone }}</span>
+            {% endif %}
+            <span><i class="fas fa-calendar mr-1"></i>Rejoint le {{ membership.joined_at|date:"d/m/Y" }}</span>
+            {% if membership.invited_by %}
+              <span class="opacity-80">
+                <i class="fas fa-user-plus mr-1"></i>Invité par
+                {{ membership.invited_by.full_name|default:membership.invited_by.email }}
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 shrink-0">
+        <a href="{% url 'org:member_update' organization.id membership.id %}" class="btn-yellow">
+          <i class="fas fa-pen"></i>
+          Modifier
+        </a>
+        <a href="{% url 'org:members' organization.id %}" class="btn-soft bg-white/95">
+          <i class="fas fa-arrow-left"></i>
+          Retour
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {# ============== MINI-KPIs ADAPTATIFS ============== #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+    {% if membership.role == ROLE_INSTRUCTOR or teaching_stats.courses_count %}
+      {# Vue formateur : on met en avant les indicateurs pédagogiques. #}
+      <div class="org-card p-5">
+        <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Cours créés</p>
+        <p class="mt-2 text-3xl font-black text-blue-600">{{ teaching_stats.courses_count|intcomma }}</p>
+      </div>
+      <div class="org-card p-5">
+        <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Inscrits cumulés</p>
+        <p class="mt-2 text-3xl font-black text-emerald-600">{{ teaching_stats.total_enrolled|intcomma }}</p>
+      </div>
+      <div class="org-card p-5">
+        <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Leçons publiées</p>
+        <p class="mt-2 text-3xl font-black text-slate-900">{{ teaching_stats.total_lessons|intcomma }}</p>
+      </div>
+      <div class="org-card p-5">
+        <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Note moyenne</p>
+        <p class="mt-2 text-3xl font-black text-amber-600">
+          {{ teaching_stats.rating_avg|floatformat:1 }}
+          <i class="fas fa-star text-base"></i>
+        </p>
+      </div>
+    {% else %}
+      {# Vue apprenant / manager : on met en avant la progression. #}
+      <div class="org-card p-5">
+        <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Inscriptions</p>
+        <p class="mt-2 text-3xl font-black text-blue-600">{{ enrollments_total|intcomma }}</p>
+        <p class="mt-1 text-xs text-slate-500">{{ enrollments_active }} actives</p>
+      </div>
+      <div class="org-card p-5">
+        <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Progression moyenne</p>
+        <p class="mt-2 text-3xl font-black text-emerald-600">{{ avg_progress|floatformat:0 }}%</p>
+        <div class="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
+          <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300"
+               style="width: {{ avg_progress|floatformat:0 }}%;"></div>
+        </div>
+      </div>
+      <div class="org-card p-5">
+        <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Quiz tentés</p>
+        <p class="mt-2 text-3xl font-black text-slate-900">{{ attempts_total|intcomma }}</p>
+        <p class="mt-1 text-xs text-slate-500">{{ attempts_pass_rate|floatformat:0 }}% réussite</p>
+      </div>
+      <div class="org-card p-5">
+        <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Parcours terminés</p>
+        <p class="mt-2 text-3xl font-black text-purple-600">{{ enrollments_completed|intcomma }}</p>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ============== INSCRIPTIONS DÉTAILLÉES ============== #}
+  {% if recent_enrollments %}
+    <div class="org-card overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100">
+        <h2 class="text-sm font-black text-slate-900">
+          <i class="fas fa-clipboard-check text-emerald-500 mr-1"></i>
+          Inscriptions
+        </h2>
+        <p class="text-xs text-slate-500 mt-1">
+          {{ enrollments_total }} au total · {{ enrollments_active }} actives · {{ enrollments_completed }} terminées
+        </p>
+      </div>
+      <div class="divide-y divide-slate-100">
+        {% for e in recent_enrollments %}
+          <div class="px-5 py-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <a href="{% url 'org:course_detail' organization.id e.course.id %}"
+                   class="font-bold text-slate-900 hover:text-blue-600 truncate block">
+                  {{ e.course.title }}
+                </a>
+                <div class="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
+                  <span>Inscrit le {{ e.enrolled_at|date:"d/m/Y" }}</span>
+                  {% if e.current_lesson %}
+                    <span><i class="fas fa-bookmark mr-1"></i>{{ e.current_lesson.title|truncatechars:40 }}</span>
+                  {% endif %}
+                  {% if e.completed_at %}
+                    <span class="text-emerald-600"><i class="fas fa-check mr-1"></i>Terminé le {{ e.completed_at|date:"d/m/Y" }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                {% if e.status == "COMPLETED" %}
+                  <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Terminé</span>
+                {% elif e.status == "CANCELED" %}
+                  <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">Annulé</span>
+                {% else %}
+                  <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Actif</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="mt-3">
+              <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+                <span>Progression</span>
+                <span class="font-bold">{{ e.progress_percent|default:0 }}%</span>
+              </div>
+              <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div class="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400"
+                     style="width: {{ e.progress_percent|default:0 }}%;"></div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      {% if enrollments_total > recent_enrollments|length %}
+        <div class="px-5 py-3 border-t border-slate-100 text-xs text-slate-500 text-center">
+          {{ recent_enrollments|length }} inscriptions affichées sur {{ enrollments_total }}.
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {# ============== COURS PILOTÉS (FORMATEUR) ============== #}
+  {% if courses_taught %}
+    <div class="org-card overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-black text-slate-900">
+            <i class="fas fa-chalkboard-teacher text-blue-500 mr-1"></i>
+            Cours pilotés dans l'organisation
+          </h2>
+          <p class="text-xs text-slate-500 mt-1">{{ courses_taught|length }} cours rattachés à ce formateur</p>
+        </div>
+        <a href="{% url 'org:courses' organization.id %}" class="btn-soft text-xs">
+          Tous les cours
+        </a>
+      </div>
+      <div class="divide-y divide-slate-100">
+        {% for c in courses_taught %}
+          <a href="{% url 'org:course_detail' organization.id c.id %}"
+             class="block px-5 py-4 hover:bg-slate-50 transition">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="font-bold text-slate-900 truncate">{{ c.title }}</div>
+                <div class="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
+                  <span>{{ c.category.name|default:"Sans catégorie" }}</span>
+                  <span>{{ c.sections_count }} sections · {{ c.lessons_count }} leçons</span>
+                  {% if c.rating_avg %}
+                    <span class="text-amber-600">
+                      <i class="fas fa-star"></i> {{ c.rating_avg|floatformat:1 }}
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-lg font-black text-blue-600">{{ c.enrolled_count|intcomma }}</div>
+                <div class="text-[10px] uppercase tracking-wider text-slate-400">inscrits</div>
+                {% if c.status == "PUBLISHED" %}
+                  <span class="mt-1 inline-block text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Publié</span>
+                {% elif c.status == "DRAFT" %}
+                  <span class="mt-1 inline-block text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Brouillon</span>
+                {% else %}
+                  <span class="mt-1 inline-block text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ c.status }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  {# ============== TENTATIVES QUIZ ============== #}
+  {% if recent_attempts %}
+    <div class="org-card overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100">
+        <h2 class="text-sm font-black text-slate-900">
+          <i class="fas fa-clipboard-question text-purple-500 mr-1"></i>
+          Tentatives quiz récentes
+        </h2>
+        <p class="text-xs text-slate-500 mt-1">
+          {{ attempts_total }} tentatives soumises · {{ attempts_passed }} réussies ({{ attempts_pass_rate|floatformat:0 }}%)
+        </p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 border-b border-slate-100">
+            <tr>
+              <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Quiz</th>
+              <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Cours</th>
+              <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Date</th>
+              <th class="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">Score</th>
+              <th class="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">Statut</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for a in recent_attempts %}
+              <tr class="hover:bg-slate-50/60 transition">
+                <td class="px-5 py-3 font-semibold text-slate-900">{{ a.quiz.title|truncatechars:50 }}</td>
+                <td class="px-5 py-3 text-slate-600">{{ a.quiz.course.title|truncatechars:40|default:"—" }}</td>
+                <td class="px-5 py-3 text-slate-500 text-xs">{{ a.submitted_at|date:"d/m/Y H:i" }}</td>
+                <td class="px-5 py-3 text-right font-bold text-slate-900">{{ a.score_percent }}%</td>
+                <td class="px-5 py-3 text-right">
+                  {% if a.passed %}
+                    <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Réussi</span>
+                  {% else %}
+                    <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">Échec</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  {# ============== ACTIVITÉ DE MANAGEMENT ============== #}
+  {% if invited_count %}
+    <div class="org-card p-5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+          <i class="fas fa-user-plus"></i>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Activité d'invitation</p>
+          <p class="mt-1 text-slate-900 font-semibold">
+            A invité <span class="text-purple-700 font-black">{{ invited_count }}</span>
+            membre{{ invited_count|pluralize }} dans cette organisation.
+          </p>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  {# ============== ÉTAT VIDE ============== #}
+  {% if not recent_enrollments and not courses_taught and not recent_attempts and not invited_count %}
+    <div class="org-card p-8 text-center">
+      <div class="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-clock text-2xl"></i>
+      </div>
+      <h3 class="text-lg font-black text-slate-900">Aucune activité enregistrée</h3>
+      <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+        Ce membre n'a encore ni inscription, ni cours pilotés, ni tentative quiz dans cette organisation.
+      </p>
+      {% if membership.role == ROLE_LEARNER %}
+        <a href="{% url 'org:courses' organization.id %}" class="btn-primary mt-5">
+          <i class="fas fa-graduation-cap"></i>
+          Inscrire à un cours
+        </a>
+      {% elif membership.role == ROLE_INSTRUCTOR %}
+        <a href="{% url 'org:course_create' organization.id %}" class="btn-primary mt-5">
+          <i class="fas fa-plus"></i>
+          Créer un cours pour ce formateur
+        </a>
+      {% endif %}
+    </div>
+  {% endif %}
+
+</section>
+{% endblock %}

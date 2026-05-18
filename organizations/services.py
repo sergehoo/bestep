@@ -129,6 +129,124 @@ class OrganizationMemberManagementService:
 
     @staticmethod
     @transaction.atomic
+    def update_member(
+        *,
+        actor,
+        organization,
+        membership: OrganizationMembership,
+        role=None,
+        full_name=None,
+        phone=None,
+        is_active=None,
+    ):
+        """Met à jour un membership et/ou les champs profil de l'utilisateur.
+
+        Garde-fous :
+        - actor doit être OWNER/ADMIN de l'organisation (ou platform admin) ;
+        - on n'autorise pas à dégrader le DERNIER OWNER (sinon l'org devient
+          orpheline) ;
+        - on ne peut pas modifier le rôle d'un user qui a son rôle figé.
+        """
+        if not OrganizationPermissionService.can_manage_organization(actor, organization):
+            raise PermissionDenied("Vous n'êtes pas autorisé à gérer cette organisation.")
+
+        if membership.organization_id != organization.id:
+            raise ValidationError("Ce membre n'appartient pas à cette organisation.")
+
+        # Garde-fou anti-orphelin : ne pas perdre le dernier OWNER actif.
+        if (
+            membership.role == OrganizationMembership.Role.OWNER
+            and role is not None
+            and role != OrganizationMembership.Role.OWNER
+        ):
+            other_owners = OrganizationMembership.objects.filter(
+                organization=organization,
+                role=OrganizationMembership.Role.OWNER,
+                is_active=True,
+            ).exclude(pk=membership.pk).count()
+            if other_owners == 0:
+                raise ValidationError(
+                    "Impossible de retirer le dernier propriétaire de "
+                    "l'organisation. Promouvez d'abord un autre membre."
+                )
+
+        # Idem si on désactive le dernier OWNER actif.
+        if (
+            membership.role == OrganizationMembership.Role.OWNER
+            and is_active is False
+        ):
+            other_owners = OrganizationMembership.objects.filter(
+                organization=organization,
+                role=OrganizationMembership.Role.OWNER,
+                is_active=True,
+            ).exclude(pk=membership.pk).count()
+            if other_owners == 0:
+                raise ValidationError(
+                    "Impossible de désactiver le dernier propriétaire actif."
+                )
+
+        membership_changed_fields = []
+        if role is not None and role != membership.role:
+            valid_roles = {r for r, _ in OrganizationMembership.Role.choices}
+            if role not in valid_roles:
+                raise ValidationError("Rôle invalide.")
+            membership.role = role
+            membership_changed_fields.append("role")
+
+        if is_active is not None and bool(is_active) != membership.is_active:
+            membership.is_active = bool(is_active)
+            membership_changed_fields.append("is_active")
+
+        if membership_changed_fields:
+            membership.save(update_fields=membership_changed_fields)
+
+        # Profil utilisateur (champs partagés).
+        user = membership.user
+        user_changed_fields = []
+        if full_name is not None and full_name != user.full_name:
+            user.full_name = full_name
+            user_changed_fields.append("full_name")
+        if phone is not None and phone != user.phone:
+            user.phone = phone
+            user_changed_fields.append("phone")
+        if user_changed_fields:
+            user.save(update_fields=user_changed_fields)
+
+        # Profils latéraux : on s'assure qu'ils existent si le rôle l'exige.
+        if membership.role == OrganizationMembership.Role.INSTRUCTOR:
+            InstructorProfile.objects.get_or_create(user=user)
+        elif membership.role == OrganizationMembership.Role.LEARNER:
+            LearnerProfile.objects.get_or_create(user=user)
+
+        return membership
+
+    @staticmethod
+    @transaction.atomic
+    def deactivate_member(*, actor, organization, membership):
+        """Désactive un membership (sans supprimer l'utilisateur).
+
+        On ne supprime jamais un user — on coupe seulement son lien à
+        l'organisation. Cela préserve les cours créés et l'historique.
+        """
+        return OrganizationMemberManagementService.update_member(
+            actor=actor,
+            organization=organization,
+            membership=membership,
+            is_active=False,
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def reactivate_member(*, actor, organization, membership):
+        return OrganizationMemberManagementService.update_member(
+            actor=actor,
+            organization=organization,
+            membership=membership,
+            is_active=True,
+        )
+
+    @staticmethod
+    @transaction.atomic
     def create_course_for_organization(
         *,
         actor,

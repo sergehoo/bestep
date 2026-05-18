@@ -1062,7 +1062,47 @@ class OrganisationDashboard(LoginRequiredMixin, TemplateView):
             return redirect("home")
 
 
-class PlatformAdminDashboard(LoginRequiredMixin, TemplateView):
+class _PlatformAdminGateMixin(LoginRequiredMixin):
+    """Gate d'accès commun aux vues plateforme admin.
+
+    Règles d'accès :
+    - utilisateur anonyme → renvoi vers le login ;
+    - utilisateur sans rôle ``PLATFORM_ADMIN`` ni ``is_superuser`` →
+      redirection vers son dashboard métier (``_redirect_by_role``).
+
+    On n'expose AUCUN lien vers l'admin Django dans les pages métier :
+    l'admin technique reste réservé au staff Django et n'est jamais
+    surfacé dans les sidebars utilisateurs (un OWNER d'org cumulant
+    ``is_staff=True`` ne doit pas tomber sur des écrans techniques par
+    erreur).
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return redirect_to_login(request.get_full_path())
+
+        role_cls = getattr(user.__class__, "PlatformRole", None)
+        is_platform_admin_role = bool(
+            role_cls is not None
+            and getattr(user, "platform_role", None) == role_cls.PLATFORM_ADMIN
+        )
+
+        if not (is_platform_admin_role or user.is_superuser):
+            from formations.Rolemixin import _redirect_by_role
+            try:
+                target = _redirect_by_role(user)
+                # Garde anti-boucle : on ne se redirige pas sur soi-même.
+                if target == "admin_dashboard":
+                    return redirect("home")
+                return redirect(target)
+            except NoReverseMatch:
+                return redirect("home")
+
+        return super().dispatch(request, *args, **kwargs)
+
+
+class PlatformAdminDashboard(_PlatformAdminGateMixin, TemplateView):
     """Dashboard dédié aux administrateurs plateforme (rôle PLATFORM_ADMIN).
 
     Cet espace est volontairement séparé de ``admin:index`` (l'admin
@@ -1079,42 +1119,8 @@ class PlatformAdminDashboard(LoginRequiredMixin, TemplateView):
 
     template_name = "platform/admin_dashboard.html"
 
-    def dispatch(self, request, *args, **kwargs):
-        user = request.user
-        if not user.is_authenticated:
-            return redirect_to_login(request.get_full_path())
-
-        # NOTE: on n'utilise pas ``is_platform_admin`` du modèle car cette
-        # propriété matche aussi ``is_staff`` ; or un staff Django sans
-        # rôle PLATFORM_ADMIN n'a pas vocation à voir ce dashboard métier
-        # — il a son admin Django dédié.
-        #
-        # Implémentation robuste : on évite la chaîne fragile
-        # ``getattr(user.__class__, "PlatformRole", None).PLATFORM_ADMIN``
-        # qui plante (AttributeError) si ``PlatformRole`` n'est pas attaché
-        # au modèle (cas test/mocks) — ce qui faisait retomber le user dans
-        # ``_redirect_by_role`` puis recréer une boucle de redirection
-        # pour les vrais admins plateforme.
-        role_cls = getattr(user.__class__, "PlatformRole", None)
-        is_platform_admin_role = bool(
-            role_cls is not None
-            and getattr(user, "platform_role", None) == role_cls.PLATFORM_ADMIN
-        )
-
-        if not (is_platform_admin_role or user.is_superuser):
-            from formations.Rolemixin import _redirect_by_role
-            try:
-                target = _redirect_by_role(user)
-                # Garde anti-boucle : ``_redirect_by_role`` ne doit jamais
-                # nous renvoyer sur nous-mêmes ; si c'est le cas (mauvaise
-                # config), on tombe en mode safe sur ``home``.
-                if target == "admin_dashboard":
-                    return redirect("home")
-                return redirect(target)
-            except NoReverseMatch:
-                return redirect("home")
-
-        return super().dispatch(request, *args, **kwargs)
+    # Le gate (auth + rôle PLATFORM_ADMIN) est porté par
+    # ``_PlatformAdminGateMixin``.
 
     def get_context_data(self, **kwargs):
         import datetime
@@ -1211,16 +1217,18 @@ class PlatformAdminDashboard(LoginRequiredMixin, TemplateView):
         # ---------- TOPS -----------------------------------------------------
 
         # Top 5 organisations par nombre de cours et d'inscrits.
+        # NB ``Course.company`` est exposé via related_name="internal_courses"
+        # côté ``Organization`` — pas "courses".
         top_organizations = (
             Organization.objects.filter(is_active=True)
             .annotate(
                 courses_count=Coalesce(
-                    Count("courses", distinct=True),
+                    Count("internal_courses", distinct=True),
                     0,
                     output_field=IntegerField(),
                 ),
                 enrollments_count=Coalesce(
-                    Count("courses__enrollments", distinct=True),
+                    Count("internal_courses__enrollments", distinct=True),
                     0,
                     output_field=IntegerField(),
                 ),
@@ -1280,16 +1288,18 @@ class PlatformAdminDashboard(LoginRequiredMixin, TemplateView):
         )
 
         # Top 5 formateurs plateforme-wide par inscriptions cumulées.
+        # NB ``Course.instructor`` est exposé via related_name="courses_created"
+        # côté ``User`` — pas "courses".
         top_instructors = (
             User.objects.filter(is_active=True)
             .annotate(
                 courses_count=Coalesce(
-                    Count("courses", distinct=True),
+                    Count("courses_created", distinct=True),
                     0,
                     output_field=IntegerField(),
                 ),
                 enrolled_total=Coalesce(
-                    Count("courses__enrollments", distinct=True),
+                    Count("courses_created__enrollments", distinct=True),
                     0,
                     output_field=IntegerField(),
                 ),
@@ -1404,6 +1414,193 @@ class PlatformAdminDashboard(LoginRequiredMixin, TemplateView):
                     "sub": f"+{new_enrollments_30d} sur 30j",
                 },
             ],
+        })
+        return context
+
+
+class PlatformOrganizationsView(_PlatformAdminGateMixin, TemplateView):
+    """Liste métier des organisations (vue plateforme admin).
+
+    Affiche : nom, statut, ville, nombre de cours, d'inscrits cumulés et
+    de membres actifs. Filtres simples (recherche + actif/inactif).
+    Pagination simple par 30.
+    """
+
+    template_name = "platform/organizations.html"
+
+    def get_context_data(self, **kwargs):
+        from django.core.paginator import Paginator
+        from django.db.models import FloatField, Value
+        from organizations.models import Organization
+
+        context = super().get_context_data(**kwargs)
+
+        q = (self.request.GET.get("q") or "").strip()
+        status_filter = (self.request.GET.get("status") or "").strip()
+
+        qs = (
+            Organization.objects.all()
+            .annotate(
+                courses_count=Coalesce(
+                    Count("internal_courses", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                enrollments_count=Coalesce(
+                    Count("internal_courses__enrollments", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                members_count=Coalesce(
+                    Count(
+                        "memberships",
+                        filter=Q(memberships__is_active=True),
+                        distinct=True,
+                    ),
+                    0,
+                    output_field=IntegerField(),
+                ),
+            )
+            .order_by("-is_active", "name")
+        )
+
+        if q:
+            qs = qs.filter(
+                Q(name__icontains=q)
+                | Q(slug__icontains=q)
+                | Q(email__icontains=q)
+                | Q(city__icontains=q)
+            )
+        if status_filter == "active":
+            qs = qs.filter(is_active=True)
+        elif status_filter == "inactive":
+            qs = qs.filter(is_active=False)
+
+        paginator = Paginator(qs, 30)
+        page = paginator.get_page(self.request.GET.get("page"))
+
+        # Compteurs globaux (avant filtrage) pour les KPIs.
+        all_orgs = Organization.objects.all()
+        context.update({
+            "page_title": "Organisations — plateforme",
+            "page_obj": page,
+            "is_paginated": page.has_other_pages(),
+            "filter_q": q,
+            "filter_status": status_filter,
+            "totals": {
+                "all": all_orgs.count(),
+                "active": all_orgs.filter(is_active=True).count(),
+                "inactive": all_orgs.filter(is_active=False).count(),
+            },
+        })
+        return context
+
+
+class PlatformUsersView(_PlatformAdminGateMixin, TemplateView):
+    """Liste plateforme des utilisateurs avec filtre par rôle.
+
+    Le filtre ``role`` est interprété comme :
+    - ``platform_admin`` → ``platform_role == PLATFORM_ADMIN``
+    - ``instructor`` → a un ``InstructorProfile`` ou rôle org INSTRUCTOR
+    - ``learner`` → a un ``LearnerProfile`` ou rôle org LEARNER
+    - ``org_admin`` → membership OWNER/ADMIN/MANAGER actif
+
+    On ne propose volontairement PAS de bouton "désactiver" ici — la
+    désactivation d'un user plateforme se fait via le shell ou l'admin
+    Django (action sensible). Cette vue est en lecture seule.
+    """
+
+    template_name = "platform/users.html"
+
+    def get_context_data(self, **kwargs):
+        from django.core.paginator import Paginator
+        from django.db.models import Exists, OuterRef
+        from compte.models import InstructorProfile, LearnerProfile
+        from organizations.models import OrganizationMembership
+
+        context = super().get_context_data(**kwargs)
+
+        q = (self.request.GET.get("q") or "").strip()
+        role = (self.request.GET.get("role") or "").strip()
+
+        qs = User.objects.all().order_by("-created_at")
+
+        if q:
+            qs = qs.filter(
+                Q(email__icontains=q)
+                | Q(full_name__icontains=q)
+                | Q(phone__icontains=q)
+            )
+
+        if role == "platform_admin":
+            qs = qs.filter(platform_role="PLATFORM_ADMIN")
+        elif role == "instructor":
+            instr_exists = InstructorProfile.objects.filter(user=OuterRef("pk"))
+            org_instr_exists = OrganizationMembership.objects.filter(
+                user=OuterRef("pk"),
+                is_active=True,
+                role=OrganizationMembership.Role.INSTRUCTOR,
+            )
+            qs = qs.annotate(
+                _has_instr=Exists(instr_exists),
+                _is_org_instr=Exists(org_instr_exists),
+            ).filter(Q(_has_instr=True) | Q(_is_org_instr=True))
+        elif role == "learner":
+            learner_exists = LearnerProfile.objects.filter(user=OuterRef("pk"))
+            org_learner_exists = OrganizationMembership.objects.filter(
+                user=OuterRef("pk"),
+                is_active=True,
+                role=OrganizationMembership.Role.LEARNER,
+            )
+            qs = qs.annotate(
+                _has_learner=Exists(learner_exists),
+                _is_org_learner=Exists(org_learner_exists),
+            ).filter(Q(_has_learner=True) | Q(_is_org_learner=True))
+        elif role == "org_admin":
+            qs = qs.filter(
+                organization_memberships__is_active=True,
+                organization_memberships__role__in=[
+                    OrganizationMembership.Role.OWNER,
+                    OrganizationMembership.Role.ADMIN,
+                    OrganizationMembership.Role.MANAGER,
+                ],
+            ).distinct()
+
+        # Annotations légères pour l'affichage : nombre d'inscriptions et
+        # nombre d'orgs actives.
+        qs = qs.annotate(
+            enrollments_count=Coalesce(
+                Count("enrollments", distinct=True),
+                0,
+                output_field=IntegerField(),
+            ),
+            orgs_count=Coalesce(
+                Count(
+                    "organization_memberships",
+                    filter=Q(organization_memberships__is_active=True),
+                    distinct=True,
+                ),
+                0,
+                output_field=IntegerField(),
+            ),
+        )
+
+        paginator = Paginator(qs, 30)
+        page = paginator.get_page(self.request.GET.get("page"))
+
+        context.update({
+            "page_title": "Utilisateurs — plateforme",
+            "page_obj": page,
+            "is_paginated": page.has_other_pages(),
+            "filter_q": q,
+            "filter_role": role,
+            "totals": {
+                "all": User.objects.count(),
+                "active": User.objects.filter(is_active=True).count(),
+                "platform_admin": User.objects.filter(
+                    platform_role="PLATFORM_ADMIN"
+                ).count(),
+            },
         })
         return context
 

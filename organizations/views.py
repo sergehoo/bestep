@@ -27,6 +27,7 @@ from organizations.organ_forms import (
     OrganizationCourseCreateForm,
     OrganizationLessonCreateForm,
     OrganizationMemberCreateForm,
+    OrganizationMemberUpdateForm,
     OrganizationQuizCreateForm,
     OrganizationSectionCreateForm,
 )
@@ -455,10 +456,12 @@ class OrganisationDashboard(OrganizationScopedMixin, TemplateView):
                 ),
             )
             .annotate(
+                # NB: ``Course.instructor`` a related_name="courses_created",
+                # pas "courses". Idem pour le filtre.
                 courses_count=Coalesce(
                     Count(
-                        "courses",
-                        filter=Q(courses__company=organization),
+                        "courses_created",
+                        filter=Q(courses_created__company=organization),
                         distinct=True,
                     ),
                     0,
@@ -466,8 +469,8 @@ class OrganisationDashboard(OrganizationScopedMixin, TemplateView):
                 ),
                 enrolled_total=Coalesce(
                     Count(
-                        "courses__enrollments",
-                        filter=Q(courses__company=organization),
+                        "courses_created__enrollments",
+                        filter=Q(courses_created__company=organization),
                         distinct=True,
                     ),
                     0,
@@ -628,18 +631,370 @@ class OrganizationMembersView(OrganizationScopedMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        # On affiche désormais les memberships ACTIFS et inactifs : un
+        # admin doit pouvoir réactiver un membre désactivé sans qu'il
+        # disparaisse silencieusement de la liste. Le tri place les
+        # actifs en premier.
         memberships = (
-            OrganizationMembership.objects.filter(
-                organization=self.organization,
-                is_active=True,
-            )
+            OrganizationMembership.objects.filter(organization=self.organization)
             .select_related("user", "invited_by")
-            .order_by("role", "user__full_name", "user__email")
+            .order_by("-is_active", "role", "user__full_name", "user__email")
         )
 
-        context["memberships"] = memberships
-        context["page_title"] = f"Membres — {self.organization.name}"
+        # Compteurs par rôle (utilisés par le template).
+        active_qs = memberships.filter(is_active=True)
+        admin_count = active_qs.filter(
+            role__in=[
+                OrganizationMembership.Role.OWNER,
+                OrganizationMembership.Role.ADMIN,
+            ]
+        ).count()
+        instructor_count = active_qs.filter(
+            role=OrganizationMembership.Role.INSTRUCTOR
+        ).count()
+        learner_count = active_qs.filter(
+            role=OrganizationMembership.Role.LEARNER
+        ).count()
+
+        context.update({
+            "memberships": memberships,
+            "admins_count": admin_count,
+            "instructors_count": instructor_count,
+            "learners_count": learner_count,
+            "page_title": f"Membres — {self.organization.name}",
+        })
         return context
+
+
+class OrganizationMemberDetailView(OrganizationScopedMixin, TemplateView):
+    """Vue détaillée d'un membership : profil, rôle, activité.
+
+    Adapte le contenu selon le rôle :
+    - LEARNER : ses inscriptions, sa progression, ses tentatives quiz.
+    - INSTRUCTOR : les cours qu'il pilote dans l'org, le total inscrits,
+      son rating moyen, sa charge éditoriale (sections / leçons).
+    - OWNER / ADMIN / MANAGER : indicateurs de management (membres
+      invités, cours créés…).
+    """
+
+    template_name = "organization/member_detail.html"
+
+    def get_membership(self):
+        if not hasattr(self, "_membership"):
+            self._membership = get_object_or_404(
+                OrganizationMembership.objects
+                .select_related("user", "organization", "invited_by"),
+                pk=self.kwargs["membership_id"],
+                organization=self.organization,
+            )
+        return self._membership
+
+    def get_context_data(self, **kwargs):
+        from assessments.models import Attempt
+
+        context = super().get_context_data(**kwargs)
+        membership = self.get_membership()
+        user = membership.user
+        organization = self.organization
+
+        # ----- Inscriptions du membre dans des cours de l'org -----------
+        # On limite à ses inscriptions sur des cours rattachés à l'org
+        # courante : sinon on leak des cours d'autres orgs auxquels
+        # l'utilisateur s'est inscrit ailleurs en tant que B2C.
+        enrollments_qs = (
+            Enrollment.objects.filter(user=user, course__company=organization)
+            .select_related("course", "course__category", "current_lesson")
+            .order_by("-enrolled_at")
+        )
+
+        enrollments_total = enrollments_qs.count()
+        enrollments_completed = (
+            enrollments_qs.filter(status=Enrollment.Status.COMPLETED).count()
+            if hasattr(Enrollment, "Status") else 0
+        )
+        enrollments_active = (
+            enrollments_qs.filter(status=Enrollment.Status.ACTIVE).count()
+            if hasattr(Enrollment, "Status") else enrollments_total
+        )
+        avg_progress = enrollments_qs.aggregate(
+            v=Coalesce(
+                Avg("progress_percent"),
+                Value(0.0),
+                output_field=FloatField(),
+            )
+        )["v"]
+
+        # ----- Cours pilotés par le membre dans l'organisation ----------
+        # (rempli quand le membre est INSTRUCTOR ou autre rôle qui crée
+        # du contenu — l'attribut ``instructor`` du Course pointe vers
+        # ce user et le cours a ``company == self.organization``.)
+        courses_taught = (
+            Course.objects.filter(company=organization, instructor=user)
+            .select_related("category", "instructor")
+            .annotate(
+                sections_count=Coalesce(
+                    Count("sections", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                lessons_count=Coalesce(
+                    Count("sections__lessons", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                enrolled_count=Coalesce(
+                    Count("enrollments", distinct=True),
+                    0,
+                    output_field=IntegerField(),
+                ),
+                rating_avg=Coalesce(
+                    Avg(
+                        "reviews__rating",
+                        filter=Q(reviews__is_public=True),
+                        output_field=FloatField(),
+                    ),
+                    Value(0.0),
+                    output_field=FloatField(),
+                ),
+            )
+            .order_by("-updated_at")
+        )
+
+        teaching_stats = {
+            "courses_count": courses_taught.count(),
+            "total_enrolled": courses_taught.aggregate(
+                v=Coalesce(Sum("enrolled_count"), 0, output_field=IntegerField())
+            )["v"],
+            "total_lessons": courses_taught.aggregate(
+                v=Coalesce(Sum("lessons_count"), 0, output_field=IntegerField())
+            )["v"],
+            "rating_avg": courses_taught.aggregate(
+                v=Coalesce(Avg("rating_avg"), Value(0.0), output_field=FloatField())
+            )["v"],
+        }
+
+        # ----- Tentatives quiz sur des cours de l'org -------------------
+        attempts_qs = (
+            Attempt.objects.filter(
+                user=user,
+                quiz__course__company=organization,
+                submitted_at__isnull=False,
+            )
+            .select_related("quiz", "quiz__course")
+            .order_by("-submitted_at")
+        )
+        attempts_total = attempts_qs.count()
+        attempts_passed = attempts_qs.filter(passed=True).count()
+        recent_attempts = attempts_qs[:10]
+
+        # ----- Activité de management (si OWNER/ADMIN/MANAGER) ----------
+        # Membres invités par cet utilisateur dans CETTE organisation.
+        invited_count = (
+            OrganizationMembership.objects.filter(
+                organization=organization,
+                invited_by=user,
+            ).count()
+        )
+
+        # ----- Progression détaillée par cours --------------------------
+        # On prend les 10 inscriptions les plus récentes pour la liste
+        # détaillée afin de garder la page rapide.
+        recent_enrollments = list(enrollments_qs[:10])
+
+        context.update({
+            "membership": membership,
+            "page_title": (
+                f"{user.full_name or user.email} — {organization.name}"
+            ),
+            # Profil
+            "user_obj": user,
+            # Inscriptions
+            "enrollments_total": enrollments_total,
+            "enrollments_completed": enrollments_completed,
+            "enrollments_active": enrollments_active,
+            "avg_progress": avg_progress,
+            "recent_enrollments": recent_enrollments,
+            # Côté formateur
+            "courses_taught": courses_taught,
+            "teaching_stats": teaching_stats,
+            # Quiz
+            "attempts_total": attempts_total,
+            "attempts_passed": attempts_passed,
+            "attempts_pass_rate": (
+                (attempts_passed / attempts_total * 100.0)
+                if attempts_total else 0.0
+            ),
+            "recent_attempts": recent_attempts,
+            # Management
+            "invited_count": invited_count,
+            # Bornes de rôle pour le template (évite les chaînes magiques)
+            "ROLE_OWNER": OrganizationMembership.Role.OWNER,
+            "ROLE_ADMIN": OrganizationMembership.Role.ADMIN,
+            "ROLE_INSTRUCTOR": OrganizationMembership.Role.INSTRUCTOR,
+            "ROLE_LEARNER": OrganizationMembership.Role.LEARNER,
+        })
+        return context
+
+
+class OrganizationMemberUpdateView(OrganizationScopedMixin, FormView):
+    """Édition d'un membership : rôle, identité, statut actif/inactif.
+
+    Réservé aux OWNER / ADMIN (pas MANAGER).
+    """
+
+    template_name = "organization/member_update.html"
+    form_class = OrganizationMemberUpdateForm
+
+    allowed_org_roles = (
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    )
+
+    def get_membership(self):
+        if not hasattr(self, "_membership"):
+            self._membership = get_object_or_404(
+                OrganizationMembership.objects.select_related("user", "organization"),
+                pk=self.kwargs["membership_id"],
+                organization=self.organization,
+            )
+        return self._membership
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["membership"] = self.get_membership()
+        return kwargs
+
+    def form_valid(self, form):
+        membership = self.get_membership()
+        try:
+            OrganizationMemberManagementService.update_member(
+                actor=self.request.user,
+                organization=self.organization,
+                membership=membership,
+                role=form.cleaned_data["role"],
+                full_name=form.cleaned_data.get("full_name"),
+                phone=form.cleaned_data.get("phone"),
+                is_active=form.cleaned_data.get("is_active"),
+            )
+        except (PermissionDenied, Exception) as e:
+            # On remet le message dans le formulaire pour l'afficher
+            # — bien plus utile qu'un 500 pour une violation métier.
+            from django.core.exceptions import ValidationError as _VE
+            if isinstance(e, _VE):
+                form.add_error(None, e.message if hasattr(e, "message") else str(e))
+                return self.form_invalid(form)
+            raise
+
+        messages.success(
+            self.request,
+            f"Le membre « {membership.user.full_name or membership.user.email} » "
+            "a été mis à jour."
+        )
+        return redirect(self.get_success_url())
+
+    def get_success_url(self):
+        return reverse(
+            "org:members",
+            kwargs={"organization_id": self.organization.id},
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        membership = self.get_membership()
+        context.update({
+            "membership": membership,
+            "page_title": (
+                f"Modifier {membership.user.full_name or membership.user.email}"
+            ),
+        })
+        return context
+
+
+class OrganizationMemberDeactivateView(OrganizationScopedMixin, TemplateView):
+    """Désactivation d'un membership (POST only). On préserve l'historique.
+
+    Réservé aux OWNER / ADMIN.
+    """
+
+    http_method_names = ["post"]
+    template_name = "organization/members.html"  # placeholder, jamais rendu
+
+    allowed_org_roles = (
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    )
+
+    def post(self, request, *args, **kwargs):
+        membership = get_object_or_404(
+            OrganizationMembership.objects.select_related("user"),
+            pk=kwargs["membership_id"],
+            organization=self.organization,
+        )
+
+        try:
+            OrganizationMemberManagementService.deactivate_member(
+                actor=request.user,
+                organization=self.organization,
+                membership=membership,
+            )
+        except Exception as e:
+            from django.core.exceptions import ValidationError as _VE
+            if isinstance(e, _VE):
+                messages.error(request, e.message if hasattr(e, "message") else str(e))
+            else:
+                raise
+        else:
+            messages.success(
+                request,
+                f"« {membership.user.full_name or membership.user.email} » "
+                "a été désactivé. L'historique est conservé."
+            )
+
+        return redirect(
+            "org:members",
+            organization_id=self.organization.id,
+        )
+
+
+class OrganizationMemberReactivateView(OrganizationScopedMixin, TemplateView):
+    http_method_names = ["post"]
+    template_name = "organization/members.html"  # placeholder
+
+    allowed_org_roles = (
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    )
+
+    def post(self, request, *args, **kwargs):
+        membership = get_object_or_404(
+            OrganizationMembership.objects.select_related("user"),
+            pk=kwargs["membership_id"],
+            organization=self.organization,
+        )
+
+        try:
+            OrganizationMemberManagementService.reactivate_member(
+                actor=request.user,
+                organization=self.organization,
+                membership=membership,
+            )
+        except Exception as e:
+            from django.core.exceptions import ValidationError as _VE
+            if isinstance(e, _VE):
+                messages.error(request, e.message if hasattr(e, "message") else str(e))
+            else:
+                raise
+        else:
+            messages.success(
+                request,
+                f"« {membership.user.full_name or membership.user.email} » "
+                "a été réactivé."
+            )
+
+        return redirect(
+            "org:members",
+            organization_id=self.organization.id,
+        )
 
 
 class OrganizationCoursesView(OrganizationScopedMixin, TemplateView):

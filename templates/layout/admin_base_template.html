@@ -295,7 +295,13 @@
       </div>
     </div>
 
+    {# La sidebar de l'espace organisation est volontairement DIFFÉRENTE
+       de l'espace formateur (instructor_side.html) et de l'espace
+       apprenant (learner_side.html). On y expose toute la chaîne de
+       gestion : pilotage, membres (CRUD), cours, médias, quiz.        #}
     <nav class="flex-1 px-4 py-5 space-y-2 overflow-y-auto premium-scroll">
+
+      {# ============== Pilotage ============== #}
       <div class="px-3 pb-2 text-[11px] uppercase tracking-widest font-black text-slate-400">Pilotage</div>
 
       <a href="{% url 'org:dashboard' organization.id %}"
@@ -303,26 +309,40 @@
         <i class="fas fa-chart-pie"></i> Dashboard
       </a>
 
+      <a href="{% url 'org:media_library' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:media_library' %}sidebar-active{% endif %}">
+        <i class="fas fa-photo-film"></i> Bibliothèque média
+      </a>
+
+      {# ============== Membres ============== #}
+      <div class="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest font-black text-slate-400">Membres</div>
+
       <a href="{% url 'org:members' organization.id %}"
-         class="sidebar-link {% if request.resolver_match.view_name == 'org:members' %}sidebar-active{% endif %}">
-        <i class="fas fa-users"></i> Membres
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:members' or request.resolver_match.view_name == 'org:member_update' or request.resolver_match.view_name == 'org:member_detail' %}sidebar-active{% endif %}">
+        <i class="fas fa-users"></i> Tous les membres
       </a>
 
-      <a href="{% url 'org:courses' organization.id %}"
-         class="sidebar-link {% if request.resolver_match.view_name == 'org:courses' or request.resolver_match.view_name == 'org:course_detail' %}sidebar-active{% endif %}">
-        <i class="fas fa-book-open"></i> Cours internes
+      <a href="{% url 'org:member_create' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:member_create' %}sidebar-active{% endif %}">
+        <i class="fas fa-user-plus"></i> Ajouter un membre
       </a>
-
-      <div class="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest font-black text-slate-400">Création</div>
 
       <a href="{% url 'org:instructor_create' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:instructor_create' %}sidebar-active{% endif %}">
-        <i class="fas fa-chalkboard-teacher"></i> Ajouter formateur
+        <i class="fas fa-chalkboard-teacher"></i> Inviter formateur
       </a>
 
       <a href="{% url 'org:learner_create' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:learner_create' %}sidebar-active{% endif %}">
-        <i class="fas fa-user-graduate"></i> Ajouter apprenant
+        <i class="fas fa-user-graduate"></i> Inviter apprenant
+      </a>
+
+      {# ============== Catalogue ============== #}
+      <div class="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest font-black text-slate-400">Catalogue</div>
+
+      <a href="{% url 'org:courses' organization.id %}"
+         class="sidebar-link {% if request.resolver_match.view_name == 'org:courses' or request.resolver_match.view_name == 'org:course_detail' or request.resolver_match.view_name == 'org:course_builder' or request.resolver_match.view_name == 'org:section_create' or request.resolver_match.view_name == 'org:lesson_create' %}sidebar-active{% endif %}">
+        <i class="fas fa-book-open"></i> Cours internes
       </a>
 
       <a href="{% url 'org:course_create' organization.id %}"
@@ -330,6 +350,11 @@
         <i class="fas fa-plus-circle"></i> Créer un cours
       </a>
 
+      {# Le quiz et l'affectation formateur vivent dans un cours précis :
+         on n'expose pas de raccourci global, l'utilisateur passe par
+         "Cours internes" → un cours → onglet Quiz / Affecter formateur. #}
+
+      {# ============== Mon espace ============== #}
       <div class="pt-5 mt-5 border-t border-slate-100">
         <a href="{% url 'learner:dashboard' %}" class="sidebar-link">
           <i class="fas fa-user"></i> Mon espace personnel
@@ -401,13 +426,24 @@
         </button>
       </div>
 
-      <div id="mobile-menu" class="hidden lg:hidden border-t border-slate-100 bg-white px-4 py-4 space-y-2">
-        <a href="{% url 'org:dashboard' organization.id %}" class="sidebar-link">Dashboard</a>
-        <a href="{% url 'org:members' organization.id %}" class="sidebar-link">Membres</a>
-        <a href="{% url 'org:courses' organization.id %}" class="sidebar-link">Cours internes</a>
-        <a href="{% url 'org:instructor_create' organization.id %}" class="sidebar-link">Ajouter formateur</a>
-        <a href="{% url 'org:learner_create' organization.id %}" class="sidebar-link">Ajouter apprenant</a>
-        <a href="{% url 'account_logout' %}" class="sidebar-link text-red-600">Déconnexion</a>
+      <div id="mobile-menu" class="hidden lg:hidden border-t border-slate-100 bg-white px-4 py-4 space-y-1">
+        <div class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-widest font-black text-slate-400">Pilotage</div>
+        <a href="{% url 'org:dashboard' organization.id %}" class="sidebar-link"><i class="fas fa-chart-pie"></i> Dashboard</a>
+        <a href="{% url 'org:media_library' organization.id %}" class="sidebar-link"><i class="fas fa-photo-film"></i> Médias</a>
+
+        <div class="px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest font-black text-slate-400">Membres</div>
+        <a href="{% url 'org:members' organization.id %}" class="sidebar-link"><i class="fas fa-users"></i> Tous les membres</a>
+        <a href="{% url 'org:member_create' organization.id %}" class="sidebar-link"><i class="fas fa-user-plus"></i> Ajouter</a>
+        <a href="{% url 'org:instructor_create' organization.id %}" class="sidebar-link"><i class="fas fa-chalkboard-teacher"></i> Inviter formateur</a>
+        <a href="{% url 'org:learner_create' organization.id %}" class="sidebar-link"><i class="fas fa-user-graduate"></i> Inviter apprenant</a>
+
+        <div class="px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest font-black text-slate-400">Catalogue</div>
+        <a href="{% url 'org:courses' organization.id %}" class="sidebar-link"><i class="fas fa-book-open"></i> Cours internes</a>
+        <a href="{% url 'org:course_create' organization.id %}" class="sidebar-link"><i class="fas fa-plus-circle"></i> Créer un cours</a>
+
+        <div class="pt-3 mt-3 border-t border-slate-100">
+          <a href="{% url 'account_logout' %}" class="sidebar-link text-red-600"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
+        </div>
       </div>
     </header>
 

@@ -1,0 +1,134 @@
+# requirements.txt — PRODUCTION (V6.E).
+#
+# CORRECTIFS audit V6.E :
+# - SEC-28 : urllib3 1.x EOL → 2.2.3 (compatible boto3 1.42).
+# - SEC-29 : psycopg2 legacy → psycopg[binary] 3.2.3 (Django 4.2.10+).
+# - INFRA-19 : tooling dev (ruff/black/pytest/factory_boy/pre_commit/...)
+#              déplacé dans requirements-dev.txt.
+# - SEC-26 : GDAL/GEOS jamais utilisés → suppression des dépendances mortes
+#            (déjà fait en V1 côté settings).
+# - SEC-27 : django-payments installé sans usage → retiré.
+# - SEC-20 : djangorestframework_simplejwt installé sans config → retiré.
+#
+# Pour les dépendances de dev, lancer aussi :
+#   pip install -r requirements-dev.txt
+#
+# Pour CI/CD : voir .github/workflows/ci.yml.
+
+# --- Core Django ---
+Django==4.2.27
+asgiref==3.11.0
+sqlparse==0.5.5
+tzdata==2025.3
+
+# --- DRF + extensions ---
+djangorestframework==3.16.1
+drf-spectacular==0.29.0
+drf-spectacular-sidecar==2024.7.1   # V_OBS.A : assets Swagger/ReDoc self-hosted (anti-CDN).
+django-cors-headers==4.9.0
+django-filter==25.1
+
+# --- Auth / Sécurité ---
+django-allauth==65.13.1
+django-axes==8.0.0
+django-otp==1.6.3
+django-two-factor-auth==1.18.1
+django-csp==3.8  # CORRECTIF SEC-08 (CSP).
+argon2-cffi==25.1.0
+argon2-cffi-bindings==25.1.0
+cryptography==46.0.3
+oauthlib==3.3.1
+PyJWT==2.10.1
+qrcode==8.2  # CORRECTIF V2.A : QR code dans le PDF certificat.
+
+# --- DB ---
+psycopg[binary]==3.2.3  # V6.E (SEC-29) — remplace psycopg2.
+
+# --- Cache / queue ---
+redis==7.0.1
+django-redis==6.0.0
+celery==5.6.2
+django-celery-beat==2.8.1
+amqp==5.3.1
+billiard==4.2.4
+kombu==5.6.2
+vine==5.1.0
+click-repl==0.3.0
+click-didyoumean==0.3.1
+click-plugins==1.1.1.2
+click==8.1.8
+prompt_toolkit==3.0.52
+
+# --- Storage S3/MinIO ---
+django-storages==1.14.6
+boto3==1.42.21
+botocore==1.42.21
+s3transfer==0.16.0
+jmespath==1.0.1
+
+# --- Web stack ---
+gunicorn==23.0.0
+whitenoise==6.11.0
+requests==2.32.5
+urllib3==2.2.3  # V6.E (SEC-28) — sortie de 1.x EOL.
+certifi==2026.1.4
+charset-normalizer==3.4.4
+idna==3.11
+
+# --- Form / templates ---
+django-tinymce==5.0.0
+django-formtools==2.5.1
+django-cleanup==9.0.0
+django-phonenumber-field==8.3.0
+phonenumberslite==9.0.26
+django-taggit==6.1.0
+django-model-utils==5.0.0
+django-extensions==4.1   # garde en prod si vous utilisez `runserver_plus` ou cmds (optionnel)
+django-timezone-field==7.2.1
+django-ipware==7.0.1
+python-ipware==3.0.0
+django-environ==0.12.0
+python-decouple==3.8
+python-magic==0.4.27
+swapper==1.4.0
+bleach==6.2.0  # CORRECTIF P1.D REV-02 (XSS reviews).
+pillow==11.3.0
+
+# --- PDF / reporting ---
+reportlab==4.4.7
+
+# --- Misc ---
+attrs==25.4.0
+inflection==0.5.1
+jsonfield==3.1.0
+jsonschema==4.25.1
+jsonschema-specifications==2025.9.1
+referencing==0.36.2
+rpds-py==0.27.1
+PyYAML==6.0.3
+typing_extensions==4.15.0
+async-timeout==5.0.1
+uritemplate==4.2.0
+six==1.17.0
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzlocal==5.3.1
+cron_descriptor==2.0.6
+python-crontab==3.3.0
+django-notifications-hq==1.8.3
+django-guardian==3.2.0
+django-role-permissions==3.2.0
+django-chunked-upload==2.0.0
+django-resumable==0.2.0
+sentry-sdk==2.48.0
+webencodings==0.5.1
+zipp==3.23.0
+
+# ⚠️ Dépendances retirées en V6.E :
+# - django-payments==3.1.0           (SEC-27 : aucun usage)
+# - djangorestframework_simplejwt    (SEC-20 : installé sans config — supprimer si non utilisé)
+# - psycopg2==2.9.11                 (SEC-29 : remplacé par psycopg 3)
+# - urllib3==1.26.20                 (SEC-28 : EOL → 2.x)
+#
+# Le tooling dev (ruff/black/isort/pytest/factory_boy/Faker/pre_commit)
+# est dans requirements-dev.txt (V8.B) — ne PAS l'embarquer en prod.

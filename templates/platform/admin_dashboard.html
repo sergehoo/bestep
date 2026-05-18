@@ -3,6 +3,18 @@
 
 {% block title %}Administration plateforme — Best Épargne{% endblock %}
 
+{# La sidebar instructor est remplacée par la sidebar plateforme :
+   l'espace admin global a sa propre liste de raccourcis (organisations,
+   utilisateurs, paiements, admin Django…) bien distincte de l'espace
+   formateur. #}
+{% block sidebar %}
+    {% include "partials/platform_side.html" with mode="desktop" %}
+{% endblock %}
+
+{% block mobile_sidebar %}
+    {% include "partials/platform_side.html" with mode="mobile" %}
+{% endblock %}
+
 {% block content %}
 <div class="px-6 py-8 max-w-screen-xl mx-auto space-y-6">
 
@@ -22,14 +34,23 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <a href="{% url 'admin:index' %}"
+            <a href="{% url 'platform_organizations' %}"
                class="inline-flex items-center gap-2 px-3 py-2 rounded-xl
                       border border-be-ink-100/70 dark:border-white/10
                       bg-white/80 dark:bg-white/5
                       hover:bg-be-ink-50/60 dark:hover:bg-white/10
                       text-sm font-medium transition">
-                <i class="fa-solid fa-screwdriver-wrench"></i>
-                Admin technique (Django)
+                <i class="fa-solid fa-building"></i>
+                Organisations
+            </a>
+            <a href="{% url 'platform_users' %}"
+               class="inline-flex items-center gap-2 px-3 py-2 rounded-xl
+                      border border-be-ink-100/70 dark:border-white/10
+                      bg-white/80 dark:bg-white/5
+                      hover:bg-be-ink-50/60 dark:hover:bg-white/10
+                      text-sm font-medium transition">
+                <i class="fa-solid fa-users"></i>
+                Utilisateurs
             </a>
         </div>
     </header>
@@ -310,8 +331,7 @@
     </section>
 
     <p class="text-xs text-be-ink-500">
-        L'admin Django reste accessible via le bouton ci-dessus pour les opérations
-        techniques (migration, debug, tâches batch).
+        Cliquez sur une organisation ou un utilisateur pour ouvrir sa fiche détaillée.
     </p>
 </div>
 {% endblock %}

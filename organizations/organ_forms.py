@@ -179,6 +179,42 @@ class OrganizationLessonCreateForm(forms.ModelForm):
             self.fields["media_asset"].queryset = qs.distinct()
 
 
+class OrganizationMemberUpdateForm(forms.Form):
+    """Modification d'un membership existant (rôle + champs user partagés)."""
+
+    role = forms.ChoiceField(
+        choices=OrganizationMembership.Role.choices,
+        label="Rôle",
+    )
+
+    full_name = forms.CharField(
+        max_length=160,
+        required=False,
+        label="Nom complet",
+    )
+
+    phone = forms.CharField(
+        max_length=30,
+        required=False,
+        label="Téléphone",
+    )
+
+    is_active = forms.BooleanField(
+        required=False,
+        label="Membre actif",
+        help_text="Désactiver coupe l'accès sans supprimer l'historique.",
+    )
+
+    def __init__(self, *args, membership=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.membership = membership
+        if membership is not None and not self.is_bound:
+            self.initial.setdefault("role", membership.role)
+            self.initial.setdefault("full_name", membership.user.full_name)
+            self.initial.setdefault("phone", membership.user.phone)
+            self.initial.setdefault("is_active", membership.is_active)
+
+
 class OrganizationCourseAssignInstructorForm(forms.Form):
     """Affecte un cours d'organisation à un formateur de cette organisation.
 
