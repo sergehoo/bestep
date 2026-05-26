@@ -34,15 +34,16 @@ from django.urls import include, path
 def build_two_factor_patterns():
     """Retourne les URLs two_factor à concaténer aux ``urlpatterns``."""
     try:
-        # django-two-factor-auth ≥ 1.15 expose ces modules.
-        from two_factor.urls import urlpatterns as tf_urls  # noqa: F401
+        # two_factor.urls.urlpatterns est un 2-tuple (patterns_list, 'two_factor').
+        # Les URLs portent déjà leur préfixe account/login/, account/two_factor/...
+        # On passe le 2-tuple directement à include() pour respecter cette convention.
+        from two_factor.urls import urlpatterns as tf_urlpatterns
     except ImportError:
         # En dev sans le package installé, on retourne une liste vide.
         return []
 
     return [
-        # Préfixe `/account/two-factor/` pour cohabiter avec allauth.
-        path("account/two-factor/", include("two_factor.urls", "two_factor")),
+        path("", include(tf_urlpatterns)),
     ]
 
 
