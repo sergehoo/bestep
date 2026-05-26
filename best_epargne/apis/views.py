@@ -1,6 +1,7 @@
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from typing import Optional
 
 import boto3
 from django.conf import settings
@@ -26,10 +27,12 @@ from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, 
 from catalog.services import (
     can_modify_media,
     get_instructor_courses_qs,
+    get_visible_courses_qs,
     get_visible_media_qs,
     resolve_default_organization_for_user,
 )
 from compte.workspaces import get_active_workspace
+from core import policies
 from formations.Rolemixin import InstructorBaseMixin
 from organizations.models import OrganizationMembership
 from .permissions import IsInstructor
@@ -47,26 +50,67 @@ class CategoryViewSet(ReadOnlyModelViewSet):
     serializer_class = CategorySerializer
 
 
-class CourseViewSet(ModelViewSet):
+class PublicCourseViewSet(ReadOnlyModelViewSet):
+    """Catalogue public API.
+
+    Read-only par construction : aucune mutation de cours ne doit passer par
+    ``/api/apis/courses/``. Les contenus privés entreprise restent exclus.
+    """
     serializer_class = CourseSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         qs = Course.objects.select_related("category", "instructor").prefetch_related("sections__lessons")
-        if self.request.method in ("GET", "HEAD", "OPTIONS"):
-            # public: seulement cours publiés (hors internes)
-            user = self.request.user
-            if not user.is_authenticated or not getattr(user, "is_platform_admin", False):
-                qs = qs.filter(status=Course.Status.PUBLISHED, company_only=False)
-
+        qs = get_visible_courses_qs(
+            self.request.user,
+            public_only=True,
+            base_qs=qs,
+        )
         q = self.request.query_params.get("q")
         if q:
             qs = qs.filter(Q(title__icontains=q) | Q(subtitle__icontains=q) | Q(description__icontains=q))
         return qs.order_by("-published_at", "-created_at")
 
+
+class InstructorCourseViewSet(ModelViewSet):
+    """API privée instructor.
+
+    Les écritures sont limitées aux cours de l'utilisateur ou aux cours d'une
+    organisation où il a un rôle pédagogique/manager valide.
+    """
+    serializer_class = CourseSerializer
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def get_queryset(self):
+        active = get_active_workspace(self.request)
+        current_org_id = active.organization_id if active and active.is_org else None
+        qs = get_instructor_courses_qs(
+            self.request.user,
+            current_organization_id=current_org_id,
+        ).prefetch_related("sections__lessons")
+        q = self.request.query_params.get("q")
+        if q:
+            qs = qs.filter(Q(title__icontains=q) | Q(subtitle__icontains=q) | Q(description__icontains=q))
+        return qs.order_by("-updated_at", "-created_at")
+
+    def get_object(self):
+        course = super().get_object()
+        if not policies.can_edit_course(self.request.user, course):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Vous ne pouvez pas modifier ce cours.")
+        return course
+
     def perform_create(self, serializer):
-        # formateur crée son cours
-        serializer.save(instructor=self.request.user)
+        active = get_active_workspace(self.request)
+        save_kwargs = {"instructor": self.request.user}
+        if active and active.is_org:
+            from organizations.models import Organization
+            organization = get_object_or_404(Organization, id=active.organization_id, is_active=True)
+            if not policies.can_create_org_course(self.request.user, organization):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("Workspace organisation non autorisé.")
+            save_kwargs.update(company=organization, company_only=True)
+        serializer.save(**save_kwargs)
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsInstructor], url_path="my")
     def my_courses(self, request):
@@ -116,6 +160,45 @@ class CourseViewSet(ModelViewSet):
             c.setdefault("rating_count", 0)
             c.setdefault("completion_rate", 0)
         return Response(data)
+
+
+class OrganizationCourseViewSet(ModelViewSet):
+    """API privée organisation, scope strictement lié au workspace actif."""
+    serializer_class = CourseSerializer
+    permission_classes = [IsAuthenticated]
+
+    def _organization(self):
+        from organizations.models import Organization
+        active = get_active_workspace(self.request)
+        org_id = active.organization_id if active and active.is_org else self.request.query_params.get("organization_id")
+        organization = get_object_or_404(Organization, id=org_id, is_active=True)
+        if not policies.can_create_org_course(self.request.user, organization):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Workspace organisation non autorisé.")
+        return organization
+
+    def get_queryset(self):
+        organization = self._organization()
+        return (
+            Course.objects
+            .filter(company=organization)
+            .select_related("category", "instructor", "company")
+            .prefetch_related("sections__lessons")
+            .order_by("-updated_at", "-created_at")
+        )
+
+    def perform_create(self, serializer):
+        organization = self._organization()
+        serializer.save(
+            instructor=self.request.user,
+            company=organization,
+            company_only=True,
+        )
+
+
+# Compatibilité temporaire pour les imports historiques. Les routes doivent
+# utiliser PublicCourseViewSet / InstructorCourseViewSet / OrganizationCourseViewSet.
+CourseViewSet = PublicCourseViewSet
 
 
 def _course_owned(course_id, user):
@@ -246,8 +329,12 @@ def _range_to_days(r: str) -> int:
     return {"7d": 7, "30d": 30, "90d": 90}.get(r, 30)
 
 
-class InstructorMeView(APIView):
-    permission_classes = [IsAuthenticated, IsInstructor]
+class InstructorBaseAPIView(APIView):
+    """Base pour toutes les vues instructor (CORRECTIF API-21 : IsInstructor implique déjà IsAuthenticated)."""
+    permission_classes = [IsInstructor]
+
+
+class InstructorMeView(InstructorBaseAPIView):
 
     def get(self, request):
         u = request.user
@@ -270,12 +357,7 @@ class InstructorMeView(APIView):
         })
 
 
-def _range_to_days(r: str) -> int:
-    r = (r or "30d").lower().strip()
-    return {"7d": 7, "30d": 30, "90d": 90}.get(r, 30)
-
-
-class InstructorKpisView(APIView):
+class InstructorKpisView(InstructorBaseAPIView):
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def get(self, request):
@@ -705,6 +787,36 @@ def build_object_key(user_id: int, kind: str, filename: str) -> str:
     return f"{prefix}/{user_id}/{kind}/{uuid.uuid4().hex}{ext}"
 
 
+UPLOAD_LOG_TTL = timedelta(hours=6)
+SIGNED_UPLOAD_PART_TTL_SECONDS = 30 * 60
+SIGNED_READ_TTL_SECONDS = 60
+MAX_MULTIPART_PARTS = 10_000
+
+
+def _get_started_upload_log(user, upload_id: str, object_key: Optional[str] = None, *, lock: bool = False):
+    qs = MediaUploadLog.objects.filter(
+        user=user,
+        upload_id=upload_id,
+        status="started",
+    )
+    if object_key:
+        qs = qs.filter(object_key=object_key)
+    if lock:
+        qs = qs.select_for_update()
+    log = qs.first()
+    if not log:
+        return None
+    if timezone.now() - log.started_at > UPLOAD_LOG_TTL:
+        log.status = "failed"
+        log.error_message = "Upload expiré."
+        log.save(update_fields=["status", "error_message"])
+        return None
+    expected_prefix = f"{getattr(settings, 'MINIO_UPLOAD_PREFIX', 'instructors')}/{user.id}/"
+    if not log.object_key.startswith(expected_prefix):
+        return None
+    return log
+
+
 class MediaUploadInitView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -720,6 +832,17 @@ class MediaUploadInitView(APIView):
         object_key = build_object_key(request.user.id, data["kind"], data["filename"])
         client = s3_public_client()
 
+        upload_id = uuid.uuid4().hex
+        MediaUploadLog.objects.create(
+            user=request.user,
+            object_key=object_key,
+            upload_id=upload_id,
+            filename=data["filename"],
+            size=int(data["size"]),
+            content_type=data["content_type"],
+            status="started",
+        )
+
         upload_url = client.generate_presigned_url(
             ClientMethod="put_object",
             Params={
@@ -727,11 +850,11 @@ class MediaUploadInitView(APIView):
                 "Key": object_key,
                 "ContentType": data["content_type"],
             },
-            ExpiresIn=60 * 60 * 6,
+            ExpiresIn=SIGNED_UPLOAD_PART_TTL_SECONDS,
         )
 
         return Response({
-            "upload_id": uuid.uuid4().hex,
+            "upload_id": upload_id,
             "bucket": bucket,
             "object_key": object_key,
             "upload_url": upload_url,
@@ -750,6 +873,15 @@ class MediaUploadFinalizeView(APIView):
         ser = MediaUploadFinalizeSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         data = ser.validated_data
+        log = _get_started_upload_log(
+            request.user,
+            data["upload_id"],
+            data.get("object_key"),
+            lock=True,
+        )
+        if not log:
+            return Response({"detail": "Upload introuvable, expiré ou non autorisé."}, status=404)
+        data["object_key"] = log.object_key
 
         bucket = getattr(settings, "MINIO_BUCKET", None)
         if not bucket:
@@ -770,7 +902,8 @@ class MediaUploadFinalizeView(APIView):
         if remote_size <= 0:
             raise ValidationError({"size": "Remote size invalid (0)."})
 
-        if abs(remote_size - int(data["size"])) > 1024 * 1024 * 5:
+        _SIZE_TOLERANCE = 64 * 1024  # CORRECTIF API-11 : 64 KiB max
+        if abs(remote_size - int(data["size"])) > _SIZE_TOLERANCE:
             raise ValidationError({
                 "size": f"Size mismatch. local={data['size']} remote={remote_size}"
             })
@@ -805,7 +938,7 @@ class MediaUploadFinalizeView(APIView):
         bind = data.get("bind")
         if bind:
             course = get_object_or_404(Course, id=bind["course_id"])
-            if course.instructor_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
+            if not policies.can_edit_course(request.user, course):
                 return Response({"detail": "Forbidden: course not owned"}, status=403)
 
             section = get_object_or_404(CourseSection, id=bind["section_id"], course=course)
@@ -822,19 +955,12 @@ class MediaUploadFinalizeView(APIView):
         if asset.kind == MediaAsset.Kind.VIDEO:
             process_media_asset.delay(str(asset.id))
 
-        return Response({
-            "id": str(asset.id),
-            "kind": asset.kind,
-            "title": asset.title,
-            "object_key": asset.object_key,
-            "optimized_object_key": asset.optimized_object_key,
-            "thumbnail_object_key": asset.thumbnail_object_key,
-            "content_type": asset.content_type,
-            "size": asset.size,
-            "duration_seconds": asset.duration_seconds,
-            "processing_status": asset.processing_status,
-            "created_at": asset.created_at,
-        }, status=201)
+        log.status = "completed"
+        log.completed_at = timezone.now()
+        log.duration_seconds = int((log.completed_at - log.started_at).total_seconds())
+        log.save(update_fields=["status", "completed_at", "duration_seconds"])
+
+        return Response(MediaAssetDetailSerializer(asset).data, status=201)
 
 
 class MediaMultipartInitView(APIView):
@@ -884,7 +1010,7 @@ class MediaMultipartInitView(APIView):
             "bucket": bucket,
             "object_key": object_key,
             "part_size": 25 * 1024 * 1024,
-            "expires_in": 60 * 60 * 6,
+            "expires_in": SIGNED_UPLOAD_PART_TTL_SECONDS,
         })
 
 
@@ -897,8 +1023,12 @@ class MediaMultipartPartUrlView(APIView):
         upload_id = request.data.get("upload_id")
         part_number = int(request.data.get("part_number") or 0)
 
-        if not object_key or not upload_id or part_number < 1:
+        if not upload_id or part_number < 1 or part_number > MAX_MULTIPART_PARTS:
             return Response({"detail": "object_key, upload_id et part_number sont requis."}, status=400)
+
+        log = _get_started_upload_log(request.user, upload_id, object_key)
+        if not log:
+            return Response({"detail": "Upload introuvable, expiré ou non autorisé."}, status=404)
 
         client = s3_public_client()
 
@@ -906,11 +1036,11 @@ class MediaMultipartPartUrlView(APIView):
             ClientMethod="upload_part",
             Params={
                 "Bucket": bucket,
-                "Key": object_key,
+                "Key": log.object_key,
                 "UploadId": upload_id,
                 "PartNumber": part_number,
             },
-            ExpiresIn=60 * 60 * 6,
+            ExpiresIn=SIGNED_UPLOAD_PART_TTL_SECONDS,
         )
 
         return Response({
@@ -937,15 +1067,30 @@ class MediaMultipartCompleteView(APIView):
         duration_seconds = request.data.get("duration_seconds")
         bind = request.data.get("bind")
 
-        if not object_key or not upload_id or not parts:
+        if not upload_id or not parts:
             return Response({"detail": "object_key, upload_id et parts sont requis."}, status=400)
+        if len(parts) > MAX_MULTIPART_PARTS:
+            return Response({"detail": "Trop de parts multipart."}, status=400)
+
+        log = _get_started_upload_log(request.user, upload_id, object_key, lock=True)
+        if not log:
+            return Response({"detail": "Upload introuvable, expiré ou non autorisé."}, status=404)
+        object_key = log.object_key
 
         normalized_parts = []
+        seen_parts = set()
         for p in parts:
-            normalized_parts.append({
-                "PartNumber": int(p["PartNumber"]),
-                "ETag": p["ETag"],
-            })
+            try:
+                part_number = int(p["PartNumber"])
+            except Exception:
+                return Response({"detail": "PartNumber invalide."}, status=400)
+            if part_number < 1 or part_number > MAX_MULTIPART_PARTS or part_number in seen_parts:
+                return Response({"detail": "Parts multipart invalides."}, status=400)
+            etag = str(p.get("ETag") or "").strip()
+            if not etag:
+                return Response({"detail": "ETag manquant."}, status=400)
+            seen_parts.add(part_number)
+            normalized_parts.append({"PartNumber": part_number, "ETag": etag})
 
         normalized_parts.sort(key=lambda x: x["PartNumber"])
 
@@ -959,21 +1104,6 @@ class MediaMultipartCompleteView(APIView):
                 "Parts": normalized_parts
             },
         )
-        log = MediaUploadLog.objects.filter(
-            upload_id=upload_id,
-            object_key=object_key,
-            user=request.user,
-        ).first()
-
-        if log:
-            log.status = "completed"
-            log.completed_at = timezone.now()
-            log.duration_seconds = int((log.completed_at - log.started_at).total_seconds())
-            log.save(update_fields=[
-                "status",
-                "completed_at",
-                "duration_seconds",
-            ])
         head = client.head_object(Bucket=bucket, Key=object_key)
         remote_size = int(head.get("ContentLength") or 0)
         remote_type = head.get("ContentType") or content_type
@@ -981,7 +1111,8 @@ class MediaMultipartCompleteView(APIView):
         if remote_size <= 0:
             raise ValidationError({"size": "Remote size invalid."})
 
-        if size and abs(remote_size - size) > 1024 * 1024 * 5:
+        _SIZE_TOLERANCE = 64 * 1024  # CORRECTIF API-11
+        if size and abs(remote_size - size) > _SIZE_TOLERANCE:
             raise ValidationError({
                 "size": f"Size mismatch. local={size} remote={remote_size}"
             })
@@ -1013,7 +1144,7 @@ class MediaMultipartCompleteView(APIView):
 
         if bind:
             course = get_object_or_404(Course, id=bind["course_id"])
-            if course.instructor_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
+            if not policies.can_edit_course(request.user, course):
                 return Response({"detail": "Forbidden: course not owned"}, status=403)
 
             section = get_object_or_404(CourseSection, id=bind["section_id"], course=course)
@@ -1030,6 +1161,11 @@ class MediaMultipartCompleteView(APIView):
         if asset.kind == MediaAsset.Kind.VIDEO:
             process_media_asset.delay(str(asset.id))
 
+        log.status = "completed"
+        log.completed_at = timezone.now()
+        log.duration_seconds = int((log.completed_at - log.started_at).total_seconds())
+        log.save(update_fields=["status", "completed_at", "duration_seconds"])
+
         return Response(MediaAssetDetailSerializer(asset).data, status=201)
 
 
@@ -1041,8 +1177,13 @@ class MediaMultipartAbortView(APIView):
         object_key = request.data.get("object_key")
         upload_id = request.data.get("upload_id")
 
-        if not object_key or not upload_id:
+        if not upload_id:
             return Response({"detail": "object_key et upload_id requis."}, status=400)
+
+        log = _get_started_upload_log(request.user, upload_id, object_key, lock=True)
+        if not log:
+            return Response({"detail": "Upload introuvable, expiré ou non autorisé."}, status=404)
+        object_key = log.object_key
 
         client = s3_internal_client()
 
@@ -1054,6 +1195,9 @@ class MediaMultipartAbortView(APIView):
             )
         except Exception:
             pass
+        log.status = "failed"
+        log.error_message = "Upload annulé par l'utilisateur."
+        log.save(update_fields=["status", "error_message"])
 
         return Response({"ok": True})
 
@@ -1066,22 +1210,17 @@ class MediaMultipartListPartsView(APIView):
         object_key = request.data.get("object_key")
         upload_id = request.data.get("upload_id")
 
-        if not object_key or not upload_id:
+        if not upload_id:
             return Response({
                 "detail": "object_key et upload_id sont requis."
             }, status=400)
 
-        log = MediaUploadLog.objects.filter(
-            user=request.user,
-            object_key=object_key,
-            upload_id=upload_id,
-            status="started",
-        ).first()
-
+        log = _get_started_upload_log(request.user, upload_id, object_key)
         if not log:
             return Response({
                 "detail": "Upload introuvable ou non autorisé."
             }, status=404)
+        object_key = log.object_key
 
         client = s3_internal_client()
 
@@ -1097,20 +1236,21 @@ class MediaMultipartListPartsView(APIView):
             )
 
             for p in resp.get("Parts", []):
+                if len(parts) >= MAX_MULTIPART_PARTS:
+                    break
                 parts.append({
                     "PartNumber": int(p["PartNumber"]),
                     "ETag": p["ETag"].replace('"', ""),
                     "Size": int(p.get("Size") or 0),
                 })
 
-            if not resp.get("IsTruncated"):
+            if not resp.get("IsTruncated") or len(parts) >= MAX_MULTIPART_PARTS:
                 break
 
             part_number_marker = int(resp.get("NextPartNumberMarker") or 0)
 
         return Response({
             "upload_id": upload_id,
-            "object_key": object_key,
             "parts": parts,
         })
 
@@ -1227,10 +1367,7 @@ class MediaSignedGetView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, asset_id):
-        asset = get_object_or_404(MediaAsset, id=asset_id)
-
-        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
-            return Response({"detail": "Forbidden"}, status=403)
+        asset = _get_visible_media_or_404(request, asset_id)
 
         bucket = getattr(settings, "MINIO_BUCKET", None)
         if not bucket:
@@ -1242,7 +1379,7 @@ class MediaSignedGetView(APIView):
         url = client.generate_presigned_url(
             ClientMethod="get_object",
             Params={"Bucket": bucket, "Key": target_key},
-            ExpiresIn=60 * 10,
+            ExpiresIn=SIGNED_READ_TTL_SECONDS,
         )
 
         thumbnail_url = ""
@@ -1250,7 +1387,7 @@ class MediaSignedGetView(APIView):
             thumbnail_url = client.generate_presigned_url(
                 ClientMethod="get_object",
                 Params={"Bucket": bucket, "Key": asset.thumbnail_object_key},
-                ExpiresIn=60 * 10,
+                ExpiresIn=SIGNED_READ_TTL_SECONDS,
             )
 
         return Response({
@@ -1266,10 +1403,7 @@ class MediaThumbnailSignedGetView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, asset_id):
-        asset = get_object_or_404(MediaAsset, id=asset_id)
-
-        if asset.owner_id != request.user.id and getattr(request.user, "role", None) != "SUPERADMIN":
-            return Response({"detail": "Forbidden"}, status=403)
+        asset = _get_visible_media_or_404(request, asset_id)
 
         if not asset.thumbnail_object_key:
             return Response({"detail": "Thumbnail not available"}, status=404)
@@ -1280,7 +1414,7 @@ class MediaThumbnailSignedGetView(APIView):
         url = client.generate_presigned_url(
             ClientMethod="get_object",
             Params={"Bucket": bucket, "Key": asset.thumbnail_object_key},
-            ExpiresIn=60 * 10,
+            ExpiresIn=SIGNED_READ_TTL_SECONDS,
         )
         return Response({"url": url})
 
@@ -1870,9 +2004,15 @@ class LearnerSectionQuizSubmitView(APIView):
         if not quiz:
             return Response({"detail": "Quiz introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        attempts_count = Attempt.objects.filter(user=request.user, quiz=quiz).count()
-        if attempts_count >= quiz.max_attempts:
-            return Response({"detail": "Nombre maximal de tentatives atteint."}, status=status.HTTP_400_BAD_REQUEST)
+        # CORRECTIF API-05 : select_for_update pour éviter la race condition sur max_attempts.
+        with transaction.atomic():
+            locked_attempts = list(
+                Attempt.objects.select_for_update()
+                .filter(user=request.user, quiz=quiz, submitted_at__isnull=False)
+            )
+            attempts_count = len(locked_attempts)
+            if quiz.max_attempts and attempts_count >= quiz.max_attempts:
+                return Response({"detail": "Nombre maximal de tentatives atteint."}, status=status.HTTP_400_BAD_REQUEST)
 
         raw_answers = request.data.get("answers") or []
         if not isinstance(raw_answers, list):
@@ -1930,8 +2070,8 @@ class LearnerSectionQuizSubmitView(APIView):
         attempt.save(update_fields=["score_percent", "passed", "submitted_at"])
 
         # ── Mise à jour de la progression du learner ──────────────────────────
-        # Si le quiz est rattaché à une leçon, on marque cette leçon terminée
-        if quiz.lesson_id and enrollment:
+        # CORRECTIF API-55 : ne marquer la leçon complete QUE si le quiz est réussi.
+        if quiz.lesson_id and enrollment and passed:
             try:
                 lp, _ = LessonProgress.objects.get_or_create(
                     enrollment=enrollment,
@@ -2000,11 +2140,6 @@ except Exception:
 # --------------------------------------------
 # HELPERS
 # --------------------------------------------
-def _range_to_days(r: str) -> int:
-    r = (r or "30d").lower().strip()
-    return {"7d": 7, "30d": 30, "90d": 90}.get(r, 30)
-
-
 def _safe_get(obj, attr, default=""):
     try:
         value = getattr(obj, attr)
@@ -2037,6 +2172,32 @@ def _course_is_published(course: Course) -> bool:
         return course.status == Course.Status.PUBLISHED
     except Exception:
         return getattr(course, "status", "") == "PUBLISHED"
+
+
+def _direct_enrollment_rejection(user, course):
+    if not policies.can_view_course(user, course):
+        return "Cours non disponible pour cet utilisateur."
+    pricing_type = getattr(course, "pricing_type", None)
+    price = getattr(course, "price", 0) or 0
+    if pricing_type != Course.PricingType.FREE or price:
+        return "Ce cours nécessite un paiement ou une attribution organisationnelle."
+    return None
+
+
+def _enrollment_defaults_for_course(course):
+    defaults = {}
+    if hasattr(Enrollment, "Status"):
+        defaults["status"] = Enrollment.Status.ACTIVE
+    elif "status" in {f.name for f in Enrollment._meta.fields}:
+        defaults["status"] = "ACTIVE"
+    if "progress_percent" in {f.name for f in Enrollment._meta.fields}:
+        defaults["progress_percent"] = 0
+    if getattr(course, "company_only", False) and getattr(course, "company_id", None):
+        if "source" in {f.name for f in Enrollment._meta.fields} and hasattr(Enrollment, "Source"):
+            defaults["source"] = Enrollment.Source.COMPANY
+        if "company" in {f.name for f in Enrollment._meta.fields}:
+            defaults["company"] = course.company
+    return defaults
 
 
 def _get_enrollment(user, course):
@@ -2095,19 +2256,19 @@ def _course_to_dict(course, request=None, is_enrolled=False, enrolled_at=None):
     category = getattr(course, "category", None)
     category_name = _safe_get(category, "name", "") if category else ""
 
-    detail_url = f"/courses/{course.id}/"
+    detail_url = f"/landinghome/courses/{getattr(course, 'slug', course.id)}-{course.id}/"
     preview_url = detail_url
     enroll_url = f"/api/learner/courses/{course.id}/enroll/"
-    continue_url = f"/dashboard/learner/courses/{course.id}/"
+    continue_url = f"/learn/course/{getattr(course, 'slug', course.id)}/"
 
     try:
-        detail_url = reverse("course_detail", args=[course.id])
+        detail_url = reverse("course_public_page", kwargs={"slug": course.slug, "course_id": course.id})
         preview_url = detail_url
     except Exception:
         pass
 
     try:
-        continue_url = reverse("course_learn", args=[course.id])
+        continue_url = reverse("learn:course_learn", kwargs={"slug": course.slug})
     except Exception:
         pass
 
@@ -2329,28 +2490,19 @@ class LearnerEnrollmentsView(LearnerBaseAPIView):
         except Exception:
             return Response({"detail": "course_id invalide."}, status=status.HTTP_400_BAD_REQUEST)
 
-        course = get_object_or_404(Course, id=course_id)
+        course = get_object_or_404(
+            get_visible_courses_qs(request.user).select_related("company"),
+            id=course_id,
+        )
+        rejection = _direct_enrollment_rejection(request.user, course)
+        if rejection:
+            return Response({"detail": rejection}, status=status.HTTP_402_PAYMENT_REQUIRED)
 
-        if not _course_is_published(course):
-            return Response(
-                {"detail": "Cours non disponible pour inscription."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        field_names = {f.name for f in Enrollment._meta.fields}
-        defaults = {}
-
-        if "status" in field_names:
-            try:
-                defaults["status"] = Enrollment.Status.ACTIVE
-            except Exception:
-                defaults["status"] = "ACTIVE"
-
-        if "progress_percent" in field_names:
-            defaults["progress_percent"] = 0
+        defaults = _enrollment_defaults_for_course(course)
 
         try:
             with transaction.atomic():
+                Course.objects.select_for_update().filter(pk=course.pk).exists()
                 enrollment, created = Enrollment.objects.get_or_create(
                     user=request.user,
                     course=course,
@@ -2392,12 +2544,10 @@ class LearnerExploreCoursesView(LearnerBaseAPIView):
         limit = int(request.query_params.get("limit") or 20)
         offset = int(request.query_params.get("offset") or 0)
 
-        qs = Course.objects.all().select_related("instructor", "category")
-
-        try:
-            qs = qs.filter(status=Course.Status.PUBLISHED)
-        except Exception:
-            qs = qs.filter(status="PUBLISHED")
+        qs = get_visible_courses_qs(
+            request.user,
+            base_qs=Course.objects.select_related("instructor", "category", "company"),
+        )
 
         if q:
             qs = qs.filter(
@@ -2498,7 +2648,7 @@ class LearnerOrganizationCoursesAPIView(APIView):
 
                 "thumbnail_url": course.thumbnail.url if course.thumbnail else "",
 
-                "detail_url": f"/landinghome/courses/{course.id}/",
+                "detail_url": reverse("course_public_page", kwargs={"slug": course.slug, "course_id": course.id}),
 
                 "continue_url": f"/dashboard/learner/courses/{course.id}/",
 
@@ -2517,10 +2667,13 @@ class LearnerCourseDetailView(LearnerBaseAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, course_id: int):
-        course = get_object_or_404(Course.objects.select_related("instructor", "category"), id=course_id)
-
-        if not _course_is_published(course):
-            return Response({"detail": "Cours non disponible."}, status=status.HTTP_403_FORBIDDEN)
+        course = get_object_or_404(
+            get_visible_courses_qs(
+                request.user,
+                base_qs=Course.objects.select_related("instructor", "category", "company"),
+            ),
+            id=course_id,
+        )
 
         is_enrolled = False
         enrolled_at = None
@@ -2542,22 +2695,19 @@ class LearnerEnrollView(LearnerBaseAPIView):
         if Enrollment is None:
             return Response({"detail": "Enrollment indisponible."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        course = get_object_or_404(Course, id=course_id)
+        course = get_object_or_404(
+            get_visible_courses_qs(request.user).select_related("company"),
+            id=course_id,
+        )
+        rejection = _direct_enrollment_rejection(request.user, course)
+        if rejection:
+            return Response({"detail": rejection}, status=status.HTTP_402_PAYMENT_REQUIRED)
 
-        if not _course_is_published(course):
-            return Response(
-                {"detail": "Cours non disponible pour inscription."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        defaults = {}
-        if hasattr(Enrollment, "Status"):
-            defaults["status"] = Enrollment.Status.ACTIVE
-        elif "status" in [f.name for f in Enrollment._meta.fields]:
-            defaults["status"] = "ACTIVE"
+        defaults = _enrollment_defaults_for_course(course)
 
         try:
             with transaction.atomic():
+                Course.objects.select_for_update().filter(pk=course.pk).exists()
                 enrollment, created = Enrollment.objects.get_or_create(
                     user=request.user,
                     course=course,
@@ -2977,14 +3127,16 @@ class LearnerLessonStateView(LearnerBaseAPIView):
         # Média MinIO attaché
         if lesson.media_asset_id and bucket:
             try:
+                if not policies.can_access_media(request.user, lesson.media_asset):
+                    return Response({"detail": "Média non autorisé."}, status=status.HTTP_403_FORBIDDEN)
                 client = s3_public_client()
                 signed_url = client.generate_presigned_url(
                     ClientMethod="get_object",
                     Params={
                         "Bucket": bucket,
-                        "Key": lesson.media_asset.object_key,
+                        "Key": lesson.media_asset.effective_object_key,
                     },
-                    ExpiresIn=60 * 10,
+                    ExpiresIn=SIGNED_READ_TTL_SECONDS,
                 )
 
                 if lesson.lesson_type == Lesson.LessonType.VIDEO:
@@ -3038,25 +3190,46 @@ class LearnerLessonProgressUpdateView(LearnerBaseAPIView):
         percent = request.data.get("percent")
         last_pos = request.data.get("last_position_seconds", request.data.get("last_position_sec"))
         is_completed = request.data.get("is_completed")
+        current_percent = int(lp.progress_percent or 0)
+        current_position = int(lp.last_position_sec or 0)
+        reported_percent = current_percent
+        reported_position = current_position
 
         if percent is not None:
             try:
-                p = max(0, min(100, int(percent)))
-                lp.progress_percent = p
+                reported_percent = max(0, min(100, int(percent)))
             except Exception:
                 pass
 
         if last_pos is not None:
             try:
-                lp.last_position_sec = max(0, int(last_pos))
+                reported_position = max(0, int(last_pos))
             except Exception:
                 pass
+
+        duration = int(getattr(lesson, "duration_sec", 0) or 0)
+        if duration:
+            reported_position = min(reported_position, duration + 60)
+            derived_percent = min(99, int((reported_position / max(duration, 1)) * 100))
+            reported_percent = max(reported_percent, derived_percent)
+            if lesson.lesson_type == Lesson.LessonType.VIDEO and reported_position < int(duration * 0.9):
+                reported_percent = min(reported_percent, 94)
+
+        lp.last_position_sec = max(current_position, reported_position)
+        lp.progress_percent = max(current_percent, min(100, reported_percent))
 
         completed_flag = False
         if is_completed is True or str(is_completed).lower() == "true":
             completed_flag = True
 
-        if completed_flag or int(lp.progress_percent or 0) >= 100:
+        can_mark_completed = int(lp.progress_percent or 0) >= 100
+        if lesson.lesson_type == Lesson.LessonType.VIDEO and duration:
+            can_mark_completed = (
+                int(lp.progress_percent or 0) >= 95
+                and int(lp.last_position_sec or 0) >= int(duration * 0.9)
+            )
+
+        if can_mark_completed and (completed_flag or int(lp.progress_percent or 0) >= 100):
             lp.completed = True
             lp.progress_percent = 100
         else:
@@ -3220,8 +3393,12 @@ class LearnerMediaSignedGetView(LearnerBaseAPIView):
             return Response({"detail": "Asset non attaché à une leçon."}, status=status.HTTP_404_NOT_FOUND)
 
         course = lesson.section.course
+        if not policies.can_view_course(request.user, course):
+            return Response({"detail": "Cours non disponible."}, status=status.HTTP_403_FORBIDDEN)
         enrollment = _get_enrollment(request.user, course)
         if not enrollment and not lesson.is_preview:
+            return Response({"detail": "Inscription requise."}, status=status.HTTP_403_FORBIDDEN)
+        if not enrollment and lesson.is_preview and getattr(course, "company_only", False):
             return Response({"detail": "Inscription requise."}, status=status.HTTP_403_FORBIDDEN)
 
         bucket = getattr(settings, "MINIO_BUCKET", None)
@@ -3232,7 +3409,7 @@ class LearnerMediaSignedGetView(LearnerBaseAPIView):
 
         url = client.generate_presigned_url(
             ClientMethod="get_object",
-            Params={"Bucket": bucket, "Key": asset.object_key},
-            ExpiresIn=60 * 10,
+            Params={"Bucket": bucket, "Key": asset.effective_object_key},
+            ExpiresIn=SIGNED_READ_TTL_SECONDS,
         )
         return Response({"url": url})

@@ -2,7 +2,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from best_epargne.apis.views import CategoryViewSet, CourseViewSet, InstructorCourseDetailView, \
+from best_epargne.apis.views import CategoryViewSet, PublicCourseViewSet, InstructorCourseViewSet, OrganizationCourseViewSet, InstructorCourseDetailView, \
     InstructorCoursePublishView, InstructorCourseArchiveView, InstructorSectionListView, InstructorSectionCreateView, \
     InstructorSectionUpdateView, InstructorSectionDeleteView, InstructorLessonListView, InstructorLessonCreateView, \
     InstructorLessonUpdateView, InstructorLessonDeleteView, MediaUploadFinalizeView, MediaUploadInitView, \
@@ -23,11 +23,20 @@ from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
 
 router = DefaultRouter()
 router.register("categories", CategoryViewSet, basename="categories")
-router.register("courses", CourseViewSet, basename="courses")
+router.register("courses", PublicCourseViewSet, basename="courses")
+router.register("instructor/courses-private", InstructorCourseViewSet, basename="instructor-courses")
+router.register("organization/courses-private", OrganizationCourseViewSet, basename="organization-courses")
 router.register("enrollments", EnrollmentViewSet, basename="enrollments")
 router.register("progress", LessonProgressViewSet, basename="progress")
 
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView  # noqa: E402
+
 urlpatterns = [
+    # V_OBS.A : documentation OpenAPI auto-générée.
+    path("schema/", SpectacularAPIView.as_view(), name="api-schema"),
+    path("docs/", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-docs"),
+    path("redoc/", SpectacularRedocView.as_view(url_name="api-schema"), name="api-redoc"),
+
     path("apis/", include(router.urls)),
 
     # --- Instructor dashboard ---
@@ -36,16 +45,16 @@ urlpatterns = [
     path("instructor/reviews/", InstructorReviewsView.as_view(), name="api_instructor_reviews"),
     path("instructor/payouts/", InstructorPayoutsView.as_view(), name="api_instructor_payouts"),
     path("instructor/notifications/", InstructorNotificationsView.as_view(), name="api_instructor_notifications"),
-    path("instructor/courses/", CourseViewSet.as_view({"get": "my_courses"}), name="api_instructor_courses", ),
+    path("instructor/courses/", InstructorCourseViewSet.as_view({"get": "my_courses"}), name="api_instructor_courses", ),
     path("instructor/courses/create/",
-         CourseViewSet.as_view({"post": "create"}),
+         InstructorCourseViewSet.as_view({"post": "create"}),
          name="api_instructor_course_create",
          ),
 
     # (optionnel mais utile)
     path(
         "instructor/courses/<int:pk>/update/",
-        CourseViewSet.as_view({"patch": "partial_update"}),
+        InstructorCourseViewSet.as_view({"patch": "partial_update"}),
         name="api_instructor_course_update",
     ),
 
@@ -81,11 +90,11 @@ urlpatterns = [
     path("learner/courses/<int:course_id>/", LearnerCourseDetailView.as_view(), name="api_learner_course_detail"),
     path("learner/courses/<int:course_id>/progress/", LearnerCourseProgressView.as_view(),
          name="api_learner_course_progress"),
-path(
-    "api/learner/organization-courses/",
-    LearnerOrganizationCoursesAPIView.as_view(),
-    name="api_learner_organization_courses",
-),
+    path(
+        "learner/organization-courses/",
+        LearnerOrganizationCoursesAPIView.as_view(),
+        name="api_learner_organization_courses",
+    ),
     path("learner/player/<int:course_id>/", LearnerCoursePlayerDataView.as_view(), name="api_learner_player"),
     path("learner/media/<uuid:asset_id>/signed/", LearnerMediaSignedGetView.as_view(),
          name="api_learner_media_signed"),

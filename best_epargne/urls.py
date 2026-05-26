@@ -5,19 +5,17 @@ Architecture des espaces (multi-rôles) :
 - ``learner:*``    (préfixe ``/dashboard/learner/``)   — espace apprenant.
 - ``org:*``        (préfixe ``/organisation/``)         — espace organisation.
 
-Les anciens noms plats (``instructor_dashboard``, ``learner_dashboard``,
-``organization_dashboard``...) ont été supprimés au profit des noms
-namespacés (``instructor:dashboard``, ``learner:dashboard``, ``org:dashboard``).
-La seule exception est ``business_dashboard`` qui reste exposé comme
-porte d'entrée routante (cible de redirection allauth historique).
-
-Voir ``AUDIT_MULTIROLE.md`` pour la rationale.
+CORRECTIFS (audit) :
+- INFRA-03 : endpoint ``/healthz/`` et ``/readyz/`` pour Traefik/Kubernetes.
+- FORMATIONS-35 : ``static(STATIC_URL, ...)`` gardé SOUS ``settings.DEBUG``
+  (WhiteNoise s'en occupe en prod).
 """
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from best_epargne.health import healthz, readyz
 from compte.views import switch_workspace
 from formations.views import (
     HomeView,
@@ -29,13 +27,16 @@ from formations.views import (
 
 
 urlpatterns = [
+    # CORRECTIF INFRA-03 : health/readiness endpoints (non-authentifiés).
+    path("healthz/", healthz, name="healthz"),
+    path("readyz/", readyz, name="readyz"),
+
     # Plateforme / utilitaires
     path("admin/", admin.site.urls),
     path("account/", include("allauth.urls")),
     path("tinymce/", include("tinymce.urls")),
 
-    # Bascule entre espaces (Learner / Instructor / Org / Plateforme).
-    # POST-only, CSRF protégé, voir ``compte.views.switch_workspace``.
+    # Bascule entre espaces (POST-only, CSRF).
     path("workspace/switch/", switch_workspace, name="switch_workspace"),
 
     # API + apps de domaine
@@ -45,6 +46,10 @@ urlpatterns = [
     path("landinghome/", include("formations.landing_urls")),
     path("reviews/", include("reviews.urls")),
     path("assessments/", include("assessments.urls")),
+    # CORRECTIF V2.A (CERT-01) : vérification publique des certificats.
+    path("certifications/", include("certifications.urls", namespace="certifications")),
+    # CORRECTIF V2.C (COM-06) : checkout + webhooks commerce.
+    path("commerce/", include("commerce.urls", namespace="commerce")),
 
     # Espaces multi-rôles avec namespaces
     path(
@@ -57,22 +62,11 @@ urlpatterns = [
     ),
     path("organisation/", include("organizations.urls", namespace="org")),
 
-    # Porte d'entrée business — redirige vers ``org:dashboard`` après
-    # résolution. Conservée à l'identique pour la compat des anciens liens
-    # (allauth, bookmarks). Voir formations.views.OrganisationDashboard.
+    # Porte d'entrée business → redirige vers org:dashboard.
     path("dashboard/business/", OrganisationDashboard.as_view(), name="business_dashboard"),
 
-    # Dashboard administrateur plateforme (PLATFORM_ADMIN, distinct de
-    # l'admin Django ``admin:index`` qui reste réservé au staff technique).
-    path(
-        "dashboard/admin/",
-        PlatformAdminDashboard.as_view(),
-        name="admin_dashboard",
-    ),
-    # Sous-vues métier de l'espace plateforme. Elles sont protégées par le
-    # même gate que le dashboard (rôle PLATFORM_ADMIN ou superuser) et
-    # rendent des templates dédiés — on n'expose JAMAIS l'admin Django
-    # depuis la sidebar utilisateurs (cf. UX request).
+    # Dashboard administrateur plateforme.
+    path("dashboard/admin/", PlatformAdminDashboard.as_view(), name="admin_dashboard"),
     path(
         "dashboard/admin/organizations/",
         PlatformOrganizationsView.as_view(),
@@ -85,7 +79,13 @@ urlpatterns = [
     ),
 
     path("", HomeView.as_view(), name="home"),
-] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+]
 
+# CORRECTIF V6.D (SEC-06) : brancher les URLs django-two-factor-auth.
+from best_epargne.two_factor_urls import build_two_factor_patterns  # noqa: E402
+urlpatterns += build_two_factor_patterns()
+
+# CORRECTIF FORMATIONS-35 : static seulement en DEBUG (en prod WhiteNoise s'en charge).
 if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

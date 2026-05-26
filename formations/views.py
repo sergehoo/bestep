@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from django.utils.decorators import method_decorator
+
 from allauth.account.forms import LoginForm
 from django.contrib import messages
 from django.contrib.auth import login
@@ -31,10 +33,12 @@ from best_epargne.apis.views import _course_to_dict
 from catalog.models import (
     Course, CourseSection, Lesson, MediaAsset, Payment, Notification, Category, User,
 )
+from catalog.services import get_visible_courses_qs
 from compte.models import InstructorProfile
 from enrollments.models import Enrollment, LessonProgress
 from formations.Rolemixin import RoleRequiredMixin, InstructorBaseMixin, LearnerRequiredMixin, _redirect_by_role, \
     OrganizationAdminRequiredMixin
+from core.decorators import platform_admin_otp_required as _platform_admin_otp_required
 from organizations.models import OrganizationMembership
 from organizations.organ_forms import BusinessInterestRequestForm
 from reviews.models import CourseReview
@@ -1102,6 +1106,7 @@ class _PlatformAdminGateMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
+@method_decorator(_platform_admin_otp_required, name="dispatch")
 class PlatformAdminDashboard(_PlatformAdminGateMixin, TemplateView):
     """Dashboard dédié aux administrateurs plateforme (rôle PLATFORM_ADMIN).
 
@@ -1418,6 +1423,7 @@ class PlatformAdminDashboard(_PlatformAdminGateMixin, TemplateView):
         return context
 
 
+@method_decorator(_platform_admin_otp_required, name="dispatch")
 class PlatformOrganizationsView(_PlatformAdminGateMixin, TemplateView):
     """Liste métier des organisations (vue plateforme admin).
 
@@ -1496,6 +1502,7 @@ class PlatformOrganizationsView(_PlatformAdminGateMixin, TemplateView):
         return context
 
 
+@method_decorator(_platform_admin_otp_required, name="dispatch")
 class PlatformUsersView(_PlatformAdminGateMixin, TemplateView):
     """Liste plateforme des utilisateurs avec filtre par rôle.
 
@@ -1649,6 +1656,7 @@ class BusinessLandingView(TemplateView):
                     filter=Q(
                         courses__status=Course.Status.PUBLISHED,
                         courses__course_type=Course.CourseType.PROFESSIONNELLE,
+                        courses__company_only=False,
                     )
                 )
             )
@@ -1656,12 +1664,12 @@ class BusinessLandingView(TemplateView):
             .order_by("name")
         )
         professional_courses = (
-            Course.objects
-            .select_related("category", "instructor")
-            .filter(
-                status=Course.Status.PUBLISHED,
-                course_type=Course.CourseType.PROFESSIONNELLE,
+            get_visible_courses_qs(
+                self.request.user,
+                public_only=True,
+                base_qs=Course.objects.select_related("category", "instructor"),
             )
+            .filter(course_type=Course.CourseType.PROFESSIONNELLE)
             .order_by("-published_at", "-created_at")[:8]
         )
         context["interest_form"] = BusinessInterestRequestForm()
@@ -1720,23 +1728,16 @@ class CategoryProfessionalCourseDetailView(DetailView):
         context = super().get_context_data(**kwargs)
 
         courses = (
-
-            Course.objects
-
-            .select_related("category", "instructor")
-
-            .filter(
-
-                category=self.object,
-
-                status=Course.Status.PUBLISHED,
-
-                course_type=Course.CourseType.PROFESSIONNELLE,
-
+            get_visible_courses_qs(
+                self.request.user,
+                public_only=True,
+                base_qs=Course.objects.select_related("category", "instructor"),
             )
-
+            .filter(
+                category=self.object,
+                course_type=Course.CourseType.PROFESSIONNELLE,
+            )
             .order_by("-published_at", "-created_at")
-
         )
 
         context["courses"] = courses
@@ -1789,10 +1790,11 @@ class PublicExploreCoursesView(APIView):
         limit = max(1, min(limit, 50))
         offset = max(0, offset)
 
-        qs = Course.objects.all().select_related('category')
-
-        # ✅ uniquement cours publiés
-        qs = qs.filter(status=Course.Status.PUBLISHED)
+        qs = get_visible_courses_qs(
+            request.user,
+            public_only=True,
+            base_qs=Course.objects.select_related("category", "instructor"),
+        )
 
         if q:
             qs = qs.filter(
@@ -1837,7 +1839,10 @@ class CourseDetailPageView(TemplateView):
         # 🔁 Si on arrive sur /landinghome/courses/<id>/ (sans slug),
         # on redirige vers l’URL canonique /landinghome/courses/<slug>-<id>/
         if course_id and not slug:
-            course = get_object_or_404(Course, id=course_id)
+            course = get_object_or_404(
+                get_visible_courses_qs(request.user, public_only=True),
+                id=course_id,
+            )
             canon_slug = course.slug or slugify(course.title)
             return HttpResponsePermanentRedirect(
                 reverse("course_public_page", kwargs={"slug": canon_slug, "course_id": course.id})
@@ -1860,16 +1865,16 @@ class PublicCourseDetailView(APIView):
 
     def get(self, request, course_id: int):
         course = (
-            Course.objects
-            .select_related("instructor", "category")
+            get_visible_courses_qs(
+                request.user,
+                public_only=True,
+                base_qs=Course.objects.select_related("instructor", "category"),
+            )
             .filter(id=course_id)
             .first()
         )
         if not course:
             return Response({"detail": "Cours introuvable."}, status=status.HTTP_404_NOT_FOUND)
-
-        if course.status != Course.Status.PUBLISHED:
-            return Response({"detail": "Cours non disponible."}, status=status.HTTP_403_FORBIDDEN)
 
         # ✅ pas d'enrollment pour public
         return Response(
@@ -1888,16 +1893,13 @@ class PublicCourseRelatedView(APIView):
             limit = 6
         limit = max(1, min(limit, 12))
 
-        course = (
-            Course.objects.select_related("category", "instructor")
-            .filter(id=course_id, status=Course.Status.PUBLISHED)
-            .first()
-        )
+        base_qs = Course.objects.select_related("category", "instructor")
+        visible_qs = get_visible_courses_qs(request.user, public_only=True, base_qs=base_qs)
+        course = visible_qs.filter(id=course_id).first()
         if not course:
             return Response({"detail": "Cours introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
-        qs = Course.objects.select_related("category", "instructor").filter(status=Course.Status.PUBLISHED).exclude(
-            id=course.id)
+        qs = visible_qs.exclude(id=course.id)
 
         # ✅ similarité: même catégorie si possible, sinon même type
         if course.category_id:

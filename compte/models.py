@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import cached_property
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -112,8 +114,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         super().clean()
         if self.email:
             self.email = self.__class__.objects.normalize_email(self.email).strip().lower()
-
-        if self.platform_role == self.PlatformRole.PLATFORM_ADMIN:
+        # CORRECTIF COMPTE-01 : cohérence is_superuser / is_staff / platform_role.
+        if self.is_superuser:
+            self.is_staff = True
+            self.platform_role = self.PlatformRole.PLATFORM_ADMIN
+        elif self.platform_role == self.PlatformRole.PLATFORM_ADMIN:
             self.is_staff = True
 
     @property
@@ -122,44 +127,49 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_platform_admin(self) -> bool:
-        return (
-            self.platform_role == self.PlatformRole.PLATFORM_ADMIN
-            or self.is_superuser
-            or self.is_staff
-        )
+        # CORRECTIF COMPTE-02 : STRICT — n'inclut pas is_staff seul.
+        return self.is_superuser or self.platform_role == self.PlatformRole.PLATFORM_ADMIN
+
+    @property
+    def has_django_admin_access(self) -> bool:
+        """Pour l'accès /admin/ Django uniquement (support technique)."""
+        return self.is_platform_admin or self.is_staff
 
     @property
     def active_memberships(self):
         return self.organization_memberships.filter(is_active=True).select_related("organization")
 
+    @cached_property
+    def _active_memberships_cache(self) -> list[dict]:
+        """Matérialise les memberships actifs en 1 seule requête par instance (CORRECTIF COMPTE-21)."""
+        return list(
+            self.organization_memberships.filter(
+                is_active=True, organization__is_active=True,
+            ).values("organization_id", "role")
+        )
+
     @property
     def has_organization(self) -> bool:
-        return self.active_memberships.exists()
+        return bool(self._active_memberships_cache)
 
     @property
     def is_org_owner(self) -> bool:
-        return self.active_memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
+        return any(m["role"] == OrganizationMembership.Role.OWNER for m in self._active_memberships_cache)
 
     @property
     def is_org_admin(self) -> bool:
-        return self.active_memberships.filter(
-            role__in=[
-                OrganizationMembership.Role.OWNER,
-                OrganizationMembership.Role.ADMIN,
-            ]
-        ).exists()
+        return any(
+            m["role"] in (OrganizationMembership.Role.OWNER, OrganizationMembership.Role.ADMIN)
+            for m in self._active_memberships_cache
+        )
 
     @property
     def is_org_instructor(self) -> bool:
-        return self.active_memberships.filter(
-            role=OrganizationMembership.Role.INSTRUCTOR
-        ).exists()
+        return any(m["role"] == OrganizationMembership.Role.INSTRUCTOR for m in self._active_memberships_cache)
 
     @property
     def is_org_learner(self) -> bool:
-        return self.active_memberships.filter(
-            role=OrganizationMembership.Role.LEARNER
-        ).exists()
+        return any(m["role"] == OrganizationMembership.Role.LEARNER for m in self._active_memberships_cache)
 
     @property
     def is_instructor(self) -> bool:

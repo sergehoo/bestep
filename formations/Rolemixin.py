@@ -13,57 +13,8 @@ from enrollments.models import LessonProgress
 from organizations.models import OrganizationMembership
 
 
-def _redirect_by_role(user):
-    """
-    Renvoie le NOM d'URL du dashboard cible pour un utilisateur donné.
-
-    Ordre de priorité :
-        org owner/admin/manager → admin plateforme (PLATFORM_ADMIN) →
-        formateur → staff technique pur → apprenant.
-
-    L'org membership prime volontairement sur ``is_platform_admin`` :
-    un OWNER d'organisation qui est aussi ``is_staff=True`` doit
-    atterrir sur l'espace de son organisation, pas sur ``admin:index``.
-
-    ``admin_dashboard`` est une vue métier dédiée
-    (cf. ``best_epargne.urls`` → ``PlatformAdminDashboard``). Elle est
-    distincte de ``admin:index`` qui reste réservé au staff Django pour
-    les opérations techniques.
-    """
-    if not user or not user.is_authenticated:
-        return "account_login"
-
-    # 1. Rôle d'organisation — toujours prioritaire.
-    if user.organization_memberships.filter(
-            is_active=True,
-            organization__is_active=True,
-            role__in=[
-                OrganizationMembership.Role.OWNER,
-                OrganizationMembership.Role.ADMIN,
-                OrganizationMembership.Role.MANAGER,
-            ],
-    ).exists():
-        return "business_dashboard"
-
-    # 2. Admin plateforme métier (rôle PLATFORM_ADMIN ou superuser).
-    role_cls = getattr(user.__class__, "PlatformRole", None)
-    is_platform_admin_role = (
-        role_cls is not None
-        and getattr(user, "platform_role", None) == role_cls.PLATFORM_ADMIN
-    )
-    if is_platform_admin_role or user.is_superuser:
-        return "admin_dashboard"
-
-    # 3. Formateur (profil ou rôle org INSTRUCTOR).
-    if getattr(user, "is_instructor", False):
-        return "instructor:dashboard"
-
-    # 4. Pur staff technique sans aucun rôle métier → admin Django.
-    if user.is_staff:
-        return "admin:index"
-
-    # 5. Apprenant (cas par défaut).
-    return "learner:dashboard"
+# CORRECTIF FORMATIONS-22 : centralisation dans compte.services (V3.A).
+from compte.services import resolve_user_dashboard_url as _redirect_by_role  # noqa: F401
 
 
 class RoleRequiredMixin(UserPassesTestMixin):
