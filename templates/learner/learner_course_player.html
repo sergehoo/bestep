@@ -5,55 +5,17 @@
 {% block topbar_subtitle %}Continuer{% endblock %}
 
 {% block content %}
-    <script id="player-config" type="application/json">
-        {
-          "courseId": {{ course_id|default:"null" }},
-  "api": {
-    "outline": "/api/learner/courses/{{ course_id }}/outline/",
-    "continue": "/api/learner/courses/{{ course_id }}/continue/",
-    "lessonStateBase": "/api/learner/courses/{{ course_id }}/lessons/",
-    "lessonProgressBase": "/api/learner/courses/{{ course_id }}/lessons/",
-    "setCurrent": "/api/learner/courses/{{ course_id }}/set-current/"
-  }
-}
-    </script>
-
-    <style>
-        .no-scrollbar::-webkit-scrollbar {
-            width: 0;
-            height: 0;
-        }
-
-        .no-scrollbar {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-
-        .will-change-transform {
-            will-change: transform;
-        }
-
-        .gpu {
-            transform: translateZ(0);
-        }
-
-        .toast {
-            position: fixed;
-            right: 16px;
-            bottom: 16px;
-            z-index: 70;
-            background: rgba(15, 23, 42, .92);
-            color: #fff;
-            padding: 10px 12px;
-            border-radius: 14px;
-            box-shadow: 0 18px 50px rgba(2, 6, 23, .25);
-            font-size: 12px;
-        }
-    </style>
-
-    <div class="relative" x-data="coursePlayerUdemy()" x-init="init()">
+    <div id="player-config"
+         hidden
+         data-course-id="{{ course_id|default:'' }}"
+         data-outline-url="/api/learner/courses/{{ course_id }}/outline/"
+         data-continue-url="/api/learner/courses/{{ course_id }}/continue/"
+         data-lesson-state-base="/api/learner/courses/{{ course_id }}/lessons/"
+         data-lesson-progress-base="/api/learner/courses/{{ course_id }}/lessons/"
+         data-set-current-url="/api/learner/courses/{{ course_id }}/set-current/"></div>
+<div class="relative" x-data="coursePlayerUdemy()" x-init="init()">
         <!-- Toast -->
-        <div x-show="ui.toast.show" x-transition.opacity class="toast" style="display:none">
+        <div x-cloak x-show="ui.toast.show" x-transition.opacity class="toast">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-circle-check text-emerald-400" x-show="ui.toast.type==='ok'"></i>
                 <i class="fa-solid fa-triangle-exclamation text-amber-300" x-show="ui.toast.type==='warn'"></i>
@@ -105,7 +67,7 @@
                         <div class="w-44 h-2 rounded-full bg-white/10 overflow-hidden">
                             <div
                                     class="h-full bg-emerald-400 rounded-full transition-all duration-300"
-                                    :style="`width:${progress.percent || 0}%`"
+                                    :class="`w-pct-${Math.max(0, Math.min(100, Math.round(progress.percent || 0)))}`"
                             ></div>
                         </div>
                         <div class="text-[11px] text-white/70">
@@ -120,21 +82,19 @@
         <!-- Main layout -->
         <div class="grid lg:grid-cols-12 gap-0">
             <!-- Mobile overlay -->
-            <div
+            <div x-cloak
                     class="lg:hidden fixed inset-0 z-40 bg-black/50"
                     x-show="ui.sidebarOpen"
                     x-transition.opacity
                     @click="ui.sidebarOpen = false"
-                    style="display:none"
             ></div>
 
             <!-- Sidebar -->
-            <aside
+            <aside x-cloak
                     class="lg:col-span-4 xl:col-span-3 bg-white border-r border-be-ink-100 lg:sticky lg:top-[56px] lg:h-[calc(100vh-56px)] z-50"
                     :class="ui.sidebarOpen ? 'fixed inset-y-0 left-0 w-[88%] max-w-sm shadow-2xl' : 'hidden lg:block'"
                     x-show="ui.sidebarOpen || ui.isDesktop"
                     x-transition
-                    style="display:none"
             >
                 <div class="p-4 border-b border-be-ink-100">
                     <div class="flex items-start justify-between gap-2">
@@ -164,7 +124,7 @@
                     <div class="mt-3 h-2 rounded-full bg-be-ink-100 overflow-hidden">
                         <div
                                 class="h-full rounded-full bg-be-sky-600 transition-all duration-300"
-                                :style="`width:${progress.percent || 0}%`"
+                                :class="`w-pct-${Math.max(0, Math.min(100, Math.round(progress.percent || 0)))}`"
                         ></div>
                     </div>
 
@@ -198,7 +158,7 @@
                     </div>
                 </div>
 
-                <div class="p-3 overflow-auto no-scrollbar" style="height: calc(100% - 184px)">
+                <div class="p-3 overflow-auto no-scrollbar h-[calc(100%-184px)]">
                     <template x-if="loading.outline">
                         <div class="p-3">
                             <div class="text-sm text-be-ink-500">Chargement du plan…</div>
@@ -273,7 +233,7 @@
                                             <div class="mt-2 h-1.5 rounded-full bg-be-ink-100 overflow-hidden">
                                                 <div
                                                         class="h-full rounded-full bg-be-sky-600 transition-all duration-300"
-                                                        :style="`width:${l.percent ?? 0}%`"
+                                                        :class="`w-pct-${Math.max(0, Math.min(100, Math.round(l.percent ?? 0)))}`"
                                                 ></div>
                                             </div>
                                         </div>
@@ -344,8 +304,7 @@
 
                 <div
                         x-ref="playerScroll"
-                        class="p-4 lg:p-6 overflow-auto no-scrollbar gpu"
-                        style="height: calc(100% - 58px)"
+                        class="p-4 lg:p-6 overflow-auto no-scrollbar gpu h-[calc(100%-58px)]"
                 >
                     <template x-if="loading.lesson">
                         <div class="space-y-4">
@@ -363,7 +322,7 @@
                                     <template x-if="isMp4(lesson.video_url)">
                                         <video
                                                 x-ref="videoEl"
-                                                class="w-full"
+                                                class="w-full max-h-[520px]"
                                                 controls
                                                 playsinline
                                                 preload="metadata"
@@ -371,15 +330,13 @@
                                                 @ended="onVideoEnded()"
                                                 @loadedmetadata="onVideoLoaded()"
                                                 :src="lesson.video_url"
-                                                style="max-height: 520px"
                                         ></video>
                                     </template>
 
                                     <template x-if="!isMp4(lesson.video_url)">
                                         <iframe
-                                                class="w-full"
+                                                class="w-full h-[520px]"
                                                 loading="lazy"
-                                                style="height:520px"
                                                 :src="lesson.video_url"
                                                 allowfullscreen
                                         ></iframe>
@@ -589,7 +546,7 @@
                                 <div class="mt-3 h-2 rounded-full bg-be-ink-100 overflow-hidden">
                                     <div
                                             class="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                                            :style="`width:${lessonProgress.percent || 0}%`"
+                                            :class="`w-pct-${Math.max(0, Math.min(100, Math.round(lessonProgress.percent || 0)))}`"
                                     ></div>
                                 </div>
 
@@ -627,731 +584,5 @@
         </div>
     </div>
 
-    <script>
-        function coursePlayerUdemy() {
-            let cfg = {
-                courseId: null,
-                api: {
-                    outline: "",
-                    continue: "",
-                    lessonStateBase: "",
-                    lessonProgressBase: "",
-                    setCurrent: ""
-                }
-            };
-
-            try {
-                cfg = JSON.parse(document.getElementById("player-config")?.textContent || "{}");
-            } catch (e) {
-                console.error("Invalid player-config JSON", e);
-            }
-
-            return {
-                courseId: cfg.courseId,
-                api: cfg.api || {},
-
-                loading: {outline: true, lesson: true},
-                saving: {any: false, lesson: false},
-
-                course: {id: null, title: ""},
-                sections: [],
-                progress: {percent: 0, completed_lessons: 0, total_lessons: 0},
-
-                currentLessonId: null,
-                lesson: {
-                    id: null,
-                    title: "",
-                    type: "",
-                    video_url: null,
-                    file_url: null,
-                    content: null,
-                    duration_sec: null
-                },
-                lessonProgress: {
-                    percent: 0,
-                    is_completed: false,
-                    last_position_seconds: 0
-                },
-
-                nav: {prevId: null, nextId: null},
-                lastSavedAt: "",
-                ui: {
-                    sidebarOpen: false,
-                    search: "",
-                    openSections: {},
-                    isDesktop: false,
-                    toast: {show: false, msg: "", type: "ok", t: null}
-                },
-
-                // ── État quiz ──────────────────────────────────────────────────
-                quiz: {
-                    loading:     false,
-                    loaded:      false,
-                    data:        null,   // { id, title, passing_score, max_attempts, attempts_count, questions }
-                    answers:     {},     // { question_id: choice_id }
-                    submitting:  false,
-                    result:      null,   // { score_percent, passed, passing_score, good_answers, total_questions }
-                    error:       null,
-                    attemptsLeft: 0,
-                },
-                // ──────────────────────────────────────────────────────────────
-
-                _outlineRefreshTimer: null,
-                _videoSeekDone: false,
-                _textObserver: null,
-                _saveCount: 0,
-                _prefetchCache: new Map(),
-                _saveAbort: null,
-                _saveDebounceTimer: null,
-                _videoTickLastSentAt: 0,
-                lastSentPercent: -1,
-                lastSentSecond: -1,
-
-                formatDuration(sec) {
-                    const n = Number(sec || 0);
-                    if (!n || n < 0) return "—";
-                    const m = Math.floor(n / 60);
-                    const s = Math.floor(n % 60);
-                    if (m <= 0) return `${s}s`;
-                    return `${m}m ${String(s).padStart(2, "0")}s`;
-                },
-
-                isMp4(url) {
-                    const u = String(url || "").toLowerCase();
-                    return u.includes(".mp4") || u.includes("video/mp4") || u.includes("content-type=video");
-                },
-
-                nowTime() {
-                    const d = new Date();
-                    return d.toLocaleTimeString("fr-FR", {
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    });
-                },
-
-                toast(msg, type = "ok") {
-                    try {
-                        clearTimeout(this.ui.toast.t);
-                        this.ui.toast.msg = msg || "";
-                        this.ui.toast.type = type || "ok";
-                        this.ui.toast.show = true;
-                        this.ui.toast.t = setTimeout(() => {
-                            this.ui.toast.show = false;
-                        }, 1800);
-                    } catch (e) {
-                        console.warn("toast error", e);
-                    }
-                },
-
-                async apiGet(url) {
-                    if (!url) throw new Error("Missing GET URL");
-                    const res = await fetch(url, {
-                        headers: {"Accept": "application/json"},
-                        credentials: "same-origin"
-                    });
-                    if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
-                    return await res.json();
-                },
-
-                getCsrf() {
-                    const m = document.cookie.match(/csrftoken=([^;]+)/);
-                    return m ? m[1] : "";
-                },
-
-                async apiPost(url, payload = {}, signal = null) {
-                    if (!url) throw new Error("Missing POST URL");
-
-                    const res = await fetch(url, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRFToken": this.getCsrf(),
-                            "Accept": "application/json"
-                        },
-                        body: JSON.stringify(payload || {}),
-                        credentials: "same-origin",
-                        signal
-                    });
-
-                    if (!res.ok) {
-                        let d = "";
-                        try {
-                            d = JSON.stringify(await res.json());
-                        } catch (e) {
-                        }
-                        throw new Error(`POST ${url} -> ${res.status} ${d}`);
-                    }
-                    return await res.json();
-                },
-
-                async init() {
-                    try {
-                        const mq = window.matchMedia("(min-width: 1024px)");
-                        const updateDesktop = () => {
-                            this.ui.isDesktop = mq.matches;
-                            if (this.ui.isDesktop) this.ui.sidebarOpen = false;
-                        };
-
-                        updateDesktop();
-                        if (mq.addEventListener) {
-                            mq.addEventListener("change", updateDesktop);
-                        } else if (mq.addListener) {
-                            mq.addListener(updateDesktop);
-                        }
-
-                        await this.loadOutline();
-                        await this.resolveContinueLesson();
-
-                        if (this.currentLessonId) {
-                            await this.loadLesson(this.currentLessonId);
-                            this.computeNav();
-                            this.prefetchAround();
-                        } else {
-                            this.loading.lesson = false;
-                        }
-
-                        this.startAutoRefreshOutline();
-
-                        if (!this.ui.isDesktop) {
-                            this.ui.sidebarOpen = false;
-                        }
-                    } catch (e) {
-                        console.error("init error", e);
-                        this.loading.outline = false;
-                        this.loading.lesson = false;
-                        this.toast("Erreur de chargement du lecteur", "warn");
-                    }
-                },
-
-                startAutoRefreshOutline() {
-                    try {
-                        clearInterval(this._outlineRefreshTimer);
-                        this._outlineRefreshTimer = setInterval(() => {
-                            this.refreshOutline(false).catch(() => {
-                            });
-                        }, 30000);
-                    } catch (e) {
-                        console.warn("auto refresh error", e);
-                    }
-                },
-
-                async loadOutline() {
-                    try {
-                        this.loading.outline = true;
-                        const data = await this.apiGet(this.api.outline);
-
-                        this.course = data?.course || this.course;
-                        this.sections = (data?.sections || []).map(s => ({
-                            ...s,
-                            lessons: (s.lessons || []).map(l => ({
-                                id: l.id,
-                                title: l.title || "",
-                                type: l.lesson_type || l.type || "",
-                                duration_sec: l.duration_sec ?? null,
-                                percent: Number(l.progress_percent ?? l.percent ?? 0),
-                                is_completed: !!(l.completed ?? l.is_completed),
-                                is_preview: !!l.is_preview
-                            }))
-                        }));
-
-                        this.progress = {
-                            percent: Number(data?.progress?.percent ?? 0),
-                            completed_lessons: Number(data?.progress?.completed_lessons ?? 0),
-                            total_lessons: Number(data?.progress?.total_lessons ?? 0)
-                        };
-
-                        this.currentLessonId = data?.current_lesson_id || this.currentLessonId;
-
-                        if (!Object.keys(this.ui.openSections).length && this.sections.length) {
-                            this.ui.openSections[this.sections[0].id] = true;
-                        }
-                    } catch (e) {
-                        console.error("loadOutline error", e);
-                        this.toast("Impossible de charger le plan", "warn");
-                    } finally {
-                        this.loading.outline = false;
-                    }
-                },
-
-                async refreshOutline(showToast = false) {
-                    if (this.loading.outline) return;
-                    await this.loadOutline();
-                    this.computeNav();
-                    if (showToast) this.toast("Plan mis à jour", "ok");
-                },
-
-                async resolveContinueLesson() {
-                    try {
-                        if (this.currentLessonId) return;
-                        const data = await this.apiGet(this.api.continue);
-                        this.currentLessonId = data?.lesson_id || null;
-                    } catch (e) {
-                        console.error("resolveContinueLesson error", e);
-                    }
-                },
-
-                filteredSections() {
-                    const q = String(this.ui.search || "").trim().toLowerCase();
-                    if (!q) return this.sections || [];
-
-                    return (this.sections || [])
-                        .map(s => {
-                            const lessons = (s.lessons || []).filter(l => {
-                                return String(l.title || "").toLowerCase().includes(q)
-                                    || String(l.type || "").toLowerCase().includes(q);
-                            });
-                            return lessons.length ? {...s, lessons} : null;
-                        })
-                        .filter(Boolean);
-                },
-
-                toggleSection(sectionId) {
-                    this.ui.openSections[sectionId] = !this.ui.openSections[sectionId];
-                },
-
-                // ── Quiz helpers ───────────────────────────────────────────────
-                /** Trouve le section_id de la leçon courante en parcourant le plan. */
-                findSectionIdForLesson(lessonId) {
-                    for (const s of (this.sections || [])) {
-                        for (const l of (s.lessons || [])) {
-                            if (Number(l.id) === Number(lessonId)) return s.id;
-                        }
-                    }
-                    return null;
-                },
-
-                /** Charge le quiz de la section contenant la leçon courante. */
-                async loadQuiz() {
-                    this.quiz = {
-                        loading: true, loaded: false, data: null,
-                        answers: {}, submitting: false, result: null, error: null, attemptsLeft: 0
-                    };
-                    const sectionId = this.findSectionIdForLesson(this.currentLessonId);
-                    if (!sectionId) {
-                        this.quiz.loading = false;
-                        this.quiz.loaded  = true;
-                        this.quiz.error   = "Section introuvable pour ce quiz.";
-                        return;
-                    }
-                    try {
-                        const url = `/api/learner/courses/${this.courseId}/sections/${sectionId}/quiz/`;
-                        const data = await this.apiGet(url);
-                        this.quiz.data         = data;
-                        this.quiz.attemptsLeft = Math.max(0, (data.max_attempts || 0) - (data.attempts_count || 0));
-                        this.quiz.loaded       = true;
-                    } catch (e) {
-                        this.quiz.error  = e?.detail || "Impossible de charger le quiz.";
-                        this.quiz.loaded = true;
-                    } finally {
-                        this.quiz.loading = false;
-                    }
-                },
-
-                /** Vérifie que toutes les questions ont une réponse. */
-                quizAllAnswered() {
-                    if (!this.quiz.data?.questions?.length) return false;
-                    return this.quiz.data.questions.every(q => this.quiz.answers[q.id] != null);
-                },
-
-                /** Soumet les réponses du quiz. */
-                async submitQuiz() {
-                    if (!this.quizAllAnswered()) return;
-                    this.quiz.submitting = true;
-                    this.quiz.error      = null;
-                    const sectionId = this.findSectionIdForLesson(this.currentLessonId);
-                    try {
-                        const answers = Object.entries(this.quiz.answers).map(([qid, cid]) => ({
-                            question_id: Number(qid),
-                            choice_id:   Number(cid),
-                        }));
-                        const url    = `/api/learner/courses/${this.courseId}/sections/${sectionId}/quiz/submit/`;
-                        const result = await this.apiPost(url, { answers });
-                        this.quiz.result       = result;
-                        this.quiz.attemptsLeft = Math.max(0, this.quiz.attemptsLeft - 1);
-                        // Rafraîchir la progression globale si le quiz est réussi
-                        if (result?.passed) {
-                            this.$nextTick(() => this.refreshOutlineSilently());
-                        }
-                    } catch (e) {
-                        this.quiz.error = e?.detail || e?.message || "Erreur lors de la soumission.";
-                    } finally {
-                        this.quiz.submitting = false;
-                    }
-                },
-
-                /** Permet de réessayer le quiz (recharge pour avoir le bon attempts_count). */
-                async resetQuiz() {
-                    await this.loadQuiz();
-                },
-
-                /** Rafraîchit silencieusement le plan de cours (progression). */
-                async refreshOutlineSilently() {
-                    try {
-                        const data = await this.apiGet(this.api.outline);
-                        this.progress = {
-                            percent: Number(data?.progress?.percent ?? 0),
-                            completed_lessons: Number(data?.progress?.completed_lessons ?? 0),
-                            total_lessons: Number(data?.progress?.total_lessons ?? 0)
-                        };
-                        // Mettre à jour l'état is_completed dans la sidebar
-                        (data?.sections || []).forEach(s => {
-                            const sec = this.sections.find(x => x.id === s.id);
-                            if (!sec) return;
-                            (s.lessons || []).forEach(l => {
-                                const lesson = sec.lessons.find(x => x.id === l.id);
-                                if (lesson) {
-                                    lesson.is_completed   = !!(l.completed ?? l.is_completed);
-                                    lesson.percent        = Number(l.progress_percent ?? l.percent ?? 0);
-                                }
-                            });
-                        });
-                    } catch (_) { /* silencieux */ }
-                },
-                // ──────────────────────────────────────────────────────────────
-
-                expandAll(open) {
-                    (this.sections || []).forEach(s => {
-                        this.ui.openSections[s.id] = !!open;
-                    });
-                },
-
-                countCompleted(section) {
-                    return (section?.lessons || []).filter(l => l.is_completed).length;
-                },
-
-                flattenLessons() {
-                    const out = [];
-                    (this.sections || []).forEach(s => {
-                        (s.lessons || []).forEach(l => out.push(l));
-                    });
-                    return out;
-                },
-
-                computeNav() {
-                    const list = this.flattenLessons();
-                    const idx = list.findIndex(x => Number(x.id) === Number(this.currentLessonId));
-                    this.nav.prevId = idx > 0 ? list[idx - 1].id : null;
-                    this.nav.nextId = (idx >= 0 && idx < list.length - 1) ? list[idx + 1].id : null;
-                },
-
-                async prevLesson() {
-                    if (this.nav.prevId) await this.openLesson(this.nav.prevId);
-                },
-
-                async nextLesson() {
-                    if (this.nav.nextId) await this.openLesson(this.nav.nextId);
-                },
-
-                async openLesson(lessonId) {
-                    if (!lessonId) return;
-                    if (Number(lessonId) === Number(this.currentLessonId) && !this.loading.lesson) return;
-
-                    this.currentLessonId = lessonId;
-                    this.computeNav();
-
-                    if (!this.ui.isDesktop) {
-                        this.ui.sidebarOpen = false;
-                    }
-
-                    try {
-                        await this.apiPost(this.api.setCurrent, {lesson_id: lessonId});
-                    } catch (e) {
-                        console.warn("setCurrent error", e);
-                    }
-
-                    await this.loadLesson(lessonId);
-                    this.prefetchAround();
-                },
-
-                normalizeLessonState(data) {
-                    const raw = data?.lesson || {};
-                    const type = raw.type || raw.lesson_type || raw.lessonType || "";
-
-                    return {
-                        lesson: {
-                            ...raw,
-                            id: raw.id || null,
-                            title: raw.title || "",
-                            type,
-                            video_url: raw.video_url || raw.videoUrl || raw.video || null,
-                            file_url: raw.file_url || raw.fileUrl || raw.file || null,
-                            content: raw.content || raw.text || raw.html || null,
-                            duration_sec: raw.duration_sec ?? raw.duration ?? null
-                        },
-                        progress: {
-                            percent: Number(data?.progress?.percent ?? data?.progress?.progress_percent ?? 0),
-                            is_completed: !!(data?.progress?.is_completed ?? data?.progress?.completed),
-                            last_position_seconds: Number(data?.progress?.last_position_seconds ?? 0)
-                        }
-                    };
-                },
-
-                async loadLesson(lessonId) {
-                    try {
-                        this.loading.lesson = true;
-                        this._videoSeekDone = false;
-                        this.teardownTextObserver();
-
-                        const key = Number(lessonId);
-
-                        if (this._prefetchCache.has(key)) {
-                            const cached = this._prefetchCache.get(key);
-                            this.lesson = cached.lesson || this.lesson;
-                            this.lessonProgress = cached.progress || this.lessonProgress;
-                            this.applyOptimisticToSidebar(lessonId, this.lessonProgress);
-
-                            this.$nextTick(() => {
-                                if (this.lesson.type === "TEXT") this.setupTextAutoComplete();
-                                if (this.lesson.type === "VIDEO") this.seekVideoIfPossible();
-                                if (this.lesson.type === "QUIZ")  this.loadQuiz();
-                            });
-                            return;
-                        }
-
-                        const url = `${this.api.lessonStateBase}${lessonId}/state/`;
-                        const data = await this.apiGet(url);
-                        const normalized = this.normalizeLessonState(data);
-
-                        this.lesson = normalized.lesson;
-                        this.lessonProgress = normalized.progress;
-                        this.applyOptimisticToSidebar(lessonId, this.lessonProgress);
-
-                        this.$nextTick(() => {
-                            if (this.lesson.type === "TEXT") this.setupTextAutoComplete();
-                            if (this.lesson.type === "VIDEO") this.seekVideoIfPossible();
-                            if (this.lesson.type === "QUIZ")  this.loadQuiz();
-                        });
-                    } catch (e) {
-                        console.error("loadLesson error", e);
-                        this.lesson = {
-                            id: null,
-                            title: "Erreur de chargement",
-                            type: "",
-                            video_url: null,
-                            file_url: null,
-                            content: "<p>Impossible de charger cette leçon.</p>",
-                            duration_sec: null
-                        };
-                        this.lessonProgress = {
-                            percent: 0,
-                            is_completed: false,
-                            last_position_seconds: 0
-                        };
-                        this.toast("Impossible de charger la leçon", "warn");
-                    } finally {
-                        this.loading.lesson = false;
-                    }
-                },
-
-                prefetchAround() {
-                    [this.nav.prevId, this.nav.nextId].filter(Boolean).forEach(id => this.prefetchLesson(id));
-                },
-
-                async prefetchLesson(lessonId) {
-                    const key = Number(lessonId);
-                    if (!key || this._prefetchCache.has(key)) return;
-
-                    try {
-                        const url = `${this.api.lessonStateBase}${lessonId}/state/`;
-                        const data = await this.apiGet(url);
-                        const normalized = this.normalizeLessonState(data);
-                        this._prefetchCache.set(key, normalized);
-
-                        if (this._prefetchCache.size > 6) {
-                            const firstKey = this._prefetchCache.keys().next().value;
-                            this._prefetchCache.delete(firstKey);
-                        }
-                    } catch (e) {
-                        console.warn("prefetchLesson error", e);
-                    }
-                },
-
-                applyOptimisticToSidebar(lessonId, prog) {
-                    (this.sections || []).forEach(s => {
-                        (s.lessons || []).forEach(l => {
-                            if (Number(l.id) === Number(lessonId)) {
-                                l.percent = Number(prog?.percent ?? l.percent ?? 0);
-                                l.is_completed = !!(prog?.is_completed ?? l.is_completed);
-                            }
-                        });
-                    });
-                },
-
-                scheduleSave(markDone = false, opts = {}) {
-                    clearTimeout(this._saveDebounceTimer);
-                    this._saveDebounceTimer = setTimeout(() => {
-                        this.saveProgress(markDone, opts).catch(() => {
-                        });
-                    }, opts.delayMs || 450);
-                },
-
-                async saveProgress(markDone = false, opts = {}) {
-                    const force = !!opts.force;
-                    const wantToast = !!opts.toast;
-
-                    if (!this.currentLessonId) return;
-
-                    const percent = Math.max(0, Math.min(100, Number(this.lessonProgress.percent || 0)));
-                    const seconds = Math.max(0, Number(this.lessonProgress.last_position_seconds || 0));
-                    const is_completed = !!markDone || !!this.lessonProgress.is_completed;
-
-                    const percentDelta = Math.abs(percent - (this.lastSentPercent < 0 ? percent : this.lastSentPercent));
-                    const secondsDelta = Math.abs(seconds - (this.lastSentSecond < 0 ? seconds : this.lastSentSecond));
-
-                    if (!force && !markDone && percentDelta < 2 && secondsDelta < 10) {
-                        return;
-                    }
-
-                    try {
-                        this._saveAbort?.abort();
-                    } catch (e) {
-                    }
-
-                    this._saveAbort = new AbortController();
-                    this.saving.lesson = true;
-                    this.saving.any = true;
-
-                    try {
-                        const url = `${this.api.lessonProgressBase}${this.currentLessonId}/progress/`;
-                        const payload = {
-                            percent,
-                            last_position_seconds: seconds,
-                            is_completed
-                        };
-
-                        this.lessonProgress.percent = percent;
-                        this.lessonProgress.is_completed = is_completed;
-                        this.applyOptimisticToSidebar(this.currentLessonId, this.lessonProgress);
-
-                        const data = await this.apiPost(url, payload, this._saveAbort.signal);
-
-                        if (data?.progress) {
-                            this.lessonProgress.percent = Number(data.progress.percent ?? this.lessonProgress.percent);
-                            this.lessonProgress.is_completed = !!(data.progress.is_completed ?? this.lessonProgress.is_completed);
-                            this.lessonProgress.last_position_seconds = Number(data.progress.last_position_seconds ?? this.lessonProgress.last_position_seconds);
-                            this.applyOptimisticToSidebar(this.currentLessonId, this.lessonProgress);
-                        }
-
-                        this.lastSentPercent = this.lessonProgress.percent;
-                        this.lastSentSecond = this.lessonProgress.last_position_seconds;
-                        this.lastSavedAt = this.nowTime();
-
-                        this._saveCount += 1;
-                        if (this.lessonProgress.is_completed || this._saveCount % 4 === 0) {
-                            await this.refreshOutline(false);
-                        }
-
-                        if (wantToast) {
-                            this.toast("Progress enregistré", "ok");
-                        }
-                    } catch (e) {
-                        if (e.name !== "AbortError") {
-                            console.error("saveProgress error", e);
-                            this.toast("Erreur de synchronisation", "warn");
-                        }
-                    } finally {
-                        this.saving.lesson = false;
-                        this.saving.any = false;
-                    }
-                },
-
-                async toggleCompleted() {
-                    if (this.loading.lesson) return;
-
-                    if (this.lessonProgress.is_completed) {
-                        this.lessonProgress.is_completed = false;
-                        await this.saveProgress(false, {force: true, toast: true});
-                        return;
-                    }
-
-                    this.lessonProgress.percent = 100;
-                    this.lessonProgress.is_completed = true;
-                    await this.saveProgress(true, {force: true, toast: true});
-                },
-
-                onVideoLoaded() {
-                    this.seekVideoIfPossible();
-                },
-
-                seekVideoIfPossible() {
-                    const v = this.$refs.videoEl;
-                    if (!v || this._videoSeekDone) return;
-
-                    const pos = Number(this.lessonProgress.last_position_seconds || 0);
-                    if (pos > 2 && isFinite(pos)) {
-                        try {
-                            v.currentTime = pos;
-                        } catch (e) {
-                            console.warn("seek error", e);
-                        }
-                    }
-                    this._videoSeekDone = true;
-                },
-
-                onVideoTimeUpdate() {
-                    const v = this.$refs.videoEl;
-                    if (!v || !isFinite(v.duration) || !v.duration) return;
-
-                    const now = Date.now();
-                    const current = Math.floor(v.currentTime || 0);
-                    const duration = Math.floor(v.duration || 0);
-                    const percent = duration ? Math.floor((current / duration) * 100) : 0;
-
-                    this.lessonProgress.last_position_seconds = current;
-                    this.lessonProgress.percent = Math.min(99, Math.max(Number(this.lessonProgress.percent || 0), percent));
-
-                    if (now - this._videoTickLastSentAt > 2500) {
-                        this._videoTickLastSentAt = now;
-                        this.scheduleSave(false, {force: false, delayMs: 400});
-                    }
-                },
-
-                async onVideoEnded() {
-                    this.lessonProgress.percent = 100;
-                    this.lessonProgress.is_completed = true;
-                    await this.saveProgress(true, {force: true, toast: true});
-                },
-
-                setupTextAutoComplete() {
-                    if (this.lessonProgress.is_completed) return;
-
-                    const sentinel = this.$refs.textEndSentinel;
-                    const root = this.$refs.playerScroll;
-                    if (!sentinel || !root) return;
-
-                    this._textObserver = new IntersectionObserver(async (entries) => {
-                        const hit = entries.some(e => e.isIntersecting);
-                        if (!hit) return;
-
-                        this.lessonProgress.percent = 100;
-                        this.lessonProgress.is_completed = true;
-                        await this.saveProgress(true, {force: true, toast: true});
-                        this.teardownTextObserver();
-                    }, {
-                        root,
-                        threshold: 0.6
-                    });
-
-                    this._textObserver.observe(sentinel);
-                },
-
-                teardownTextObserver() {
-                    if (this._textObserver) {
-                        try {
-                            this._textObserver.disconnect();
-                        } catch (e) {
-                        }
-                        this._textObserver = null;
-                    }
-                },
-
-                onFileOpened() {
-                    if (this.lessonProgress.is_completed) return;
-                    this.lessonProgress.percent = Math.max(Number(this.lessonProgress.percent || 0), 30);
-                    this.scheduleSave(false, {force: false, delayMs: 400});
-                    this.toast("Ressource ouverte", "sync");
-                }
-            };
-        }
-    </script>
+    <script src="{% static 'src/js/learner-course-player.js' %}"></script>
 {% endblock %}

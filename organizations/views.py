@@ -1345,6 +1345,8 @@ class OrganizationCourseAssignLearnersView(OrganizationScopedMixin, FormView):
                 course=course,
                 defaults={
                     "status": Enrollment.Status.ACTIVE,
+                    "source": Enrollment.Source.COMPANY,
+                    "company": self.organization,
                 },
             )
 
@@ -1352,9 +1354,18 @@ class OrganizationCourseAssignLearnersView(OrganizationScopedMixin, FormView):
                 created_count += 1
             else:
                 existing_count += 1
+                changed_fields = []
                 if enrollment.status != Enrollment.Status.ACTIVE:
                     enrollment.status = Enrollment.Status.ACTIVE
-                    enrollment.save(update_fields=["status"])
+                    changed_fields.append("status")
+                if enrollment.source != Enrollment.Source.COMPANY:
+                    enrollment.source = Enrollment.Source.COMPANY
+                    changed_fields.append("source")
+                if enrollment.company_id != self.organization.id:
+                    enrollment.company = self.organization
+                    changed_fields.append("company")
+                if changed_fields:
+                    enrollment.save(update_fields=changed_fields)
 
         messages.success(
             self.request,

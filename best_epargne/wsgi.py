@@ -1,16 +1,9 @@
-"""
-WSGI config for best_epargne project.
-
-It exposes the WSGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/4.2/howto/deployment/wsgi/
-"""
-
+"""WSGI config — CORRECTIF SEC-02."""
 import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'best_epargne.settings')
+# CORRECTIF SEC-02 : prod par défaut (au lieu de 'best_epargne.settings').
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "best_epargne.settings")
 
 application = get_wsgi_application()

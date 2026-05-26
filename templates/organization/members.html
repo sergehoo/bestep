@@ -254,7 +254,7 @@
                   {% if m.is_active %}
                     <form method="post"
                           action="{% url 'org:member_deactivate' organization.id m.id %}"
-                          onsubmit="return confirm('Désactiver {{ m.user.full_name|default:m.user.email|escapejs }} ?');"
+                          data-confirm="Désactiver {{ m.user.full_name|default:m.user.email }} ?"
                           class="m-0">
                       {% csrf_token %}
                       <button type="submit"

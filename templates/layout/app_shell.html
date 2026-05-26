@@ -1,26 +1,12 @@
-{# /templates/layout/app_shell.html — Layout unifié premium SaaS (V5.C).
-   #
-   # CORRECTIFS audit : UI-01, UI-02, UI-38, UX-05, UX-06, UX-07, UX-15,
-   # A11Y-08, A11Y-10, A11Y-11, A11Y-12, A11Y-14, PERF-24, PERF-25.
-   #
-   # Vise à remplacer à terme :
-   # - templates/layout/admin_base.html
-   # - templates/layout/admin_base_template.html
-   # - templates/layout/company_base.html
-   # - templates/layout/learner_base.html
-   #
-   # Drivers :
-   # - active_workspace (context processor compte.workspaces) → couleur thème + label.
-   # - {% block sidebar %} → inclure le partial sidebar approprié.
-   # - {% block topbar_right %} → actions contextuelles (notifications, search…).
-   # - {% block content %} → contenu de la page.
-   #
-   # Usage côté vue template :
-   #     {% extends "layout/app_shell.html" %}
-   #     {% block sidebar %}{% include "partials/instructor_side.html" %}{% endblock %}
-   #     {% block content %}<main>…</main>{% endblock %}
-#}
-{% load static %}<!doctype html>
+{% load static %}
+<!doctype html>
+
+{#   Drivers :#}
+{#   - active_workspace (context processor compte.workspaces).#}
+{#   - {% block sidebar %} : partial sidebar (UNIQUE block, sert mobile + desktop).#}
+{#   - {% block content %} : contenu de la page.#}
+{#   - {% block topbar_right %} : actions contextuelles dans la topbar.#}
+{##}
 <html lang="fr" class="h-full"
       x-data="appShell()" x-init="initShell()"
       :class="{ 'dark': theme === 'dark', 'be-drawer-open': sidebar.mobileOpen }"
@@ -33,125 +19,57 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}Best Épargne{% endblock %}</title>
 
-  {# Anti-FOUC : applique le thème stocké AVANT le 1er paint. #}
-  <script>
-    (function(){
-      try {
-        var saved = localStorage.getItem("be_theme");
-        var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-        var theme = saved || (prefersDark ? "dark" : "light");
-        document.documentElement.classList.toggle("dark", theme === "dark");
-      } catch(e) {}
-    })();
-  </script>
-
-  {# CORRECTIF PERF-24 : version Alpine pinnée partout. #}
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="{% static 'src/js/theme-init.js' %}"></script>
+  <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
+  <script defer src="{% static 'src/js/app-shell.js' %}"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.14.3/dist/cdn.min.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 
   {% include "partials/theme_styles.html" %}
 
-  <script>
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            be: {
-              sky: {50:"#F2FAFF",100:"#DEF3FF",200:"#BEE8FF",300:"#8AD7FF",400:"#4DBFFF",
-                    500:"#1EA7FF",600:"#0C87D6",700:"#0B6FAE",800:"#0C5C8E",900:"#0A466B"},
-              sun: {50:"#FFFBEA",100:"#FFF3BF",200:"#FFE58A",300:"#FFD14D",400:"#FFBD1F",
-                    500:"#F7A600",600:"#D48300",700:"#AD6400",800:"#8A4E00",900:"#6A3B00"},
-              ink: {50:"#F7FAFC",100:"#EEF2F7",200:"#D7DEE9",300:"#B5C0D4",400:"#7E8AA6",
-                    500:"#5B6783",600:"#3F4A63",700:"#2B3449",800:"#1E2536",900:"#121827"}
-            }
-          },
-          boxShadow: {
-            soft: "0 10px 30px rgba(12,92,142,.12)",
-            ring: "0 0 0 6px rgba(30,167,255,.12)",
-            lift: "0 12px 40px rgba(18,24,39,.14)"
-          },
-          borderRadius: {"2.5xl": "1.25rem"}
-        }
-      }
-    };
-  </script>
-
-  <style>
-    [x-cloak]{display:none!important;}
-    .no-scrollbar::-webkit-scrollbar{display:none;}
-    .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
-    html, body{min-height:100%;}
-
-    /* Lock scroll quand drawer mobile ouvert. */
-    html.be-drawer-open, html.be-drawer-open body{overflow:hidden;touch-action:none;}
-    @media (min-width:1024px){html.be-drawer-open, html.be-drawer-open body{overflow:auto;touch-action:auto;}}
-
-    /* Safe-area iOS. */
-    @supports (padding: max(0px)){.be-safe-top{padding-top:max(0px,env(safe-area-inset-top));}}
-
-    /* A11Y-14 : respecter prefers-reduced-motion. */
-    @media (prefers-reduced-motion: reduce){
-      *,*::before,*::after{transition-duration:0.01ms!important;animation-duration:0.01ms!important;}
-    }
-
-    .skeleton{background:linear-gradient(90deg,#eef2f7 25%,#e2e8f0 37%,#eef2f7 63%);
-              background-size:400% 100%;animation:skeleton 1.4s ease infinite;}
-    @keyframes skeleton{0%{background-position:100% 50%}100%{background-position:0 50%}}
-
-    /* Skip link a11y. */
-    .skip-link{position:absolute;top:-40px;left:8px;background:#0C87D6;color:#fff;padding:8px 12px;
-               border-radius:8px;z-index:100;transition:top .2s;}
-    .skip-link:focus{top:8px;}
-  </style>
-
   {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased min-h-screen">
 
-  {# CORRECTIF A11Y : skip-to-content. #}
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
 
-  {# Drawer mobile (Alpine, ESC-close, focus trap). #}
-  <div x-show="sidebar.mobileOpen"
+  {# Overlay mobile uniquement (clic-outside ferme le drawer). #}
+  <div x-cloak
+       x-show="sidebar.mobileOpen"
        x-transition.opacity
        @click="sidebar.mobileOpen = false"
        @keydown.escape.window="sidebar.mobileOpen = false"
        class="fixed inset-0 z-40 bg-slate-900/60 lg:hidden"
-       role="presentation"
-       style="display:none"></div>
-
-  <aside x-show="sidebar.mobileOpen"
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="-translate-x-full"
-         x-transition:enter-end="translate-x-0"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="translate-x-0"
-         x-transition:leave-end="-translate-x-full"
-         x-trap.noscroll="sidebar.mobileOpen"
-         @keydown.escape.window="sidebar.mobileOpen = false"
-         class="fixed inset-y-0 left-0 z-50 w-[88%] max-w-[300px] bg-white dark:bg-slate-900 shadow-2xl lg:hidden overflow-y-auto"
-         role="dialog" aria-modal="true" aria-label="Menu de navigation"
-         style="display:none">
-    <div class="p-4 border-b flex items-center justify-between">
-      <span class="font-bold text-slate-900 dark:text-slate-100">Menu</span>
-      <button type="button"
-              @click="sidebar.mobileOpen = false"
-              class="w-10 h-10 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-be-sky-500"
-              aria-label="Fermer le menu">
-        <i class="fas fa-xmark" aria-hidden="true"></i>
-      </button>
-    </div>
-    {% block sidebar_mobile %}{% block sidebar %}{% endblock %}{% endblock %}
-  </aside>
+       role="presentation"></div>
 
   <div class="flex min-h-screen">
+  
+    <aside
+      :class="sidebar.mobileOpen
+        ? 'translate-x-0'
+        : '-translate-x-full lg:translate-x-0'"
+      class="fixed inset-y-0 left-0 z-50 w-[88%] max-w-[300px]
+             bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto no-scrollbar
+             transform transition-transform duration-200 ease-out
+             lg:static lg:translate-x-0 lg:transform-none lg:transition-none
+             lg:w-72 lg:max-w-none lg:shrink-0 lg:shadow-none
+             lg:border-r lg:border-slate-200 dark:lg:border-slate-800"
+      role="navigation"
+      aria-label="Menu principal"
+      id="mobile-menu">
 
-    {# Sidebar desktop. #}
-    <aside class="hidden lg:flex lg:flex-col lg:w-72 lg:shrink-0 lg:border-r lg:border-slate-200 lg:dark:border-slate-800 lg:bg-white lg:dark:bg-slate-900 lg:overflow-y-auto no-scrollbar">
-      {% block sidebar_desktop %}{% block sidebar_inner %}{% endblock %}{% endblock %}
+      {# Header drawer mobile uniquement (bouton fermer + branding). #}
+      <div class="lg:hidden p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <span class="font-bold text-slate-900 dark:text-slate-100">Menu</span>
+        <button type="button"
+                @click="sidebar.mobileOpen = false"
+                class="w-10 h-10 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-be-sky-500"
+                aria-label="Fermer le menu">
+          <i class="fas fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      {% block sidebar %}{% endblock %}
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
@@ -184,11 +102,10 @@
 
             {% block topbar_right %}{% endblock %}
 
-            {# Toggle thème (a11y). #}
             <button type="button"
                     @click="toggleTheme()"
                     class="w-10 h-10 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-be-sky-500"
-                    :aria-label="theme === 'dark' ? 'Activer le thème clair' : 'Activer le thème sombre'"
+                    :aria-label="theme === 'dark' ? 'Activer le theme clair' : 'Activer le theme sombre'"
                     :aria-pressed="theme === 'dark'">
               <i class="fas" :class="theme === 'dark' ? 'fa-sun' : 'fa-moon'" aria-hidden="true"></i>
             </button>
@@ -200,7 +117,6 @@
         </div>
       </header>
 
-      {# Messages Django (status / errors). A11Y-10 : aria-live. #}
       {% if messages %}
         <div role="status" aria-live="polite" class="px-4 sm:px-6 pt-4 space-y-2">
           {% for message in messages %}
@@ -220,42 +136,12 @@
       </main>
 
       <footer class="px-4 sm:px-6 py-4 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800">
-        © {% now "Y" %} Best Épargne. Tous droits réservés.
+        &copy; {% now "Y" %} Best Epargne. Tous droits reserves.
       </footer>
     </div>
   </div>
 
-  {# Toast container global (A11Y-10). #}
   {% include "partials/toast.html" %}
-
-  <script>
-    function appShell() {
-      return {
-        theme: "light",
-        sidebar: {
-          mobileOpen: false,
-          collapsed: false,
-        },
-        initShell() {
-          this.theme = localStorage.getItem("be_theme") ||
-            (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-          this.applyTheme();
-          // Sync ouverture/fermeture du drawer avec la touche ESC + breakpoint.
-          window.addEventListener("resize", () => {
-            if (window.innerWidth >= 1024) this.sidebar.mobileOpen = false;
-          });
-        },
-        applyTheme() {
-          document.documentElement.classList.toggle("dark", this.theme === "dark");
-          try { localStorage.setItem("be_theme", this.theme); } catch(e) {}
-        },
-        toggleTheme() {
-          this.theme = this.theme === "dark" ? "light" : "dark";
-          this.applyTheme();
-        }
-      };
-    }
-  </script>
 
   {% block extra_scripts %}{% endblock %}
 </body>

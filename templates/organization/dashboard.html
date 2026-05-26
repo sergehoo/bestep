@@ -1,541 +1,94 @@
-{% extends "layout/admin_base_template.html" %}
-{% load humanize static %}
+{% extends "layout/app_shell.html" %}
+{% load static humanize a11y %}
 
 {% block title %}Dashboard — {{ organization.name }}{% endblock %}
-{% block page_title %}Dashboard organisation{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+
+{% block sidebar %}
+  {% include "partials/organization_side.html" %}
+{% endblock %}
 
 {% block content %}
-<section class="space-y-6">
+<div class="space-y-6">
 
-  <!-- HERO -->
-  <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
-    <div class="absolute -right-16 -top-16 w-44 h-44 rounded-full bg-white/10"></div>
-    <div class="absolute -left-10 -bottom-16 w-40 h-40 rounded-full bg-yellow-300/20"></div>
+  {# Hero compact (UX-43 : pas de hero géant). #}
+  <header class="rounded-2xl bg-gradient-to-r from-be-sky-600 to-be-sky-700 text-white p-6 shadow-soft">
+    <p class="text-sm opacity-80">Organisation</p>
+    <h2 class="text-2xl font-bold mt-1">{{ organization.name }}</h2>
+    <p class="text-sm opacity-80 mt-1">
+      {{ kpis.members.total|default:0 }} membres ·
+      {{ kpis.courses.total|default:0 }} cours ·
+      {{ kpis.enrollments.active|default:0 }} inscriptions actives
+    </p>
+  </header>
 
-    <div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-      <div>
-        <div class="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
-          <i class="fas fa-building"></i>
-          {{ organization.name }}
-        </div>
+  {# Bande KPI mutualisée (CQ-22). #}
+  <section aria-label="Indicateurs clés"
+           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {% include "partials/kpi_card.html" with icon="fa-users" color="sky" label="Membres" value=kpis.members.total|intcomma hint="actifs uniquement" %}
+    {% include "partials/kpi_card.html" with icon="fa-book-open" color="emerald" label="Cours publiés" value=kpis.courses.published|intcomma hint="company_only inclus" %}
+    {% include "partials/kpi_card.html" with icon="fa-graduation-cap" color="amber" label="Inscriptions actives" value=kpis.enrollments.active|intcomma %}
+    {% include "partials/kpi_card.html" with icon="fa-circle-check" color="indigo" label="Complétées" value=kpis.enrollments.completed|intcomma hint="cumulé" %}
+  </section>
 
-        <h1 class="mt-4 text-2xl md:text-4xl font-black">
-          Tableau de bord organisation
-        </h1>
-
-        <p class="mt-2 max-w-2xl text-sm md:text-base text-blue-50">
-          Suivez vos cours internes, vos formateurs, vos apprenants, les inscriptions et la progression globale.
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-3">
-        <a href="{{ member_create_url }}" class="btn-yellow">
-          <i class="fas fa-user-plus"></i>
-          Ajouter membre
-        </a>
-        <a href="{{ course_create_url }}" class="btn-soft bg-white/95">
-          <i class="fas fa-plus-circle"></i>
-          Créer cours
-        </a>
-        {% if media_library_url %}
-          <a href="{{ media_library_url }}" class="btn-soft bg-white/95">
-            <i class="fas fa-photo-film"></i>
-            Médias
-          </a>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <!-- STATS -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-    <div class="org-card p-5 card-lift">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500 font-semibold">Cours internes</p>
-          <p class="mt-2 text-3xl font-black text-slate-900">{{ stats.total_courses|intcomma }}</p>
-        </div>
-        <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
-          <i class="fas fa-book-open text-xl"></i>
-        </div>
-      </div>
-      <p class="mt-3 text-xs text-slate-500">
-        {{ stats.published_courses|default:0 }} publiés · {{ stats.draft_courses|default:0 }} brouillons
-      </p>
+  {# Bloc cours récents. #}
+  <section aria-labelledby="recent-courses-heading" class="space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 id="recent-courses-heading" class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        Cours récents
+      </h3>
+      <a href="{% url 'org:courses' organization_id=organization.id %}"
+         class="text-sm text-be-sky-600 hover:text-be-sky-700 focus:outline-none focus:ring-2 focus:ring-be-sky-500 rounded">
+        Voir tous les cours →
+      </a>
     </div>
 
-    <div class="org-card p-5 card-lift">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500 font-semibold">Inscriptions</p>
-          <p class="mt-2 text-3xl font-black text-slate-900">{{ stats.total_enrollments|intcomma }}</p>
-        </div>
-        <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-          <i class="fas fa-clipboard-check text-xl"></i>
-        </div>
-      </div>
-      <p class="mt-3 text-xs text-slate-500">
-        {{ stats.active_enrollments|default:0 }} actives
-      </p>
-    </div>
-
-    <div class="org-card p-5 card-lift">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500 font-semibold">Formateurs</p>
-          <p class="mt-2 text-3xl font-black text-slate-900">{{ stats.total_instructors|intcomma }}</p>
-        </div>
-        <div class="w-12 h-12 rounded-2xl bg-yellow-100 text-yellow-600 flex items-center justify-center">
-          <i class="fas fa-chalkboard-teacher text-xl"></i>
-        </div>
-      </div>
-      <p class="mt-3 text-xs text-slate-500">
-        Membres pédagogiques actifs
-      </p>
-    </div>
-
-    <div class="org-card p-5 card-lift">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500 font-semibold">Apprenants</p>
-          <p class="mt-2 text-3xl font-black text-slate-900">{{ stats.total_learners|intcomma }}</p>
-        </div>
-        <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center">
-          <i class="fas fa-user-graduate text-xl"></i>
-        </div>
-      </div>
-      <p class="mt-3 text-xs text-slate-500">
-        Utilisateurs rattachés à l’organisation
-      </p>
-    </div>
-  </div>
-
-  <!-- SECONDARY STATS -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-    <div class="org-card p-5 card-lift">
-      <p class="text-sm text-slate-500 font-semibold">Revenus générés</p>
-      <div class="mt-3 flex items-end justify-between">
-        <div>
-          <p class="text-3xl font-black text-slate-900">
-            {{ stats.total_revenue|floatformat:0|intcomma }}
-          </p>
-          <p class="text-sm text-slate-500 mt-1">XOF</p>
-        </div>
-        <div class="w-12 h-12 rounded-2xl bg-green-100 text-green-600 flex items-center justify-center">
-          <i class="fas fa-hand-holding-dollar text-xl"></i>
-        </div>
-      </div>
-    </div>
-
-    <div class="org-card p-5 card-lift">
-      <p class="text-sm text-slate-500 font-semibold">Progression moyenne</p>
-      <div class="mt-3">
-        <div class="flex items-center justify-between">
-          <p class="text-3xl font-black text-slate-900">
-            {{ stats.avg_progress|floatformat:0 }}%
-          </p>
-          <i class="fas fa-chart-line text-blue-600 text-xl"></i>
-        </div>
-        <div class="mt-3 h-3 rounded-full bg-slate-100 overflow-hidden">
-          <div class="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400"
-               style="width: {{ stats.avg_progress|floatformat:0 }}%;"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="org-card p-5 card-lift">
-      <p class="text-sm text-slate-500 font-semibold">Contenus pédagogiques</p>
-      <div class="mt-3 flex items-center justify-between">
-        <div>
-          <p class="text-3xl font-black text-slate-900">{{ stats.total_lessons|intcomma }}</p>
-          <p class="text-sm text-slate-500 mt-1">leçons disponibles</p>
-        </div>
-        <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center">
-          <i class="fas fa-layer-group text-xl"></i>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================================ -->
-  <!-- TENDANCES & ANALYTICS AVANCÉS                                  -->
-  <!-- ============================================================ -->
-
-  <!-- Mini-KPIs de tendance -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Inscrits 30j</p>
-      <p class="mt-2 text-3xl font-black text-emerald-600">+{{ stats.new_enrollments_30d|default:0|intcomma }}</p>
-      <p class="mt-1 text-xs text-slate-500">{{ stats.new_enrollments_90d|default:0|intcomma }} sur 90 jours</p>
-    </div>
-    <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Nouveaux cours 30j</p>
-      <p class="mt-2 text-3xl font-black text-blue-600">+{{ stats.new_courses_30d|default:0|intcomma }}</p>
-      <p class="mt-1 text-xs text-slate-500">Catalogue interne</p>
-    </div>
-    <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Taux complétion</p>
-      <p class="mt-2 text-3xl font-black text-purple-600">{{ stats.completion_rate|default:0|floatformat:0 }}%</p>
-      <p class="mt-1 text-xs text-slate-500">{{ stats.completed_enrollments|default:0|intcomma }} parcours terminés</p>
-    </div>
-    <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Quiz actifs</p>
-      <p class="mt-2 text-3xl font-black text-amber-600">{{ stats.active_quizzes|default:0|intcomma }}</p>
-      <p class="mt-1 text-xs text-slate-500">{{ stats.total_quizzes|default:0|intcomma }} au total</p>
-    </div>
-  </div>
-
-  <!-- Tendances : top inscrits / tendance / top notes -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-    <!-- TOP par inscrits -->
-    <div class="org-card overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h2 class="text-sm font-black text-slate-900">
-          <i class="fas fa-fire text-orange-500 mr-1"></i>
-          Cours les plus suivis
-        </h2>
-        <p class="text-xs text-slate-500 mt-1">Classement par inscrits</p>
-      </div>
-      <div class="divide-y divide-slate-100">
-        {% for c in top_courses_by_enrollments %}
-          <a href="{% url 'org:course_detail' organization.id c.id %}"
-             class="block px-5 py-3 hover:bg-slate-50 transition">
-            <div class="flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <div class="font-bold text-slate-900 truncate">{{ c.title }}</div>
-                <div class="text-xs text-slate-500 truncate">
-                  {{ c.instructor.full_name|default:c.instructor.email|default:"Non affecté" }}
-                </div>
-              </div>
-              <div class="text-right shrink-0">
-                <div class="text-lg font-black text-blue-600">{{ c.enrolled_count|intcomma }}</div>
-                <div class="text-[10px] uppercase tracking-wider text-slate-400">inscrits</div>
-              </div>
-            </div>
-          </a>
-        {% empty %}
-          <div class="p-5 text-sm text-slate-500">Aucune donnée pour le moment.</div>
+    {% if recent_courses %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for course in recent_courses %}
+          {% include "partials/course_card.html" with course=course size="md" context="org" %}
         {% endfor %}
       </div>
+    {% else %}
+      {% include "partials/empty_state.html" with icon="fa-book-open" title="Aucun cours" message="Cette organisation n'a pas encore créé de cours." cta_label="Créer un cours" cta_url=create_course_url %}
+    {% endif %}
+  </section>
+
+  {# Bloc instructeurs récents. #}
+  <section aria-labelledby="recent-instructors-heading" class="space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 id="recent-instructors-heading" class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        Formateurs récents
+      </h3>
+      <a href="{% url 'org:members' organization_id=organization.id %}"
+         class="text-sm text-be-sky-600 hover:text-be-sky-700 focus:outline-none focus:ring-2 focus:ring-be-sky-500 rounded">
+        Voir tous les membres →
+      </a>
     </div>
 
-    <!-- Tendance 30j -->
-    <div class="org-card overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h2 class="text-sm font-black text-slate-900">
-          <i class="fas fa-chart-line text-emerald-500 mr-1"></i>
-          Cours en tendance
-        </h2>
-        <p class="text-xs text-slate-500 mt-1">Inscrits sur les 30 derniers jours</p>
-      </div>
-      <div class="divide-y divide-slate-100">
-        {% for c in trending_courses %}
-          <a href="{% url 'org:course_detail' organization.id c.id %}"
-             class="block px-5 py-3 hover:bg-slate-50 transition">
-            <div class="flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <div class="font-bold text-slate-900 truncate">{{ c.title }}</div>
-                <div class="text-xs text-slate-500 truncate">
-                  {{ c.category.name|default:"—" }}
-                </div>
-              </div>
-              <div class="text-right shrink-0">
-                <div class="text-lg font-black text-emerald-600">+{{ c.recent_enrollments }}</div>
-                <div class="text-[10px] uppercase tracking-wider text-slate-400">30j</div>
-              </div>
+    {% if recent_instructors %}
+      <ul role="list" class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-800">
+        {% for membership in recent_instructors %}
+          <li class="p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-be-sky-100 text-be-sky-700 flex items-center justify-center font-semibold"
+                 aria-hidden="true">
+              {{ membership.user.full_name|default:membership.user.email|slice:":1"|upper }}
             </div>
-          </a>
-        {% empty %}
-          <div class="p-5 text-sm text-slate-500">Aucune nouvelle inscription récente.</div>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-slate-900 dark:text-slate-100 truncate">
+                {{ membership.user.full_name|default:membership.user.email }}
+              </p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                {{ membership.get_role_display }} · invité {{ membership.joined_at|naturaltime }}
+              </p>
+            </div>
+          </li>
         {% endfor %}
-      </div>
-    </div>
+      </ul>
+    {% else %}
+      {% include "partials/empty_state.html" with icon="fa-user-tie" title="Aucun formateur" message="Invitez un formateur depuis l'onglet Membres." %}
+    {% endif %}
+  </section>
 
-    <!-- Top notes -->
-    <div class="org-card overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h2 class="text-sm font-black text-slate-900">
-          <i class="fas fa-star text-amber-500 mr-1"></i>
-          Mieux notés
-        </h2>
-        <p class="text-xs text-slate-500 mt-1">Note moyenne des avis publics</p>
-      </div>
-      <div class="divide-y divide-slate-100">
-        {% for c in top_courses_by_rating %}
-          <a href="{% url 'org:course_detail' organization.id c.id %}"
-             class="block px-5 py-3 hover:bg-slate-50 transition">
-            <div class="flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <div class="font-bold text-slate-900 truncate">{{ c.title }}</div>
-                <div class="text-xs text-slate-500 truncate">
-                  {{ c.rating_count }} avis
-                </div>
-              </div>
-              <div class="text-right shrink-0">
-                <div class="text-lg font-black text-amber-600">
-                  {{ c.rating_avg|floatformat:1 }}
-                  <i class="fas fa-star text-xs"></i>
-                </div>
-              </div>
-            </div>
-          </a>
-        {% empty %}
-          <div class="p-5 text-sm text-slate-500">Pas encore d'avis publics.</div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <!-- Top formateurs + Sparkline tendances enrollments -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-    <!-- TOP formateurs -->
-    <div class="org-card overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h2 class="text-sm font-black text-slate-900">
-          <i class="fas fa-chalkboard-teacher text-blue-500 mr-1"></i>
-          Formateurs les plus suivis
-        </h2>
-        <p class="text-xs text-slate-500 mt-1">Inscriptions cumulées sur leurs cours</p>
-      </div>
-      <div class="divide-y divide-slate-100">
-        {% for u in top_instructors %}
-          <div class="px-5 py-3 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black shrink-0">
-              {{ u.full_name|default:u.email|first|upper }}
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="font-bold text-slate-900 truncate">
-                {{ u.full_name|default:u.email }}
-              </div>
-              <div class="text-xs text-slate-500">
-                {{ u.courses_count }} cours
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-lg font-black text-blue-600">{{ u.enrolled_total|intcomma }}</div>
-              <div class="text-[10px] uppercase tracking-wider text-slate-400">inscrits</div>
-            </div>
-          </div>
-        {% empty %}
-          <div class="p-5 text-sm text-slate-500">Aucun formateur avec cours rattaché.</div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- Tendance enrollments 30j (sparkline simple sans dépendance JS) -->
-    <div class="org-card overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h2 class="text-sm font-black text-slate-900">
-          <i class="fas fa-wave-square text-purple-500 mr-1"></i>
-          Inscriptions — 30 derniers jours
-        </h2>
-        <p class="text-xs text-slate-500 mt-1">
-          {{ enrollments_trend|length }} jour{{ enrollments_trend|length|pluralize }} avec activité
-        </p>
-      </div>
-      <div class="p-5">
-        {% if enrollments_trend %}
-          <div class="flex items-end gap-1 h-32">
-            {% for d in enrollments_trend %}
-              <div class="flex-1 flex flex-col items-center justify-end group" title="{{ d.day }} · {{ d.count }} inscrits">
-                <div class="w-full rounded-t bg-gradient-to-t from-purple-500 to-purple-300 hover:from-purple-600 transition"
-                     style="height: {% widthratio d.count 50 100 %}%; min-height: 4px;"></div>
-              </div>
-            {% endfor %}
-          </div>
-          <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
-            <span>{{ enrollments_trend.0.day|default:"" }}</span>
-            <span>aujourd'hui</span>
-          </div>
-        {% else %}
-          <div class="text-sm text-slate-500 py-6 text-center">
-            Pas d'inscriptions sur les 30 derniers jours.
-          </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <!-- MAIN GRID -->
-  <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-    <!-- COURSES -->
-    <div class="xl:col-span-2 org-card overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div>
-          <h2 class="text-sm font-black text-slate-900">Cours récents</h2>
-          <p class="text-xs text-slate-500 mt-1">Derniers cours internes mis à jour</p>
-        </div>
-
-        <a href="{% url 'org:courses' organization.id %}" class="btn-soft">
-          Voir tout
-        </a>
-      </div>
-
-      <div class="p-5 grid sm:grid-cols-2 xl:grid-cols-2 gap-4">
-        {% for c in recent_courses %}
-          <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden card-lift">
-            <div class="aspect-[16/9] bg-slate-100 overflow-hidden">
-              {% if c.thumbnail %}
-                <img src="{{ c.thumbnail.url }}" alt="{{ c.title }}" class="w-full h-full object-cover">
-              {% else %}
-                <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-400 text-white">
-                  <i class="fas fa-book-open text-4xl"></i>
-                </div>
-              {% endif %}
-            </div>
-
-            <div class="p-4">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <h3 class="font-black text-slate-900 line-clamp-2">{{ c.title }}</h3>
-                  <p class="text-xs text-slate-500 mt-1">
-                    {{ c.instructor.full_name|default:c.instructor.email }}
-                  </p>
-                </div>
-
-                {% if c.status == "PUBLISHED" %}
-                  <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Publié</span>
-                {% elif c.status == "DRAFT" %}
-                  <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">Brouillon</span>
-                {% else %}
-                  <span class="rounded-full bg-yellow-50 px-3 py-1 text-xs font-bold text-yellow-700">{{ c.status }}</span>
-                {% endif %}
-              </div>
-
-              <div class="mt-4 flex items-center justify-between text-xs text-slate-500">
-                <span><i class="fas fa-layer-group mr-1"></i>{{ c.sections_count|default:0 }} sections</span>
-                <span><i class="fas fa-users mr-1"></i>{{ c.enrolled_count|default:0 }} inscrits</span>
-              </div>
-            </div>
-          </div>
-        {% empty %}
-          <div class="col-span-full text-center py-10">
-            <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-              <i class="fas fa-book-open text-slate-400 text-2xl"></i>
-            </div>
-            <h3 class="font-black text-slate-900">Aucun cours disponible</h3>
-            <p class="text-sm text-slate-500 mt-1">Créez votre premier cours interne.</p>
-            <a href="{{ course_create_url }}" class="btn-primary mt-5">
-              <i class="fas fa-plus"></i>
-              Créer un cours
-            </a>
-          </div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- SIDE -->
-    <div class="space-y-6">
-
-      <!-- ISSUES -->
-      <div class="org-card overflow-hidden">
-        <div class="px-5 py-4 border-b border-slate-100">
-          <h2 class="text-sm font-black text-slate-900">Cours à améliorer</h2>
-          <p class="text-xs text-slate-500 mt-1">Points bloquants détectés</p>
-        </div>
-
-        <div class="p-5 space-y-3">
-          {% for c in courses_needing_work %}
-            <div class="rounded-2xl border border-red-100 bg-red-50 p-4">
-              <div class="font-bold text-slate-900">{{ c.title }}</div>
-              <ul class="mt-2 space-y-1 text-sm text-red-600">
-                {% for issue in c.issues %}
-                  <li class="flex gap-2">
-                    <span>•</span>
-                    <span>{{ issue }}</span>
-                  </li>
-                {% endfor %}
-              </ul>
-            </div>
-          {% empty %}
-            <div class="text-center py-8">
-              <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
-                <i class="fas fa-check text-xl"></i>
-              </div>
-              <p class="font-black text-slate-900">Tout est OK</p>
-              <p class="text-sm text-slate-500 mt-1">Aucune anomalie détectée.</p>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <!-- CATEGORIES -->
-      <div class="org-card overflow-hidden">
-        <div class="px-5 py-4 border-b border-slate-100">
-          <h2 class="text-sm font-black text-slate-900">Catégories dominantes</h2>
-          <p class="text-xs text-slate-500 mt-1">Répartition des cours</p>
-        </div>
-
-        <div class="p-5 space-y-4">
-          {% for cat in top_categories %}
-            <div>
-              <div class="flex items-center justify-between text-sm">
-                <span class="font-bold text-slate-700">{{ cat.name }}</span>
-                <span class="text-xs text-slate-500">{{ cat.course_count }} cours</span>
-              </div>
-              <div class="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div class="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400"
-                     style="width: {% widthratio cat.course_count stats.total_courses 100 %}%;"></div>
-              </div>
-            </div>
-          {% empty %}
-            <p class="text-sm text-slate-500">Aucune catégorie disponible.</p>
-          {% endfor %}
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- RECENT MEMBERS -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="org-card overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h2 class="text-sm font-black text-slate-900">Formateurs récents</h2>
-      </div>
-
-      <div class="divide-y divide-slate-100">
-        {% for u in recent_instructors %}
-          <div class="px-5 py-4 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black">
-              {{ u.full_name|default:u.email|first|upper }}
-            </div>
-            <div>
-              <div class="font-bold text-slate-900">{{ u.full_name|default:"Nom non renseigné" }}</div>
-              <div class="text-xs text-slate-500">{{ u.email }}</div>
-            </div>
-          </div>
-        {% empty %}
-          <div class="p-5 text-sm text-slate-500">Aucun formateur récent.</div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <div class="org-card overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100">
-        <h2 class="text-sm font-black text-slate-900">Apprenants récents</h2>
-      </div>
-
-      <div class="divide-y divide-slate-100">
-        {% for u in recent_learners %}
-          <div class="px-5 py-4 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-yellow-100 text-yellow-700 flex items-center justify-center font-black">
-              {{ u.full_name|default:u.email|first|upper }}
-            </div>
-            <div>
-              <div class="font-bold text-slate-900">{{ u.full_name|default:"Nom non renseigné" }}</div>
-              <div class="text-xs text-slate-500">{{ u.email }}</div>
-            </div>
-          </div>
-        {% empty %}
-          <div class="p-5 text-sm text-slate-500">Aucun apprenant récent.</div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-</section>
+</div>
 {% endblock %}

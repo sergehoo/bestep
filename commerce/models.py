@@ -1,17 +1,26 @@
+"""commerce/models.py — CORRECTIF P1.H + COM-02/COM-05.
+
+Ajouts :
+- UniqueConstraint(provider, reference) sur PaymentTransaction (COM-02).
+- Validators sur Coupon.percent_off (0..100) (COM-05).
+"""
 from __future__ import annotations
 
-from django.db import models
-
-# Create your models here.
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
-from django.conf import settings
 
 
 class Coupon(models.Model):
     code = models.CharField(max_length=40, unique=True)
     is_active = models.BooleanField(default=True)
-    percent_off = models.PositiveIntegerField(null=True, blank=True)  # 0..100
+    # CORRECTIF COM-05 : borner percent_off entre 1 et 100.
+    percent_off = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+    )
     amount_off = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=8, default="XOF")
 
@@ -19,6 +28,15 @@ class Coupon(models.Model):
     valid_to = models.DateTimeField(null=True, blank=True)
     usage_limit = models.PositiveIntegerField(null=True, blank=True)
     used_count = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(default=timezone.now)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_coupons",
+    )
 
 
 class Order(models.Model):
@@ -30,10 +48,20 @@ class Order(models.Model):
         CANCELED = "CANCELED", "Annulée"
         REFUNDED = "REFUNDED", "Remboursée"
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
-                             related_name="orders")
-    company = models.ForeignKey("organizations.Organization", on_delete=models.SET_NULL, null=True, blank=True,
-                                related_name="orders")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+    )
+    company = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+    )
 
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT)
     currency = models.CharField(max_length=8, default="XOF")
@@ -56,13 +84,9 @@ class Order(models.Model):
             models.Index(fields=["paid_at"]),
         ]
         constraints = [
-            # Une commande DOIT avoir soit un user soit une company.
             models.CheckConstraint(
                 name="order_user_or_company_required",
-                check=(
-                    models.Q(user__isnull=False)
-                    | models.Q(company__isnull=False)
-                ),
+                check=(models.Q(user__isnull=False) | models.Q(company__isnull=False)),
             ),
         ]
 
@@ -95,7 +119,7 @@ class PaymentTransaction(models.Model):
         FAILED = "FAILED", "Échec"
 
     order = models.ForeignKey("commerce.Order", on_delete=models.CASCADE, related_name="transactions")
-    provider = models.CharField(max_length=40)  # stripe, paydunya, cinetpay, ...
+    provider = models.CharField(max_length=40)
     reference = models.CharField(max_length=120, blank=True)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.INITIATED)
 
@@ -111,10 +135,20 @@ class PaymentTransaction(models.Model):
             models.Index(fields=["order", "status"]),
             models.Index(fields=["provider", "reference"]),
         ]
+        constraints = [
+            # CORRECTIF COM-02 : idempotence webhook.
+            models.UniqueConstraint(
+                fields=["provider", "reference"],
+                condition=~models.Q(reference=""),
+                name="unique_provider_reference",
+            ),
+        ]
 
 
 class CompanyLicense(models.Model):
-    company = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="licenses")
+    company = models.ForeignKey(
+        "organizations.Organization", on_delete=models.CASCADE, related_name="licenses"
+    )
     seats_total = models.PositiveIntegerField(default=0)
     seats_used = models.PositiveIntegerField(default=0)
     valid_until = models.DateField(null=True, blank=True)
@@ -122,16 +156,26 @@ class CompanyLicense(models.Model):
 
 
 class CompanyAssignment(models.Model):
-    company = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="assignments")
-    course = models.ForeignKey("catalog.Course", on_delete=models.CASCADE, related_name="company_assignments")
-    assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
-                                    related_name="assigned_courses")
+    company = models.ForeignKey(
+        "organizations.Organization", on_delete=models.CASCADE, related_name="assignments"
+    )
+    course = models.ForeignKey(
+        "catalog.Course", on_delete=models.CASCADE, related_name="company_assignments"
+    )
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="assigned_courses",
+    )
     due_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
 
 
 class CompanyAssignmentTarget(models.Model):
-    assignment = models.ForeignKey("commerce.CompanyAssignment", on_delete=models.CASCADE, related_name="targets")
+    assignment = models.ForeignKey(
+        "commerce.CompanyAssignment", on_delete=models.CASCADE, related_name="targets"
+    )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     class Meta:

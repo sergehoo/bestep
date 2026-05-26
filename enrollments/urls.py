@@ -1,22 +1,19 @@
 """
-URL configuration for best_epargne project.
+enrollments/urls.py — CORRECTIF P1.J (audit ENROLL-01).
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+Avant : ``urlpatterns = []`` ; ``CourseLearnView`` définie dans
+``enrollments/views.py`` n'était jamais branchée. Le bouton « Continuer le
+cours » côté apprenant était mort.
 """
-from django.contrib import admin
-from django.urls import path, include
+from django.urls import path
+
+from .lesson_media_views import lesson_signed_stream
+from .views import CourseLearnView
+
+app_name = "learn"
 
 urlpatterns = [
-
+    path("course/<slug:slug>/", CourseLearnView.as_view(), name="course_learn"),
+    # V5.D / SEC-33 : endpoint signed URL court pour le player vidéo.
+    path("api/lessons/<int:lesson_id>/stream/", lesson_signed_stream, name="lesson_stream"),
 ]

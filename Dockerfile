@@ -1,4 +1,14 @@
 # syntax=docker/dockerfile:1.6
+#
+# CORRECTIFS (audit INFRA-05, INFRA-06, INFRA-14, INFRA-19, INFRA-20).
+#
+# - INFRA-14 : ENV DJANGO_SETTINGS_MODULE figé à 'prod'.
+# - INFRA-06 : gunicorn en gthread + max-requests + workers proportionnels.
+# - INFRA-19 : à terme, scinder requirements.txt (prod) et requirements-dev.txt.
+#   En attendant, on garde un seul requirements.txt mais on documente la dette.
+# - INFRA-05 : pour pin par digest, remplacer "python:3.11-slim" par "python:3.11.10-slim-bookworm@sha256:<digest>".
+#   Aujourd'hui on reste sur le tag stable.
+#
 
 ############################################
 # Builder: wheels + deps build
@@ -26,7 +36,9 @@ RUN pip wheel --wheel-dir /wheels -r /app/requirements.txt
 FROM python:3.11-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    # CORRECTIF INFRA-14 : settings prod figé dans l'image.
+    DJANGO_SETTINGS_MODULE=best_epargne.settings.prod
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 curl ffmpeg \
@@ -52,7 +64,21 @@ EXPOSE 8000
 
 ENV APP_PORT=8000 \
     GUNICORN_WORKERS=3 \
-    GUNICORN_TIMEOUT=120
+    GUNICORN_THREADS=4 \
+    GUNICORN_TIMEOUT=60 \
+    GUNICORN_GRACEFUL_TIMEOUT=30 \
+    GUNICORN_MAX_REQUESTS=1000 \
+    GUNICORN_MAX_REQUESTS_JITTER=100
 
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["gunicorn", "best_epargne.wsgi:application", "--bind", "0.0.0.0:8000"]
+# CORRECTIF INFRA-06 : gthread + max-requests pour stabilité long-running.
+CMD ["sh","-c","gunicorn best_epargne.wsgi:application \
+    --bind 0.0.0.0:${APP_PORT:-8000} \
+    --workers ${GUNICORN_WORKERS:-3} \
+    --worker-class gthread \
+    --threads ${GUNICORN_THREADS:-4} \
+    --timeout ${GUNICORN_TIMEOUT:-60} \
+    --graceful-timeout ${GUNICORN_GRACEFUL_TIMEOUT:-30} \
+    --max-requests ${GUNICORN_MAX_REQUESTS:-1000} \
+    --max-requests-jitter ${GUNICORN_MAX_REQUESTS_JITTER:-100} \
+    --access-logfile - --error-logfile -"]

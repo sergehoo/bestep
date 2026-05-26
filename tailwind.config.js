@@ -61,9 +61,14 @@ module.exports = {
         soft: "0 10px 30px rgba(12,92,142,.12)",
         ring: "0 0 0 6px rgba(30,167,255,.12)",
         lift: "0 12px 40px rgba(18,24,39,.14)",
+        premium: "0 22px 60px rgba(15,23,42,.10)",
+        glow: "0 18px 45px rgba(37,99,235,.22)",
       },
       borderRadius: {
         "2.5xl": "1.25rem",
+      },
+      spacing: {
+        82: "20.5rem",
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],

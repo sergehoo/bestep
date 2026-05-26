@@ -147,52 +147,7 @@
 {#    </div>#}
   </form>
 
-  <!-- JS: show/hide password -->
-  <script>
-    (function () {
-      const btn = document.getElementById("toggle-password");
-      if (!btn) return;
-
-      // essaie de récupérer l'input rendu par allauth
-      const pwd = document.querySelector('input[type="password"][name="password"], input[type="password"]');
-      if (!pwd) return;
-
-      btn.addEventListener("click", () => {
-        const isPwd = pwd.getAttribute("type") === "password";
-        pwd.setAttribute("type", isPwd ? "text" : "password");
-        btn.innerHTML = isPwd ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
-      });
-    })();
-  </script>
+  <script defer src="{% static 'src/js/account-login.js' %}"></script>
 
   <!-- IMPORTANT: styles pour les champs Allauth si widgets pas encore stylés -->
-  <style>
-    /* Si Allauth rend les inputs sans classes, on force un style premium */
-    form input[type="text"],
-    form input[type="email"],
-    form input[type="password"]{
-      width: 100%;
-      padding: 0.75rem 2.75rem 0.75rem 2.5rem; /* left icon + right btn */
-      border-radius: 1rem;
-      border: 1px solid rgb(229 231 235);
-      background: rgb(249 250 251);
-      outline: none;
-      transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
-    }
-    form input[type="text"]:focus,
-    form input[type="email"]:focus,
-    form input[type="password"]:focus{
-      background: #fff;
-      border-color: rgba(56, 189, 248, .5);
-      box-shadow: 0 0 0 4px rgba(56, 189, 248, .18);
-    }
-    form input[type="checkbox"]{
-      width: 1rem;
-      height: 1rem;
-      border-radius: .35rem;
-      border: 1px solid rgb(209 213 219);
-      accent-color: #0284c7; /* sky-600 */
-    }
-  </style>
-
 {% endblock %}

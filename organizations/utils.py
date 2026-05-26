@@ -1,10 +1,11 @@
 from django.shortcuts import get_object_or_404
 
+from core.permissions import is_platform_admin
 from organizations.models import Organization, OrganizationMembership
 
 
 def get_user_admin_organizations(user):
-    if getattr(user, "is_platform_admin", False):
+    if is_platform_admin(user):
         return Organization.objects.filter(is_active=True)
 
     return Organization.objects.filter(

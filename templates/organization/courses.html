@@ -333,8 +333,7 @@
               </div>
 
               <div class="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div class="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400"
-                     style="width: {% widthratio item.course_count courses|length 100 %}%;"></div>
+                <div class="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400 w-pct-{% widthratio item.course_count courses|length 100 %}"></div>
               </div>
             </div>
           {% empty %}

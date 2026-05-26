@@ -1,7 +1,15 @@
-# /Users/ogahserge/Documents/best_epargne/formations/storage.py
+"""formations/storage.py — CORRECTIFS P1.F (audit FORMATIONS-06, FORMATIONS-07).
+
+- FORMATIONS-06 : ``s3_internal_client.verify`` est aligné sur les settings
+  globaux (``AWS_S3_VERIFY``) au lieu d'être hardcodé à ``False``.
+- FORMATIONS-07 : ``sanitize_filename`` est durci (longueur max, neutralisation
+  des points multiples, refus de filenames bizarres).
+"""
+from __future__ import annotations
+
+import mimetypes
 import os
 import re
-import mimetypes
 from uuid import uuid4
 
 import boto3
@@ -9,10 +17,32 @@ from botocore.config import Config
 from django.conf import settings
 
 
+_MAX_FILENAME_LEN = 120
+_BAD_FILENAMES = {".", "..", ".htaccess", ".env", ""}
+
+
 def sanitize_filename(filename: str) -> str:
-    filename = os.path.basename(filename or "file.bin").strip()
-    filename = re.sub(r"[^\w.\-]+", "_", filename, flags=re.UNICODE)
-    return filename or "file.bin"
+    """Nettoie un filename utilisateur avant stockage MinIO.
+
+    Règles :
+    - basename uniquement (pas de path),
+    - caractères non-[A-Za-z0-9._-] remplacés par '_',
+    - lowercased,
+    - tronqué à 120 chars,
+    - rejet des noms suspects (vide, '.', '..', '.htaccess', ...).
+    """
+    name = os.path.basename(filename or "file.bin").strip().lower()
+    name = re.sub(r"[^\w.\-]+", "_", name, flags=re.UNICODE)
+    # Empêcher les filenames composés uniquement de points.
+    if name.strip(".") == "":
+        name = "file.bin"
+    if name in _BAD_FILENAMES:
+        name = "file.bin"
+    if len(name) > _MAX_FILENAME_LEN:
+        base, ext = os.path.splitext(name)
+        cut = _MAX_FILENAME_LEN - len(ext) - 1
+        name = base[: max(1, cut)] + ext
+    return name or "file.bin"
 
 
 def guess_content_type(filename: str, default: str = "application/octet-stream") -> str:
@@ -35,6 +65,7 @@ def build_thumbnail_object_key(user_id, asset_id) -> str:
 
 
 def s3_internal_client():
+    """CORRECTIF FORMATIONS-06 : verify aligné sur les settings."""
     return boto3.client(
         "s3",
         endpoint_url=settings.MINIO_INTERNAL_ENDPOINT,
@@ -42,7 +73,8 @@ def s3_internal_client():
         aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
         region_name=settings.MINIO_REGION,
         config=Config(signature_version="s3v4"),
-        verify=False,
+        use_ssl=getattr(settings, "AWS_S3_USE_SSL", True),
+        verify=getattr(settings, "AWS_S3_VERIFY", True),
     )
 
 
@@ -54,5 +86,5 @@ def s3_public_client():
         aws_secret_access_key=settings.MINIO_ROOT_PASSWORD,
         region_name=settings.MINIO_REGION,
         config=Config(signature_version="s3v4"),
-        verify=True,
+        verify=getattr(settings, "AWS_S3_VERIFY", True),
     )

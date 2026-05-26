@@ -162,11 +162,18 @@ pytest tests/ --cov=. --cov-report=term-missing
 
 - [`audit_best_epargne_2026.docx`](audit_best_epargne_2026.docx) — Audit complet 350 findings
 - [`MANIFEST_REMEDIATION.md`](MANIFEST_REMEDIATION.md) — Point d'entrée unique
+- [`deploy/GO_LIVE_RUNBOOK.md`](deploy/GO_LIVE_RUNBOOK.md) — Checklist Go-Live production exécutable
 - [`PATCHES.md`](PATCHES.md) — Patches ponctuels pour les god-modules
 - [`CLEANUP_TEMPLATES.md`](CLEANUP_TEMPLATES.md) — Suppression sûre des 7 templates orphelins
 - `CHANGELOG_2026_05.md` (V1) · `CHANGELOG_2026_05_V2.md` (V2) ·
   `CHANGELOG_2026_05_V3.md` (V3) · `CHANGELOG_2026_05_V4.md` (V4 final)
 - API : `http://localhost:8000/api/docs/` (Swagger) ou `/api/redoc/`
+
+## Smoke test production
+
+```bash
+APP_URL=\"https://<APP_HOST>\" ./deploy/smoke_prod.sh
+```
 
 ## Application des correctifs audit (un seul script)
 

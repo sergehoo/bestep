@@ -63,7 +63,7 @@
       {% if membership.is_active %}
         <form method="post" action="{% url 'org:member_deactivate' organization.id membership.id %}"
               class="inline-block ml-auto"
-              onsubmit="return confirm('Désactiver ce membre ? Son accès sera suspendu mais l\'historique conservé.');">
+              data-confirm="Désactiver ce membre ? Son accès sera suspendu mais l'historique conservé.">
           {% csrf_token %}
           <button class="btn-soft text-rose-600 hover:bg-rose-50">
             <i class="fas fa-user-slash"></i>

@@ -95,8 +95,7 @@
         <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Progression moyenne</p>
         <p class="mt-2 text-3xl font-black text-emerald-600">{{ avg_progress|floatformat:0 }}%</p>
         <div class="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
-          <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300"
-               style="width: {{ avg_progress|floatformat:0 }}%;"></div>
+          <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300 w-pct-{% widthratio avg_progress 1 1 %}"></div>
         </div>
       </div>
       <div class="org-card p-5">
@@ -158,8 +157,7 @@
                 <span class="font-bold">{{ e.progress_percent|default:0 }}%</span>
               </div>
               <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div class="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400"
-                     style="width: {{ e.progress_percent|default:0 }}%;"></div>
+                <div class="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400 w-pct-{% widthratio e.progress_percent|default:0 1 1 %}"></div>
               </div>
             </div>
           </div>

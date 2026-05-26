@@ -17,6 +17,7 @@ from typing import Iterable, Optional
 
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+from core.permissions import is_platform_admin
 from organizations.models import OrganizationMembership
 
 
@@ -48,13 +49,7 @@ class PermissionUtils:
 
     @staticmethod
     def is_platform_admin(user) -> bool:
-        if not PermissionUtils.is_authenticated_and_active(user):
-            return False
-        return bool(
-            getattr(user, "is_platform_admin", False)
-            or getattr(user, "is_superuser", False)
-            or getattr(user, "is_staff", False)
-        )
+        return is_platform_admin(user)
 
     @staticmethod
     def has_active_membership(user) -> bool:

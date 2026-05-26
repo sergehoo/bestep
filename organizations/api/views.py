@@ -1,110 +1,77 @@
+"""organizations/api/views.py — CORRECTIF V2.B (ORG-01).
+
+Avant : 2 problèmes bloquants :
+1. Double ``from __future__ import annotations`` (le 2e levait SyntaxError).
+2. Imports relatifs cassés (``from serializers ...``).
+
+Après : imports propres ; ViewSets fonctionnels. URLS branchées dans
+``organizations/api/urls.py.new`` + ``best_epargne/apis/api_urls.py``.
+"""
 from __future__ import annotations
 
 from django.db.models import Q
-from rest_framework import mixins, status, viewsets
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-
-from best_epargne.apis.permissions import IsOrganizationAdmin
-from serializers import OrganizationInvitationSerializer, CreateOrganizationInvitationSerializer
-
-from organizations.models import OrganizationInvitation, OrganizationMembership
-
-from __future__ import annotations
-
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from best_epargne.apis.permissions import IsOrganizationAdmin
-from serializers import (
+from core.permissions import is_platform_admin
+from organizations.api.serializers import (
+    CreateOrganizationInvitationSerializer,
     CreateOrganizationMemberSerializer,
+    OrganizationInvitationSerializer,
     OrganizationMemberSerializer,
 )
-from organizations.models import OrganizationMembership
+from organizations.models import OrganizationInvitation, OrganizationMembership
 
 
 class OrganizationMembersManagementViewSet(viewsets.GenericViewSet):
-    """
-    Gestion des membres par les admins d'organisation.
-    """
+    """Gestion des membres par les admins d'organisation."""
 
     permission_classes = [IsAuthenticated, IsOrganizationAdmin]
     queryset = OrganizationMembership.objects.select_related("user", "organization", "invited_by")
     serializer_class = OrganizationMemberSerializer
 
+    def _create_with_role(self, request, *, role: str | None = None):
+        payload = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        if role is not None:
+            payload["role"] = role
+        ser = CreateOrganizationMemberSerializer(data=payload, context={"request": request})
+        ser.is_valid(raise_exception=True)
+        membership = ser.save()
+        return Response(
+            OrganizationMemberSerializer(membership, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
     @action(detail=False, methods=["post"], url_path="create-member")
     def create_member(self, request):
-        serializer = CreateOrganizationMemberSerializer(
-            data=request.data,
-            context={"request": request},
-        )
-        serializer.is_valid(raise_exception=True)
-        membership = serializer.save()
-        output = OrganizationMemberSerializer(membership, context={"request": request})
-        return Response(output.data, status=status.HTTP_201_CREATED)
+        return self._create_with_role(request)
 
     @action(detail=False, methods=["post"], url_path="create-instructor")
     def create_instructor(self, request):
-        payload = request.data.copy()
-        payload["role"] = OrganizationMembership.Role.INSTRUCTOR
-
-        serializer = CreateOrganizationMemberSerializer(
-            data=payload,
-            context={"request": request},
-        )
-        serializer.is_valid(raise_exception=True)
-        membership = serializer.save()
-        output = OrganizationMemberSerializer(membership, context={"request": request})
-        return Response(output.data, status=status.HTTP_201_CREATED)
+        return self._create_with_role(request, role=OrganizationMembership.Role.INSTRUCTOR)
 
     @action(detail=False, methods=["post"], url_path="create-learner")
     def create_learner(self, request):
-        payload = request.data.copy()
-        payload["role"] = OrganizationMembership.Role.LEARNER
-
-        serializer = CreateOrganizationMemberSerializer(
-            data=payload,
-            context={"request": request},
-        )
-        serializer.is_valid(raise_exception=True)
-        membership = serializer.save()
-        output = OrganizationMemberSerializer(membership, context={"request": request})
-        return Response(output.data, status=status.HTTP_201_CREATED)
+        return self._create_with_role(request, role=OrganizationMembership.Role.LEARNER)
 
     @action(detail=False, methods=["post"], url_path="create-admin")
     def create_admin(self, request):
-        payload = request.data.copy()
-        payload["role"] = OrganizationMembership.Role.ADMIN
-
-        serializer = CreateOrganizationMemberSerializer(
-            data=payload,
-            context={"request": request},
-        )
-        serializer.is_valid(raise_exception=True)
-        membership = serializer.save()
-        output = OrganizationMemberSerializer(membership, context={"request": request})
-        return Response(output.data, status=status.HTTP_201_CREATED)
+        return self._create_with_role(request, role=OrganizationMembership.Role.ADMIN)
 
 
 class OrganizationInvitationsViewSet(viewsets.ModelViewSet):
-    """
-    Invitations d'organisation.
-
-    Permissions :
-    - admin plateforme : tout voir
-    - admin org : invitations de ses organisations
-    """
+    """Invitations d'organisation."""
 
     permission_classes = [IsAuthenticated, IsOrganizationAdmin]
     serializer_class = OrganizationInvitationSerializer
 
     def get_queryset(self):
         user = self.request.user
-
-        if getattr(user, "is_platform_admin", False):
+        if is_platform_admin(user):
             return (
                 OrganizationInvitation.objects.select_related("organization", "invited_by")
                 .order_by("-created_at")
@@ -130,11 +97,10 @@ class OrganizationInvitationsViewSet(viewsets.ModelViewSet):
 
         status_filter = self.request.query_params.get("status")
         if status_filter == "pending":
-            queryset = queryset.filter(accepted_at__isnull=True)
+            queryset = queryset.filter(accepted_at__isnull=True, expires_at__gt=timezone.now())
         elif status_filter == "accepted":
             queryset = queryset.filter(accepted_at__isnull=False)
         elif status_filter == "expired":
-            from django.utils import timezone
             queryset = queryset.filter(accepted_at__isnull=True, expires_at__lt=timezone.now())
 
         search = self.request.query_params.get("search")
@@ -153,11 +119,13 @@ class OrganizationInvitationsViewSet(viewsets.ModelViewSet):
         return OrganizationInvitationSerializer
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        invitation = serializer.save()
-        output = OrganizationInvitationSerializer(invitation, context={"request": request})
-        return Response(output.data, status=status.HTTP_201_CREATED)
+        ser = self.get_serializer(data=request.data, context={"request": request})
+        ser.is_valid(raise_exception=True)
+        invitation = ser.save()
+        return Response(
+            OrganizationInvitationSerializer(invitation, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["post"])
     def revoke(self, request, pk=None):

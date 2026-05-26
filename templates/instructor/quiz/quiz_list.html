@@ -82,32 +82,5 @@
     </section>
 </div>
 
-<script>
-function quizListPage() {
-    return {
-        quizzes: [],
-        loading: false,
-        filters: { q: "" },
-
-        async init() {
-            await this.loadQuizzes();
-        },
-
-        async loadQuizzes() {
-            try {
-                this.loading = true;
-                const url = new URL("{% url 'api_instructor_course_quizzes' course_id=0 %}".replace("/0/", `/${this.getCourseIdPlaceholder()}/`), window.location.origin);
-            } catch (e) {
-                // fallback list globale via endpoint custom si besoin
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        getCourseIdPlaceholder() {
-            return "all";
-        }
-    }
-}
-</script>
+<script src="{% static 'src/js/quiz-pages.js' %}"></script>
 {% endblock %}

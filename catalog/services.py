@@ -1,12 +1,18 @@
 """Services applicatifs catalog (cours et médias).
 
-Ce module centralise les règles métier qui dépassent le simple CRUD :
-- résolution de l'organisation par défaut d'un utilisateur,
-- portée (queryset scoping) de la bibliothèque média selon le rôle,
-- portée des cours visibles par un instructeur.
+CORRECTIF P1.C (CAT-01, ASS-01) : ajout de ``get_visible_courses_qs`` qui
+centralise le filtrage status=PUBLISHED + company_only + scope org. C'est
+LE point d'entrée à utiliser dans toutes les vues qui exposent un cours :
 
-Les vues template ET les vues API doivent passer par ces services pour
-éviter toute divergence de logique entre les deux.
+- CourseDetailView (catalog/views.py)
+- recommend_courses (assessments/recommendations.py)
+- pick_courses_for_topics (assessments/views.py)
+- LearnerExploreCoursesView, LearnerCourseDetailView (best_epargne/apis/views.py)
+- toute future vue API/template public
+
+Le reste du module (resolve_default_organization_for_user, get_visible_media_qs,
+can_modify_media, get_instructor_courses_qs) est conservé tel quel — il fait
+déjà bien son travail.
 """
 from __future__ import annotations
 
@@ -15,14 +21,12 @@ from typing import Iterable, Optional
 from django.db.models import Q, QuerySet
 
 from catalog.models import Course, MediaAsset
+from core.permissions import is_platform_admin
 from organizations.models import Organization, OrganizationMembership
 
 
 # --- Organisation par défaut ------------------------------------------------
 
-# Rôles qui justifient un rattachement automatique d'un nouveau média
-# à l'organisation. INSTRUCTOR / MANAGER / ADMIN / OWNER : oui. LEARNER :
-# non (les médias d'un learner sont par défaut personnels).
 _AUTO_ATTACH_ROLES = (
     OrganizationMembership.Role.OWNER,
     OrganizationMembership.Role.ADMIN,
@@ -32,21 +36,8 @@ _AUTO_ATTACH_ROLES = (
 
 
 def resolve_default_organization_for_user(user) -> Optional[Organization]:
-    """Retourne l'organisation à laquelle rattacher un nouveau contenu créé
-    par ``user``, ou ``None`` si la décision est ambiguë.
-
-    Règles :
-    1. ``user`` non authentifié → None.
-    2. Le user a *exactement* une organisation active dont le rôle est
-       INSTRUCTOR/MANAGER/ADMIN/OWNER → cette organisation.
-    3. Plusieurs organisations possibles → None (on laisse l'UI demander).
-    4. Aucune → None.
-
-    Cette fonction n'écrit rien, elle se contente de lire.
-    """
     if not user or not user.is_authenticated:
         return None
-
     memberships = (
         user.organization_memberships
         .filter(
@@ -56,7 +47,6 @@ def resolve_default_organization_for_user(user) -> Optional[Organization]:
         )
         .select_related("organization")
     )
-
     candidates = list(memberships[:2])
     if len(candidates) == 1:
         return candidates[0].organization
@@ -64,8 +54,6 @@ def resolve_default_organization_for_user(user) -> Optional[Organization]:
 
 
 def get_user_organization_ids(user) -> list[int]:
-    """IDs des organisations actives auxquelles ``user`` appartient
-    (n'importe quel rôle). Utilisé pour le scoping des querysets."""
     if not user or not user.is_authenticated:
         return []
     return list(
@@ -75,42 +63,76 @@ def get_user_organization_ids(user) -> list[int]:
     )
 
 
-# --- Bibliothèque média : portée de visibilité -----------------------------
+# --- Cours : portée de visibilité publique / apprenant --------------------
+
+def get_visible_courses_qs(
+    user,
+    *,
+    public_only: bool = False,
+    base_qs: Optional[QuerySet] = None,
+) -> QuerySet:
+    """Cours qu'un utilisateur a le droit de voir/lister/consulter.
+
+    Cette fonction est l'UNIQUE source de vérité pour filtrer les cours
+    exposés via templates publics ET via API.
+
+    Règles :
+    - Cours ``status=PUBLISHED`` obligatoire (jamais de DRAFT/REVIEW/ARCHIVED).
+    - Si ``company_only=True`` : visible UNIQUEMENT par les membres actifs
+      de ``Course.company`` (et par l'admin plateforme).
+    - Sinon : visible publiquement.
+
+    Args:
+        user: ``request.user``, peut être anonyme.
+        public_only: si True, ignore le scope org même pour un user
+            authentifié (catalogue public strict). Utile pour
+            ``CourseListView`` non-authentifiée.
+        base_qs: queryset de base optionnel pour permettre d'enchaîner
+            d'autres filtres en amont.
+
+    Returns:
+        QuerySet ``Course`` filtré.
+    """
+    qs = base_qs if base_qs is not None else Course.objects.all()
+    qs = qs.filter(status=Course.Status.PUBLISHED)
+
+    # Anonyme ou public_only : pas de company_only.
+    if not user or not user.is_authenticated or public_only:
+        return qs.filter(company_only=False)
+
+    # Admin plateforme : voit tout (mais toujours filtré sur PUBLISHED ; pour
+    # les DRAFT, passer par les vues admin/instructor dédiées qui ont leur
+    # propre scope).
+    if is_platform_admin(user):
+        return qs
+
+    org_ids = get_user_organization_ids(user)
+    if not org_ids:
+        return qs.filter(company_only=False)
+    return qs.filter(
+        Q(company_only=False) | Q(company_only=True, company_id__in=org_ids)
+    )
+
+
+# --- Bibliothèque média : portée de visibilité ----------------------------
 
 def get_visible_media_qs(user, *, current_organization_id: Optional[int] = None) -> QuerySet:
-    """Médias visibles par ``user``.
-
-    Règles de visibilité (lecture) :
-    - admin plateforme : tous les médias ;
-    - sinon : médias dont il est ``owner``, OU médias rattachés à une org
-      où il est membre actif (``MediaAsset.organization`` ∈ ses orgs).
-
-    Si ``current_organization_id`` est fourni (espace org actif), on
-    restreint à ``owner=user`` + ``organization=current_organization_id``.
-    """
     qs = MediaAsset.objects.select_related("owner", "organization")
-
     if not user or not user.is_authenticated:
         return qs.none()
-
-    if getattr(user, "is_platform_admin", False):
+    if is_platform_admin(user):
         if current_organization_id:
             return qs.filter(
                 Q(owner=user) | Q(organization_id=current_organization_id)
             ).distinct()
         return qs
-
     org_ids = get_user_organization_ids(user)
-
     if current_organization_id:
         if current_organization_id not in org_ids:
-            # L'user n'appartient pas à cette org → ne retourner que ses
-            # médias personnels (ne pas leak l'existence des autres).
             return qs.filter(owner=user)
         return qs.filter(
             Q(owner=user) | Q(organization_id=current_organization_id)
         ).distinct()
-
     scope = Q(owner=user)
     if org_ids:
         scope |= Q(organization_id__in=org_ids)
@@ -118,17 +140,9 @@ def get_visible_media_qs(user, *, current_organization_id: Optional[int] = None)
 
 
 def can_modify_media(user, asset: MediaAsset) -> bool:
-    """Vrai si ``user`` peut modifier/supprimer ``asset``.
-
-    Règles :
-    - admin plateforme : oui ;
-    - owner (auteur) : oui ;
-    - admin de l'organisation à laquelle l'asset est rattaché : oui ;
-    - sinon : non.
-    """
     if not user or not user.is_authenticated or asset is None:
         return False
-    if getattr(user, "is_platform_admin", False):
+    if is_platform_admin(user):
         return True
     if asset.owner_id == user.id:
         return True
@@ -140,12 +154,14 @@ def can_modify_media(user, asset: MediaAsset) -> bool:
         role__in=[
             OrganizationMembership.Role.OWNER,
             OrganizationMembership.Role.ADMIN,
+            OrganizationMembership.Role.MANAGER,  # CORRECTIF CAT-13 : MANAGER inclus
         ],
         is_active=True,
+        organization__is_active=True,
     ).exists()
 
 
-# --- Cours : portée de visibilité instructeur ------------------------------
+# --- Cours : portée de visibilité instructeur -----------------------------
 
 def get_instructor_courses_qs(
     user,
@@ -153,41 +169,24 @@ def get_instructor_courses_qs(
     current_organization_id: Optional[int] = None,
     organization_ids: Optional[Iterable[int]] = None,
 ) -> QuerySet:
-    """Cours qu'un instructeur peut voir dans son espace.
-
-    Règles :
-    - admin plateforme : tous les cours ;
-    - sinon : cours dont il est ``instructor`` OU cours dont
-      ``Course.company`` est l'une de ses organisations actives.
-
-    Si ``current_organization_id`` est fourni, on restreint au scope de
-    cette organisation (cours dont ``company == current_organization_id``,
-    plus ses propres cours s'il en a). Cela permet à l'espace org de
-    n'afficher que ses cours.
-    """
     qs = Course.objects.select_related("category", "instructor", "company")
-
     if not user or not user.is_authenticated:
         return qs.none()
-
-    if getattr(user, "is_platform_admin", False):
+    if is_platform_admin(user):
         if current_organization_id:
             return qs.filter(
                 Q(instructor=user) | Q(company_id=current_organization_id)
             ).distinct()
         return qs
-
     if organization_ids is None:
         organization_ids = get_user_organization_ids(user)
     organization_ids = list(organization_ids or [])
-
     if current_organization_id:
         if current_organization_id not in organization_ids:
             return qs.filter(instructor=user)
         return qs.filter(
             Q(instructor=user) | Q(company_id=current_organization_id)
         ).distinct()
-
     scope = Q(instructor=user)
     if organization_ids:
         scope |= Q(company_id__in=organization_ids)

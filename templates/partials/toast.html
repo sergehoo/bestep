@@ -51,32 +51,5 @@
   </template>
 </div>
 
-<script>
-  function bestepargneToast() {
-    return {
-      toasts: [],
-      _id: 0,
-      init() {
-        // Expose une API globale partagée par tous les Alpine scopes.
-        const self = this;
-        window.toast = {
-          show(opts) { self.show(opts); },
-          success(message, opts = {}) { self.show({...opts, type: "success", message}); },
-          error(message, opts = {}) { self.show({...opts, type: "error", message}); },
-          warning(message, opts = {}) { self.show({...opts, type: "warning", message}); },
-          info(message, opts = {}) { self.show({...opts, type: "info", message}); },
-        };
-      },
-      show({ type = "info", message = "", duration = 4000 } = {}) {
-        const id = ++this._id;
-        this.toasts.push({ id, type, message });
-        if (duration > 0) {
-          setTimeout(() => this.dismiss(id), duration);
-        }
-      },
-      dismiss(id) {
-        this.toasts = this.toasts.filter(t => t.id !== id);
-      }
-    };
-  }
-</script>
+{% load static %}
+<script src="{% static 'src/js/toast.js' %}"></script>

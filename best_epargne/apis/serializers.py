@@ -1,10 +1,84 @@
-from django.db.models import Q
+"""
+best_epargne/apis/serializers.py — CORRECTIF P1.B.
+
+Corrections principales (audit) :
+
+- **API-28 / API-32 (Critique IDOR sérializer)** : ``company``, ``company_only``,
+  ``preview_media_asset_id`` deviennent ``read_only_fields`` du CourseSerializer
+  par défaut. Un instructeur ne peut plus PATCH son cours sous une autre org.
+  Pour les écritures légitimes (admin org qui crée un cours pour son org),
+  une sous-classe ``CourseWriteSerializer`` peut être utilisée plus tard.
+
+- **API-31 (IDOR sérializer)** : ``LessonSerializer.validate_media_asset_id``
+  vérifie via ``catalog.services.get_visible_media_qs`` que l'asset référencé
+  est visible par le request.user.
+
+- **API-32 (IDOR sérializer)** : ``CourseSerializer.validate_preview_media_asset_id``
+  fait le même check sur le preview.
+
+- **API-34 (Leak object_key MinIO)** : ``object_key``, ``optimized_object_key``,
+  ``thumbnail_object_key`` ne sont plus exposés dans MediaAssetListSerializer ni
+  MediaAssetDetailSerializer ni MediaAssetSerializer. Les clients passent par
+  ``/api/media/<id>/signed/`` pour obtenir une URL temporaire.
+
+- **API-36 (Bug get_can_edit)** : on utilise ``obj.company_id`` (le nom réel du
+  champ sur ``Course``) au lieu de ``obj.organization_id`` (qui n'existe pas).
+
+- **API-37 (Code mort)** : suppression des ~40 lignes commentées.
+
+- **Validation upload (API-10 + API-12)** : ``MediaUploadInitSerializer`` valide
+  désormais MIME ∈ whitelist par kind, size ≤ MAX_SIZE_PER_KIND, et accepte une
+  ``expires_in`` optionnelle bornée à 1800s (30 min).
+"""
+from __future__ import annotations
+
 from django.urls import reverse
-from django.utils.timesince import timesince
 from django.utils.text import slugify
+from django.utils.timesince import timesince
 from rest_framework import serializers
-from catalog.models import Course, CourseSection, Lesson, Category, MediaAsset
+
+from catalog.models import Category, Course, CourseSection, Lesson, MediaAsset
 from commerce.models import OrderItem
+from organizations.models import OrganizationMembership
+
+
+# --- Whitelists upload média ----------------------------------------------
+
+ALLOWED_MIME_BY_KIND = {
+    MediaAsset.Kind.VIDEO: {
+        "video/mp4",
+        "video/webm",
+        "video/quicktime",
+        "video/x-matroska",
+    },
+    MediaAsset.Kind.AUDIO: {
+        "audio/mpeg",
+        "audio/mp4",
+        "audio/ogg",
+        "audio/wav",
+        "audio/x-m4a",
+    },
+    MediaAsset.Kind.DOC: {
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+    },
+}
+
+MAX_SIZE_BY_KIND = {
+    MediaAsset.Kind.VIDEO: 5 * 1024 * 1024 * 1024,   # 5 GiB
+    MediaAsset.Kind.AUDIO: 250 * 1024 * 1024,        # 250 MiB
+    MediaAsset.Kind.DOC: 100 * 1024 * 1024,          # 100 MiB
+}
+
+
+# --- Catégorie -------------------------------------------------------------
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -13,55 +87,82 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug"]
 
 
+# --- MediaAsset ------------------------------------------------------------
+
 class MediaAssetSerializer(serializers.ModelSerializer):
     can_edit = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
     scope = serializers.SerializerMethodField()
     owner_name = serializers.SerializerMethodField()
 
-    def get_can_edit(self, obj):
-        user = self.context["request"].user
+    def _writable_org_ids(self):
+        """Lazy cache des org_ids OWNER/ADMIN/MANAGER du request.user.
 
+        Évite un N+1 dans les listes paginées (cf. API-35).
+        """
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return []
+        cache = self.context.setdefault("_writable_org_ids_cache", None)
+        if cache is not None:
+            return cache
+        ids = list(
+            user.organization_memberships.filter(
+                role__in=[
+                    OrganizationMembership.Role.OWNER,
+                    OrganizationMembership.Role.ADMIN,
+                    OrganizationMembership.Role.MANAGER,
+                ],
+                is_active=True,
+                organization__is_active=True,
+            ).values_list("organization_id", flat=True)
+        )
+        self.context["_writable_org_ids_cache"] = ids
+        return ids
+
+    def get_can_edit(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return False
+        if getattr(user, "is_platform_admin", False):
+            return True
         if obj.owner_id == user.id:
             return True
-
         organization_id = getattr(obj, "organization_id", None)
         if not organization_id:
             return False
-
-        return user.organization_memberships.filter(
-            organization_id=organization_id,
-            role__in=["OWNER", "ADMIN"],
-            is_active=True,
-        ).exists()
+        return organization_id in self._writable_org_ids()
 
     def get_can_delete(self, obj):
         return self.get_can_edit(obj)
 
     def get_scope(self, obj):
-        user = self.context["request"].user
-        return "personal" if obj.owner_id == user.id else "organization"
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user and user.is_authenticated and obj.owner_id == user.id:
+            return "personal"
+        return "organization"
 
     def get_owner_name(self, obj):
         owner = getattr(obj, "owner", None)
         if not owner:
             return "—"
-
         return (
             getattr(owner, "full_name", None)
             or f"{getattr(owner, 'first_name', '')} {getattr(owner, 'last_name', '')}".strip()
             or getattr(owner, "email", None)
-            or getattr(owner, "username", None)
             or "Utilisateur"
         )
 
     class Meta:
         model = MediaAsset
+        # CORRECTIF API-34 : on ne renvoie plus ``object_key`` (chemin MinIO interne).
         fields = [
             "id",
             "kind",
             "title",
-            "object_key",
             "content_type",
             "size",
             "duration_seconds",
@@ -72,6 +173,10 @@ class MediaAssetSerializer(serializers.ModelSerializer):
             "scope",
             "owner_name",
         ]
+
+
+# --- Lesson / Section ------------------------------------------------------
+
 
 class LessonSerializer(serializers.ModelSerializer):
     media_asset = MediaAssetSerializer(read_only=True)
@@ -84,12 +189,28 @@ class LessonSerializer(serializers.ModelSerializer):
             "video_url", "content", "file",
             "media_asset", "media_asset_id",
         ]
+        read_only_fields = ["id", "media_asset"]
+
+    def validate_media_asset_id(self, value):
+        """CORRECTIF API-31 : un instructeur ne peut référencer que les médias
+        qu'il a légitimement le droit de voir (siens + ceux de ses orgs)."""
+        if value is None:
+            return value
+        # Import local pour éviter le coût d'import au top-level.
+        from catalog.services import get_visible_media_qs
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            raise serializers.ValidationError("Authentification requise.")
+        if not get_visible_media_qs(user).filter(pk=value).exists():
+            raise serializers.ValidationError("Média introuvable ou non accessible.")
+        return value
 
     def validate(self, attrs):
-        # optionnel : auto-cohérence
         lt = attrs.get("lesson_type")
+        # Garde-fou : leçon VIDEO doit avoir media_asset_id ou video_url ;
+        # leçon TEXT doit avoir content ; on accepte vide mais on log côté front.
         if lt == "TEXT" and not attrs.get("content", ""):
-            # pas obligatoire, mais conseillé
             return attrs
         return attrs
 
@@ -118,9 +239,11 @@ class CourseSectionSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "order", "lessons"]
 
 
+# --- Course ----------------------------------------------------------------
+
+
 class CourseSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
-
     thumbnail_url = serializers.SerializerMethodField()
     preview_media_asset = MediaAssetSerializer(read_only=True)
     preview_media_asset_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
@@ -175,11 +298,19 @@ class CourseSerializer(serializers.ModelSerializer):
             "can_delete",
             "scope",
         ]
+        # CORRECTIF API-28 : ``company``, ``company_only`` deviennent
+        # read_only sur ce sérializer générique. Un instructeur ne peut
+        # PLUS basculer son cours vers une autre org via PATCH.
+        # Si vous voulez permettre l'édition à un admin org, créez un
+        # ``CourseAdminWriteSerializer(CourseSerializer)`` dédié qui
+        # surcharge ``read_only_fields`` et valide via ``can_edit``.
         read_only_fields = [
             "status",
             "published_at",
             "instructor",
             "slug",
+            "company",
+            "company_only",
         ]
 
     def get_updated_at_human(self, obj):
@@ -188,45 +319,73 @@ class CourseSerializer(serializers.ModelSerializer):
 
     def get_thumbnail_url(self, obj):
         req = self.context.get("request")
-
         if obj.thumbnail and hasattr(obj.thumbnail, "url"):
             return req.build_absolute_uri(obj.thumbnail.url) if req else obj.thumbnail.url
-
         return None
+
+    def _writable_org_ids(self):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return []
+        cache = self.context.get("_course_writable_orgs_cache")
+        if cache is not None:
+            return cache
+        ids = list(
+            user.organization_memberships.filter(
+                role__in=[
+                    OrganizationMembership.Role.OWNER,
+                    OrganizationMembership.Role.ADMIN,
+                    OrganizationMembership.Role.MANAGER,
+                ],
+                is_active=True,
+                organization__is_active=True,
+            ).values_list("organization_id", flat=True)
+        )
+        self.context["_course_writable_orgs_cache"] = ids
+        return ids
 
     def get_can_edit(self, obj):
         request = self.context.get("request")
-        user = request.user if request else None
-
+        user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
             return False
-
         if getattr(user, "is_platform_admin", False):
             return True
-
         if obj.instructor_id == user.id:
             return True
-
-        if not obj.organization_id:
+        # CORRECTIF API-36 : on lit company_id, pas organization_id (champ inexistant).
+        company_id = getattr(obj, "company_id", None)
+        if not company_id:
             return False
-
-        return user.organization_memberships.filter(
-            organization_id=obj.organization_id,
-            role__in=["OWNER", "ADMIN"],
-            is_active=True,
-        ).exists()
+        return company_id in self._writable_org_ids()
 
     def get_can_delete(self, obj):
         return self.get_can_edit(obj)
 
     def get_scope(self, obj):
         request = self.context.get("request")
-        user = request.user if request else None
-
+        user = getattr(request, "user", None)
         if user and obj.instructor_id == user.id:
             return "personal"
-
         return "organization"
+
+    def validate_preview_media_asset_id(self, value):
+        """CORRECTIF API-32 : preview ne peut référencer qu'un média visible."""
+        if value is None:
+            return value
+        from catalog.services import get_visible_media_qs
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            raise serializers.ValidationError("Authentification requise.")
+        if not get_visible_media_qs(user).filter(pk=value).exists():
+            raise serializers.ValidationError("Média de preview introuvable ou non accessible.")
+        return value
+
+
+# --- Checkout / Webhook ----------------------------------------------------
+
 
 class CheckoutItemSerializer(serializers.Serializer):
     course_id = serializers.IntegerField(required=False)
@@ -259,53 +418,48 @@ class WebhookSerializer(serializers.Serializer):
     raw_payload = serializers.JSONField(required=False)
 
 
-# class MediaUploadInitSerializer(serializers.Serializer):
-#     filename = serializers.CharField(max_length=255)
-#     content_type = serializers.CharField(max_length=120)
-#     size = serializers.IntegerField(min_value=1)
-#     kind = serializers.ChoiceField(choices=["video", "audio", "doc"])
-#     title = serializers.CharField(required=False, allow_blank=True, max_length=255)
-#
-#
-# class MediaUploadFinalizeBindSerializer(serializers.Serializer):
-#     course_id = serializers.IntegerField()
-#     section_id = serializers.IntegerField()
-#     lesson_id = serializers.IntegerField()
-#
-#
-# class MediaUploadFinalizeSerializer(serializers.Serializer):
-#     upload_id = serializers.CharField(max_length=64)  # id de tracking coté front
-#     object_key = serializers.CharField(max_length=1024)
-#     kind = serializers.ChoiceField(choices=["video", "audio", "doc"])
-#     title = serializers.CharField(required=False, allow_blank=True, max_length=255)
-#
-#     content_type = serializers.CharField(max_length=120)
-#     size = serializers.IntegerField(min_value=1)
-#     duration_seconds = serializers.IntegerField(required=False, allow_null=True, min_value=0)
-#
-#     # bind optionnel (recommandé)
-#     bind = MediaUploadFinalizeBindSerializer(required=False, allow_null=True)
-#
-#
-# class MediaAssetListSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = MediaAsset
-#         fields = [
-#             "id",
-#             "kind",
-#             "title",
-#             "object_key",
-#             "content_type",
-#             "size",
-#             "duration_seconds",
-#             "created_at",
-#         ]
+# --- Media upload init -----------------------------------------------------
+
+
 class MediaUploadInitSerializer(serializers.Serializer):
+    """CORRECTIF API-10 : whitelist stricte des MIME/size par kind.
+
+    Empêche d'utiliser le bucket comme hébergement libre (text/html, 10 TB, etc.).
+    """
     filename = serializers.CharField(max_length=255)
     content_type = serializers.CharField(max_length=255)
     size = serializers.IntegerField(min_value=1)
     kind = serializers.ChoiceField(choices=MediaAsset.Kind.choices)
     title = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        kind = attrs["kind"]
+        content_type = attrs["content_type"].lower().strip()
+        size = attrs["size"]
+
+        allowed = ALLOWED_MIME_BY_KIND.get(kind, set())
+        if content_type not in allowed:
+            raise serializers.ValidationError({
+                "content_type": (
+                    f"Type MIME '{content_type}' non autorisé pour kind={kind}. "
+                    f"Autorisés : {sorted(allowed)}."
+                ),
+            })
+
+        max_size = MAX_SIZE_BY_KIND.get(kind, 0)
+        if max_size and size > max_size:
+            raise serializers.ValidationError({
+                "size": f"Fichier trop volumineux pour kind={kind} (max {max_size} octets).",
+            })
+
+        # Filename : pas de path traversal en clair (côté serveur on resanitize aussi).
+        fn = attrs["filename"]
+        if "/" in fn or "\\" in fn or fn.startswith("."):
+            raise serializers.ValidationError({"filename": "Nom de fichier invalide."})
+        if len(fn) > 200:
+            raise serializers.ValidationError({"filename": "Nom de fichier trop long."})
+
+        return attrs
 
 
 class MediaBindSerializer(serializers.Serializer):
@@ -324,8 +478,28 @@ class MediaUploadFinalizeSerializer(serializers.Serializer):
     duration_seconds = serializers.IntegerField(required=False, allow_null=True, min_value=0)
     bind = MediaBindSerializer(required=False, allow_null=True)
 
+    def validate(self, attrs):
+        kind = attrs["kind"]
+        content_type = attrs["content_type"].lower().strip()
+        allowed = ALLOWED_MIME_BY_KIND.get(kind, set())
+        if content_type not in allowed:
+            raise serializers.ValidationError({
+                "content_type": f"Type MIME '{content_type}' non autorisé pour kind={kind}.",
+            })
+        max_size = MAX_SIZE_BY_KIND.get(kind, 0)
+        if max_size and attrs["size"] > max_size:
+            raise serializers.ValidationError({"size": "Fichier trop volumineux."})
+        return attrs
+
+
+# --- Media list / detail / update -----------------------------------------
+
 
 class MediaAssetListSerializer(serializers.ModelSerializer):
+    """CORRECTIF API-34 : on n'expose plus les chemins MinIO internes (object_key,
+    optimized_object_key, thumbnail_object_key). Le client passe par les
+    endpoints ``/api/media/<id>/signed/`` ou ``/thumbnail/`` pour récupérer
+    une URL signée éphémère."""
     thumbnail_url = serializers.SerializerMethodField()
     optimized = serializers.SerializerMethodField()
 
@@ -335,12 +509,9 @@ class MediaAssetListSerializer(serializers.ModelSerializer):
             "id",
             "kind",
             "title",
-            "object_key",
             "content_type",
             "size",
             "duration_seconds",
-            "optimized_object_key",
-            "thumbnail_object_key",
             "processing_status",
             "processing_error",
             "width",
@@ -351,6 +522,7 @@ class MediaAssetListSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        read_only_fields = fields
 
     def get_thumbnail_url(self, obj):
         request = self.context.get("request")
@@ -363,8 +535,9 @@ class MediaAssetListSerializer(serializers.ModelSerializer):
     def get_optimized(self, obj):
         return bool(obj.optimized_object_key)
 
+
 class MediaAssetDetailSerializer(serializers.ModelSerializer):
-    effective_object_key = serializers.CharField(read_only=True)
+    """CORRECTIF API-34 : idem, plus de fuite des chemins internes."""
 
     class Meta:
         model = MediaAsset
@@ -372,13 +545,9 @@ class MediaAssetDetailSerializer(serializers.ModelSerializer):
             "id",
             "kind",
             "title",
-            "object_key",
-            "effective_object_key",
             "content_type",
             "size",
             "duration_seconds",
-            "optimized_object_key",
-            "thumbnail_object_key",
             "width",
             "height",
             "bitrate",
@@ -387,6 +556,8 @@ class MediaAssetDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        read_only_fields = fields
+
 
 class MediaAssetUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -402,34 +573,31 @@ class MediaAssetUpdateSerializer(serializers.ModelSerializer):
         if value not in allowed:
             raise serializers.ValidationError("Type de média invalide.")
         return value
+
+
+# --- Public course ---------------------------------------------------------
+
+
 class PublicCourseSerializer(serializers.ModelSerializer):
-    # ✅ champs “UI-friendly” calculés
     course_type_label = serializers.CharField(source="get_course_type_display", read_only=True)
     pricing_type_label = serializers.CharField(source="get_pricing_type_display", read_only=True)
 
     category_name = serializers.SerializerMethodField()
     category_slug = serializers.SerializerMethodField()
-
     instructor_name = serializers.SerializerMethodField()
     instructor_initials = serializers.SerializerMethodField()
-
     thumbnail_url = serializers.SerializerMethodField()
 
-    # ✅ champs attendus par le front (mais absents du modèle) => valeurs par défaut
     level = serializers.SerializerMethodField()
     level_label = serializers.SerializerMethodField()
     level_color = serializers.SerializerMethodField()
-
     duration = serializers.SerializerMethodField()
     enrolled_count = serializers.SerializerMethodField()
     rating = serializers.SerializerMethodField()
-
     is_popular = serializers.SerializerMethodField()
     color_gradient = serializers.SerializerMethodField()
     icon = serializers.SerializerMethodField()
-
     price_period = serializers.SerializerMethodField()
-
     detail_url = serializers.SerializerMethodField()
     preview_url = serializers.SerializerMethodField()
     enroll_url = serializers.SerializerMethodField()
@@ -442,27 +610,20 @@ class PublicCourseSerializer(serializers.ModelSerializer):
             "slug",
             "subtitle",
             "description",
-
             "category_name",
             "category_slug",
-
             "course_type",
             "course_type_label",
-
             "pricing_type",
             "pricing_type_label",
             "price",
             "currency",
             "price_period",
-
             "status",
             "published_at",
-
             "company_only",
             "thumbnail_url",
             "preview_video_url",
-
-            # front-friendly
             "level",
             "level_label",
             "level_color",
@@ -472,23 +633,20 @@ class PublicCourseSerializer(serializers.ModelSerializer):
             "is_popular",
             "color_gradient",
             "icon",
-
             "instructor_name",
             "instructor_initials",
-
             "detail_url",
             "preview_url",
             "enroll_url",
         ]
+        read_only_fields = fields
 
-    # ---------- Category ----------
     def get_category_name(self, obj):
         return obj.category.name if obj.category else None
 
     def get_category_slug(self, obj):
         return obj.category.slug if obj.category else None
 
-    # ---------- Instructor ----------
     def get_instructor_name(self, obj):
         instructor = obj.instructor
         if not instructor:
@@ -496,7 +654,7 @@ class PublicCourseSerializer(serializers.ModelSerializer):
         name = ""
         if hasattr(instructor, "get_full_name"):
             name = instructor.get_full_name() or ""
-        return name.strip() or getattr(instructor, "username", "Formateur")
+        return name.strip() or "Formateur"
 
     def get_instructor_initials(self, obj):
         name = self.get_instructor_name(obj) or "BE"
@@ -507,7 +665,6 @@ class PublicCourseSerializer(serializers.ModelSerializer):
             return parts[0][0].upper()
         return "BE"
 
-    # ---------- Media ----------
     def get_thumbnail_url(self, obj):
         if not obj.thumbnail:
             return None
@@ -515,12 +672,10 @@ class PublicCourseSerializer(serializers.ModelSerializer):
             request = self.context.get("request")
             url = obj.thumbnail.url
             return request.build_absolute_uri(url) if request else url
-        except Exception:
+        except (ValueError, AttributeError):
             return None
 
-    # ---------- Front defaults (absents du modèle) ----------
     def get_level(self, obj):
-        # Ton modèle n'a pas "level" -> valeur par défaut
         return "beginner"
 
     def get_level_label(self, obj):
@@ -538,23 +693,18 @@ class PublicCourseSerializer(serializers.ModelSerializer):
         }.get(self.get_level(obj), "blue")
 
     def get_duration(self, obj):
-        # Pas dans ton modèle -> défaut
         return "—"
 
     def get_enrolled_count(self, obj):
-        # À brancher plus tard avec Enrollment aggregation
         return 0
 
     def get_rating(self, obj):
-        # À brancher plus tard avec Review/Rating model
         return 0.0
 
     def get_is_popular(self, obj):
-        # Exemple: populaire si publié récemment
         return bool(obj.published_at)
 
     def get_color_gradient(self, obj):
-        # Couleur selon pricing_type par exemple
         if obj.pricing_type == Course.PricingType.FREE:
             return "from-green-600 to-green-500"
         if obj.pricing_type == Course.PricingType.HYBRID:
@@ -562,7 +712,6 @@ class PublicCourseSerializer(serializers.ModelSerializer):
         return "from-blue-600 to-blue-500"
 
     def get_icon(self, obj):
-        # Icon selon course_type
         return {
             Course.CourseType.CERTIFIANTE: "fas fa-certificate",
             Course.CourseType.PROFESSIONNELLE: "fas fa-briefcase",
@@ -571,32 +720,18 @@ class PublicCourseSerializer(serializers.ModelSerializer):
         }.get(obj.course_type, "fas fa-book-open")
 
     def get_price_period(self, obj):
-        # Ton modèle n'a pas price_period -> défaut
         return "cours"
-
-    # ---------- URLs ----------
-    # def get_detail_url(self, obj):
-    #     return f"/courses/{obj.slug}/"  # ✅ mieux que id (slug existe)
-    #
-    # def get_preview_url(self, obj):
-    #     return f"/courses/{obj.slug}/"
-    #
-    # def get_enroll_url(self, obj):
-    #     return f"/courses/{obj.slug}/enroll/"
 
     def get_detail_url(self, obj):
         slug = obj.slug or slugify(obj.title)
         return reverse("course_public_page", kwargs={"slug": slug, "course_id": obj.id})
 
     def get_preview_url(self, obj):
-        # identique au public detail (page HTML)
         return self.get_detail_url(obj)
 
     def get_enroll_url(self, obj):
-        # public: on renvoie vers signup/login (ou page détail)
         request = self.context.get("request")
         url = reverse("account_signup")
-        # optionnel : retour après inscription
         if request:
-          return f"{url}?next={self.get_detail_url(obj)}"
+            return f"{url}?next={self.get_detail_url(obj)}"
         return url

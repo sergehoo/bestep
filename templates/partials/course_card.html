@@ -85,7 +85,7 @@
           <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"
                role="progressbar"
                aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ progress_percent }}">
-            <div class="h-full bg-sky-500 transition-all" style="width: {{ progress_percent }}%"></div>
+            <div class="h-full bg-sky-500 transition-all w-pct-{% widthratio progress_percent 1 1 %}"></div>
           </div>
         </div>
       {% endif %}

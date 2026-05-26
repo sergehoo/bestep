@@ -52,55 +52,5 @@
     </section>
 </div>
 
-<script>
-function quizUpdatePage(cfg) {
-    return {
-        quizId: cfg.quizId,
-        form: {
-            title: "",
-            passing_score: 70,
-            max_attempts: 3
-        },
-
-        async init() {
-            await this.load();
-        },
-
-        async apiGet(url) {
-            const res = await fetch(url, {headers: {"Accept":"application/json"}, credentials:"same-origin"});
-            if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
-            return await res.json();
-        },
-
-        async apiPost(url, payload={}) {
-            const m = document.cookie.match(/csrftoken=([^;]+)/);
-            const csrf = m ? m[1] : "";
-            const res = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": csrf,
-                    "Accept": "application/json"
-                },
-                body: JSON.stringify(payload),
-                credentials: "same-origin"
-            });
-            if (!res.ok) throw new Error(`POST ${url} -> ${res.status}`);
-            return await res.json();
-        },
-
-        async load() {
-            const q = await this.apiGet(`/api/instructor/quizzes/${this.quizId}/`);
-            this.form.title = q.title || "";
-            this.form.passing_score = q.passing_score || 70;
-            this.form.max_attempts = q.max_attempts || 3;
-        },
-
-        async save() {
-            await this.apiPost(`/api/instructor/quizzes/${this.quizId}/update/`, this.form);
-            window.location.href = `/dashboard/instructor/quizzes/${this.quizId}/`;
-        }
-    }
-}
-</script>
+<script src="{% static 'src/js/quiz-pages.js' %}"></script>
 {% endblock %}

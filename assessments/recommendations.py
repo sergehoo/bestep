@@ -1,9 +1,32 @@
-# assessments/recommendations.py
+"""
+assessments/recommendations.py — CORRECTIF P1.C (audit ASS-01, ASS-02, ASS-03).
+
+ASS-01 (Critique, fuite de données) : la version précédente faisait
+``qs = Course.objects.all()`` puis essayait ``hasattr(Course, 'is_published'/
+'published'/'is_active')`` — aucun n'existe sur le modèle (le champ réel est
+``status``). Conséquence : les recommandations exposaient des cours DRAFT,
+ARCHIVED et company_only à TOUS les apprenants après l'onboarding.
+
+ASS-02 (Performance) : la version précédente faisait jusqu'à 50 requêtes
+icontains (2 colonnes × 25 keywords). On agrège en un seul filter avec un
+``Q`` reduce.
+
+ASS-03 : ``except Exception: pass`` masquait toute erreur réelle — supprimé.
+
+Sécurité du filtrage : on délègue à ``catalog.services.get_visible_courses_qs``
+qui garantit status=PUBLISHED + company_only=False (pour un appelant
+anonyme/learner).
+"""
 from __future__ import annotations
 
+import operator
+from functools import reduce
 from typing import Dict, List
 
+from django.db.models import Q
+
 from catalog.models import Course
+from catalog.services import get_visible_courses_qs
 
 
 TOPIC_KEYWORDS: Dict[str, List[str]] = {
@@ -27,63 +50,54 @@ LEVEL_HINTS: Dict[str, List[str]] = {
 }
 
 
-def recommend_courses(profile: Dict, limit: int = 4) -> List[Course]:
+def _build_keywords(profile: Dict) -> List[str]:
     level = profile.get("level", "Débutant")
     focus = profile.get("focus", []) or []
     strengths = profile.get("strengths", []) or []
-
-    # priorité: focus, puis strengths (car intérêt)
     topics = list(dict.fromkeys(focus + strengths))
-
-    qs = Course.objects.all()
-
-    # si tu as un champ de publication, on tente sans casser
-    for field in ("is_published", "published", "is_active"):
-        if hasattr(Course, field):
-            try:
-                qs = qs.filter(**{field: True})
-                break
-            except Exception:
-                pass
-
-    # build keywords
-    keywords = []
+    keywords: List[str] = []
     for t in topics:
         keywords += TOPIC_KEYWORDS.get(t, [])
     keywords += LEVEL_HINTS.get(level, [])
-    keywords = list(dict.fromkeys([k.lower() for k in keywords if k]))
+    return list(dict.fromkeys([k.lower() for k in keywords if k]))
 
+
+def recommend_courses(profile: Dict, limit: int = 4, user=None) -> List[Course]:
+    """Suggère ``limit`` cours adaptés au profil d'onboarding ``profile``.
+
+    Sécurité : ne retourne JAMAIS de cours non publiés ni de cours
+    company_only auxquels ``user`` n'a pas accès. Si ``user`` n'est pas
+    fourni, fallback sur la portée publique (anonyme).
+    """
+    qs = get_visible_courses_qs(user)
+
+    keywords = _build_keywords(profile)
     matched_ids: List[int] = []
 
-    # 1) match titre
-    for kw in keywords:
-        for c in qs.filter(title__icontains=kw)[:30]:
-            if c.id not in matched_ids:
-                matched_ids.append(c.id)
-            if len(matched_ids) >= limit:
-                break
-        if len(matched_ids) >= limit:
-            break
+    if keywords:
+        # CORRECTIF ASS-02 : on agrège en UN seul filter au lieu de 25+ icontains.
+        title_q = reduce(operator.or_, (Q(title__icontains=k) for k in keywords))
+        desc_q = reduce(operator.or_, (Q(description__icontains=k) for k in keywords))
 
-    # 2) match description
-    if len(matched_ids) < limit and hasattr(Course, "description"):
-        for kw in keywords:
-            for c in qs.filter(description__icontains=kw)[:30]:
-                if c.id not in matched_ids:
-                    matched_ids.append(c.id)
-                if len(matched_ids) >= limit:
-                    break
-            if len(matched_ids) >= limit:
-                break
-
-    # 3) fallback: récents
-    if len(matched_ids) < limit:
-        for cid in qs.order_by("-id").values_list("id", flat=True)[:50]:
+        # 1) Priorité au match title.
+        for cid in qs.filter(title_q).values_list("id", flat=True)[: limit * 3]:
             if cid not in matched_ids:
                 matched_ids.append(cid)
-            if len(matched_ids) >= limit:
-                break
 
-    courses = list(Course.objects.filter(id__in=matched_ids))
-    by_id = {c.id: c for c in courses}
-    return [by_id[i] for i in matched_ids if i in by_id][:limit]
+        # 2) Compléter avec description si besoin.
+        if len(matched_ids) < limit:
+            for cid in qs.filter(desc_q).values_list("id", flat=True)[: limit * 3]:
+                if cid not in matched_ids:
+                    matched_ids.append(cid)
+
+    # 3) Fallback récents (filtré par get_visible_courses_qs → toujours PUBLISHED).
+    if len(matched_ids) < limit:
+        for cid in qs.order_by("-published_at", "-id").values_list("id", flat=True)[: limit * 3]:
+            if cid not in matched_ids:
+                matched_ids.append(cid)
+
+    matched_ids = matched_ids[:limit]
+    if not matched_ids:
+        return []
+    by_id = {c.id: c for c in qs.filter(id__in=matched_ids)}
+    return [by_id[i] for i in matched_ids if i in by_id]

@@ -9,7 +9,7 @@
     ``/learn/api/lessons/<id>/stream/`` ;
   - ``controlsList="nodownload noremoteplayback"`` empêche les options
     natives du menu contextuel ;
-  - ``oncontextmenu="return false"`` désactive le clic-droit ;
+  - le clic-droit est intercepté via Alpine pour limiter les téléchargements ;
   - ``disablePictureInPicture`` empêche le PiP ;
   - on rafraîchit l'URL automatiquement avant expiration (50s) si la
     lecture continue.
@@ -57,10 +57,10 @@
            controls
            controlsList="nodownload noremoteplayback noplaybackrate"
            disablePictureInPicture
-           oncontextmenu="return false"
            preload="metadata"
            crossorigin="anonymous"
            aria-label="Lecteur vidéo {{ title|default:'leçon' }}"
+           @contextmenu="onContextMenu($event)"
            @error="onMediaError($event)"
            @timeupdate="onTimeUpdate($event)"
            class="w-full h-full bg-black"></video>
@@ -80,66 +80,5 @@
   </template>
 </div>
 
-<script>
-  function lessonPlayer(lessonId) {
-    return {
-      lessonId: lessonId,
-      loading: true,
-      error: null,
-      url: null,
-      kind: null,
-      _expiresAt: null,
-      _refreshTimer: null,
-      async loadStream() {
-        this.loading = true;
-        this.error = null;
-        try {
-          const resp = await fetch(`/learn/api/lessons/${this.lessonId}/stream/`, {
-            credentials: "same-origin",
-            headers: { "Accept": "application/json" },
-          });
-          if (resp.status === 404) {
-            this.error = "Vidéo introuvable ou accès non autorisé.";
-            return;
-          }
-          if (resp.status === 401 || resp.status === 403) {
-            this.error = "Vous devez être inscrit pour visionner cette leçon.";
-            return;
-          }
-          if (!resp.ok) {
-            this.error = "Impossible de charger la vidéo (erreur réseau).";
-            return;
-          }
-          const data = await resp.json();
-          this.url = data.url;
-          this.kind = data.kind || "mp4";
-          if (data.expires_in && data.expires_in > 10) {
-            // Rafraîchit 10s avant expiration.
-            this._scheduleRefresh(data.expires_in - 10);
-          }
-        } catch (err) {
-          this.error = "Erreur réseau. Vérifiez votre connexion.";
-        } finally {
-          this.loading = false;
-        }
-      },
-      _scheduleRefresh(seconds) {
-        if (this._refreshTimer) clearTimeout(this._refreshTimer);
-        this._refreshTimer = setTimeout(() => {
-          // On ne rafraîchit que si la vidéo est en cours de lecture.
-          const v = this.$refs.video;
-          if (v && !v.paused) {
-            this.loadStream();
-          }
-        }, seconds * 1000);
-      },
-      onMediaError(ev) {
-        this.error = "La lecture a échoué. Cliquez sur Réessayer.";
-      },
-      onTimeUpdate(ev) {
-        // Hook pour reporter la progression côté serveur — à brancher
-        // (PATCH /api/lesson-progress/<id>/) avec debounce.
-      },
-    };
-  }
-</script>
+{% load static %}
+<script src="{% static 'src/js/lesson-player.js' %}"></script>

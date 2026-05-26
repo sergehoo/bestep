@@ -285,8 +285,7 @@
                     <div class="flex items-end gap-1 h-32">
                         {% for d in enrollments_trend %}
                             <div class="flex-1 flex flex-col items-center justify-end" title="{{ d.day }} · {{ d.count }} inscrits">
-                                <div class="w-full rounded-t bg-gradient-to-t from-be-sky-500 to-be-sky-300 hover:from-be-sky-600 transition"
-                                     style="height: {% widthratio d.count 100 100 %}%; min-height: 4px;"></div>
+                                <div class="w-full rounded-t bg-gradient-to-t from-be-sky-500 to-be-sky-300 hover:from-be-sky-600 transition {% if d.count > 100 %}h-pct-100{% else %}h-pct-{% widthratio d.count 100 100 %}{% endif %} min-h-1"></div>
                             </div>
                         {% endfor %}
                     </div>
@@ -320,8 +319,7 @@
                         <span class="text-xs text-be-ink-500">{{ cat.published_count }} cours</span>
                     </div>
                     <div class="mt-2 h-2 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
-                        <div class="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300"
-                             style="width: {% widthratio cat.published_count stats.published_courses 100 %}%;"></div>
+                        <div class="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300 w-pct-{% widthratio cat.published_count stats.published_courses 100 %}"></div>
                     </div>
                 </div>
             {% empty %}

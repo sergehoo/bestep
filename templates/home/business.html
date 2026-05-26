@@ -1,10 +1,11 @@
+{% load static %}
 <!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8"/>
   <title>best-épargne — Entreprise</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
 </head>
 
 <body class="bg-slate-50" x-data="businessApp()">
@@ -40,16 +41,7 @@
 
 </main>
 
-<script>
-function businessApp(){
-  return {
-    employees:[
-      {name:'Aïcha Koné', course:'Excel Finance', progress:72},
-      {name:'Yao N’Dri', course:'Conformité', progress:38}
-    ]
-  }
-}
-</script>
+<script src="{% static 'src/js/legacy-business.js' %}"></script>
 
 </body>
 </html>

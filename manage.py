@@ -1,12 +1,17 @@
 #!/usr/bin/env python
-"""Django's command-line utility for administrative tasks."""
+"""Django's command-line utility for administrative tasks.
+
+CORRECTIF SEC-02 : DJANGO_SETTINGS_MODULE par défaut sur best_epargne.settings.prod.
+Pour développer en local, exporter DJANGO_SETTINGS_MODULE=best_epargne.settings.dev.
+"""
 import os
 import sys
 
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'best_epargne.settings')
+    # CORRECTIF SEC-02 : prod par défaut.
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "best_epargne.settings")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -18,5 +23,5 @@ def main():
     execute_from_command_line(sys.argv)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

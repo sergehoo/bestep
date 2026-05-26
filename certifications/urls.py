@@ -1,22 +1,24 @@
-"""
-URL configuration for best_epargne project.
+"""certifications/urls.py — CORRECTIF V2.A (CERT-01).
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+Avant : ``urlpatterns = []`` ; ``verification_hash`` inexploité.
+
+Après :
+- ``GET /verify/<verification_hash>/`` → page HTML publique.
+- ``GET /<verification_hash>/download/`` → URL PDF signée.
+
+L'endpoint API JSON est branché à part dans ``best_epargne/apis/api_urls.py``
+(ou exposé via ce fichier — au choix).
 """
-from django.contrib import admin
-from django.urls import path, include
+from __future__ import annotations
+
+from django.urls import path
+
+from .views import download_certificate, verify_certificate, verify_certificate_api
+
+app_name = "certifications"
 
 urlpatterns = [
-
+    path("verify/<uuid:verification_hash>/", verify_certificate, name="verify"),
+    path("api/verify/<uuid:verification_hash>/", verify_certificate_api, name="verify_api"),
+    path("<uuid:verification_hash>/download/", download_certificate, name="download"),
 ]

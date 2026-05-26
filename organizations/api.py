@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
+from core.permissions import is_platform_admin
 from organizations.models import OrganizationMembership
 
 
@@ -44,7 +45,7 @@ class OrganizationMembersViewSet(ReadOnlyModelViewSet):
             "invited_by",
         )
 
-        if getattr(user, "is_platform_admin", False):
+        if is_platform_admin(user):
             if organization_id:
                 qs = qs.filter(organization_id=organization_id)
             return qs.filter(is_active=True).order_by("organization__name", "user__email")

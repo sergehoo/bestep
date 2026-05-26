@@ -79,7 +79,9 @@ def annotate_course_kpis(qs: QuerySet, *, user=None) -> QuerySet:
     )
 
     # Annotation ``can_edit`` si on a un user (sinon laissée à False).
-    if user is not None and user.is_authenticated and not getattr(user, "is_platform_admin", False):
+    from core.permissions import is_platform_admin
+
+    if user is not None and user.is_authenticated and not is_platform_admin(user):
         from organizations.models import OrganizationMembership
         writable_org = OrganizationMembership.objects.filter(
             user=user,

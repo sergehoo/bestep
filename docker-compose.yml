@@ -17,7 +17,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
       POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -44,7 +44,7 @@ services:
       retries: 10
 
   bestminio:
-    image: minio/minio:latest
+    image: ${MINIO_IMAGE:-minio/minio:latest}
 #    container_name: best_epargne_minio
     restart: unless-stopped
     env_file:
@@ -93,7 +93,7 @@ services:
     # MinIO peut être parfaitement démarré même si curl/wget ne sont pas dans l'image
 
   createbucket:
-    image: minio/mc:latest
+    image: ${MINIO_MC_IMAGE:-minio/mc:latest}
     container_name: best_epargne_minio_init
     restart: "no"
     env_file:
@@ -135,7 +135,7 @@ services:
 
       POSTGRES_DB: ${POSTGRES_DB:-best_epargne}
       POSTGRES_USER: ${POSTGRES_USER:-best_epargne}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-best_epargne_pwd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       DB_HOST: ${DB_HOST:-bestDB}
       DB_PORT: ${DB_PORT:-5432}
 

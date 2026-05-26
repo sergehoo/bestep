@@ -94,11 +94,12 @@ def get_organization_dashboard_kpis(*, organization_id: int) -> dict[str, Any]:
     orders = (
         Order.objects.filter(company_id=organization_id)
         .aggregate(
-            total=Count("id"),
+            total_count=Count("id"),
             paid=Count("id", filter=Q(status=Order.Status.PAID)),
             revenue=Sum("total", filter=Q(status=Order.Status.PAID)),
         )
     )
+    orders["total"] = orders.pop("total_count")
 
     return {
         "courses": courses,
@@ -157,11 +158,12 @@ def get_platform_dashboard_kpis() -> dict[str, Any]:
     )
 
     orders = Order.objects.aggregate(
-        total=Count("id"),
+        total_count=Count("id"),
         paid=Count("id", filter=Q(status=Order.Status.PAID)),
         refunded=Count("id", filter=Q(status=Order.Status.REFUNDED)),
         revenue=Sum("total", filter=Q(status=Order.Status.PAID)),
     )
+    orders["total"] = orders.pop("total_count")
 
     return {
         "users": users,
