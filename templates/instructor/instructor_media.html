@@ -1,4 +1,4 @@
-{% extends "layout/admin_base.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}best-épargne — Bibliothèque média{% endblock %}
@@ -10,31 +10,21 @@
 {% endblock %}
 
 {% block content %}
-    <div x-data="instructorMediaPremiumPage({
-        endpoints: {
-            mediaList: '{% url "api_instructor_media" %}',
-            mediaDetail: (assetId) => '{% url "api_instructor_media_detail" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
-            mediaUpdate: (assetId) => '{% url "api_instructor_media_update" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
-            mediaDelete: (assetId) => '{% url "api_instructor_media_delete" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
-
-            multipartInit: '{% url "api_media_multipart_init" %}',
-            multipartPartUrl: '{% url "api_media_multipart_part_url" %}',
-            multipartComplete: '{% url "api_media_multipart_complete" %}',
-            multipartAbort: '{% url "api_media_multipart_abort" %}',
-            multipartListParts: '{% url "api_media_multipart_list_parts" %}',
-
-            uploadInit: '{% url "api_media_upload_init" %}',
-            uploadFinalize: '{% url "api_media_upload_finalize" %}',
-            signedGet: (assetId) => '{% url "api_media_signed_get" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
-
-            courses: '{% url "api_instructor_courses" %}',
-            courseSections: (courseId) => `/api/instructor/courses/${courseId}/sections/`,
-            sectionLessons: (courseId, sectionId) => `/api/instructor/courses/${courseId}/sections/${sectionId}/lessons/`,
-
-            mediaDetailPage: (assetId) => '{% url "instructor:media_detail" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', assetId),
-        }
-    })"
-         x-init="init()"
+    <div x-data="instructorMediaPremiumPage"
+         data-url-media-list="{% url "api_instructor_media" %}"
+         data-url-media-detail-tmpl="{% url "api_instructor_media_detail" "00000000-0000-0000-0000-000000000000" %}"
+         data-url-media-update-tmpl="{% url "api_instructor_media_update" "00000000-0000-0000-0000-000000000000" %}"
+         data-url-media-delete-tmpl="{% url "api_instructor_media_delete" "00000000-0000-0000-0000-000000000000" %}"
+         data-url-multipart-init="{% url "api_media_multipart_init" %}"
+         data-url-multipart-part-url="{% url "api_media_multipart_part_url" %}"
+         data-url-multipart-complete="{% url "api_media_multipart_complete" %}"
+         data-url-multipart-abort="{% url "api_media_multipart_abort" %}"
+         data-url-multipart-list-parts="{% url "api_media_multipart_list_parts" %}"
+         data-url-upload-init="{% url "api_media_upload_init" %}"
+         data-url-upload-finalize="{% url "api_media_upload_finalize" %}"
+         data-url-signed-get-tmpl="{% url "api_media_signed_get" "00000000-0000-0000-0000-000000000000" %}"
+         data-url-courses="{% url "api_instructor_courses" %}"
+         data-url-media-detail-page-tmpl="{% url "instructor:media_detail" "00000000-0000-0000-0000-000000000000" %}"
          class="space-y-6"
     >
         <!-- HERO -->
@@ -80,16 +70,14 @@
         <template x-if="toast.show">
             <div
                     class="rounded-2xl border px-4 py-3 flex items-start justify-between gap-3"
-                    :class="toast.type === 'error'
-                ? 'border-rose-200 bg-rose-50 text-rose-800'
-                : 'border-emerald-200 bg-emerald-50 text-emerald-800'"
+                    :class="toastClass()"
             >
                 <div class="text-sm">
                     <div class="font-semibold" x-text="toast.title"></div>
                     <div class="mt-1 opacity-90" x-text="toast.message"></div>
                 </div>
                 <button
-                        @click="toast.show = false"
+                        @click="closeToast()"
                         class="px-2 py-1 rounded-lg border border-current/20 text-xs font-semibold"
                 >
                     OK
@@ -152,16 +140,16 @@
                         </label>
                         <div class="mt-2 inline-flex rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-1 w-full">
                             <button
-                                    @click="view='grid'"
+                                    @click="setGridView()"
                                     class="flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition"
-                                    :class="view==='grid' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 dark:text-white/70 hover:bg-be-ink-50 dark:hover:bg-white/10'"
+                                    :class="gridViewButtonClass()"
                             >
                                 Cartes
                             </button>
                             <button
-                                    @click="view='table'"
+                                    @click="setTableView()"
                                     class="flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition"
-                                    :class="view==='table' ? 'bg-be-ink-900 text-white' : 'text-be-ink-600 dark:text-white/70 hover:bg-be-ink-50 dark:hover:bg-white/10'"
+                                    :class="tableViewButtonClass()"
                             >
                                 Tableau
                             </button>
@@ -196,16 +184,16 @@
 
                 <div class="flex items-center gap-2">
                     <button
-                            @click="loadMedia(pagination.page - 1)"
-                            :disabled="pagination.page <= 1 || loading.media"
+                            @click="prevPage()"
+                            :disabled="prevDisabled()"
                             class="px-4 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 text-sm font-semibold disabled:opacity-50"
                     >
                         Précédent
                     </button>
 
                     <button
-                            @click="loadMedia(pagination.page + 1)"
-                            :disabled="pagination.page >= pagination.totalPages || loading.media"
+                            @click="nextPage()"
+                            :disabled="nextDisabled()"
                             class="px-4 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold disabled:opacity-50"
                     >
                         Suivant
@@ -214,20 +202,20 @@
             </div>
         </section>
         <!-- GRID VIEW -->
-        <section x-show="view === 'grid'" class="space-y-8">
+        <section x-show="isGridView()" class="space-y-8">
             <template x-if="loading.media">
                 <div class="rounded-[28px] border p-10 text-center text-sm text-be-ink-500">
                     Chargement des médias…
                 </div>
             </template>
 
-            <template x-if="!loading.media && filteredMedia.length === 0">
+            <template x-if="noMediaFound()">
                 <div class="rounded-[28px] border p-10 text-center text-sm text-be-ink-500">
                     Aucun média trouvé avec ces filtres.
                 </div>
             </template>
 
-            <section x-show="!loading.media && personalMedia().length > 0" class="space-y-4">
+            <section x-show="hasPersonalMedia()" class="space-y-4">
                 <h2 class="text-lg font-bold text-be-ink-900 dark:text-white">Mes médias</h2>
 
                 <div class="grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
@@ -236,25 +224,25 @@
     class="group relative rounded-[30px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden transition hover:-translate-y-1 hover:shadow-xl"
 >
     <div class="relative aspect-video bg-be-ink-100 dark:bg-white/10 overflow-hidden">
-        <template x-if="m.kind === 'video' && thumbCache[m.id]">
+        <template x-if="isVideoWithThumb(m)">
             <img :src="thumbCache[m.id]" alt="" class="w-full h-full object-cover transition group-hover:scale-105">
         </template>
 
-        <template x-if="m.kind === 'video' && !thumbCache[m.id]">
+        <template x-if="isVideoNoThumb(m)">
             <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-be-sky-100 to-white dark:from-white/10 dark:to-white/5">
                 <i class="fa-solid fa-play text-4xl text-be-sky-700 dark:text-white/80"></i>
             </div>
         </template>
 
-        <template x-if="m.kind === 'audio'">
+        <template x-if="isAudio(m)">
             <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-white dark:from-white/10 dark:to-white/5">
                 <i class="fa-solid fa-headphones text-5xl text-amber-600 dark:text-white/80"></i>
             </div>
         </template>
 
-        <template x-if="m.kind === 'doc'">
-            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-white/10 dark:to-white/5">
-                <i class="fa-solid fa-file-lines text-5xl text-slate-600 dark:text-white/80"></i>
+        <template x-if="isDoc(m)">
+            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-be-ink-50 to-white dark:from-white/5 dark:to-transparent">
+                <i class="fa-solid fa-file-lines text-5xl text-be-ink-600 dark:text-white/70 dark:text-white/80"></i>
             </div>
         </template>
 
@@ -262,14 +250,14 @@
             <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur bg-white/90"
                   :class="kindPill(m.kind)">
                 <i class="fa-solid mr-1"
-                   :class="m.kind === 'video' ? 'fa-video' : (m.kind === 'audio' ? 'fa-volume-high' : 'fa-file')"></i>
+                   :class="kindIconClass(m)"></i>
                 <span x-text="kindLabel(m.kind)"></span>
             </span>
 
             <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur bg-white/90"
                   :class="processingPill(m.processing_status)">
                 <i class="fa-solid mr-1"
-                   :class="m.processing_status === 'ready' ? 'fa-circle-check' : (m.processing_status === 'failed' ? 'fa-circle-xmark' : 'fa-clock')"></i>
+                   :class="processingIconClass(m)"></i>
                 <span x-text="processingLabel(m.processing_status)"></span>
             </span>
         </div>
@@ -290,7 +278,7 @@
     <div class="p-4 space-y-4">
         <div>
             <div class="font-semibold text-be-ink-900 dark:text-white line-clamp-2"
-                 x-text="m.title || 'Sans titre'"></div>
+                 x-text="mediaTitle(m)"></div>
 
             <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1 font-mono truncate"
                  x-text="m.object_key"></div>
@@ -309,7 +297,7 @@
                     <i class="fa-solid fa-file-code mr-1"></i> Format
                 </div>
                 <div class="mt-1 font-semibold text-be-ink-900 dark:text-white truncate"
-                     x-text="m.content_type || '—'"></div>
+                     x-text="mediaContentType(m)"></div>
             </div>
 
             <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
@@ -354,7 +342,7 @@
                 <div class="min-w-0 flex-1">
                     <div class="text-xs text-be-ink-500 dark:text-white/50">Propriétaire</div>
                     <div class="text-sm font-semibold text-be-ink-900 dark:text-white truncate"
-                         x-text="m.owner_name || '—'"></div>
+                         x-text="ownerName(m)"></div>
                 </div>
 
                 <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold"
@@ -387,7 +375,7 @@
                 </div>
             </section>
 
-            <section x-show="!loading.media && organizationMedia().length > 0" class="space-y-4">
+            <section x-show="hasOrganizationMedia()" class="space-y-4">
                 <h2 class="text-lg font-bold text-be-ink-900 dark:text-white">Médias de l’organisation</h2>
 
                 <div class="grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
@@ -396,25 +384,25 @@
     class="group relative rounded-[30px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden transition hover:-translate-y-1 hover:shadow-xl"
 >
     <div class="relative aspect-video bg-be-ink-100 dark:bg-white/10 overflow-hidden">
-        <template x-if="m.kind === 'video' && thumbCache[m.id]">
+        <template x-if="isVideoWithThumb(m)">
             <img :src="thumbCache[m.id]" alt="" class="w-full h-full object-cover transition group-hover:scale-105">
         </template>
 
-        <template x-if="m.kind === 'video' && !thumbCache[m.id]">
+        <template x-if="isVideoNoThumb(m)">
             <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-be-sky-100 to-white dark:from-white/10 dark:to-white/5">
                 <i class="fa-solid fa-play text-4xl text-be-sky-700 dark:text-white/80"></i>
             </div>
         </template>
 
-        <template x-if="m.kind === 'audio'">
+        <template x-if="isAudio(m)">
             <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-white dark:from-white/10 dark:to-white/5">
                 <i class="fa-solid fa-headphones text-5xl text-amber-600 dark:text-white/80"></i>
             </div>
         </template>
 
-        <template x-if="m.kind === 'doc'">
-            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-white/10 dark:to-white/5">
-                <i class="fa-solid fa-file-lines text-5xl text-slate-600 dark:text-white/80"></i>
+        <template x-if="isDoc(m)">
+            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-be-ink-50 to-white dark:from-white/5 dark:to-transparent">
+                <i class="fa-solid fa-file-lines text-5xl text-be-ink-600 dark:text-white/70 dark:text-white/80"></i>
             </div>
         </template>
 
@@ -422,14 +410,14 @@
             <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur bg-white/90"
                   :class="kindPill(m.kind)">
                 <i class="fa-solid mr-1"
-                   :class="m.kind === 'video' ? 'fa-video' : (m.kind === 'audio' ? 'fa-volume-high' : 'fa-file')"></i>
+                   :class="kindIconClass(m)"></i>
                 <span x-text="kindLabel(m.kind)"></span>
             </span>
 
             <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold backdrop-blur bg-white/90"
                   :class="processingPill(m.processing_status)">
                 <i class="fa-solid mr-1"
-                   :class="m.processing_status === 'ready' ? 'fa-circle-check' : (m.processing_status === 'failed' ? 'fa-circle-xmark' : 'fa-clock')"></i>
+                   :class="processingIconClass(m)"></i>
                 <span x-text="processingLabel(m.processing_status)"></span>
             </span>
         </div>
@@ -450,7 +438,7 @@
     <div class="p-4 space-y-4">
         <div>
             <div class="font-semibold text-be-ink-900 dark:text-white line-clamp-2"
-                 x-text="m.title || 'Sans titre'"></div>
+                 x-text="mediaTitle(m)"></div>
 
             <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1 font-mono truncate"
                  x-text="m.object_key"></div>
@@ -469,7 +457,7 @@
                     <i class="fa-solid fa-file-code mr-1"></i> Format
                 </div>
                 <div class="mt-1 font-semibold text-be-ink-900 dark:text-white truncate"
-                     x-text="m.content_type || '—'"></div>
+                     x-text="mediaContentType(m)"></div>
             </div>
 
             <div class="rounded-xl bg-be-ink-50 dark:bg-white/5 p-3">
@@ -514,7 +502,7 @@
                 <div class="min-w-0 flex-1">
                     <div class="text-xs text-be-ink-500 dark:text-white/50">Propriétaire</div>
                     <div class="text-sm font-semibold text-be-ink-900 dark:text-white truncate"
-                         x-text="m.owner_name || '—'"></div>
+                         x-text="ownerName(m)"></div>
                 </div>
 
                 <span class="text-[11px] px-2.5 py-1 rounded-full border font-semibold"
@@ -550,7 +538,7 @@
 
         <!-- TABLE VIEW -->
         <section
-                x-show="view === 'table'"
+                x-show="isTableView()"
                 class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden"
         >
             <div class="overflow-auto no-scrollbar">
@@ -576,7 +564,7 @@
                         </tr>
                     </template>
 
-                    <template x-if="!loading.media && filteredMedia.length === 0">
+                    <template x-if="noMediaFound()">
                         <tr>
                             <td colspan="8" class="px-4 py-10 text-center text-be-ink-500 dark:text-white/60">Aucun
                                 média trouvé.
@@ -588,7 +576,7 @@
                         <tr class="border-t border-be-ink-100 dark:border-white/10 hover:bg-be-ink-50/50 dark:hover:bg-white/5 transition">
                             <td class="px-4 py-4">
                                 <div class="font-semibold text-be-ink-900 dark:text-white"
-                                     x-text="m.title || m.object_key"></div>
+                                     x-text="tableTitleOrKey(m)"></div>
                                 <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1 font-mono break-all"
                                      x-text="m.object_key"></div>
                             </td>
@@ -604,13 +592,13 @@
                                       x-text="processingLabel(m.processing_status)"></span>
                             </td>
 
-                            <td class="px-4 py-4" x-text="m.content_type || '—'"></td>
+                            <td class="px-4 py-4" x-text="mediaContentType(m)"></td>
                             <td class="px-4 py-4" x-text="humanBytes(m.size)"></td>
                             <td class="px-4 py-4" x-text="formatDate(m.created_at)"></td>
 
                             <td class="px-4 py-4">
                                 <div class="font-semibold text-be-ink-900 dark:text-white"
-                                     x-text="m.owner_name || '—'"></div>
+                                     x-text="ownerName(m)"></div>
                                 <span class="inline-flex mt-1 text-[11px] px-2.5 py-1 rounded-full border font-semibold"
                                       :class="scopePill(m.scope)"
                                       x-text="scopeLabel(m.scope)">
@@ -669,9 +657,7 @@
                             @dragover.prevent="dragover = true"
                             @dragleave.prevent="dragover = false"
                             @drop.prevent="handleDrop($event)"
-                            :class="dragover
-                        ? 'border-be-sky-300 bg-be-sky-50/80 dark:bg-white/10'
-                        : 'border-be-ink-200 bg-be-ink-50/60 dark:bg-white/5'"
+                            :class="dragoverClass()"
                             class="rounded-[28px] border-2 border-dashed p-8 text-center transition"
                     >
                         <div class="mx-auto w-16 h-16 rounded-2xl bg-white dark:bg-white/10 border border-be-ink-100 dark:border-white/10 flex items-center justify-center">
@@ -781,11 +767,11 @@
                                         x-model="upload.section_id"
                                         @change="onBindSectionChange()"
                                         class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
-                                        :disabled="!upload.course_id"
+                                        :disabled="sectionSelectDisabled()"
                                 >
                                     <option value="">— Sélectionner —</option>
                                     <template x-for="s in bindSections" :key="s.id">
-                                        <option :value="String(s.id)" x-text="`${s.order || ''} ${s.title}`"></option>
+                                        <option :value="String(s.id)" x-text="sectionOptionText(s)"></option>
                                     </template>
                                 </select>
                             </div>
@@ -797,33 +783,33 @@
                                 <select
                                         x-model="upload.lesson_id"
                                         class="mt-2 w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm"
-                                        :disabled="!upload.section_id"
+                                        :disabled="lessonSelectDisabled()"
                                 >
                                     <option value="">— Sélectionner —</option>
                                     <template x-for="l in bindLessons" :key="l.id">
-                                        <option :value="String(l.id)" x-text="`${l.order || ''} ${l.title}`"></option>
+                                        <option :value="String(l.id)" x-text="lessonOptionText(l)"></option>
                                     </template>
                                 </select>
                             </div>
                         </div>
                     </div>
 
-                    <div x-show="upload.progress > 0"
+                    <div x-show="uploadInProgress()"
                          class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
 
                         <div class="flex items-center justify-between text-xs text-be-ink-500 dark:text-white/60">
                             <span>Progression</span>
-                            <span x-text="upload.progress + '%'"></span>
+                            <span x-text="uploadProgressText()"></span>
                         </div>
 
                         <div class="mt-2 h-2 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
                             <div class="h-full rounded-full bg-be-sky-600"
-                                 :class="`w-pct-${Math.max(0, Math.min(100, Math.round(upload.progress || 0)))}`"></div>
+                                 :class="uploadBarClass()"></div>
                         </div>
 
                         <div class="mt-2 flex items-center justify-between text-[11px] text-be-ink-500 dark:text-white/60">
-                            <span x-text="upload.speedText || 'Débit : —'"></span>
-                            <span x-text="upload.etaText || 'Temps restant : —'"></span>
+                            <span x-text="speedTextDisplay()"></span>
+                            <span x-text="etaTextDisplay()"></span>
                         </div>
                     </div>
 
@@ -844,8 +830,8 @@
                                 :disabled="loading.upload"
                                 class="px-4 py-3 rounded-2xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            <span x-show="!loading.upload">Uploader</span>
-                            <span x-show="loading.upload">Upload...</span>
+                            <span x-show="notUploading()">Uploader</span>
+                            <span x-show="loading.upload" >Upload...</span>
                         </button>
                     </div>
                 </div>
@@ -860,9 +846,9 @@
                 <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <div class="font-semibold text-be-ink-900 dark:text-white truncate"
-                             x-text="previewItem?.title || 'Prévisualisation'"></div>
+                             x-text="previewTitle()"></div>
                         <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1 font-mono truncate"
-                             x-text="previewItem?.object_key || ''"></div>
+                             x-text="previewObjectKey()"></div>
                     </div>
                     <button
                             @click="closePreview()"
@@ -877,9 +863,9 @@
                         <div class="py-12 text-center text-sm text-be-ink-500 dark:text-white/60">Chargement…</div>
                     </template>
 
-                    <template x-if="!previewLoading && previewItem">
+                    <template x-if="notPreviewLoading()">
                         <div class="space-y-4">
-                            <template x-if="previewItem.kind === 'video' && previewUrl">
+                            <template x-if="isVideoPreview()">
                                 <div class="space-y-4">
                                     <div class="rounded-[28px] overflow-hidden border border-be-ink-100 dark:border-white/10 bg-black shadow-soft">
                                         <video
@@ -888,7 +874,7 @@
                                                 controls
                                                 playsinline
                                                 preload="metadata"
-                                                :poster="thumbCache[previewItem.id] || ''"
+                                                :poster="previewPoster()"
                                                 :src="previewUrl"
                                         ></video>
                                     </div>
@@ -906,13 +892,13 @@
                                         <div class="rounded-2xl bg-be-ink-50 dark:bg-white/5 p-4">
                                             <div class="text-xs text-be-ink-500 dark:text-white/50">Format</div>
                                             <div class="mt-1 font-semibold text-be-ink-900 dark:text-white truncate"
-                                                 x-text="previewItem.content_type || '—'"></div>
+                                                 x-text="previewItemFormat()"></div>
                                         </div>
                                     </div>
                                 </div>
                             </template>
 
-                            <template x-if="previewItem.kind === 'audio' && previewUrl">
+                            <template x-if="isAudioPreview()">
                                 <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 p-6 bg-gradient-to-br from-be-sun-50 via-white to-be-sky-50 dark:from-white/5 dark:via-white/5 dark:to-white/10">
                                     <div class="flex flex-col md:flex-row items-center gap-5">
                                         <div class="w-20 h-20 rounded-3xl bg-white dark:bg-white/10 border border-be-ink-100 dark:border-white/10 flex items-center justify-center shadow-soft shrink-0">
@@ -927,9 +913,9 @@
 
                                         <div class="flex-1 w-full">
                                             <div class="font-semibold text-be-ink-900 dark:text-white"
-                                                 x-text="previewItem.title || 'Audio'"></div>
+                                                 x-text="previewAudioTitle()"></div>
                                             <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1"
-                                                 x-text="previewItem.content_type || '—'"></div>
+                                                 x-text="previewContentType()"></div>
 
                                             <div class="mt-4">
                                                 <audio class="w-full" controls :src="previewUrl"></audio>
@@ -939,7 +925,7 @@
                                 </div>
                             </template>
 
-                            <template x-if="previewItem.kind === 'doc' && previewUrl">
+                            <template x-if="isDocPreview()">
                                 <div class="space-y-3">
                                     <div class="text-sm text-be-ink-500 dark:text-white/60">
                                         Certains documents peuvent ne pas être prévisualisés selon le navigateur.
@@ -988,12 +974,12 @@
                     <div class="py-10 text-center text-sm text-be-ink-500 dark:text-white/60">Chargement…</div>
                 </template>
 
-                <template x-if="!detailLoading && detailItem">
+                <template x-if="notDetailLoading()">
                     <div class="mt-6 space-y-4">
                         <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
                             <div class="text-xs text-be-ink-500 dark:text-white/50">Titre</div>
                             <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
-                                 x-text="detailItem.title || 'Sans titre'"></div>
+                                 x-text="detailTitle()"></div>
                         </div>
 
                         <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
@@ -1038,7 +1024,7 @@
                         <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4">
                             <div class="text-xs text-be-ink-500 dark:text-white/50">Content type</div>
                             <div class="mt-1 font-semibold text-be-ink-900 dark:text-white"
-                                 x-text="detailItem.content_type || '—'"></div>
+                                 x-text="detailItem.content_type"></div>
                         </div>
 
                         <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 p-4"
@@ -1137,8 +1123,8 @@
                             :disabled="editSaving"
                             class="flex-1 px-4 py-3 rounded-2xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold transition disabled:opacity-60"
                     >
-                        <span x-show="!editSaving">Enregistrer</span>
-                        <span x-show="editSaving">Enregistrement...</span>
+                        <span x-show="notEditSaving()">Enregistrer</span>
+                        <span x-show="editSaving"        >Enregistrement...</span>
                     </button>
                 </div>
             </div>
@@ -1159,9 +1145,9 @@
                 <div class="p-5">
                     <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4">
                         <div class="text-sm font-semibold text-rose-800"
-                             x-text="deleteItem?.title || deleteItem?.object_key || 'Média'"></div>
+                             x-text="deleteItemTitle()"></div>
                         <div class="text-xs text-rose-700 mt-1 font-mono break-all"
-                             x-text="deleteItem?.object_key || ''"></div>
+                             x-text="deleteItemKey()"></div>
                     </div>
                 </div>
 
@@ -1177,8 +1163,8 @@
                             :disabled="deleteLoading"
                             class="flex-1 px-4 py-3 rounded-2xl bg-rose-600 text-white hover:bg-rose-700 text-sm font-semibold transition disabled:opacity-60"
                     >
-                        <span x-show="!deleteLoading">Supprimer</span>
-                        <span x-show="deleteLoading">Suppression...</span>
+                        <span x-show="notDeleteLoading()">Supprimer</span>
+                        <span x-show="deleteLoading"    >Suppression...</span>
                     </button>
                 </div>
             </div>

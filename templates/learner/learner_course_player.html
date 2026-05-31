@@ -1,4 +1,4 @@
-{% extends "layout/learner_base.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}Continuer le cours{% endblock %}
@@ -13,24 +13,25 @@
          data-lesson-state-base="/api/learner/courses/{{ course_id }}/lessons/"
          data-lesson-progress-base="/api/learner/courses/{{ course_id }}/lessons/"
          data-set-current-url="/api/learner/courses/{{ course_id }}/set-current/"></div>
-<div class="relative" x-data="coursePlayerUdemy()" x-init="init()">
+
+<div class="relative" x-data="coursePlayerUdemy">
         <!-- Toast -->
         <div x-cloak x-show="ui.toast.show" x-transition.opacity class="toast">
             <div class="flex items-center gap-2">
-                <i class="fa-solid fa-circle-check text-emerald-400" x-show="ui.toast.type==='ok'"></i>
-                <i class="fa-solid fa-triangle-exclamation text-amber-300" x-show="ui.toast.type==='warn'"></i>
-                <i class="fa-solid fa-cloud-arrow-up text-sky-300" x-show="ui.toast.type==='sync'"></i>
+                <i class="fa-solid fa-circle-check text-emerald-400" x-show="toastIsOk()"></i>
+                <i class="fa-solid fa-triangle-exclamation text-amber-300" x-show="toastIsWarn()"></i>
+                <i class="fa-solid fa-cloud-arrow-up text-sky-300" x-show="toastIsSync()"></i>
                 <span x-text="ui.toast.msg"></span>
             </div>
         </div>
 
         <!-- Top bar -->
-        <div class="sticky top-0 z-40 bg-slate-950 text-white border-b border-white/10">
+        <div class="sticky top-0 z-40 bg-be-ink-50 dark:bg-white/5 text-white border-b border-white/10">
             <div class="px-3 sm:px-5 py-3 flex items-center justify-between gap-3">
                 <div class="min-w-0 flex items-center gap-3">
                     <button
                             class="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15 active:scale-[.98] transition"
-                            @click="ui.sidebarOpen = !ui.sidebarOpen"
+                            @click="toggleSidebar()"
                             aria-label="Ouvrir le plan"
                             type="button"
                     >
@@ -38,13 +39,13 @@
                     </button>
 
                     <div class="min-w-0">
-                        <div class="text-sm font-semibold truncate" x-text="course.title || 'Cours'"></div>
+                        <div class="text-sm font-semibold truncate" x-text="courseTitle()"></div>
                         <div class="text-[11px] text-white/70 flex items-center gap-2">
                             <span class="truncate max-w-[46vw] sm:max-w-[420px]"
-                                  x-text="lesson.title || 'Leçon'"></span>
+                                  x-text="lessonTitle()"></span>
                             <span class="opacity-60">•</span>
                             <span>Progression</span>
-                            <span class="font-semibold" x-text="(progress.percent || 0) + '%'"></span>
+                            <span class="font-semibold" x-text="progressPercent()"></span>
                             <span class="opacity-60" x-show="saving.any">•</span>
                             <span class="text-sky-200 font-semibold" x-show="saving.any">
                             <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Sync…
@@ -67,12 +68,12 @@
                         <div class="w-44 h-2 rounded-full bg-white/10 overflow-hidden">
                             <div
                                     class="h-full bg-emerald-400 rounded-full transition-all duration-300"
-                                    :class="`w-pct-${Math.max(0, Math.min(100, Math.round(progress.percent || 0)))}`"
+                                    :class="progressBarClass(progress.percent)"
                             ></div>
                         </div>
                         <div class="text-[11px] text-white/70">
-                            <span x-text="progress.completed_lessons || 0"></span>/<span
-                                x-text="progress.total_lessons || 0"></span>
+                            <span x-text="completedLessons()"></span>/<span
+                                x-text="totalLessons()"></span>
                         </div>
                     </div>
                 </div>
@@ -86,25 +87,25 @@
                     class="lg:hidden fixed inset-0 z-40 bg-black/50"
                     x-show="ui.sidebarOpen"
                     x-transition.opacity
-                    @click="ui.sidebarOpen = false"
+                    @click="closeSidebar()"
             ></div>
 
             <!-- Sidebar -->
             <aside x-cloak
                     class="lg:col-span-4 xl:col-span-3 bg-white border-r border-be-ink-100 lg:sticky lg:top-[56px] lg:h-[calc(100vh-56px)] z-50"
-                    :class="ui.sidebarOpen ? 'fixed inset-y-0 left-0 w-[88%] max-w-sm shadow-2xl' : 'hidden lg:block'"
-                    x-show="ui.sidebarOpen || ui.isDesktop"
+                    :class="sidebarClass()"
+                    x-show="showSidebar()"
                     x-transition
             >
                 <div class="p-4 border-b border-be-ink-100">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
-                            <div class="text-sm font-extrabold text-slate-900 truncate"
-                                 x-text="course.title || 'Cours'"></div>
+                            <div class="text-sm font-extrabold text-be-ink-900 dark:text-white truncate"
+                                 x-text="courseTitle()"></div>
                             <div class="text-xs text-be-ink-500 mt-1">
-                                <span class="font-semibold" x-text="(progress.percent || 0) + '%'"></span>
-                                • <span x-text="progress.completed_lessons || 0"></span>/<span
-                                    x-text="progress.total_lessons || 0"></span>
+                                <span class="font-semibold" x-text="progressPercent()"></span>
+                                • <span x-text="completedLessons()"></span>/<span
+                                    x-text="totalLessons()"></span>
                                 <span class="ml-2" x-show="saving.any">
                                 <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Sync…
                             </span>
@@ -113,7 +114,7 @@
 
                         <button
                                 class="lg:hidden w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 active:scale-[.98] transition"
-                                @click="ui.sidebarOpen = false"
+                                @click="closeSidebar()"
                                 aria-label="Fermer"
                                 type="button"
                         >
@@ -124,7 +125,7 @@
                     <div class="mt-3 h-2 rounded-full bg-be-ink-100 overflow-hidden">
                         <div
                                 class="h-full rounded-full bg-be-sky-600 transition-all duration-300"
-                                :class="`w-pct-${Math.max(0, Math.min(100, Math.round(progress.percent || 0)))}`"
+                                :class="progressBarClass(progress.percent)"
                         ></div>
                     </div>
 
@@ -170,7 +171,7 @@
                         </div>
                     </template>
 
-                    <template x-if="!loading.outline && filteredSections().length === 0">
+                    <template x-if="outlineEmpty()">
                         <div class="p-3 text-sm text-be-ink-500">Aucun résultat.</div>
                     </template>
 
@@ -182,58 +183,58 @@
                                     type="button"
                             >
                                 <div class="min-w-0 text-left">
-                                    <div class="text-xs font-extrabold text-slate-900 truncate" x-text="s.title"></div>
+                                    <div class="text-xs font-extrabold text-be-ink-900 dark:text-white truncate" x-text="s.title"></div>
                                     <div class="text-[11px] text-be-ink-500 mt-1">
                                         <span x-text="countCompleted(s)"></span>/<span
-                                            x-text="(s.lessons || []).length"></span> leçons terminées
+                                            x-text="sectionLessonsCount(s)"></span> leçons terminées
                                     </div>
                                 </div>
                                 <i class="fa-solid fa-chevron-down text-be-ink-400 transition"
-                                   :class="ui.openSections[s.id] ? 'rotate-180' : ''"></i>
+                                   :class="sectionChevronClass(s.id)"></i>
                             </button>
 
                             <div x-show="ui.openSections[s.id]" x-transition
                                  class="border-t border-be-ink-100 bg-white">
-                                <template x-for="l in (s.lessons || [])" :key="l.id">
+                                <template x-for="l in sectionLessons(s)" :key="l.id">
                                     <button
                                             class="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-be-ink-50 active:scale-[.99] transition"
-                                            :class="Number(l.id) === Number(currentLessonId) ? 'bg-be-sky-50' : ''"
+                                            :class="activeLessonClass(l.id)"
                                             @click="openLesson(l.id)"
                                             type="button"
                                     >
                                         <div
                                                 class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                                                :class="l.is_completed ? 'bg-emerald-100 text-emerald-700' : (Number(l.id) === Number(currentLessonId) ? 'bg-be-sky-100 text-be-sky-700' : 'bg-be-ink-50 text-be-ink-600')"
+                                                :class="lessonIconClass(l)"
                                         >
-                                            <template x-if="l.type === 'VIDEO'"><i class="fa-solid fa-circle-play"></i>
+                                            <template x-if="isVideoType(l)"><i class="fa-solid fa-circle-play"></i>
                                             </template>
-                                            <template x-if="l.type === 'TEXT'"><i class="fa-solid fa-file-lines"></i>
+                                            <template x-if="isTextType(l)"><i class="fa-solid fa-file-lines"></i>
                                             </template>
-                                            <template x-if="l.type === 'QUIZ'"><i
+                                            <template x-if="isQuizType(l)"><i
                                                     class="fa-solid fa-circle-question"></i></template>
-                                            <template x-if="l.type === 'LIVE'"><i
+                                            <template x-if="isLiveType(l)"><i
                                                     class="fa-solid fa-tower-broadcast"></i></template>
-                                            <template x-if="l.type === 'FILE'"><i class="fa-solid fa-paperclip"></i>
+                                            <template x-if="isFileType(l)"><i class="fa-solid fa-paperclip"></i>
                                             </template>
-                                            <template x-if="!['VIDEO','TEXT','QUIZ','LIVE','FILE'].includes(l.type)">
+                                            <template x-if="unknownLessonType(l.type)">
                                                 <i class="fa-solid fa-circle"></i>
                                             </template>
                                         </div>
 
                                         <div class="min-w-0 flex-1">
-                                            <div class="text-sm font-semibold text-slate-900 truncate"
+                                            <div class="text-sm font-semibold text-be-ink-900 dark:text-white truncate"
                                                  x-text="l.title"></div>
                                             <div class="mt-1 flex items-center gap-2 text-[11px] text-be-ink-500">
                                                 <span x-text="l.type"></span>
                                                 <span class="opacity-60">•</span>
-                                                <span x-text="(l.percent ?? 0) + '%'"></span>
+                                                <span x-text="lessonItemPercent(l)"></span>
                                                 <span class="ml-1" x-show="l.is_completed">✅</span>
                                             </div>
 
                                             <div class="mt-2 h-1.5 rounded-full bg-be-ink-100 overflow-hidden">
                                                 <div
                                                         class="h-full rounded-full bg-be-sky-600 transition-all duration-300"
-                                                        :class="`w-pct-${Math.max(0, Math.min(100, Math.round(l.percent ?? 0)))}`"
+                                                        :class="progressBarClass(l.percent)"
                                                 ></div>
                                             </div>
                                         </div>
@@ -253,15 +254,15 @@
             <section class="lg:col-span-8 xl:col-span-9 bg-white lg:sticky lg:top-[56px] lg:h-[calc(100vh-56px)]">
                 <div class="border-b border-be-ink-100 bg-white px-4 py-3 flex items-center justify-between gap-3">
                     <div class="min-w-0">
-                        <div class="text-sm font-extrabold text-slate-900 truncate"
-                             x-text="lesson.title || 'Leçon'"></div>
+                        <div class="text-sm font-extrabold text-be-ink-900 dark:text-white truncate"
+                             x-text="lessonTitle()"></div>
                         <div class="text-xs text-be-ink-500 mt-1 flex flex-wrap items-center gap-2">
                         <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-be-ink-50 border border-be-ink-100">
-                            <span class="font-semibold" x-text="lesson.type || ''"></span>
+                            <span class="font-semibold" x-text="lessonTypeText()"></span>
                         </span>
                             <span class="opacity-60">•</span>
                             <span>Progress:</span>
-                            <span class="font-semibold" x-text="(lessonProgress.percent || 0) + '%'"></span>
+                            <span class="font-semibold" x-text="lessonProgressPercent()"></span>
                             <span class="opacity-60">•</span>
                             <span x-show="lessonProgress.is_completed"
                                   class="text-emerald-700 font-semibold">✅ Terminé</span>
@@ -272,8 +273,8 @@
                         <button
                                 class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold active:scale-[.98] transition"
                                 @click="prevLesson()"
-                                :disabled="!nav.prevId || loading.lesson"
-                                :class="(!nav.prevId || loading.lesson) ? 'opacity-50 cursor-not-allowed' : ''"
+                                :disabled="prevDisabled"
+                                :class="prevNavClass()"
                                 type="button"
                         >
                             ← Préc.
@@ -283,18 +284,18 @@
                                 class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold active:scale-[.98] transition"
                                 @click="toggleCompleted()"
                                 :disabled="loading.lesson"
-                                :class="loading.lesson ? 'opacity-50 cursor-not-allowed' : ''"
+                                :class="toggleBtnClass()"
                                 type="button"
                         >
-                            <span x-show="!lessonProgress.is_completed">Marquer terminé</span>
+                            <span x-show="showMarkComplete()">Marquer terminé</span>
                             <span x-show="lessonProgress.is_completed">Marquer non terminé</span>
                         </button>
 
                         <button
-                                class="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 text-sm font-semibold active:scale-[.98] transition"
+                                class="px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold active:scale-[.98] transition"
                                 @click="nextLesson()"
-                                :disabled="!nav.nextId || loading.lesson"
-                                :class="(!nav.nextId || loading.lesson) ? 'opacity-50 cursor-not-allowed' : ''"
+                                :disabled="nextDisabled"
+                                :class="nextNavClass()"
                                 type="button"
                         >
                             Suivant →
@@ -314,10 +315,10 @@
                         </div>
                     </template>
 
-                    <template x-if="!loading.lesson">
+                    <template x-if="lessonLoaded()">
                         <div class="space-y-5">
                             <!-- VIDEO -->
-                            <template x-if="lesson.type === 'VIDEO' && lesson.video_url">
+                            <template x-if="showVideo()">
                                 <div class="rounded-2xl border border-be-ink-100 overflow-hidden bg-black">
                                     <template x-if="isMp4(lesson.video_url)">
                                         <video
@@ -333,7 +334,7 @@
                                         ></video>
                                     </template>
 
-                                    <template x-if="!isMp4(lesson.video_url)">
+                                    <template x-if="isIframe()">
                                         <iframe
                                                 class="w-full h-[520px]"
                                                 loading="lazy"
@@ -345,11 +346,11 @@
                             </template>
 
                             <!-- FILE -->
-                            <template x-if="lesson.type === 'FILE' && lesson.file_url">
+                            <template x-if="showFile()">
                                 <div class="rounded-2xl border border-be-ink-100 p-4 bg-be-ink-50/40">
                                     <div class="flex items-start justify-between gap-3">
                                         <div class="min-w-0">
-                                            <div class="text-sm font-extrabold text-slate-900">Ressource</div>
+                                            <div class="text-sm font-extrabold text-be-ink-900 dark:text-white">Ressource</div>
                                             <div class="text-xs text-be-ink-500 mt-1">
                                                 Ouvre le document. Tu peux ensuite marquer terminé.
                                             </div>
@@ -368,10 +369,10 @@
                             </template>
 
                             <!-- TEXT -->
-                            <template x-if="lesson.type === 'TEXT'">
+                            <template x-if="isTextLesson()">
                                 <div class="rounded-2xl border border-be-ink-100 p-5">
                                     <div class="prose max-w-none">
-                                        <div x-html="lesson.content || '<p>Contenu vide.</p>'"></div>
+                                        <div x-html="lessonHtml()"></div>
                                     </div>
 
                                     <div class="mt-8 pt-6 border-t border-be-ink-100">
@@ -385,7 +386,7 @@
                             </template>
 
                             <!-- QUIZ -->
-                            <template x-if="lesson.type === 'QUIZ'">
+                            <template x-if="isQuizLesson()">
                                 <div class="space-y-4">
 
                                     <!-- Chargement -->
@@ -397,58 +398,56 @@
                                     </template>
 
                                     <!-- Erreur chargement -->
-                                    <template x-if="!quiz.loading && quiz.error && !quiz.loaded">
+                                    <template x-if="quizLoadError()">
                                         <div class="rounded-2xl border border-red-100 bg-red-50 p-5 text-sm text-red-700" x-text="quiz.error"></div>
                                     </template>
 
                                     <!-- Quiz chargé — déjà soumis (résultat) -->
-                                    <template x-if="quiz.loaded && quiz.result">
+                                    <template x-if="showQuizResult()">
                                         <div>
                                             <!-- Résultat -->
-                                            <div :class="quiz.result.passed
-                                                    ? 'border-emerald-100 bg-emerald-50'
-                                                    : 'border-amber-100 bg-amber-50'"
+                                            <div :class="quizResultClass()"
                                                  class="rounded-2xl border p-5">
                                                 <div class="flex items-center gap-3">
-                                                    <div :class="quiz.result.passed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                                                    <div :class="quizIconClass()"
                                                          class="w-10 h-10 rounded-xl flex items-center justify-center text-lg">
                                                         <template x-if="quiz.result.passed"><i class="fas fa-circle-check"></i></template>
-                                                        <template x-if="!quiz.result.passed"><i class="fas fa-rotate-right"></i></template>
+                                                        <template x-if="quizFailed()"><i class="fas fa-rotate-right"></i></template>
                                                     </div>
                                                     <div>
-                                                        <div :class="quiz.result.passed ? 'text-emerald-900' : 'text-amber-900'"
+                                                        <div :class="quizTitleClass()"
                                                              class="font-semibold text-sm"
-                                                             x-text="quiz.result.passed ? '🎉 Bravo, tu as réussi !' : 'Continue à t\'entraîner'"></div>
+                                                             x-text="quizResultTitle()"></div>
                                                         <div class="text-xs mt-0.5"
-                                                             :class="quiz.result.passed ? 'text-emerald-700' : 'text-amber-700'">
-                                                            Score : <span class="font-bold" x-text="quiz.result.score_percent + '%'"></span>
-                                                            · Score requis : <span x-text="quiz.result.passing_score + '%'"></span>
-                                                            · <span x-text="quiz.result.good_answers + '/' + quiz.result.total_questions"></span> bonne(s) réponse(s)
+                                                             :class="quizSubtitleClass()">
+                                                            Score : <span class="font-bold" x-text="quizScoreText()"></span>
+                                                            · Score requis : <span x-text="quizPassingScoreText()"></span>
+                                                            · <span x-text="quizAnswersTxt()"></span> bonne(s) réponse(s)
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <!-- Réessayer si tentatives restantes -->
-                                            <template x-if="!quiz.result.passed && quiz.data && quiz.attemptsLeft > 0">
+                                            <template x-if="showRetry()">
                                                 <button @click="resetQuiz()"
                                                         class="mt-3 w-full py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
                                                     Réessayer
-                                                    (<span x-text="quiz.attemptsLeft"></span> tentative<span x-show="quiz.attemptsLeft > 1">s</span> restante<span x-show="quiz.attemptsLeft > 1">s</span>)
+                                                    (<span x-text="quiz.attemptsLeft"></span> tentative<span x-show="multiAttempts()">s</span> restante<span x-show="multiAttempts()">s</span>)
                                                 </button>
                                             </template>
                                         </div>
                                     </template>
 
                                     <!-- Quiz chargé — formulaire de réponses -->
-                                    <template x-if="quiz.loaded && !quiz.result && quiz.data">
+                                    <template x-if="showQuizForm()">
                                         <div class="space-y-4">
                                             <!-- En-tête quiz -->
                                             <div class="rounded-2xl border border-be-sky-100 bg-be-sky-50 px-5 py-4 flex items-center justify-between gap-3">
                                                 <div>
                                                     <div class="text-sm font-extrabold text-be-sky-900" x-text="quiz.data.title"></div>
                                                     <div class="text-xs text-be-sky-700 mt-0.5">
-                                                        Score requis : <span class="font-semibold" x-text="quiz.data.passing_score + '%'"></span>
+                                                        Score requis : <span class="font-semibold" x-text="quizPassingDataText()"></span>
                                                         · Max tentatives : <span class="font-semibold" x-text="quiz.data.max_attempts"></span>
                                                         · Tentatives effectuées : <span class="font-semibold" x-text="quiz.data.attempts_count"></span>
                                                     </div>
@@ -457,21 +456,19 @@
                                             </div>
 
                                             <!-- Questions -->
-                                            <template x-for="(q, qi) in (quiz.data.questions || [])" :key="q.id">
+                                            <template x-for="(q, qi) in quizQuestions()" :key="q.id">
                                                 <div class="rounded-2xl border border-be-ink-100 bg-white p-5">
-                                                    <div class="text-sm font-semibold text-slate-900 mb-3"
-                                                         x-text="(qi + 1) + '. ' + q.prompt"></div>
+                                                    <div class="text-sm font-semibold text-be-ink-900 dark:text-white mb-3"
+                                                         x-text="questionPrompt(qi, q)"></div>
                                                     <div class="space-y-2">
-                                                        <template x-for="c in (q.choices || [])" :key="c.id">
-                                                            <label :class="quiz.answers[q.id] == c.id
-                                                                        ? 'border-be-sky-400 bg-be-sky-50 text-be-sky-800'
-                                                                        : 'border-be-ink-100 bg-white text-be-ink-700 hover:border-be-ink-200 hover:bg-be-ink-50'"
+                                                        <template x-for="c in questionChoices(q)" :key="c.id">
+                                                            <label :class="choiceClass(q, c)"
                                                                    class="flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition">
                                                                 <input type="radio"
-                                                                       :name="'q_' + q.id"
+                                                                       :name="questionInputName(q)"
                                                                        :value="c.id"
-                                                                       :checked="quiz.answers[q.id] == c.id"
-                                                                       @change="quiz.answers[q.id] = c.id"
+                                                                       :checked="choiceChecked(q, c)"
+                                                                       @change="setAnswer(q, c)"
                                                                        class="accent-be-sky-600 flex-shrink-0">
                                                                 <span class="text-sm" x-text="c.text"></span>
                                                             </label>
@@ -488,22 +485,22 @@
 
                                             <!-- Bouton soumettre -->
                                             <button @click="submitQuiz()"
-                                                    :disabled="quiz.submitting || !quizAllAnswered()"
+                                                    :disabled="submitDisabled"
                                                     class="w-full py-3 rounded-2xl bg-gradient-to-r from-be-sky-600 to-be-sky-500 text-white font-semibold shadow-soft hover:brightness-[1.02] transition disabled:opacity-50 flex items-center justify-center gap-2">
                                                 <span x-show="quiz.submitting"
                                                       class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-                                                <i x-show="!quiz.submitting" class="fas fa-paper-plane"></i>
-                                                <span x-text="quiz.submitting ? 'Envoi…' : 'Soumettre mes réponses'"></span>
+                                                <i x-show="notSubmitting()" class="fas fa-paper-plane"></i>
+                                                <span x-text="quizSubmitText()"></span>
                                             </button>
                                             <p class="text-[11px] text-be-ink-400 text-center"
-                                               x-show="!quizAllAnswered()">
+                                               x-show="notAllAnswered()">
                                                 Réponds à toutes les questions avant de soumettre.
                                             </p>
                                         </div>
                                     </template>
 
                                     <!-- Max tentatives atteint, pas encore de résultat -->
-                                    <template x-if="quiz.loaded && !quiz.result && !quiz.data">
+                                    <template x-if="showQuizLocked()">
                                         <div class="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
                                             <i class="fas fa-lock mr-2"></i>
                                             Nombre maximal de tentatives atteint pour ce quiz.
@@ -513,17 +510,17 @@
                             </template>
 
                             <!-- LIVE -->
-                            <template x-if="lesson.type === 'LIVE'">
+                            <template x-if="isLiveLesson()">
                                 <div class="rounded-2xl border border-be-ink-100 p-5 bg-be-ink-50/40">
-                                    <div class="text-sm font-extrabold text-slate-900">Session Live</div>
+                                    <div class="text-sm font-extrabold text-be-ink-900 dark:text-white">Session Live</div>
                                     <div class="text-xs text-be-ink-500 mt-1">
-                                        Ajoute l’URL de la session live / calendrier.
+                                        Ajoute l'URL de la session live / calendrier.
                                     </div>
                                 </div>
                             </template>
 
                             <!-- Empty state -->
-                            <template x-if="!lesson.type">
+                            <template x-if="noLessonType()">
                                 <div class="rounded-2xl border border-be-ink-100 p-8 text-center text-be-ink-500">
                                     Aucune leçon disponible.
                                 </div>
@@ -533,20 +530,20 @@
                             <div class="rounded-2xl border border-be-ink-100 p-4">
                                 <div class="flex items-center justify-between gap-3">
                                     <div class="min-w-0">
-                                        <div class="text-xs font-extrabold text-slate-900">Progression de cette leçon
+                                        <div class="text-xs font-extrabold text-be-ink-900 dark:text-white">Progression de cette leçon
                                         </div>
                                         <div class="text-xs text-be-ink-500 mt-1">
                                             Mise à jour auto (vidéo mp4 / lecture texte). Sinon ajuste manuellement.
                                         </div>
                                     </div>
-                                    <div class="text-sm font-extrabold text-slate-900"
-                                         x-text="(lessonProgress.percent || 0) + '%'"></div>
+                                    <div class="text-sm font-extrabold text-be-ink-900 dark:text-white"
+                                         x-text="lessonProgressPercent()"></div>
                                 </div>
 
                                 <div class="mt-3 h-2 rounded-full bg-be-ink-100 overflow-hidden">
                                     <div
                                             class="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                                            :class="`w-pct-${Math.max(0, Math.min(100, Math.round(lessonProgress.percent || 0)))}`"
+                                            :class="progressBarClass(lessonProgress.percent)"
                                     ></div>
                                 </div>
 
@@ -562,17 +559,17 @@
                                             class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold hover:opacity-90 active:scale-[.98] transition"
                                             @click="saveProgress(false, { force: true, toast: true })"
                                             :disabled="saving.lesson"
-                                            :class="saving.lesson ? 'opacity-60 cursor-not-allowed' : ''"
+                                            :class="savingLessonClass()"
                                             type="button"
                                     >
-                                        <span x-show="!saving.lesson">Enregistrer</span>
+                                        <span x-show="notSavingLesson()">Enregistrer</span>
                                         <span x-show="saving.lesson">Sync…</span>
                                     </button>
                                 </div>
 
                                 <div class="mt-2 text-[11px] text-be-ink-500">
                                     <span x-show="saving.lesson">Enregistrement…</span>
-                                    <span x-show="!saving.lesson && lastSavedAt">
+                                    <span x-show="showLastSaved()">
                                     Dernière sauvegarde: <span x-text="lastSavedAt"></span>
                                 </span>
                                 </div>
@@ -583,6 +580,8 @@
             </section>
         </div>
     </div>
+{% endblock %}
 
+{% block extra_js %}
     <script src="{% static 'src/js/learner-course-player.js' %}"></script>
 {% endblock %}

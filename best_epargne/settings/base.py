@@ -488,12 +488,18 @@ CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", False)
 # CSP (SEC-08) — verrouillage de base, élargissez via env
 # ------------------------------------------------------------
 CSP_ALLOW_UNSAFE_INLINE = env_bool("CSP_ALLOW_UNSAFE_INLINE", False)
+# Migration vers cdn.csp.min.js terminée — toutes les expressions Alpine avec
+# opérateurs (===, ?:, &&, !) ont été remplacées par des appels de méthodes.
+# 'unsafe-eval' n'est plus requis.
+CSP_ALLOW_UNSAFE_EVAL = env_bool("CSP_ALLOW_UNSAFE_EVAL", False)
 CSP_DEFAULT_SRC = ("'self'",)
 CSP_SCRIPT_SRC = ("'self'", "https://cdn.tiny.cloud", "https://cdn.jsdelivr.net")
 CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com")
 if CSP_ALLOW_UNSAFE_INLINE:
     CSP_SCRIPT_SRC = (*CSP_SCRIPT_SRC, "'unsafe-inline'")
     CSP_STYLE_SRC = (*CSP_STYLE_SRC, "'unsafe-inline'")
+if CSP_ALLOW_UNSAFE_EVAL:
+    CSP_SCRIPT_SRC = (*CSP_SCRIPT_SRC, "'unsafe-eval'")
 CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com", "data:")
 CSP_IMG_SRC = ("'self'", "data:", "https:", f"https://{MINIO_PUBLIC_DOMAIN}")
 CSP_FRAME_SRC = ("'self'", "https://www.youtube.com", "https://player.vimeo.com")

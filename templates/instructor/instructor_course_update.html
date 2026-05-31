@@ -1,4 +1,4 @@
-{% extends "layout/admin_base.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}best-épargne — Modifier le cours{% endblock %}
@@ -23,16 +23,11 @@
 
 {% block content %}
 <div
-    x-data="courseUpdatePage({
-        courseId: {{ course.id }},
-        endpoints: {
-            update: '{% url "api_instructor_course_update" course.id %}',
-            detail: '/api/instructor/courses/{{ course.id }}/',
-            publish: '/api/instructor/courses/{{ course.id }}/publish/',
-            archive: '/api/instructor/courses/{{ course.id }}/archive/'
-        }
-    })"
-    x-init="init()"
+    x-data="courseUpdatePage"
+    data-course-id="{{ course.id }}"
+    data-url-update="{% url 'api_instructor_course_update' course.id %}"
+    data-url-publish="/api/instructor/courses/{{ course.id }}/publish/"
+    data-url-archive="/api/instructor/courses/{{ course.id }}/archive/"
     class="space-y-6"
 >
     <div
@@ -59,7 +54,7 @@
                 </div>
 
                 <h1 class="mt-4 text-2xl lg:text-3xl font-bold tracking-tight text-be-ink-900 dark:text-white">
-                    <span x-text="form.title || 'Cours sans titre'"></span>
+                    <span x-text="pageTitle()"></span>
                 </h1>
 
                 <p class="mt-2 text-sm text-be-ink-500 dark:text-white/60 max-w-3xl">
@@ -98,7 +93,7 @@
                         </div>
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-be-ink-500 dark:text-white/60">Prix</span>
-                            <span class="font-semibold text-be-ink-900 dark:text-white" x-text="money(form.price) + ' XOF'"></span>
+                            <span class="font-semibold text-be-ink-900 dark:text-white" x-text="priceDisplay()"></span>
                         </div>
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-be-ink-500 dark:text-white/60">Type</span>
@@ -110,14 +105,14 @@
                         <button @click="publishCourse()"
                                 :disabled="loading.publish"
                                 class="px-3 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span x-show="!loading.publish">Publier</span>
+                            <span x-show="notPublishing()">Publier</span>
                             <span x-show="loading.publish">...</span>
                         </button>
 
                         <button @click="archiveCourse()"
                                 :disabled="loading.archive"
                                 class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span x-show="!loading.archive">Archiver</span>
+                            <span x-show="notArchiving()">Archiver</span>
                             <span x-show="loading.archive">...</span>
                         </button>
                     </div>
@@ -129,14 +124,12 @@
     <!-- TOAST -->
     <template x-if="toast.show">
         <div class="rounded-2xl border px-4 py-3 flex items-start justify-between gap-3"
-             :class="toast.type === 'error'
-                ? 'border-rose-200 bg-rose-50 text-rose-800'
-                : 'border-emerald-200 bg-emerald-50 text-emerald-800'">
+             :class="toastClass()">
             <div class="text-sm">
                 <div class="font-semibold" x-text="toast.title"></div>
                 <div class="mt-1 opacity-90" x-text="toast.message"></div>
             </div>
-            <button @click="toast.show = false"
+            <button @click="closeToast()"
                     class="px-2 py-1 rounded-lg border border-current/20 text-xs font-semibold">
                 OK
             </button>
@@ -224,7 +217,7 @@
                                    type="number"
                                    min="0"
                                    step="0.01"
-                                   :disabled="form.pricing_type === 'FREE'"
+                                   :disabled="isFree()"
                                    class="w-full px-4 py-3 rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:ring-4 focus:ring-be-sky-100 dark:focus:ring-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
                                    placeholder="0">
                             <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-be-ink-400 dark:text-white/40">
@@ -246,7 +239,7 @@
                                     <template x-if="thumbPreview">
                                         <img :src="thumbPreview" alt="Thumbnail" class="w-full h-full object-cover">
                                     </template>
-                                    <template x-if="!thumbPreview">
+                                    <template x-if="noThumbPreview()">
                                         <div class="w-full h-full flex items-center justify-center text-[11px] text-be-ink-400 dark:text-white/40">
                                             Aucune image
                                         </div>
@@ -308,7 +301,7 @@
                             :disabled="loading.save"
                             type="button"
                             class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition disabled:opacity-60 disabled:cursor-not-allowed">
-                        <span x-show="!loading.save">Enregistrer</span>
+                        <span x-show="notSaving()">Enregistrer</span>
                         <span x-show="loading.save">Enregistrement...</span>
                     </button>
                 </div>
@@ -328,27 +321,27 @@
                 <div class="p-5 space-y-3">
                     <div class="flex items-center justify-between gap-3 text-sm">
                         <span class="text-be-ink-600 dark:text-white/70">Titre renseigné</span>
-                        <span class="font-semibold" :class="form.title ? 'text-emerald-600' : 'text-rose-600'" x-text="form.title ? 'OK' : 'Manquant'"></span>
+                        <span class="font-semibold" :class="fieldClass(form.title)" x-text="fieldOk(form.title)"></span>
                     </div>
                     <div class="flex items-center justify-between gap-3 text-sm">
                         <span class="text-be-ink-600 dark:text-white/70">Description renseignée</span>
-                        <span class="font-semibold" :class="form.description ? 'text-emerald-600' : 'text-rose-600'" x-text="form.description ? 'OK' : 'Manquant'"></span>
+                        <span class="font-semibold" :class="fieldClass(form.description)" x-text="fieldOk(form.description)"></span>
                     </div>
                     <div class="flex items-center justify-between gap-3 text-sm">
                         <span class="text-be-ink-600 dark:text-white/70">Thumbnail</span>
-                        <span class="font-semibold" :class="thumbPreview ? 'text-emerald-600' : 'text-rose-600'" x-text="thumbPreview ? 'OK' : 'Manquant'"></span>
+                        <span class="font-semibold" :class="fieldClass(thumbPreview)" x-text="fieldOk(thumbPreview)"></span>
                     </div>
                     <div class="flex items-center justify-between gap-3 text-sm">
                         <span class="text-be-ink-600 dark:text-white/70">Prix cohérent</span>
                         <span class="font-semibold"
-                              :class="isPriceValid() ? 'text-emerald-600' : 'text-rose-600'"
-                              x-text="isPriceValid() ? 'OK' : 'À corriger'"></span>
+                              :class="priceClass()"
+                              x-text="priceOk()"></span>
                     </div>
                     <div class="flex items-center justify-between gap-3 text-sm">
                         <span class="text-be-ink-600 dark:text-white/70">Preview vidéo</span>
                         <span class="font-semibold"
-                              :class="form.preview_video_url ? 'text-emerald-600' : 'text-be-ink-400 dark:text-white/40'"
-                              x-text="form.preview_video_url ? 'Ajoutée' : 'Optionnelle'"></span>
+                              :class="previewVideoClass()"
+                              x-text="previewVideoOk()"></span>
                     </div>
                 </div>
             </section>

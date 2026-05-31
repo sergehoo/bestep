@@ -1,4 +1,4 @@
-{% extends "layout/admin_base.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}best-épargne — Quiz{% endblock %}
@@ -16,7 +16,7 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="quizListPage()" x-init="init()" class="space-y-6">
+<div x-data="quizListPage" class="space-y-6">
     <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
         <div class="p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
@@ -42,7 +42,7 @@
                 <div class="text-sm text-be-ink-500">Chargement…</div>
             </template>
 
-            <template x-if="!loading && quizzes.length===0">
+            <template x-if="emptyQuizzes()">
                 <div class="text-sm text-be-ink-500">Aucun quiz disponible.</div>
             </template>
 
@@ -53,8 +53,8 @@
                             <div class="min-w-0">
                                 <div class="font-semibold text-sm truncate" x-text="quiz.title"></div>
                                 <div class="text-[11px] text-be-ink-500 mt-1">
-                                    <span x-text="quiz.questions_count || 0"></span> question(s)
-                                    • score min <span x-text="quiz.passing_score || 70"></span>%
+                                    <span x-text="quizQuestionsCount(quiz)"></span> question(s)
+                                    • score min <span x-text="quizPassingScore(quiz)"></span>%
                                 </div>
                                 <div class="text-[11px] text-be-ink-500 mt-1" x-show="quiz.course_title">
                                     Cours : <span class="font-semibold" x-text="quiz.course_title"></span>
@@ -66,11 +66,11 @@
                         </div>
 
                         <div class="mt-4 flex gap-2">
-                            <a :href="`/dashboard/instructor/quizzes/${quiz.id}/`"
+                            <a :href="quizDetailHref(quiz)"
                                class="flex-1 px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold text-center">
                                 Détail
                             </a>
-                            <a :href="`/dashboard/instructor/quizzes/${quiz.id}/edit/`"
+                            <a :href="quizEditHref(quiz)"
                                class="flex-1 px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-xs font-semibold text-center">
                                 Modifier
                             </a>
@@ -82,5 +82,8 @@
     </section>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
 <script src="{% static 'src/js/quiz-pages.js' %}"></script>
 {% endblock %}

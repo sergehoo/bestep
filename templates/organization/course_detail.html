@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static humanize %}
 
 {% block title %}{{ course.title }} — {{ organization.name }}{% endblock %}
@@ -75,23 +75,23 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div class="org-card p-5 card-lift">
-                <p class="text-sm text-slate-500 font-semibold">Sections</p>
-                <p class="mt-2 text-3xl font-black text-slate-900">{{ course.sections_count|default:0|intcomma }}</p>
+                <p class="text-sm text-be-ink-500 dark:text-white/50 font-semibold">Sections</p>
+                <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">{{ course.sections_count|default:0|intcomma }}</p>
             </div>
 
             <div class="org-card p-5 card-lift">
-                <p class="text-sm text-slate-500 font-semibold">Leçons</p>
-                <p class="mt-2 text-3xl font-black text-slate-900">{{ course.lessons_count|default:0|intcomma }}</p>
+                <p class="text-sm text-be-ink-500 dark:text-white/50 font-semibold">Leçons</p>
+                <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">{{ course.lessons_count|default:0|intcomma }}</p>
             </div>
 
             <div class="org-card p-5 card-lift">
-                <p class="text-sm text-slate-500 font-semibold">Apprenants</p>
-                <p class="mt-2 text-3xl font-black text-slate-900">{{ course.enrolled_count|default:0|intcomma }}</p>
+                <p class="text-sm text-be-ink-500 dark:text-white/50 font-semibold">Apprenants</p>
+                <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">{{ course.enrolled_count|default:0|intcomma }}</p>
             </div>
 
             <div class="org-card p-5 card-lift">
-                <p class="text-sm text-slate-500 font-semibold">Progression moyenne</p>
-                <p class="mt-2 text-3xl font-black text-slate-900">{{ progress_avg|floatformat:0 }}%</p>
+                <p class="text-sm text-be-ink-500 dark:text-white/50 font-semibold">Progression moyenne</p>
+                <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">{{ progress_avg|floatformat:0 }}%</p>
             </div>
         </div>
 
@@ -100,7 +100,7 @@
             <div class="xl:col-span-2 space-y-6">
 
                 <div class="org-card overflow-hidden">
-                    <div class="aspect-[16/9] bg-slate-100">
+                    <div class="aspect-[16/9] bg-be-ink-100 dark:bg-white/10">
                         {% if course.thumbnail %}
                             <img src="{{ course.thumbnail.url }}" alt="{{ course.title }}"
                                  class="w-full h-full object-cover">
@@ -112,18 +112,18 @@
                     </div>
 
                     <div class="p-5 md:p-6">
-                        <h2 class="text-sm font-black text-slate-900">Description</h2>
-                        <div class="mt-3 text-sm text-slate-600 leading-7 whitespace-pre-wrap">
+                        <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Description</h2>
+                        <div class="mt-3 text-sm text-be-ink-600 dark:text-white/70 leading-7 whitespace-pre-wrap">
                             {{ course.description|default:"Aucune description renseignée." }}
                         </div>
                     </div>
                 </div>
 
                 <div class="org-card overflow-hidden">
-                    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between">
                         <div>
-                            <h2 class="text-sm font-black text-slate-900">Structure pédagogique</h2>
-                            <p class="text-xs text-slate-500 mt-1">Sections et leçons du cours</p>
+                            <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Structure pédagogique</h2>
+                            <p class="text-xs text-be-ink-500 dark:text-white/50 mt-1">Sections et leçons du cours</p>
                         </div>
 
                         <a href="{{ section_create_url }}" class="btn-primary">
@@ -132,15 +132,15 @@
                         </a>
                     </div>
 
-                    <div class="divide-y divide-slate-100">
+                    <div class="divide-y divide-be-ink-100 dark:divide-white/10">
                         {% for section in sections %}
                             <div class="p-5">
                                 <div class="flex items-start justify-between gap-4">
                                     <div>
-                                        <h3 class="font-black text-slate-900">
+                                        <h3 class="font-black text-be-ink-900 dark:text-white">
                                             {{ section.order }}. {{ section.title }}
                                         </h3>
-                                        <p class="text-xs text-slate-500 mt-1">
+                                        <p class="text-xs text-be-ink-500 dark:text-white/50 mt-1">
                                             {{ section.lessons_count|default:0 }} leçon(s)
                                         </p>
                                     </div>
@@ -154,12 +154,12 @@
 
                                 <div class="mt-4 space-y-3">
                                     {% for lesson in section.lessons.all %}
-                                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center justify-between gap-4">
+                                        <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50 dark:bg-white/5 p-4 flex items-center justify-between gap-4">
                                             <div>
-                                                <div class="font-bold text-slate-900">
+                                                <div class="font-bold text-be-ink-900 dark:text-white">
                                                     {{ lesson.order }}. {{ lesson.title }}
                                                 </div>
-                                                <div class="text-xs text-slate-500 mt-1">
+                                                <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">
                                                     {{ lesson.get_lesson_type_display }}
                                                     {% if lesson.duration_sec %} · {{ lesson.duration_sec }}
                                                         sec{% endif %}
@@ -167,12 +167,12 @@
                                                 </div>
                                             </div>
 
-                                            <span class="rounded-full bg-white border border-slate-200 px-3 py-1 text-xs font-bold text-slate-700">
+                                            <span class="rounded-full bg-white border border-be-ink-100 dark:border-white/10 px-3 py-1 text-xs font-bold text-be-ink-700 dark:text-white/80">
                       {{ lesson.lesson_type }}
                     </span>
                                         </div>
                                     {% empty %}
-                                        <div class="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">
+                                        <div class="rounded-2xl border border-dashed border-be-ink-100 dark:border-white/10 p-5 text-center text-sm text-be-ink-500 dark:text-white/50">
                                             Aucune leçon dans cette section.
                                         </div>
                                     {% endfor %}
@@ -183,8 +183,8 @@
                                 <div class="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-4">
                                     <i class="fas fa-layer-group text-2xl"></i>
                                 </div>
-                                <h3 class="font-black text-slate-900">Aucune section</h3>
-                                <p class="text-sm text-slate-500 mt-1">Ajoutez une section pour commencer la
+                                <h3 class="font-black text-be-ink-900 dark:text-white">Aucune section</h3>
+                                <p class="text-sm text-be-ink-500 dark:text-white/50 mt-1">Ajoutez une section pour commencer la
                                     construction du cours.</p>
                                 <a href="{{ section_create_url }}" class="btn-primary mt-5">
                                     <i class="fas fa-plus"></i>
@@ -200,40 +200,40 @@
             <aside class="space-y-6">
 
                 <div class="org-card p-5">
-                    <h2 class="text-sm font-black text-slate-900">Informations</h2>
+                    <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Informations</h2>
 
                     <div class="mt-4 space-y-3 text-sm">
                         <div class="flex justify-between gap-4">
-                            <span class="text-slate-500">Formateur</span>
-                            <span class="font-bold text-slate-900 text-right">
+                            <span class="text-be-ink-500 dark:text-white/50">Formateur</span>
+                            <span class="font-bold text-be-ink-900 dark:text-white text-right">
               {{ course.instructor.full_name|default:course.instructor.email }}
             </span>
                         </div>
 
                         <div class="flex justify-between gap-4">
-                            <span class="text-slate-500">Catégorie</span>
-                            <span class="font-bold text-slate-900 text-right">
+                            <span class="text-be-ink-500 dark:text-white/50">Catégorie</span>
+                            <span class="font-bold text-be-ink-900 dark:text-white text-right">
               {{ course.category.name|default:"Sans catégorie" }}
             </span>
                         </div>
 
                         <div class="flex justify-between gap-4">
-                            <span class="text-slate-500">Type</span>
-                            <span class="font-bold text-slate-900 text-right">
+                            <span class="text-be-ink-500 dark:text-white/50">Type</span>
+                            <span class="font-bold text-be-ink-900 dark:text-white text-right">
               {{ course.get_course_type_display }}
             </span>
                         </div>
 
                         <div class="flex justify-between gap-4">
-                            <span class="text-slate-500">Tarification</span>
-                            <span class="font-bold text-slate-900 text-right">
+                            <span class="text-be-ink-500 dark:text-white/50">Tarification</span>
+                            <span class="font-bold text-be-ink-900 dark:text-white text-right">
               {{ course.get_pricing_type_display }}
             </span>
                         </div>
 
                         <div class="flex justify-between gap-4">
-                            <span class="text-slate-500">Prix</span>
-                            <span class="font-bold text-slate-900 text-right">
+                            <span class="text-be-ink-500 dark:text-white/50">Prix</span>
+                            <span class="font-bold text-be-ink-900 dark:text-white text-right">
               {% if course.pricing_type == "FREE" %}
                   Gratuit
               {% else %}
@@ -243,15 +243,15 @@
                         </div>
 
                         <div class="flex justify-between gap-4">
-                            <span class="text-slate-500">Statut</span>
-                            <span class="font-bold text-slate-900 text-right">
+                            <span class="text-be-ink-500 dark:text-white/50">Statut</span>
+                            <span class="font-bold text-be-ink-900 dark:text-white text-right">
               {{ course.get_status_display }}
             </span>
                         </div>
 
                         <div class="flex justify-between gap-4">
-                            <span class="text-slate-500">Publié le</span>
-                            <span class="font-bold text-slate-900 text-right">
+                            <span class="text-be-ink-500 dark:text-white/50">Publié le</span>
+                            <span class="font-bold text-be-ink-900 dark:text-white text-right">
               {{ course.published_at|date:"d/m/Y"|default:"—" }}
             </span>
                         </div>
@@ -259,7 +259,7 @@
                 </div>
 
                 <div class="org-card p-5">
-                    <h2 class="text-sm font-black text-slate-900">Qualité du cours</h2>
+                    <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Qualité du cours</h2>
 
                     <div class="mt-4 space-y-3">
                         {% for issue in issues %}
@@ -275,33 +275,33 @@
                 </div>
 
                 <div class="org-card overflow-hidden">
-                    <div class="px-5 py-4 border-b border-slate-100">
-                        <h2 class="text-sm font-black text-slate-900">Inscriptions récentes</h2>
+                    <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                        <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Inscriptions récentes</h2>
                     </div>
 
-                    <div class="divide-y divide-slate-100">
+                    <div class="divide-y divide-be-ink-100 dark:divide-white/10">
                         {% for e in recent_enrollments %}
                             <div class="px-5 py-4 flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black">
                                     {{ e.user.full_name|default:e.user.email|first|upper }}
                                 </div>
                                 <div class="min-w-0">
-                                    <div class="font-bold text-slate-900 truncate">
+                                    <div class="font-bold text-be-ink-900 dark:text-white truncate">
                                         {{ e.user.full_name|default:"Nom non renseigné" }}
                                     </div>
-                                    <div class="text-xs text-slate-500 truncate">
+                                    <div class="text-xs text-be-ink-500 dark:text-white/50 truncate">
                                         {{ e.user.email }}
                                     </div>
                                 </div>
                             </div>
                         {% empty %}
-                            <div class="p-5 text-sm text-slate-500">Aucune inscription récente.</div>
+                            <div class="p-5 text-sm text-be-ink-500 dark:text-white/50">Aucune inscription récente.</div>
                         {% endfor %}
                     </div>
                 </div>
 
                 <div class="org-card p-5">
-                    <h2 class="text-sm font-black text-slate-900">Actions rapides</h2>
+                    <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Actions rapides</h2>
 
                     <div class="mt-4 space-y-3">
 

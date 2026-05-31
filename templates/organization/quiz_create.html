@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 
 {% block title %}Créer un quiz — {{ course.title }}{% endblock %}
 {% block page_title %}Créer un quiz{% endblock %}
@@ -21,29 +21,29 @@
     {% endif %}
 
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Titre</label>
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Titre</label>
       <div class="mt-1">{{ form.title }}</div>
       {% if form.title.errors %}<p class="mt-1 text-sm text-rose-600">{{ form.title.errors|join:", " }}</p>{% endif %}
     </div>
 
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Section (optionnel)</label>
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Section (optionnel)</label>
       <div class="mt-1">{{ form.section }}</div>
-      <p class="mt-1 text-xs text-slate-500">{{ form.section.help_text }}</p>
+      <p class="mt-1 text-xs text-be-ink-500 dark:text-white/50">{{ form.section.help_text }}</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Note de passage (%)</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Note de passage (%)</label>
         <div class="mt-1">{{ form.passing_score }}</div>
       </div>
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Tentatives max</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Tentatives max</label>
         <div class="mt-1">{{ form.max_attempts }}</div>
       </div>
     </div>
 
-    <label class="flex items-center gap-2 text-sm text-slate-700">
+    <label class="flex items-center gap-2 text-sm text-be-ink-700 dark:text-white/80">
       {{ form.is_active }}
       <span>Quiz actif (visible des apprenants)</span>
     </label>

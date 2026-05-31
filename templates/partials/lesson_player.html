@@ -23,8 +23,8 @@
       {% include "partials/lesson_player.html" with lesson_id=lesson.id poster_url=lesson.thumbnail_url title=lesson.title %}
 {% endcomment %}
 
-<div x-data="lessonPlayer({{ lesson_id }})"
-     x-init="loadStream()"
+<div x-data="lessonPlayer"
+     data-lesson-id="{{ lesson_id }}"
      class="rounded-2xl overflow-hidden bg-slate-950 aspect-video relative">
 
   {# Skeleton tant qu'on n'a pas l'URL. #}
@@ -50,7 +50,7 @@
   </div>
 
   {# Vidéo MP4 / HLS protégée. #}
-  <template x-if="!loading && !error && kind === 'mp4'">
+  <template x-if="isVideoReady()">
     <video x-ref="video"
            :src="url"
            {% if poster_url %}poster="{{ poster_url }}"{% endif %}
@@ -69,7 +69,7 @@
   {# Fallback iframe (YouTube/Vimeo). NB : pas de signed URL possible.
      On documente côté audit (UX-35) que le track de progression n'est
      pas disponible pour ces sources. #}
-  <template x-if="!loading && !error && kind === 'external'">
+  <template x-if="isExternalReady()">
     <iframe x-ref="iframe"
             :src="url"
             class="absolute inset-0 w-full h-full"

@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}Builder — {{ course.title }}{% endblock %}
@@ -33,20 +33,20 @@
         </div>
         <div class="grid lg:grid-cols-12 gap-6">
             <div class="lg:col-span-4 org-card overflow-hidden">
-                <div class="px-5 py-4 border-b border-slate-100">
-                    <h2 class="text-sm font-black text-slate-900">Sections</h2>
-                    <p class="text-xs text-slate-500 mt-1">Structure pédagogique du cours</p>
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10">
+                    <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Sections</h2>
+                    <p class="text-xs text-be-ink-500 dark:text-white/50 mt-1">Structure pédagogique du cours</p>
                 </div>
 
                 <div class="p-4 space-y-3">
                     {% for s in sections %}
                         <a href="#section-{{ s.id }}"
-                           class="block rounded-2xl border border-slate-200 bg-white p-4 hover:bg-blue-50 transition">
-                            <div class="font-bold text-slate-900">{{ s.order }}. {{ s.title }}</div>
-                            <div class="text-xs text-slate-500 mt-1">{{ s.lessons_count }} leçon(s)</div>
+                           class="block rounded-2xl border border-be-ink-100 dark:border-white/10 bg-white p-4 hover:bg-be-sky-50/60 dark:hover:bg-white/5 transition">
+                            <div class="font-bold text-be-ink-900 dark:text-white">{{ s.order }}. {{ s.title }}</div>
+                            <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">{{ s.lessons_count }} leçon(s)</div>
                         </a>
                     {% empty %}
-                        <div class="text-sm text-slate-500">Aucune section pour ce cours.</div>
+                        <div class="text-sm text-be-ink-500 dark:text-white/50">Aucune section pour ce cours.</div>
                     {% endfor %}
                 </div>
             </div>
@@ -54,10 +54,10 @@
             <div class="lg:col-span-8 space-y-4">
                 {% for s in sections %}
                     <div id="section-{{ s.id }}" class="org-card overflow-hidden">
-                        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between">
                             <div>
-                                <h2 class="text-sm font-black text-slate-900">{{ s.order }}. {{ s.title }}</h2>
-                                <p class="text-xs text-slate-500 mt-1">{{ s.lessons_count }} leçon(s)</p>
+                                <h2 class="text-sm font-black text-be-ink-900 dark:text-white">{{ s.order }}. {{ s.title }}</h2>
+                                <p class="text-xs text-be-ink-500 dark:text-white/50 mt-1">{{ s.lessons_count }} leçon(s)</p>
                             </div>
 
                             <a href="{% url 'org:lesson_create' organization.id course.id s.id %}"
@@ -67,24 +67,24 @@
                             </a>
                         </div>
 
-                        <div class="divide-y divide-slate-100">
+                        <div class="divide-y divide-be-ink-100 dark:divide-white/10">
                             {% for lesson in s.lessons.all %}
                                 <div class="px-5 py-4 flex items-center justify-between gap-4">
                                     <div>
-                                        <div class="font-bold text-slate-900">{{ lesson.order }}. {{ lesson.title }}</div>
-                                        <div class="text-xs text-slate-500 mt-1">
+                                        <div class="font-bold text-be-ink-900 dark:text-white">{{ lesson.order }}. {{ lesson.title }}</div>
+                                        <div class="text-xs text-be-ink-500 dark:text-white/50 mt-1">
                                             {{ lesson.get_lesson_type_display }}
                                             {% if lesson.duration_sec %} · {{ lesson.duration_sec }} sec{% endif %}
                                             {% if lesson.is_preview %} · Preview{% endif %}
                                         </div>
                                     </div>
 
-                                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                                    <span class="rounded-full bg-be-ink-100 dark:bg-white/10 px-3 py-1 text-xs font-bold text-be-ink-700 dark:text-white/80">
                   {{ lesson.lesson_type }}
                 </span>
                                 </div>
                             {% empty %}
-                                <div class="px-5 py-8 text-center text-sm text-slate-500">
+                                <div class="px-5 py-8 text-center text-sm text-be-ink-500 dark:text-white/50">
                                     Aucune leçon dans cette section.
                                 </div>
                             {% endfor %}
@@ -95,8 +95,8 @@
                         <div class="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-4">
                             <i class="fas fa-layer-group text-2xl"></i>
                         </div>
-                        <h3 class="font-black text-slate-900">Commencez par créer une section</h3>
-                        <p class="text-sm text-slate-500 mt-1">Une leçon doit toujours être rattachée à une section.</p>
+                        <h3 class="font-black text-be-ink-900 dark:text-white">Commencez par créer une section</h3>
+                        <p class="text-sm text-be-ink-500 dark:text-white/50 mt-1">Une leçon doit toujours être rattachée à une section.</p>
                         <a href="{{ section_create_url }}" class="btn-primary mt-5">
                             <i class="fas fa-plus"></i>
                             Créer une section

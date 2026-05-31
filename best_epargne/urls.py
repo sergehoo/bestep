@@ -16,6 +16,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from best_epargne.health import healthz, readyz
+from best_epargne.two_factor_urls import build_two_factor_patterns
 from compte.views import switch_workspace
 from formations.views import (
     HomeView,
@@ -38,6 +39,9 @@ urlpatterns = [
 
     # Bascule entre espaces (POST-only, CSRF).
     path("workspace/switch/", switch_workspace, name="switch_workspace"),
+
+    # Profil utilisateur (accessible depuis tous les espaces).
+    path("compte/", include(("compte.urls", "compte"), namespace="compte")),
 
     # API + apps de domaine
     path("api/", include("best_epargne.apis.api_urls")),
@@ -82,7 +86,7 @@ urlpatterns = [
 ]
 
 # CORRECTIF V6.D (SEC-06) : brancher les URLs django-two-factor-auth.
-from best_epargne.two_factor_urls import build_two_factor_patterns  # noqa: E402
+# from best_epargne.two_factor_urls import build_two_factor_patterns  # noqa: E402
 urlpatterns += build_two_factor_patterns()
 
 # CORRECTIF FORMATIONS-35 : static seulement en DEBUG (en prod WhiteNoise s'en charge).

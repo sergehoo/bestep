@@ -1,187 +1,364 @@
 {% load static %}
-
-
-{% with current_url=request.resolver_match.url_name|default:"" current_mode=mode|default:"desktop" %}
+{#
+  partials/platform_side.html — Sidebar administration plateforme
+  Accent : rose (rouge)
+  Sections : Pilotage · Gestion · Catalogue · Finances · Accès personnels
+  Variables contexte : request.user, active_workspace
+  Note : aucun lien vers /admin/ Django — réservé staff technique
+#}
+{% with m=mode|default:"desktop" cur=request.resolver_match.url_name|default:"" %}
 
 <nav aria-label="Navigation administrateur plateforme"
-     x-data="{
-        mode: '{{ current_mode }}',
-        collapsed: false,
-        init() {
-            if (this.mode === 'mobile') { this.collapsed = false; return; }
-            this.collapsed = (window.__beShell && window.__beShell.sidebar)
-                ? !!window.__beShell.sidebar.collapsed
-                : (localStorage.getItem('be_sidebar_collapsed') === '1');
-            window.addEventListener('be:sidebar', (e) => {
-                if (this.mode !== 'mobile')
-                    this.collapsed = !!(e.detail && e.detail.collapsed);
-            });
-        },
-        closeMobile() {
-            if (this.mode === 'mobile')
-                window.dispatchEvent(new CustomEvent('be:sidebar-close'));
-        }
-     }"
-     x-init="init()"
-     :class="collapsed ? 'px-2 py-3' : 'p-3 sm:p-4'"
-     class="h-full rounded-[28px] border border-be-ink-100/80 dark:border-white/10
+     x-data="sidebarNav"
+     data-mode="{{ m }}"
+     :class="navPadding()"
+     class="h-full rounded-[28px] border border-rose-100/80 dark:border-white/10
             bg-white/95 dark:bg-white/5 backdrop-blur-xl shadow-soft
             overflow-hidden transition-all duration-300 flex flex-col">
 
-    {# ---- En-tête identité plateforme ---- #}
-    <div class="border-b border-be-ink-100/80 dark:border-white/10 pb-4">
-        <div class="flex items-center gap-3 px-2">
-            <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-sm font-black shrink-0">
-                A
+  {# ══ HEADER ══════════════════════════════════════════════════════════════ #}
+  <div class="border-b border-rose-100/80 dark:border-white/10 pb-4">
+    <a href="{% url 'admin_dashboard' %}"
+       @click="closeMobile()"
+       class="block rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60">
+      <div :class="logoSizeFlex()"
+           class="rounded-2xl overflow-hidden transition-all duration-300">
+        <template x-if="isExpanded">
+          <div class="bg-gradient-to-br from-rose-600 to-rose-800 text-white p-4 rounded-2xl shadow-soft">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7l3-7Z"
+                        stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <div class="text-[10px] uppercase tracking-wide text-white/70">Administration</div>
+                <div class="text-sm font-bold">Plateforme globale</div>
+              </div>
             </div>
-            <div x-show="!collapsed" x-transition x-cloak class="min-w-0">
-                <div class="text-[11px] uppercase tracking-wide text-be-ink-500 dark:text-white/50">
-                    Espace plateforme
-                </div>
-                <div class="text-sm font-semibold text-be-ink-900 dark:text-white truncate">
-                    Administration globale
-                </div>
+            <div class="mt-3 flex items-center gap-2">
+              <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-[11px] font-bold">
+                {{ request.user.full_name|slice:":1"|default:"A"|upper }}
+              </div>
+              <span class="text-[11px] text-white/80 truncate">
+                {{ request.user.full_name|default:request.user.email|truncatechars:20 }}
+              </span>
+              <span class="ml-auto text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-semibold">Admin</span>
             </div>
-        </div>
+          </div>
+        </template>
+        <template x-if="collapsed">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-rose-700
+                      flex items-center justify-center text-white shadow-soft">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7l3-7Z"
+                    stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </template>
+      </div>
+    </a>
+  </div>
+
+  {# ══ NAVIGATION ══════════════════════════════════════════════════════════ #}
+  <div class="py-4 space-y-5 flex-1 overflow-y-auto no-scrollbar max-h-[calc(100vh-260px)] pr-1">
+
+    {# — Pilotage — #}
+    <div>
+      <div x-show="isExpanded" x-transition x-cloak
+           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-500 dark:text-rose-400">
+        Pilotage
+      </div>
+      <div class="space-y-1">
+        <a href="{% url 'admin_dashboard' %}"
+           @click="closeMobile()"
+           :title="titleWhenCollapsed('Tableau de bord')"
+           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                  {% if cur == 'admin_dashboard' %}
+                  bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-white
+                  border border-rose-100 dark:border-rose-800/40 shadow-soft
+                  {% else %}
+                  text-be-ink-700 dark:text-white/80 hover:bg-rose-50/60 dark:hover:bg-white/10
+                  {% endif %}">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                       {% if cur == 'admin_dashboard' %}bg-rose-100 dark:bg-rose-900/50 text-rose-700
+                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-rose-50 group-hover:text-rose-600{% endif %}">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 10.5 12 3l9 7.5V21a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 21v-10.5Z"
+                    stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M9 22v-7h6v7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+            <div class="text-sm font-semibold">Tableau de bord</div>
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Vue globale de la plateforme</div>
+          </div>
+        </a>
+      </div>
     </div>
 
-    {# ---- Liens principaux : UNIQUEMENT des vues métier de la plateforme ----
-       On n'expose AUCUN lien vers /admin/ ici. L'admin Django reste réservé
-       au staff technique et n'est jamais surfacé dans une sidebar
-       utilisateur (sécurité + clarté UX).                                  #}
-    <div class="py-2 space-y-4 flex-1 overflow-y-auto no-scrollbar pr-1">
+    {# — Gestion — #}
+    <div>
+      <div x-show="isExpanded" x-transition x-cloak
+           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
+        Gestion
+      </div>
+      <div class="space-y-1">
 
-        <div>
-            <div x-show="!collapsed" x-transition x-cloak
-                 class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
-                Pilotage
-            </div>
+        {# Organisations #}
+        <a href="{% url 'platform_organizations' %}"
+           @click="closeMobile()"
+           :title="titleWhenCollapsed('Organisations')"
+           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                  {% if cur == 'platform_organizations' %}
+                  bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-white
+                  border border-rose-100 dark:border-rose-800/40 shadow-soft
+                  {% else %}
+                  text-be-ink-700 dark:text-white/80 hover:bg-rose-50/60 dark:hover:bg-white/10
+                  {% endif %}">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                       {% if cur == 'platform_organizations' %}bg-rose-100 dark:bg-rose-900/50 text-rose-700
+                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-rose-50 group-hover:text-rose-600{% endif %}">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 21V8l9-6 9 6v13H3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M9 21v-7h6v7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+            <div class="text-sm font-semibold">Organisations</div>
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Entreprises & écoles</div>
+          </div>
+        </a>
 
-            <a href="{% url 'admin_dashboard' %}"
-               @click="closeMobile()"
-               :title="collapsed ? 'Tableau de bord' : ''"
-               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
-                      {% if current_url == 'admin_dashboard' %}
-                        bg-rose-50 dark:bg-white/10 text-rose-700 dark:text-white
-                        border border-rose-100 dark:border-white/10
-                      {% else %}
-                        text-be-ink-700 dark:text-white/80
-                        hover:bg-be-ink-50 dark:hover:bg-white/10
-                      {% endif %}">
-                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                             {% if current_url == 'admin_dashboard' %}bg-rose-100 text-rose-700
-                             {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70{% endif %}">
-                    <i class="fas fa-chart-line"></i>
-                </span>
-                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
-                      x-show="!collapsed" x-transition x-cloak>Tableau de bord</span>
-            </a>
-        </div>
-
-        <div>
-            <div x-show="!collapsed" x-transition x-cloak
-                 class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
-                Gestion plateforme
-            </div>
-
-            <a href="{% url 'platform_organizations' %}"
-               @click="closeMobile()"
-               :title="collapsed ? 'Organisations' : ''"
-               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
-                      {% if current_url == 'platform_organizations' %}
-                        bg-rose-50 dark:bg-white/10 text-rose-700 dark:text-white
-                        border border-rose-100 dark:border-white/10
-                      {% else %}
-                        text-be-ink-700 dark:text-white/80
-                        hover:bg-be-ink-50 dark:hover:bg-white/10
-                      {% endif %}">
-                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                             {% if current_url == 'platform_organizations' %}bg-rose-100 text-rose-700
-                             {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70{% endif %}">
-                    <i class="fas fa-building"></i>
-                </span>
-                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
-                      x-show="!collapsed" x-transition x-cloak>Organisations</span>
-            </a>
-
-            <a href="{% url 'platform_users' %}"
-               @click="closeMobile()"
-               :title="collapsed ? 'Utilisateurs' : ''"
-               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
-                      {% if current_url == 'platform_users' %}
-                        bg-rose-50 dark:bg-white/10 text-rose-700 dark:text-white
-                        border border-rose-100 dark:border-white/10
-                      {% else %}
-                        text-be-ink-700 dark:text-white/80
-                        hover:bg-be-ink-50 dark:hover:bg-white/10
-                      {% endif %}">
-                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                             {% if current_url == 'platform_users' %}bg-rose-100 text-rose-700
-                             {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70{% endif %}">
-                    <i class="fas fa-users"></i>
-                </span>
-                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
-                      x-show="!collapsed" x-transition x-cloak>Utilisateurs</span>
-            </a>
-        </div>
-
-        <div>
-            <div x-show="!collapsed" x-transition x-cloak
-                 class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
-                Mes espaces
-            </div>
-
-            <a href="{% url 'instructor:dashboard' %}"
-               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
-                      text-be-ink-700 dark:text-white/80
-                      hover:bg-be-ink-50 dark:hover:bg-white/10">
-                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                             bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70">
-                    <i class="fas fa-chalkboard-teacher"></i>
-                </span>
-                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
-                      x-show="!collapsed" x-transition x-cloak>Espace formateur</span>
-            </a>
-
-            <a href="{% url 'learner:dashboard' %}"
-               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
-                      text-be-ink-700 dark:text-white/80
-                      hover:bg-be-ink-50 dark:hover:bg-white/10">
-                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                             bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70">
-                    <i class="fas fa-user-graduate"></i>
-                </span>
-                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
-                      x-show="!collapsed" x-transition x-cloak>Espace apprenant</span>
-            </a>
-
-            <a href="/"
-               class="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition
-                      text-be-ink-700 dark:text-white/80
-                      hover:bg-be-ink-50 dark:hover:bg-white/10">
-                <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                             bg-be-ink-50 dark:bg-white/5 text-be-ink-600 dark:text-white/70">
-                    <i class="fas fa-house"></i>
-                </span>
-                <span class="min-w-0 flex-1 text-sm font-semibold truncate"
-                      x-show="!collapsed" x-transition x-cloak>Site public</span>
-            </a>
-        </div>
+        {# Utilisateurs #}
+        <a href="{% url 'platform_users' %}"
+           @click="closeMobile()"
+           :title="titleWhenCollapsed('Utilisateurs')"
+           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                  {% if cur == 'platform_users' %}
+                  bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-white
+                  border border-rose-100 dark:border-rose-800/40 shadow-soft
+                  {% else %}
+                  text-be-ink-700 dark:text-white/80 hover:bg-rose-50/60 dark:hover:bg-white/10
+                  {% endif %}">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                       {% if cur == 'platform_users' %}bg-rose-100 dark:bg-rose-900/50 text-rose-700
+                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-rose-50 group-hover:text-rose-600{% endif %}">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+              <path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M19 8v6M22 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+            <div class="text-sm font-semibold">Utilisateurs</div>
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Apprenants, formateurs, admins</div>
+          </div>
+        </a>
+      </div>
     </div>
 
-    {# ---- Footer logout ---- #}
-    <div class="pt-3 border-t border-be-ink-100/80 dark:border-white/10">
-        <form method="post" action="{% url 'account_logout' %}" class="m-0">
-            {% csrf_token %}
-            <button type="submit"
-                    :title="collapsed ? 'Déconnexion' : ''"
-                    class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
-                           bg-rose-700 hover:bg-rose-800 text-white text-sm font-semibold transition">
-                <i class="fas fa-sign-out-alt"></i>
-                <span x-show="!collapsed" x-transition x-cloak>Déconnexion</span>
-            </button>
-        </form>
+    {# — Catalogue global — #}
+    <div>
+      <div x-show="isExpanded" x-transition x-cloak
+           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
+        Catalogue
+      </div>
+      <div class="space-y-1">
+
+        {# Tous les cours #}
+        <a href="{% url 'learner:explore' %}"
+           @click="closeMobile()"
+           :title="titleWhenCollapsed('Catalogue')"
+           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                  text-be-ink-700 dark:text-white/80 hover:bg-rose-50/60 dark:hover:bg-white/10">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                       bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-rose-50 group-hover:text-rose-600">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z"
+                    stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+            <div class="text-sm font-semibold">Tous les cours</div>
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Catalogue public complet</div>
+          </div>
+        </a>
+
+        {# Certifications #}
+        <a href="{% url 'admin_dashboard' %}?tab=certifications"
+           @click="closeMobile()"
+           :title="titleWhenCollapsed('Certifications')"
+           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                  text-be-ink-700 dark:text-white/80 hover:bg-rose-50/60 dark:hover:bg-white/10">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                       bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-rose-50 group-hover:text-rose-600">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="8" r="6" stroke="currentColor" stroke-width="2"/>
+              <path d="M8 14.5 6 22l6-3 6 3-2-7.5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+            <div class="text-sm font-semibold">Certifications</div>
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Diplômes délivrés</div>
+          </div>
+        </a>
+      </div>
     </div>
+
+    {# — Finances — #}
+    <div>
+      <div x-show="isExpanded" x-transition x-cloak
+           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
+        Finances
+      </div>
+      <div class="space-y-1">
+        <a href="{% url 'admin_dashboard' %}?tab=payments"
+           @click="closeMobile()"
+           :title="titleWhenCollapsed('Paiements')"
+           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                  {% if 'commerce' in request.resolver_match.namespace|default:'' %}
+                  bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-white
+                  border border-rose-100 dark:border-rose-800/40 shadow-soft
+                  {% else %}
+                  text-be-ink-700 dark:text-white/80 hover:bg-rose-50/60 dark:hover:bg-white/10
+                  {% endif %}">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                       bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-rose-50 group-hover:text-rose-600">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+            <div class="text-sm font-semibold">Paiements & revenus</div>
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Transactions plateforme</div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    {# — Mes espaces personnels — #}
+    <div>
+      <div x-show="isExpanded" x-transition x-cloak
+           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
+        Mes espaces
+      </div>
+      <div class="space-y-1">
+
+        <a href="{% url 'instructor:dashboard' %}"
+           @click="closeMobile()"
+           :title="titleWhenCollapsed('Espace formateur')"
+           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                  text-be-ink-700 dark:text-white/80 hover:bg-rose-50/60 dark:hover:bg-white/10">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                       bg-violet-50 dark:bg-white/5 text-violet-600 dark:text-white/60 group-hover:bg-violet-100">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M9 18h6M10 22h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+            <div class="text-sm font-semibold">Espace formateur</div>
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Mes cours & médias</div>
+          </div>
+          <svg class="w-4 h-4 text-be-ink-400 shrink-0" x-show="isExpanded" x-cloak
+               viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </a>
+
+        <a href="{% url 'learner:dashboard' %}"
+           @click="closeMobile()"
+           :title="titleWhenCollapsed('Espace apprenant')"
+           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                  text-be-ink-700 dark:text-white/80 hover:bg-rose-50/60 dark:hover:bg-white/10">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                       bg-be-sky-50 dark:bg-white/5 text-be-sky-600 dark:text-white/60 group-hover:bg-be-sky-100">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 2L2 7l10 5 10-5-10-5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+            <div class="text-sm font-semibold">Espace apprenant</div>
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Mon parcours personnel</div>
+          </div>
+          <svg class="w-4 h-4 text-be-ink-400 shrink-0" x-show="isExpanded" x-cloak
+               viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </a>
+
+        <a href="{% url 'home' %}"
+           :title="titleWhenCollapsed('Site public')"
+           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                  text-be-ink-700 dark:text-white/80 hover:bg-rose-50/60 dark:hover:bg-white/10">
+          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                       bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-rose-50 group-hover:text-rose-600">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+              <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"
+                    stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+            <div class="text-sm font-semibold">Site public</div>
+            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Page d'accueil visiteurs</div>
+          </div>
+          <svg class="w-4 h-4 text-be-ink-400 shrink-0" x-show="isExpanded" x-cloak
+               viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  {# ══ FOOTER ══════════════════════════════════════════════════════════════ #}
+  <div class="pt-4 border-t border-rose-100/80 dark:border-white/10">
+    <div class="flex items-center gap-3 px-2">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-rose-700
+                  flex items-center justify-center text-white font-bold text-sm shrink-0">
+        {{ request.user.full_name|slice:":1"|default:"A"|upper }}
+      </div>
+      <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+        <div class="text-sm font-semibold truncate">{{ request.user.full_name|default:"Administrateur" }}</div>
+        <div class="text-[11px] text-be-ink-500 dark:text-white/50">Admin plateforme</div>
+      </div>
+    </div>
+    <div class="mt-3 grid grid-cols-2 gap-2" x-show="isExpanded" x-transition x-cloak>
+      <a href="{% url 'compte:profile' %}"
+         class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10
+                bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10
+                focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200/60
+                transition text-xs font-semibold text-center text-be-ink-700 dark:text-white/80">
+        Mon profil
+      </a>
+      <form method="post" action="{% url 'account_logout' %}" class="contents">
+        {% csrf_token %}
+        <button type="submit"
+                class="px-3 py-2.5 rounded-xl bg-rose-700 hover:bg-rose-800 text-white
+                       focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-300/60
+                       transition text-xs font-semibold">
+          Déconnexion
+        </button>
+      </form>
+    </div>
+  </div>
+
 </nav>
-
 {% endwith %}

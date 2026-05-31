@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 {% load humanize %}
 
 {% block title %}Quiz — {{ course.title }}{% endblock %}
@@ -27,23 +27,23 @@
   </div>
 
   <div class="org-card overflow-hidden">
-    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-      <h2 class="text-sm font-black text-slate-900">
+    <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between">
+      <h2 class="text-sm font-black text-be-ink-900 dark:text-white">
         {{ quizzes|length }} quiz
       </h2>
     </div>
 
-    <div class="divide-y divide-slate-100">
+    <div class="divide-y divide-be-ink-100 dark:divide-white/10">
       {% for q in quizzes %}
         <div class="px-5 py-4 flex items-center justify-between gap-4">
           <div class="min-w-0">
             <div class="flex items-center gap-2">
               <a href="{% url 'org:quiz_detail' organization.id course.id q.id %}"
-                 class="font-bold text-slate-900 hover:text-blue-600 truncate">
+                 class="font-bold text-be-ink-900 dark:text-white hover:text-blue-600 truncate">
                 {{ q.title }}
               </a>
               {% if not q.is_active %}
-                <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                <span class="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-be-ink-100 dark:bg-white/10 text-be-ink-500 dark:text-white/50">
                   inactif
                 </span>
               {% endif %}
@@ -53,7 +53,7 @@
                 </span>
               {% endif %}
             </div>
-            <div class="mt-1 text-xs text-slate-500">
+            <div class="mt-1 text-xs text-be-ink-500 dark:text-white/50">
               {% if q.section %}Section : {{ q.section.title }} · {% endif %}
               {{ q.question_count }} question{{ q.question_count|pluralize }} ·
               Note de passage : {{ q.passing_score }}% ·
@@ -69,7 +69,7 @@
           </div>
         </div>
       {% empty %}
-        <div class="p-6 text-sm text-slate-500">
+        <div class="p-6 text-sm text-be-ink-500 dark:text-white/50">
           Aucun quiz pour ce cours pour le moment.
           <a href="{{ quiz_create_url }}" class="text-blue-600 font-semibold ml-1">
             Créer le premier quiz →

@@ -49,6 +49,6 @@ EMAIL_BACKEND = os.getenv(
     "django.core.mail.backends.console.EmailBackend",
 )
 
-# CSP alignée prod: pas d'unsafe-inline/unsafe-eval.
+# CSP dev : migration cdn.csp.min.js terminée — 'unsafe-eval' retiré.
 CSP_SCRIPT_SRC = ("'self'", "https://cdn.tiny.cloud", "https://cdn.jsdelivr.net")
 CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com")

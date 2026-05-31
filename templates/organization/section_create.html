@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 
 {% block title %}Créer une section — {{ course.title }}{% endblock %}
 {% block page_title %}Créer une section{% endblock %}
@@ -15,12 +15,12 @@
     {% csrf_token %}
 
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Titre</label>
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Titre</label>
       <div class="mt-1">{{ form.title }}</div>
     </div>
 
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Ordre</label>
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Ordre</label>
       <div class="mt-1">{{ form.order }}</div>
     </div>
 

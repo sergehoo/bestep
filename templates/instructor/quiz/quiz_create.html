@@ -1,4 +1,4 @@
-{% extends "layout/admin_base.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}best-épargne — Nouveau quiz{% endblock %}
@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="quizCreatePage()" x-init="init()" class="space-y-6">
+<div x-data="quizCreatePage" class="space-y-6">
     <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
         <div class="p-6">
             <div class="text-xs uppercase tracking-[0.18em] text-be-sky-700 font-semibold">Création</div>
@@ -57,7 +57,7 @@
                         Section
                         <span class="text-be-ink-400 font-normal">(optionnel)</span>
                     </label>
-                    <select x-model="form.section_id" :disabled="!sections.length"
+                    <select x-model="form.section_id" :disabled="noSections()"
                             class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-be-sky-400 disabled:opacity-50">
                         <option value="">— Pas de section —</option>
                         <template x-for="s in sections" :key="s.id">
@@ -90,11 +90,14 @@
                     class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft disabled:opacity-60 flex items-center gap-2">
                 <span x-show="saving"
                       class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-                <span x-text="saving ? 'Création…' : 'Créer le quiz'"></span>
+                <span x-text="savingText()"></span>
             </button>
         </div>
     </section>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
 <script src="{% static 'src/js/quiz-pages.js' %}"></script>
 {% endblock %}

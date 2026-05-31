@@ -1,148 +1,369 @@
 {% load static %}
 <!doctype html>
 
-{#   Drivers :#}
-{#   - active_workspace (context processor compte.workspaces).#}
-{#   - {% block sidebar %} : partial sidebar (UNIQUE block, sert mobile + desktop).#}
-{#   - {% block content %} : contenu de la page.#}
-{#   - {% block topbar_right %} : actions contextuelles dans la topbar.#}
-{##}
-<html lang="fr" class="h-full"
-      x-data="appShell()" x-init="initShell()"
-      :class="{ 'dark': theme === 'dark', 'be-drawer-open': sidebar.mobileOpen }"
-      x-cloak>
+<html lang="fr" class="h-full">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="Best Épargne — plateforme d'apprentissage de la finance.">
   <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="{{ active_workspace_hue|default:'#0C87D6' }}">
+  <meta name="theme-color" content="{{ active_workspace_hue|default:'#0C87D6' }}"
+        media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121827" media="(prefers-color-scheme: dark)">
   <meta name="csrf-token" content="{{ csrf_token }}">
+
   <title>{% block title %}Best Épargne{% endblock %}</title>
 
+  {# Injection synchrone du thème avant render pour éviter le flash #}
   <script src="{% static 'src/js/theme-init.js' %}"></script>
-  <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
-  <script defer src="{% static 'src/js/app-shell.js' %}"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.14.3/dist/cdn.min.js"></script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 
+  {# CSS principal (Tailwind build) #}
+  <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
+
+  {# Font Awesome (icônes utilitaires) #}
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        crossorigin="anonymous">
+
+  {# Shell JS — enregistre les composants Alpine (appShell, sidebarNav, topbarSearch, bestepargneToast) #}
+  <script defer src="{% static 'src/js/app-shell.js' %}"></script>
+
+  {# Alpine.js — build CSP (@alpinejs/csp — sans eval()) + plugin focus, servis localement #}
+  {# Sources : @alpinejs/csp@3.15.12 et @alpinejs/focus@3.15.12 #}
+  <script defer src="{% static 'vendor/alpinejs/alpine-focus.min.js' %}"></script>
+  <script defer src="{% static 'vendor/alpinejs/alpine-csp.min.js' %}"></script>
+
+  {# Variables CSS d'accent par espace (--accent-50 … --accent-700) #}
   {% include "partials/theme_styles.html" %}
 
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased min-h-screen">
 
-  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
+<body x-data="appShell"
+      x-cloak
+      data-workspace="{{ active_workspace.kind|default:'learner' }}"
+      class="h-full
+             bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50
+             dark:from-be-ink-900 dark:via-be-ink-900 dark:to-black
+             text-be-ink-900 dark:text-be-ink-50
+             overflow-x-hidden antialiased
+             selection:bg-be-sky-200 selection:text-be-ink-900">
 
-  {# Overlay mobile uniquement (clic-outside ferme le drawer). #}
-  <div x-cloak
-       x-show="sidebar.mobileOpen"
-       x-transition.opacity
-       @click="sidebar.mobileOpen = false"
-       @keydown.escape.window="sidebar.mobileOpen = false"
-       class="fixed inset-0 z-40 bg-slate-900/60 lg:hidden"
-       role="presentation"></div>
+{# Lien d'évitement (accessibilité) #}
+<a href="#be-main"
+   class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[200]
+          focus:px-4 focus:py-2 focus:rounded-xl focus:bg-be-sky-600 focus:text-white
+          focus:shadow-lift focus:outline-none">
+  Aller au contenu principal
+</a>
 
-  <div class="flex min-h-screen">
-  
-    <aside
-      :class="sidebar.mobileOpen
-        ? 'translate-x-0'
-        : '-translate-x-full lg:translate-x-0'"
-      class="fixed inset-y-0 left-0 z-50 w-[88%] max-w-[300px]
-             bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto no-scrollbar
-             transform transition-transform duration-200 ease-out
-             lg:static lg:translate-x-0 lg:transform-none lg:transition-none
-             lg:w-72 lg:max-w-none lg:shrink-0 lg:shadow-none
-             lg:border-r lg:border-slate-200 dark:lg:border-slate-800"
-      role="navigation"
-      aria-label="Menu principal"
-      id="mobile-menu">
+{# ── Bandeau d'identité de l'espace (barre colorée 2px + label) ────────────── #}
+{% include "partials/workspace_identity.html" %}
 
-      {# Header drawer mobile uniquement (bouton fermer + branding). #}
-      <div class="lg:hidden p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-        <span class="font-bold text-slate-900 dark:text-slate-100">Menu</span>
-        <button type="button"
-                @click="sidebar.mobileOpen = false"
-                class="w-10 h-10 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-be-sky-500"
-                aria-label="Fermer le menu">
-          <i class="fas fa-xmark" aria-hidden="true"></i>
-        </button>
-      </div>
-      {% block sidebar %}{% endblock %}
-    </aside>
+<div x-cloak
+     x-show="sidebar.mobileOpen"
+     x-transition.opacity
+     class="fixed inset-0 z-[90] lg:hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-label="Menu de navigation"
+     @keydown.escape.window="closeMobile()">
 
-    <div class="flex-1 flex flex-col min-w-0">
+  {# Fond semi-transparent — clic ferme le drawer #}
+  <div class="absolute inset-0 bg-black/55 backdrop-blur-sm"
+       @click="closeMobile()"
+       aria-hidden="true"></div>
 
-      {# Topbar. #}
-      <header class="be-safe-top sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-        <div class="flex items-center gap-3 px-4 sm:px-6 py-3">
+  {# Drawer #}
+  <aside x-show="sidebar.mobileOpen"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="-translate-x-full opacity-0"
+         x-transition:enter-end="translate-x-0 opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="translate-x-0 opacity-100"
+         x-transition:leave-end="-translate-x-full opacity-0"
+         class="absolute left-0 top-0 h-full w-[88%] max-w-[340px] p-3"
+         aria-label="Sidebar mobile">
+    <div class="h-full overflow-auto no-scrollbar">
+      {% block mobile_sidebar %}
+        {% if active_workspace.kind == 'instructor' %}
+          {% include "partials/instructor_side.html" with mode="mobile" %}
+        {% elif active_workspace.kind == 'org' %}
+          {% include "partials/organization_side.html" with mode="mobile" %}
+        {% elif active_workspace.kind == 'platform_admin' %}
+          {% include "partials/platform_side.html" with mode="mobile" %}
+        {% else %}
+          {% include "partials/learner_side.html" with mode="mobile" %}
+        {% endif %}
+      {% endblock %}
+    </div>
+  </aside>
+</div>
+
+<div class="min-h-full">
+
+  {# ── TOPBAR (sticky, glassmorphism pill) ──────────────────────────────────── #}
+  <header class="sticky top-0 z-40 be-safe-top" role="banner">
+    <div class="mx-auto max-w-[1600px] px-3 sm:px-6 py-3">
+      <div class="flex items-center justify-between gap-3
+                  rounded-2.5xl border border-be-sky-100/70 dark:border-white/10
+                  bg-white/80 dark:bg-white/5 backdrop-blur-xl
+                  px-3 sm:px-4 py-2.5 shell-transition"
+           :class="topbarShadow()">
+
+        {# ── LEFT : burger + collapse + brand ── #}
+        <div class="flex items-center gap-2 min-w-0">
+
+          {# Burger mobile #}
           <button type="button"
-                  @click="sidebar.mobileOpen = true"
-                  class="lg:hidden w-10 h-10 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-be-sky-500"
-                  aria-label="Ouvrir le menu"
-                  :aria-expanded="sidebar.mobileOpen"
-                  aria-controls="mobile-menu">
-            <i class="fas fa-bars" aria-hidden="true"></i>
+                  class="lg:hidden w-10 h-10 inline-flex items-center justify-center
+                         rounded-xl border border-be-ink-100/70 dark:border-white/10
+                         hover:bg-be-ink-50/60 dark:hover:bg-white/10
+                         focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
+                         transition shrink-0"
+                  @click="openMobile()"
+                  :aria-expanded="mobileMenuAriaExpanded()"
+                  aria-controls="be-mobile-menu"
+                  aria-label="Ouvrir le menu">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
           </button>
 
-          <div class="flex-1 min-w-0">
-            <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
-              {% if active_workspace %}{{ active_workspace.label }}{% else %}Best Épargne{% endif %}
-            </p>
-            <h1 class="font-bold text-slate-900 dark:text-slate-100 truncate text-base">
-              {% block page_title %}{% endblock %}
-            </h1>
-          </div>
+          {# Collapse sidebar desktop #}
+          <button type="button"
+                  class="hidden lg:inline-flex w-10 h-10 items-center justify-center
+                         rounded-xl border border-be-ink-100/70 dark:border-white/10
+                         hover:bg-be-ink-50/60 dark:hover:bg-white/10
+                         focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
+                         transition shrink-0"
+                  @click="toggleCollapsed()"
+                  :aria-pressed="collapseAriaPressed()"
+                  :aria-label="collapseAriaLabel()">
+            <svg class="w-5 h-5 transition-transform duration-300"
+                 :class="collapseIconClass()"
+                 viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M8 6h13M8 12h13M8 18h13"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M3.5 7.5l2-1.5v12l-2-1.5"
+                    stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </button>
 
-          <div class="flex items-center gap-2">
-            {% if available_workspaces %}
-              {% include "partials/workspace_switcher.html" %}
-            {% endif %}
-
-            {% block topbar_right %}{% endblock %}
-
-            <button type="button"
-                    @click="toggleTheme()"
-                    class="w-10 h-10 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-be-sky-500"
-                    :aria-label="theme === 'dark' ? 'Activer le theme clair' : 'Activer le theme sombre'"
-                    :aria-pressed="theme === 'dark'">
-              <i class="fas" :class="theme === 'dark' ? 'fa-sun' : 'fa-moon'" aria-hidden="true"></i>
-            </button>
-
-            {% if user.is_authenticated %}
-              {% include "partials/logout_button.html" %}
-            {% endif %}
-          </div>
-        </div>
-      </header>
-
-      {% if messages %}
-        <div role="status" aria-live="polite" class="px-4 sm:px-6 pt-4 space-y-2">
-          {% for message in messages %}
-            <div class="rounded-xl border px-4 py-3 text-sm
-              {% if message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-900
-              {% elif message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-900
-              {% elif message.tags == 'warning' %}bg-amber-50 border-amber-200 text-amber-900
-              {% else %}bg-sky-50 border-sky-200 text-sky-900{% endif %}">
-              {{ message }}
+          {# Brand logo + subtitle #}
+          <a href="{% block brand_url %}{{ active_workspace.dashboard_url|default:'/' }}{% endblock %}"
+             class="flex items-center gap-2.5 group min-w-0 rounded-xl
+                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60">
+            <div class="w-10 h-10 rounded-xl shrink-0
+                        bg-gradient-to-br from-be-sky-500 to-be-sky-700
+                        text-white flex items-center justify-center shadow-ring
+                        transition-transform duration-300 group-hover:scale-[1.04]">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3l9 5-9 5-9-5 9-5Z"
+                      stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M3 10l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M3 14l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
             </div>
-          {% endfor %}
-        </div>
-      {% endif %}
+            <div class="leading-tight min-w-0 hidden sm:block">
+              <div class="font-semibold tracking-tight truncate text-be-ink-900 dark:text-white">
+                best-épargne
+              </div>
+              <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5 truncate">
+                {% block topbar_subtitle %}
+                  {% if active_workspace.kind == 'instructor' %}Espace formateur
+                  {% elif active_workspace.kind == 'org' %}Espace organisation
+                  {% elif active_workspace.kind == 'platform_admin' %}Administration
+                  {% else %}Espace apprenant
+                  {% endif %}
+                {% endblock %}
+              </div>
+            </div>
+          </a>
 
-      <main id="main-content" class="flex-1 px-4 sm:px-6 py-6">
+          {# Titre de page (optionnel, visible md+ à droite du brand) #}
+          {% block page_title %}{% endblock %}
+        </div>
+
+        {# ── CENTRE : barre de recherche ── #}
+        <div class="hidden lg:flex flex-1 max-w-xl min-w-0">
+          {% block topbar_search %}
+            <div class="relative w-full"
+                 role="search"
+                 x-data="topbarSearch">
+              <label for="topbar-q" class="sr-only">Rechercher sur la plateforme</label>
+              <span class="absolute left-3 top-1/2 -translate-y-1/2
+                           text-be-ink-400 dark:text-white/50"
+                    aria-hidden="true">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <input id="topbar-q"
+                     type="search"
+                     autocomplete="off"
+                     x-model="q"
+                     @input.debounce.300ms="sync()"
+                     placeholder="Rechercher…"
+                     class="w-full pl-10 pr-10 py-2.5 rounded-xl
+                            border border-be-ink-100/70 dark:border-white/10
+                            bg-white/85 dark:bg-white/5
+                            text-be-ink-900 dark:text-white
+                            placeholder:text-be-ink-400 dark:placeholder:text-white/40
+                            focus:outline-none focus:ring-4 focus:ring-be-sky-200/60
+                            dark:focus:ring-white/10 shell-transition text-sm">
+              <button type="button"
+                      x-show="hasQuery"
+                      @click="clear()"
+                      class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg
+                             inline-flex items-center justify-center
+                             hover:bg-be-ink-50/70 dark:hover:bg-white/10 transition"
+                      aria-label="Effacer la recherche">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+          {% endblock %}
+        </div>
+
+        {# ── RIGHT : actions + switcher + thème + user ── #}
+        <div class="flex items-center gap-2 shrink-0">
+
+          {% block topbar_actions %}{% endblock %}
+
+          {# Workspace switcher (multi-rôles) #}
+          {% if available_workspaces %}
+            {% include "partials/workspace_switcher.html" %}
+          {% endif %}
+
+          {# Toggle thème #}
+          <button type="button"
+                  class="w-10 h-10 inline-flex items-center justify-center
+                         rounded-xl border border-be-ink-100/70 dark:border-white/10
+                         hover:bg-be-ink-50/60 dark:hover:bg-white/10
+                         focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
+                         transition"
+                  @click="toggleTheme()"
+                  :aria-label="themeAriaLabel()"
+                  :aria-pressed="themeAriaPressed()">
+            <template x-if="isLight">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12Z" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </template>
+            <template x-if="isDark">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8Z"
+                      stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </template>
+          </button>
+
+          {# Widget utilisateur #}
+          {% block topbar_user %}
+            <div class="flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl
+                        border border-be-ink-100/70 dark:border-white/10
+                        bg-white/80 dark:bg-white/5 shell-transition">
+              <div class="w-8 h-8 rounded-lg shrink-0
+                          bg-gradient-to-br from-be-sun-300 to-be-sun-500
+                          flex items-center justify-center text-be-ink-900 font-semibold text-sm"
+                   aria-hidden="true">
+                {{ request.user.full_name|slice:":1"|default:"U"|upper }}
+              </div>
+              <div class="hidden sm:block leading-tight">
+                <div class="text-sm font-semibold truncate max-w-[140px]
+                            text-be-ink-900 dark:text-white">
+                  {{ request.user.full_name|default:"Utilisateur" }}
+                </div>
+                <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5">
+                  {% if active_workspace.kind == 'instructor' %}Formateur
+                  {% elif active_workspace.kind == 'org' %}Organisation
+                  {% elif active_workspace.kind == 'platform_admin' %}Admin
+                  {% else %}Apprenant
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% endblock %}
+        </div>
+
+      </div>{# /topbar inner #}
+    </div>
+  </header>
+
+  {# ── MESSAGES DJANGO ──────────────────────────────────────────────────────── #}
+  {% if messages %}
+    <div class="mx-auto max-w-[1600px] px-3 sm:px-6 mt-3 space-y-2"
+         role="status" aria-live="polite">
+      {% for message in messages %}
+        <div class="flex items-start gap-3 rounded-xl border px-4 py-3 text-sm
+          {% if message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200
+          {% elif message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200
+          {% elif message.tags == 'warning' %}bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200
+          {% else %}bg-be-sky-50 border-be-sky-100 text-be-sky-900 dark:bg-be-sky-950/40 dark:border-be-sky-800 dark:text-be-sky-200{% endif %}">
+          <i class="fas mt-0.5 shrink-0
+            {% if message.tags == 'success' %}fa-circle-check
+            {% elif message.tags == 'error' %}fa-circle-xmark
+            {% elif message.tags == 'warning' %}fa-triangle-exclamation
+            {% else %}fa-circle-info{% endif %}"
+             aria-hidden="true"></i>
+          <span>{{ message }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# ── LAYOUT PRINCIPAL (sidebar + main) ───────────────────────────────────── #}
+  <div class="mx-auto max-w-[1600px] px-3 sm:px-6 pb-12">
+    <div class="mt-4 flex gap-4 items-start">
+
+      {# Sidebar desktop #}
+      <aside class="hidden lg:block shrink-0 shell-transition"
+             :class="sidebarWidth()"
+             aria-label="Navigation principale">
+        <div class="sticky top-[92px]">
+          {% block sidebar %}
+            {% if active_workspace.kind == 'instructor' %}
+              {% include "partials/instructor_side.html" with mode="desktop" %}
+            {% elif active_workspace.kind == 'org' %}
+              {% include "partials/organization_side.html" with mode="desktop" %}
+            {% elif active_workspace.kind == 'platform_admin' %}
+              {% include "partials/platform_side.html" with mode="desktop" %}
+            {% else %}
+              {% include "partials/learner_side.html" with mode="desktop" %}
+            {% endif %}
+          {% endblock %}
+        </div>
+      </aside>
+
+      {# Zone de contenu principale #}
+      <main id="be-main" class="min-w-0 flex-1" tabindex="-1" role="main">
         {% block content %}{% endblock %}
       </main>
 
-      <footer class="px-4 sm:px-6 py-4 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800">
-        &copy; {% now "Y" %} Best Epargne. Tous droits reserves.
-      </footer>
     </div>
   </div>
 
-  {% include "partials/toast.html" %}
+  {# ── FOOTER discret ───────────────────────────────────────────────────────── #}
+  <footer class="mx-auto max-w-[1600px] px-3 sm:px-6 pb-6
+                 text-[11px] text-be-ink-400 dark:text-white/30 text-center">
+    &copy; {% now "Y" %} Best Épargne — tous droits réservés
+  </footer>
 
-  {% block extra_scripts %}{% endblock %}
+</div>{# /min-h-full #}
+
+{# ── TOAST NOTIFICATIONS ──────────────────────────────────────────────────── #}
+{% include "partials/toast.html" %}
+
+{% block extra_js %}{% endblock %}
+{# Alias rétro-compat (ancien bloc extra_scripts) #}
+{% block extra_scripts %}{% endblock %}
+
 </body>
 </html>

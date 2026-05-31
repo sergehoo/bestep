@@ -7,10 +7,15 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
+from django.views.generic import UpdateView
+from django.urls import reverse_lazy
+
+from compte.forms import UserProfileForm
 
 from compte.workspaces import (
     WORKSPACE_INSTRUCTOR,
@@ -47,6 +52,29 @@ def _safe_next(request, raw_next: str) -> str | None:
     ):
         return raw_next
     return None
+
+
+class UserProfileView(LoginRequiredMixin, UpdateView):
+    """Page de profil utilisateur — accessible depuis tous les espaces."""
+    form_class    = UserProfileForm
+    template_name = "compte/profile.html"
+    success_url   = reverse_lazy("compte:profile")
+
+    def get_object(self, queryset=None):
+        return self.request.user
+
+    def form_valid(self, form):
+        messages.success(self.request, "Votre profil a été mis à jour.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Veuillez corriger les erreurs ci-dessous.")
+        return super().form_invalid(form)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["password_change_url"] = "/account/password/change/"
+        return ctx
 
 
 @login_required

@@ -32,6 +32,38 @@
     outline: 2px solid theme("colors.be.sky.500");
     outline-offset: 2px;
   }
+
+  /* ── Formulaires dark mode ─────────────────────────────── */
+  input, select, textarea {
+    color-scheme: light dark;
+  }
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .dark select,
+  .dark textarea {
+    @apply bg-be-ink-800/60 border-white/10 text-white placeholder:text-white/40;
+  }
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+  .dark select:focus,
+  .dark textarea:focus {
+    @apply border-be-sky-400/60 ring-be-sky-400/20;
+  }
+
+  /* ── Tables dark mode ──────────────────────────────────── */
+  .dark table thead tr {
+    @apply bg-be-ink-800/80;
+  }
+  .dark table thead th {
+    @apply text-white/50;
+  }
+  .dark table tbody tr {
+    @apply border-white/5;
+  }
+  .dark table tbody td {
+    @apply text-white/80;
+  }
+  .dark table tbody tr:hover {
+    @apply bg-white/5;
+  }
 }
 
 /* ============================================================
@@ -39,6 +71,7 @@
    ============================================================ */
 @layer components {
 
+  /* ── Boutons ────────────────────────────────────────────── */
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl
            font-semibold text-sm
@@ -46,43 +79,57 @@
            transition-colors;
   }
   .btn-primary {
-    @apply btn bg-be-sky-600 text-white hover:bg-be-sky-700
-           focus:ring-be-sky-500;
+    @apply btn bg-be-sky-600 text-white hover:bg-be-sky-700 focus:ring-be-sky-500;
   }
   .btn-secondary {
-    @apply btn bg-white text-slate-700 border border-slate-200
-           hover:bg-slate-50 focus:ring-be-sky-500
-           dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700
-           dark:hover:bg-slate-700;
+    @apply btn bg-white dark:bg-be-ink-800/60 text-be-ink-700 dark:text-white/80
+           border border-be-ink-100 dark:border-white/10
+           hover:bg-be-ink-50 dark:hover:bg-white/10 focus:ring-be-sky-500;
   }
   .btn-danger {
     @apply btn bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-500;
   }
+  .btn-yellow {
+    @apply btn bg-be-sun-400 text-be-ink-900 hover:bg-be-sun-500 focus:ring-be-sun-400;
+  }
+  .btn-soft {
+    @apply btn bg-white/90 dark:bg-be-ink-800/60 text-be-ink-700 dark:text-white/80
+           border border-be-ink-100 dark:border-white/10
+           hover:bg-be-ink-50 dark:hover:bg-white/10 focus:ring-be-sky-500;
+  }
 
+  /* ── Cards ──────────────────────────────────────────────── */
   .card {
-    @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700
+    @apply bg-white dark:bg-be-ink-800/60 border border-be-ink-100 dark:border-white/10
+           rounded-2xl shadow-sm;
+  }
+  /* Alias pour les templates organisation (historique). */
+  .org-card {
+    @apply bg-white dark:bg-be-ink-800/60 border border-be-ink-100 dark:border-white/10
            rounded-2xl shadow-sm;
   }
 
+  /* ── Formulaires ────────────────────────────────────────── */
   .input {
-    @apply w-full px-3 py-2 rounded-xl border border-slate-200
-           bg-white dark:bg-slate-800 dark:border-slate-700
-           text-slate-900 dark:text-slate-100
-           placeholder-slate-400 dark:placeholder-slate-500
+    @apply w-full px-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10
+           bg-white dark:bg-be-ink-800/60
+           text-be-ink-900 dark:text-white
+           placeholder:text-be-ink-400 dark:placeholder:text-white/40
            focus:outline-none focus:ring-2 focus:ring-be-sky-500
-           focus:border-be-sky-400 transition;
+           focus:border-be-sky-400 dark:focus:border-be-sky-400/60 transition;
   }
   .label {
-    @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1;
+    @apply block text-sm font-medium text-be-ink-700 dark:text-white/80 mb-1;
   }
 
+  /* ── Badges ─────────────────────────────────────────────── */
   .badge {
     @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
   }
-  .badge-success { @apply badge bg-emerald-100 text-emerald-800; }
-  .badge-warning { @apply badge bg-amber-100 text-amber-800; }
-  .badge-danger  { @apply badge bg-rose-100 text-rose-800; }
-  .badge-neutral { @apply badge bg-slate-100 text-slate-700; }
+  .badge-success { @apply badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300; }
+  .badge-warning { @apply badge bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300; }
+  .badge-danger  { @apply badge bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300; }
+  .badge-neutral { @apply badge bg-be-ink-100 text-be-ink-700 dark:bg-white/10 dark:text-white/80; }
 }
 
 /* ============================================================
@@ -527,11 +574,18 @@
 
   .skeleton {
     background: linear-gradient(90deg,
-      theme("colors.slate.100") 25%,
-      theme("colors.slate.200") 37%,
-      theme("colors.slate.100") 63%);
+      theme("colors.be.ink.100") 25%,
+      theme("colors.be.ink.200") 37%,
+      theme("colors.be.ink.100") 63%);
     background-size: 400% 100%;
     animation: be-skeleton 1.4s ease infinite;
+  }
+  .dark .skeleton {
+    background: linear-gradient(90deg,
+      rgba(255,255,255,.06) 25%,
+      rgba(255,255,255,.12) 37%,
+      rgba(255,255,255,.06) 63%);
+    background-size: 400% 100%;
   }
   @keyframes be-skeleton {
     0%   { background-position: 100% 50%; }

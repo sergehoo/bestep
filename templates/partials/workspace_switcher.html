@@ -1,16 +1,16 @@
 
 
 {% if request.user.is_authenticated and available_workspaces and available_workspaces|length > 1 %}
-<div x-data="{ open: false }"
-     @keydown.escape.window="open = false"
-     @click.outside="open = false"
+<div x-data="workspaceSwitcher"
+     @keydown.escape.window="close()"
+     @click.outside="close()"
      class="relative shrink-0">
 
     {# ----- Bouton déclencheur ----- #}
     <button
         type="button"
-        @click="open = !open"
-        :aria-expanded="open.toString()"
+        @click="toggle()"
+        :aria-expanded="ariaExpanded()"
         aria-haspopup="menu"
         class="inline-flex items-center gap-2 pl-2.5 pr-2 py-2 rounded-xl
                border border-be-ink-100/70 dark:border-white/10

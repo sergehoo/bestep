@@ -84,7 +84,7 @@ module.exports = {
     // Classes générées dynamiquement par les sérializers / Alpine bindings.
     // Tailwind ne peut pas les scanner statiquement.
     {
-      pattern: /^(bg|text|border|ring)-(sky|emerald|amber|rose|indigo|slate)-(50|100|200|300|400|500|600|700|800|900)$/,
+      pattern: /^(bg|text|border|ring)-(sky|emerald|amber|rose|violet|indigo|slate)-(50|100|200|300|400|500|600|700|800|900)$/,
       variants: ["hover", "focus", "dark"],
     },
     {

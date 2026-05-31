@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 
 {% block title %}Affecter un formateur — {{ course.title }}{% endblock %}
 {% block page_title %}Affecter un formateur{% endblock %}
@@ -20,7 +20,7 @@
   </div>
 
   <div class="org-card p-5">
-    <p class="text-sm text-slate-600">
+    <p class="text-sm text-be-ink-600 dark:text-white/70">
       Seuls les membres <strong>formateurs</strong> rattachés à
       <strong>{{ organization.name }}</strong> apparaissent dans la liste.
       Le cours doit avoir été créé pour cette organisation pour qu'on
@@ -38,14 +38,14 @@
     {% endif %}
 
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
         Formateur
       </label>
       <div class="mt-1">{{ form.instructor }}</div>
       {% if form.instructor.errors %}
         <p class="mt-1 text-sm text-rose-600">{{ form.instructor.errors|join:", " }}</p>
       {% endif %}
-      <p class="mt-1 text-xs text-slate-500">{{ form.instructor.help_text }}</p>
+      <p class="mt-1 text-xs text-be-ink-500 dark:text-white/50">{{ form.instructor.help_text }}</p>
     </div>
 
     <div class="flex gap-3">

@@ -142,6 +142,60 @@ class CustomSignupForm(SignupForm):
         return user
 
 
+class UserProfileForm(forms.ModelForm):
+    """Formulaire d'édition du profil utilisateur (full_name, phone, email)."""
+
+    class Meta:
+        model = User
+        fields = ["full_name", "phone", "email"]
+        widgets = {
+            "full_name": forms.TextInput(attrs={"autocomplete": "name"}),
+            "phone":     forms.TextInput(attrs={"autocomplete": "tel"}),
+            "email":     forms.EmailInput(attrs={"autocomplete": "email"}),
+        }
+        labels = {
+            "full_name": "Nom complet",
+            "phone":     "Téléphone",
+            "email":     "Adresse e-mail",
+        }
+
+    def clean_email(self):
+        email = (self.cleaned_data.get("email") or "").strip().lower()
+        if not email:
+            raise ValidationError("L'adresse e-mail est obligatoire.")
+        qs = User.objects.filter(email=email).exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise ValidationError("Cette adresse e-mail est déjà utilisée.")
+        return email
+
+    def clean_phone(self):
+        phone = (self.cleaned_data.get("phone") or "").strip()
+        if phone and not _PHONE_RE.match(phone):
+            raise ValidationError("Format de téléphone invalide (ex. : +225 07 00 00 00 00).")
+        return phone
+
+    def _apply_styles(self):
+        base = (
+            "w-full px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 "
+            "bg-white dark:bg-white/5 text-sm focus:outline-none focus:ring-4 "
+            "focus:ring-be-sky-200/60 dark:focus:ring-white/10 transition"
+        )
+        for field in self.fields.values():
+            css = field.widget.attrs.get("class", "")
+            field.widget.attrs["class"] = (css + " " + base).strip()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._apply_styles()
+
+    @transaction.atomic
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if commit:
+            user.save(update_fields=["full_name", "phone", "email"])
+        return user
+
+
 # CORRECTIF COMPTE-29 (dette) : LessonForm n'a rien à faire dans `compte`.
 # À déplacer dans `catalog/forms.py` au prochain refactor. Laissé ici en
 # attendant pour ne pas casser les imports existants.

@@ -15,24 +15,24 @@
     - action : URL du form (défaut "" → page courante)
 {% endcomment %}
 <form method="get" action="{{ action|default:'' }}"
-      class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-3"
+      class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center bg-white dark:bg-be-ink-900 border border-be-ink-100 dark:border-white/10 dark:border-white/10 rounded-2xl p-3"
       role="search">
   <label class="flex-1 relative">
     <span class="sr-only">{{ search_placeholder|default:"Rechercher" }}</span>
-    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" aria-hidden="true"></i>
+    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/30 pointer-events-none" aria-hidden="true"></i>
     <input type="search"
            name="{{ search_param|default:'q' }}"
            value="{{ request.GET|default_if_none:''|getattribute:search_param }}"
            placeholder="{{ search_placeholder|default:'Rechercher…' }}"
            autocomplete="off"
-           class="w-full pl-10 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm">
+           class="w-full pl-10 pr-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10 dark:border-white/10 bg-white dark:bg-be-ink-800/80 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm">
   </label>
 
   {% for f in filters %}
     <label class="flex items-center gap-2 text-sm">
       <span class="sr-only">{{ f.label }}</span>
       <select name="{{ f.name }}"
-              class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              class="rounded-xl border border-be-ink-100 dark:border-white/10 dark:border-white/10 bg-white dark:bg-be-ink-800/80 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
               aria-label="{{ f.label }}">
         <option value="">{{ f.label }}</option>
         {% for value, label in f.options %}
@@ -49,7 +49,7 @@
     </button>
     {% if reset_url %}
       <a href="{{ reset_url }}"
-         class="px-3 py-2 rounded-xl text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+         class="px-3 py-2 rounded-xl text-sm text-be-ink-600 dark:text-white/70 dark:text-be-ink-300 dark:text-white/20 hover:bg-be-ink-100 dark:bg-white/10 dark:hover:bg-be-ink-800/80">
         Réinitialiser
       </a>
     {% endif %}

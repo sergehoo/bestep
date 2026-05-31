@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 {% load humanize %}
 
 {% block title %}Bibliothèque média — {{ organization.name }}{% endblock %}
@@ -26,19 +26,19 @@
   <!-- Totaux -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
     <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Total</p>
-      <p class="mt-2 text-3xl font-black text-slate-900">{{ totals.all|intcomma }}</p>
+      <p class="text-xs uppercase tracking-wider text-be-ink-500 dark:text-white/50 font-black">Total</p>
+      <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">{{ totals.all|intcomma }}</p>
     </div>
     <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Vidéos</p>
+      <p class="text-xs uppercase tracking-wider text-be-ink-500 dark:text-white/50 font-black">Vidéos</p>
       <p class="mt-2 text-3xl font-black text-blue-600">{{ totals.video|intcomma }}</p>
     </div>
     <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Audio</p>
+      <p class="text-xs uppercase tracking-wider text-be-ink-500 dark:text-white/50 font-black">Audio</p>
       <p class="mt-2 text-3xl font-black text-purple-600">{{ totals.audio|intcomma }}</p>
     </div>
     <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Documents</p>
+      <p class="text-xs uppercase tracking-wider text-be-ink-500 dark:text-white/50 font-black">Documents</p>
       <p class="mt-2 text-3xl font-black text-amber-600">{{ totals.doc|intcomma }}</p>
     </div>
   </div>
@@ -46,14 +46,14 @@
   <!-- Filtres -->
   <form method="get" class="org-card p-4 flex flex-wrap gap-3 items-end">
     <div class="flex-1 min-w-[200px]">
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Recherche</label>
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Recherche</label>
       <input type="text" name="q" value="{{ filter_q }}"
              placeholder="Titre ou clé S3…"
-             class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-400">
+             class="mt-1 w-full rounded-xl border border-be-ink-100 dark:border-white/10 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-400">
     </div>
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Type</label>
-      <select name="kind" class="mt-1 rounded-xl border border-slate-200 px-3 py-2 text-sm">
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Type</label>
+      <select name="kind" class="mt-1 rounded-xl border border-be-ink-100 dark:border-white/10 px-3 py-2 text-sm">
         <option value="">Tous</option>
         <option value="video" {% if filter_kind == "video" %}selected{% endif %}>Vidéos</option>
         <option value="audio" {% if filter_kind == "audio" %}selected{% endif %}>Audio</option>
@@ -75,7 +75,7 @@
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
     {% for asset in assets %}
       <div class="org-card overflow-hidden card-lift">
-        <div class="aspect-[16/9] bg-slate-100 flex items-center justify-center text-slate-400">
+        <div class="aspect-[16/9] bg-be-ink-100 dark:bg-white/10 flex items-center justify-center text-be-ink-400 dark:text-white/30">
           {% if asset.kind == "video" %}
             <i class="fas fa-film text-4xl"></i>
           {% elif asset.kind == "audio" %}
@@ -85,10 +85,10 @@
           {% endif %}
         </div>
         <div class="p-4">
-          <div class="font-bold text-slate-900 truncate" title="{{ asset.title }}">
+          <div class="font-bold text-be-ink-900 dark:text-white truncate" title="{{ asset.title }}">
             {{ asset.title|default:"(sans titre)" }}
           </div>
-          <div class="mt-1 text-xs text-slate-500 truncate">
+          <div class="mt-1 text-xs text-be-ink-500 dark:text-white/50 truncate">
             {{ asset.owner.full_name|default:asset.owner.email }}
           </div>
           <div class="mt-2 flex items-center justify-between">
@@ -98,14 +98,14 @@
                          {% else %}bg-amber-100 text-amber-700{% endif %}">
               {{ asset.processing_status }}
             </span>
-            <span class="text-[10px] uppercase tracking-wider text-slate-400">
+            <span class="text-[10px] uppercase tracking-wider text-be-ink-400 dark:text-white/30">
               {{ asset.kind }}
             </span>
           </div>
         </div>
       </div>
     {% empty %}
-      <div class="col-span-full org-card p-8 text-center text-sm text-slate-500">
+      <div class="col-span-full org-card p-8 text-center text-sm text-be-ink-500 dark:text-white/50">
         Aucun média trouvé.
         {% if not filter_q and not filter_kind %}
           <a href="{% url 'instructor:media' %}" class="text-blue-600 font-semibold ml-1">
@@ -125,7 +125,7 @@
           <i class="fas fa-chevron-left"></i> Précédent
         </a>
       {% endif %}
-      <span class="text-xs text-slate-500 px-3">
+      <span class="text-xs text-be-ink-500 dark:text-white/50 px-3">
         Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
       </span>
       {% if page_obj.has_next %}

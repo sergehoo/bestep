@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}Créer une leçon — {{ section.title }}{% endblock %}
@@ -30,52 +30,52 @@
 
     <div class="grid md:grid-cols-2 gap-4">
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Titre</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Titre</label>
         <div class="mt-1">{{ form.title }}</div>
       </div>
 
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Ordre</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Ordre</label>
         <div class="mt-1">{{ form.order }}</div>
       </div>
     </div>
 
     <div class="grid md:grid-cols-3 gap-4">
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Type</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Type</label>
         <div class="mt-1">{{ form.lesson_type }}</div>
       </div>
 
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Durée en secondes</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Durée en secondes</label>
         <div class="mt-1">{{ form.duration_sec }}</div>
       </div>
 
-      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-3">
+      <div class="rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50 dark:bg-white/5 p-4 flex items-center gap-3">
         {{ form.is_preview }}
-        <span class="text-sm font-bold text-slate-700">Leçon en preview</span>
+        <span class="text-sm font-bold text-be-ink-700 dark:text-white/80">Leçon en preview</span>
       </div>
     </div>
 
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Contenu texte</label>
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Contenu texte</label>
       <div class="mt-1">{{ form.content }}</div>
     </div>
 
     <div class="grid md:grid-cols-2 gap-4">
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">URL vidéo externe</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">URL vidéo externe</label>
         <div class="mt-1">{{ form.video_url }}</div>
       </div>
 
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Média MinIO</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Média MinIO</label>
         <div class="mt-1">{{ form.media_asset }}</div>
       </div>
     </div>
 
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Fichier local</label>
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Fichier local</label>
       <div class="mt-1">{{ form.file }}</div>
     </div>
 

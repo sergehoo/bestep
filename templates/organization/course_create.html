@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}Créer un cours — {{ organization.name }}{% endblock %}
@@ -52,7 +52,7 @@
 
         <!-- SECTION 1 -->
         <div>
-          <h2 class="text-sm font-black text-slate-900 flex items-center gap-2">
+          <h2 class="text-sm font-black text-be-ink-900 dark:text-white flex items-center gap-2">
             <span class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
               <i class="fas fa-pen"></i>
             </span>
@@ -61,7 +61,7 @@
 
           <div class="mt-4 grid md:grid-cols-2 gap-4">
             <div>
-              <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+              <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
                 Titre du cours
               </label>
               <div class="mt-1">{{ form.title }}</div>
@@ -71,11 +71,11 @@
             </div>
 
             <div>
-              <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+              <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
                 Slug
               </label>
               <div class="mt-1">{{ form.slug }}</div>
-              <p class="mt-1 text-xs text-slate-500">Laissez vide pour générer automatiquement.</p>
+              <p class="mt-1 text-xs text-be-ink-500 dark:text-white/50">Laissez vide pour générer automatiquement.</p>
               {% if form.slug.errors %}
                 <p class="mt-1 text-xs font-semibold text-red-600">{{ form.slug.errors|striptags }}</p>
               {% endif %}
@@ -83,7 +83,7 @@
           </div>
 
           <div class="mt-4">
-            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+            <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
               Sous-titre
             </label>
             <div class="mt-1">{{ form.subtitle }}</div>
@@ -93,7 +93,7 @@
           </div>
 
           <div class="mt-4">
-            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+            <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
               Description
             </label>
             <div class="mt-1">{{ form.description }}</div>
@@ -103,11 +103,11 @@
           </div>
         </div>
 
-        <div class="border-t border-slate-100"></div>
+        <div class="border-t border-be-ink-100 dark:border-white/10"></div>
 
         <!-- SECTION 2 -->
         <div>
-          <h2 class="text-sm font-black text-slate-900 flex items-center gap-2">
+          <h2 class="text-sm font-black text-be-ink-900 dark:text-white flex items-center gap-2">
             <span class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
               <i class="fas fa-layer-group"></i>
             </span>
@@ -116,7 +116,7 @@
 
           <div class="mt-4 grid md:grid-cols-2 gap-4">
             <div>
-              <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+              <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
                 Catégorie
               </label>
               <div class="mt-1">{{ form.category }}</div>
@@ -126,11 +126,11 @@
             </div>
 
             <div>
-              <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+              <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
                 Formateur assigné
               </label>
               <div class="mt-1">{{ form.instructor }}</div>
-              <p class="mt-1 text-xs text-slate-500">
+              <p class="mt-1 text-xs text-be-ink-500 dark:text-white/50">
                 Seuls les formateurs actifs de {{ organization.name }} doivent être disponibles.
               </p>
               {% if form.instructor.errors %}
@@ -142,7 +142,7 @@
           <div class="mt-4 grid md:grid-cols-2 gap-4">
             {% if form.course_type %}
               <div>
-                <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
                   Type de cours
                 </label>
                 <div class="mt-1">{{ form.course_type }}</div>
@@ -154,7 +154,7 @@
 
             {% if form.status %}
               <div>
-                <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
                   Statut
                 </label>
                 <div class="mt-1">{{ form.status }}</div>
@@ -166,11 +166,11 @@
           </div>
         </div>
 
-        <div class="border-t border-slate-100"></div>
+        <div class="border-t border-be-ink-100 dark:border-white/10"></div>
 
         <!-- SECTION 3 -->
         <div>
-          <h2 class="text-sm font-black text-slate-900 flex items-center gap-2">
+          <h2 class="text-sm font-black text-be-ink-900 dark:text-white flex items-center gap-2">
             <span class="w-8 h-8 rounded-xl bg-yellow-100 text-yellow-600 flex items-center justify-center">
               <i class="fas fa-coins"></i>
             </span>
@@ -179,7 +179,7 @@
 
           <div class="mt-4 grid md:grid-cols-3 gap-4">
             <div>
-              <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+              <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
                 Type de prix
               </label>
               <div class="mt-1">{{ form.pricing_type }}</div>
@@ -189,7 +189,7 @@
             </div>
 
             <div>
-              <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+              <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
                 Prix
               </label>
               <div class="mt-1">{{ form.price }}</div>
@@ -199,7 +199,7 @@
             </div>
 
             <div>
-              <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+              <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
                 Devise
               </label>
               <div class="mt-1">{{ form.currency }}</div>
@@ -210,11 +210,11 @@
           </div>
         </div>
 
-        <div class="border-t border-slate-100"></div>
+        <div class="border-t border-be-ink-100 dark:border-white/10"></div>
 
         <!-- SECTION 4 -->
         <div>
-          <h2 class="text-sm font-black text-slate-900 flex items-center gap-2">
+          <h2 class="text-sm font-black text-be-ink-900 dark:text-white flex items-center gap-2">
             <span class="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
               <i class="fas fa-image"></i>
             </span>
@@ -222,11 +222,11 @@
           </h2>
 
           <div class="mt-4">
-            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+            <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
               Image de couverture
             </label>
             <div class="mt-1">{{ form.thumbnail }}</div>
-            <p class="mt-1 text-xs text-slate-500">
+            <p class="mt-1 text-xs text-be-ink-500 dark:text-white/50">
               Format recommandé : 16:9, image claire, lisible et professionnelle.
             </p>
             {% if form.thumbnail.errors %}
@@ -235,7 +235,7 @@
           </div>
 
           <div class="mt-4">
-            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+            <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">
               URL vidéo de prévisualisation
             </label>
             <div class="mt-1">{{ form.preview_video_url }}</div>
@@ -266,8 +266,8 @@
         <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mb-4">
           <i class="fas fa-building text-xl"></i>
         </div>
-        <h3 class="font-black text-slate-900">Cours rattaché à l’organisation</h3>
-        <p class="mt-2 text-sm text-slate-600">
+        <h3 class="font-black text-be-ink-900 dark:text-white">Cours rattaché à l’organisation</h3>
+        <p class="mt-2 text-sm text-be-ink-600 dark:text-white/70">
           Ce cours sera automatiquement lié à <strong>{{ organization.name }}</strong> et marqué comme cours interne.
         </p>
       </div>
@@ -276,8 +276,8 @@
         <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
           <i class="fas fa-chalkboard-teacher text-xl"></i>
         </div>
-        <h3 class="font-black text-slate-900">Formateurs disponibles</h3>
-        <p class="mt-2 text-sm text-slate-600">
+        <h3 class="font-black text-be-ink-900 dark:text-white">Formateurs disponibles</h3>
+        <p class="mt-2 text-sm text-be-ink-600 dark:text-white/70">
           {{ instructors_count|default:0 }} formateur(s) actif(s) dans cette organisation.
         </p>
         <a href="{% url 'org:instructor_create' organization.id %}" class="mt-4 btn-soft w-full">
@@ -290,8 +290,8 @@
         <div class="w-12 h-12 rounded-2xl bg-yellow-100 text-yellow-600 flex items-center justify-center mb-4">
           <i class="fas fa-lightbulb text-xl"></i>
         </div>
-        <h3 class="font-black text-slate-900">Conseils de publication</h3>
-        <ul class="mt-3 space-y-2 text-sm text-slate-600">
+        <h3 class="font-black text-be-ink-900 dark:text-white">Conseils de publication</h3>
+        <ul class="mt-3 space-y-2 text-sm text-be-ink-600 dark:text-white/70">
           <li class="flex gap-2">
             <i class="fas fa-check-circle text-emerald-500 mt-0.5"></i>
             Ajoutez au moins une section et une leçon.

@@ -1,8 +1,8 @@
 {# /templates/layout/admin_base.html — shell premium instructeur / admin #}
 {% load static %}
 <!doctype html>
-<html lang="fr" class="h-full" x-data="appShell()" x-init="initShell()"
-      :class="{ 'dark': theme === 'dark', 'be-drawer-open': sidebar.mobileOpen }"
+<html lang="fr" class="h-full" x-data="appShell"
+      :class="htmlClass()"
       x-cloak>
 <head>
     <meta charset="utf-8"/>
@@ -14,7 +14,7 @@
     <script src="{% static 'src/js/theme-init.js' %}"></script>
     <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
     <script defer src="{% static 'src/js/admin-shell.js' %}"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+    <script defer src="{% static 'vendor/alpinejs/alpine-csp.min.js' %}"></script>
 {# Thème par espace (CSS vars : --accent-*) #}
     {% include "partials/theme_styles.html" %}
 
@@ -58,7 +58,7 @@
                             rounded-2.5xl border border-be-sky-100/70 dark:border-white/10
                             bg-white/80 dark:bg-white/5 backdrop-blur-xl
                             px-3 sm:px-4 py-2.5"
-                 :class="scrolled ? 'shadow-lift' : 'shadow-soft'">
+                 :class="headerClass()">
 
                 {# ---- Left ---- #}
                 <div class="flex items-center gap-2 min-w-0">
@@ -71,7 +71,7 @@
                                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
                                    transition shrink-0"
                             @click="openMobile()"
-                            :aria-expanded="sidebar.mobileOpen ? 'true' : 'false'"
+                            :aria-expanded="mobileOpenAria()"
                             aria-label="Ouvrir le menu">
                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M4 6h16M4 12h16M4 18h16"
@@ -88,10 +88,10 @@
                                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
                                    transition shrink-0"
                             @click="toggleCollapsed()"
-                            :aria-pressed="sidebar.collapsed ? 'true' : 'false'"
-                            :aria-label="sidebar.collapsed ? 'Étendre le menu' : 'Réduire le menu'">
+                            :aria-pressed="collapsedAria()"
+                            :aria-label="toggleCollapseLabel()">
                         <svg class="w-5 h-5 transition-transform duration-300"
-                             :class="sidebar.collapsed ? 'rotate-180' : ''"
+                             :class="collapseIconClass()"
                              viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M8 6h13M8 12h13M8 18h13"
                                   stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -166,8 +166,8 @@
                                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
                                    transition"
                             @click="toggleTheme()"
-                            :aria-label="theme === 'dark' ? 'Activer le thème clair' : 'Activer le thème sombre'">
-                        <template x-if="theme === 'light'">
+                            :aria-label="themeToggleLabel()">
+                        <template x-if="isLightTheme()">
                             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                 <path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12Z"
                                       stroke="currentColor" stroke-width="2"/>
@@ -175,7 +175,7 @@
                                       stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
                         </template>
-                        <template x-if="theme === 'dark'">
+                        <template x-if="isDarkTheme()">
                             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                 <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8Z"
                                       stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
@@ -213,7 +213,7 @@
             {# Sidebar desktop #}
             <aside
                     class="hidden lg:block shrink-0 transition-all duration-300"
-                    :class="sidebar.collapsed ? 'w-[96px]' : 'w-[320px]'"
+                    :class="sidebarWidthClass()"
                     aria-label="Navigation principale">
                 <div class="sticky top-[92px]">
                     {% block sidebar %}

@@ -1,10 +1,6 @@
 {% comment %}
   partials/course_card.html — Carte de cours mutualisée.
 
-  CORRECTIF V5.A (CQ-20) : remplace les 4+ implémentations divergentes de
-  course card (instructor/instructor_courses, learner/learner_explore,
-  business/category_detail, home/course_detail).
-
   Usage :
       {% include "partials/course_card.html" with course=course %}
       {% include "partials/course_card.html" with course=course size="lg" context="instructor" %}
@@ -20,49 +16,62 @@
 {% load humanize %}
 
 {% with size=size|default:"md" context=context|default:"public" %}
-<article class="group bg-white dark:bg-slate-900 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-slate-200 dark:border-slate-700"
+<article class="group bg-white dark:bg-be-ink-800/60
+                rounded-2xl shadow-sm hover:shadow-md transition-shadow
+                overflow-hidden border border-be-ink-100 dark:border-white/10"
          data-course-id="{{ course.id }}">
 
   <a href="{{ href|default:course.get_absolute_url|default:'#' }}"
-     class="block focus:outline-none focus:ring-2 focus:ring-sky-500 rounded-2xl"
+     class="block focus:outline-none focus:ring-2 focus:ring-be-sky-500 rounded-2xl"
      aria-label="Voir le cours {{ course.title }}">
-    <div class="relative {% if size == 'sm' %}h-32{% elif size == 'lg' %}h-56{% else %}h-40{% endif %} bg-slate-100 dark:bg-slate-800">
+
+    {# Thumbnail #}
+    <div class="relative {% if size == 'sm' %}h-32{% elif size == 'lg' %}h-56{% else %}h-40{% endif %}
+                bg-be-ink-50 dark:bg-be-ink-800">
       {% if course.thumbnail %}
         <img src="{{ course.thumbnail.url }}"
              alt="Visuel du cours {{ course.title }}"
              class="w-full h-full object-cover">
       {% else %}
-        <div class="w-full h-full flex items-center justify-center text-slate-400" aria-hidden="true">
+        <div class="w-full h-full flex items-center justify-center
+                    text-be-ink-300 dark:text-white/20" aria-hidden="true">
           <i class="fas fa-book-open text-3xl"></i>
         </div>
       {% endif %}
 
       {% if badge_text %}
-        <span class="absolute top-3 right-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+        <span class="absolute top-3 right-3 inline-flex items-center px-2.5 py-1
+                     rounded-full text-xs font-semibold
           {% if badge_tone == 'success' %}bg-emerald-100 text-emerald-800
           {% elif badge_tone == 'warning' %}bg-amber-100 text-amber-800
           {% elif badge_tone == 'danger' %}bg-rose-100 text-rose-800
-          {% else %}bg-slate-100 text-slate-700{% endif %}">
+          {% else %}bg-be-ink-100 text-be-ink-700{% endif %}">
           {{ badge_text }}
         </span>
       {% endif %}
 
       {% if course.company_only %}
-        <span class="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+        <span class="absolute top-3 left-3 inline-flex items-center gap-1
+                     px-2 py-0.5 rounded-full text-xs font-semibold
+                     bg-indigo-100 text-indigo-800">
           <i class="fas fa-building text-[10px]" aria-hidden="true"></i> Interne
         </span>
       {% endif %}
     </div>
 
+    {# Body #}
     <div class="p-4 space-y-2">
-      <h3 class="font-semibold text-slate-900 dark:text-slate-100 line-clamp-2">
+      <h3 class="font-semibold text-be-ink-900 dark:text-white line-clamp-2">
         {{ course.title }}
       </h3>
       {% if course.subtitle and size != 'sm' %}
-        <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{{ course.subtitle }}</p>
+        <p class="text-sm text-be-ink-500 dark:text-white/50 line-clamp-2">
+          {{ course.subtitle }}
+        </p>
       {% endif %}
 
-      <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2">
+      <div class="flex items-center justify-between text-xs
+                  text-be-ink-500 dark:text-white/50 pt-2">
         <span class="inline-flex items-center gap-1">
           {% if course.instructor %}
             <i class="fas fa-user-tie" aria-hidden="true"></i>
@@ -70,22 +79,26 @@
           {% endif %}
         </span>
         {% if course.pricing_type == "FREE" %}
-          <span class="font-semibold text-emerald-700">Gratuit</span>
+          <span class="font-semibold text-emerald-600 dark:text-emerald-400">Gratuit</span>
         {% elif course.price %}
-          <span class="font-semibold text-slate-900 dark:text-slate-100">{{ course.price|intcomma }} {{ course.currency }}</span>
+          <span class="font-semibold text-be-ink-900 dark:text-white">
+            {{ course.price|intcomma }} {{ course.currency }}
+          </span>
         {% endif %}
       </div>
 
       {% if progress_percent is not None %}
         <div class="pt-3">
-          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+          <div class="flex items-center justify-between text-xs
+                      text-be-ink-400 dark:text-white/40 mb-1">
             <span>Progression</span>
             <span class="font-semibold">{{ progress_percent }}%</span>
           </div>
-          <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"
+          <div class="h-1.5 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden"
                role="progressbar"
                aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ progress_percent }}">
-            <div class="h-full bg-sky-500 transition-all w-pct-{% widthratio progress_percent 1 1 %}"></div>
+            <div class="h-full bg-be-sky-500 transition-all
+                        w-pct-{% widthratio progress_percent 1 1 %}"></div>
           </div>
         </div>
       {% endif %}

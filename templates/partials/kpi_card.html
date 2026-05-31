@@ -1,16 +1,12 @@
 {% comment %}
   partials/kpi_card.html — Carte KPI mutualisée.
 
-  CORRECTIF V5.A (CQ-22) : remplace 20+ implémentations divergentes
-  (organization/dashboard, instructor/admin_dash, platform/admin_dashboard,
-  instructor/instructor_dash).
-
   Usage :
       {% include "partials/kpi_card.html" with icon="fa-users" color="sky" label="Apprenants actifs" value=stats.learners hint="vs mois dernier" %}
 
   Variables :
     - icon (obligatoire) : nom de la classe FA (sans le préfixe `fas`)
-    - color : sky (défaut) | emerald | amber | rose | indigo | slate
+    - color : sky (défaut) | emerald | amber | rose | indigo | violet | slate
     - label : libellé
     - value : valeur (passe |intcomma côté caller si besoin)
     - hint : sous-texte optionnel
@@ -18,26 +14,29 @@
     - trend_value : ex. "+12%"
 {% endcomment %}
 {% with color=color|default:"sky" %}
-<article class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm">
+<article class="bg-white dark:bg-be-ink-800/60
+                border border-be-ink-100 dark:border-white/10
+                rounded-2xl p-5 shadow-sm">
   <div class="flex items-start justify-between gap-4">
     <div class="flex-1 min-w-0">
-      <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+      <p class="text-xs font-medium text-be-ink-500 dark:text-white/50 uppercase tracking-wide">
         {{ label|default:"—" }}
       </p>
-      <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+      <p class="mt-2 text-2xl font-bold text-be-ink-900 dark:text-white">
         {{ value|default:"—" }}
       </p>
       {% if hint %}
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ hint }}</p>
+        <p class="text-xs text-be-ink-400 dark:text-white/40 mt-1">{{ hint }}</p>
       {% endif %}
     </div>
-    <div class="w-11 h-11 rounded-xl flex items-center justify-center
-      {% if color == 'emerald' %}bg-emerald-100 text-emerald-700
-      {% elif color == 'amber' %}bg-amber-100 text-amber-700
-      {% elif color == 'rose' %}bg-rose-100 text-rose-700
-      {% elif color == 'indigo' %}bg-indigo-100 text-indigo-700
-      {% elif color == 'slate' %}bg-slate-100 text-slate-700
-      {% else %}bg-sky-100 text-sky-700{% endif %}"
+    <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0
+      {% if color == 'emerald' %}bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
+      {% elif color == 'amber' %}bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300
+      {% elif color == 'rose' %}bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300
+      {% elif color == 'indigo' %}bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300
+      {% elif color == 'violet' %}bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300
+      {% elif color == 'slate' %}bg-be-ink-100 dark:bg-white/10 text-be-ink-600 dark:text-white/70
+      {% else %}bg-be-sky-100 dark:bg-be-sky-900/40 text-be-sky-700 dark:text-be-sky-300{% endif %}"
          aria-hidden="true">
       <i class="fas {{ icon }} text-lg"></i>
     </div>
@@ -46,9 +45,9 @@
   {% if trend %}
     <div class="mt-3 flex items-center text-xs">
       <span class="inline-flex items-center gap-1
-        {% if trend == 'up' %}text-emerald-700
-        {% elif trend == 'down' %}text-rose-700
-        {% else %}text-slate-500{% endif %}">
+        {% if trend == 'up' %}text-emerald-600 dark:text-emerald-400
+        {% elif trend == 'down' %}text-rose-600 dark:text-rose-400
+        {% else %}text-be-ink-400 dark:text-white/40{% endif %}">
         {% if trend == 'up' %}<i class="fas fa-arrow-up" aria-hidden="true"></i>
         {% elif trend == 'down' %}<i class="fas fa-arrow-down" aria-hidden="true"></i>
         {% else %}<i class="fas fa-minus" aria-hidden="true"></i>{% endif %}

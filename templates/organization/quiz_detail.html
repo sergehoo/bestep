@@ -1,4 +1,4 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 {% load humanize %}
 
 {% block title %}{{ quiz.title }} — {{ course.title }}{% endblock %}
@@ -23,28 +23,28 @@
   <!-- Stats du quiz -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
     <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Questions</p>
-      <p class="mt-2 text-3xl font-black text-slate-900">{{ stats.questions_count|intcomma }}</p>
+      <p class="text-xs uppercase tracking-wider text-be-ink-500 dark:text-white/50 font-black">Questions</p>
+      <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">{{ stats.questions_count|intcomma }}</p>
     </div>
     <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Tentatives</p>
-      <p class="mt-2 text-3xl font-black text-slate-900">{{ stats.attempts_count|intcomma }}</p>
+      <p class="text-xs uppercase tracking-wider text-be-ink-500 dark:text-white/50 font-black">Tentatives</p>
+      <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">{{ stats.attempts_count|intcomma }}</p>
     </div>
     <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Réussites</p>
+      <p class="text-xs uppercase tracking-wider text-be-ink-500 dark:text-white/50 font-black">Réussites</p>
       <p class="mt-2 text-3xl font-black text-emerald-600">{{ stats.pass_rate|floatformat:0 }}%</p>
-      <p class="mt-1 text-xs text-slate-500">{{ stats.passed_count }} sur {{ stats.attempts_count }}</p>
+      <p class="mt-1 text-xs text-be-ink-500 dark:text-white/50">{{ stats.passed_count }} sur {{ stats.attempts_count }}</p>
     </div>
     <div class="org-card p-5">
-      <p class="text-xs uppercase tracking-wider text-slate-500 font-black">Score moyen</p>
-      <p class="mt-2 text-3xl font-black text-slate-900">{{ stats.avg_score|floatformat:0 }}%</p>
+      <p class="text-xs uppercase tracking-wider text-be-ink-500 dark:text-white/50 font-black">Score moyen</p>
+      <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">{{ stats.avg_score|floatformat:0 }}%</p>
     </div>
   </div>
 
   <!-- Édition rapide des paramètres -->
   <form method="post" class="org-card p-6 space-y-5">
     {% csrf_token %}
-    <h2 class="text-sm font-black text-slate-900">Paramètres du quiz</h2>
+    <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Paramètres du quiz</h2>
 
     {% if form.non_field_errors %}
       <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
@@ -53,24 +53,24 @@
     {% endif %}
 
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Titre</label>
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Titre</label>
       <div class="mt-1">{{ form.title }}</div>
     </div>
     <div>
-      <label class="text-xs font-black uppercase tracking-wider text-slate-500">Section</label>
+      <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Section</label>
       <div class="mt-1">{{ form.section }}</div>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Note de passage (%)</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Note de passage (%)</label>
         <div class="mt-1">{{ form.passing_score }}</div>
       </div>
       <div>
-        <label class="text-xs font-black uppercase tracking-wider text-slate-500">Tentatives max</label>
+        <label class="text-xs font-black uppercase tracking-wider text-be-ink-500 dark:text-white/50">Tentatives max</label>
         <div class="mt-1">{{ form.max_attempts }}</div>
       </div>
     </div>
-    <label class="flex items-center gap-2 text-sm text-slate-700">
+    <label class="flex items-center gap-2 text-sm text-be-ink-700 dark:text-white/80">
       {{ form.is_active }}
       <span>Quiz actif</span>
     </label>
@@ -82,29 +82,29 @@
 
   <!-- Liste des questions (lecture seule ; l'édition fine passe par l'API) -->
   <div class="org-card overflow-hidden">
-    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-      <h2 class="text-sm font-black text-slate-900">Questions ({{ stats.questions_count }})</h2>
-      <span class="text-xs text-slate-500">
+    <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10 flex items-center justify-between">
+      <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Questions ({{ stats.questions_count }})</h2>
+      <span class="text-xs text-be-ink-500 dark:text-white/50">
         L'ajout / la modification fine des questions s'effectue via l'API
-        <code class="px-1 py-0.5 rounded bg-slate-100">/api/instructor/quizzes/{{ quiz.id }}/questions/</code>.
+        <code class="px-1 py-0.5 rounded bg-be-ink-100 dark:bg-white/10">/api/instructor/quizzes/{{ quiz.id }}/questions/</code>.
       </span>
     </div>
-    <div class="divide-y divide-slate-100">
+    <div class="divide-y divide-be-ink-100 dark:divide-white/10">
       {% for q in questions %}
         <div class="px-5 py-4">
           <div class="flex items-start gap-3">
-            <span class="text-xs font-black text-slate-400 mt-0.5">#{{ q.order }}</span>
+            <span class="text-xs font-black text-be-ink-400 dark:text-white/30 mt-0.5">#{{ q.order }}</span>
             <div class="min-w-0 flex-1">
-              <div class="font-semibold text-slate-900">{{ q.prompt }}</div>
+              <div class="font-semibold text-be-ink-900 dark:text-white">{{ q.prompt }}</div>
               <ul class="mt-2 space-y-1 text-sm">
                 {% for c in q.choices.all %}
                   <li class="flex items-center gap-2">
                     {% if c.is_correct %}
                       <i class="fas fa-check-circle text-emerald-500"></i>
                     {% else %}
-                      <i class="far fa-circle text-slate-300"></i>
+                      <i class="far fa-circle text-be-ink-300 dark:text-white/20"></i>
                     {% endif %}
-                    <span class="{% if c.is_correct %}text-slate-900 font-medium{% else %}text-slate-500{% endif %}">
+                    <span class="{% if c.is_correct %}text-be-ink-900 dark:text-white font-medium{% else %}text-be-ink-500 dark:text-white/50{% endif %}">
                       {{ c.text }}
                     </span>
                   </li>
@@ -116,7 +116,7 @@
           </div>
         </div>
       {% empty %}
-        <div class="p-6 text-sm text-slate-500">
+        <div class="p-6 text-sm text-be-ink-500 dark:text-white/50">
           Aucune question pour ce quiz.
         </div>
       {% endfor %}

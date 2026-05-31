@@ -1,16 +1,16 @@
 {# templates/home/learner_explore.html #}
-{% extends "layout/learner_base.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}best-épargne — Explorer les cours{% endblock %}
 {% block topbar_subtitle %}Explorer{% endblock %}
 
-{# ✅ Topbar: on s’appuie sur un Alpine Store global ($store.explore.filters) #}
+{# Topbar search — uses exploreFilters component (reads from Alpine.store('explore')) #}
 {% block topbar_search %}
     <input
-            x-data="{ f: $store.explore.filters }"
+            x-data="exploreFilters"
             x-model.debounce.300ms="f.q"
-            @input="$store.explore.emit(true)"
+            @input="emitSearch()"
             placeholder="Rechercher un cours…"
             class="w-full px-4 py-2 rounded-xl border border-be-ink-100/70 bg-white/80 dark:bg-white/5">
 {% endblock %}
@@ -23,10 +23,10 @@
 {% endblock %}
 
 {% block topbar_user %}
-    <div class="flex items-center gap-2" x-data="{me: window.__beLearnerMe || {}}">
+    <div class="flex items-center gap-2" x-data="learnerAvatar">
         <div class="w-8 h-8 rounded-lg bg-be-sun-400 text-be-ink-900 flex items-center justify-center font-bold"
-             x-text="me.initials || 'A'"></div>
-        <span class="hidden sm:block text-sm font-semibold" x-text="me.full_name || 'Apprenant'"></span>
+             x-text="initials()"></div>
+        <span class="hidden sm:block text-sm font-semibold" x-text="fullName()"></span>
     </div>
 {% endblock %}
 
@@ -36,15 +36,9 @@
 
 {% block content %}
     <section class="space-y-6"
-             x-data="window.exploreApp({
-           endpoints: {
-             me: '{% url "api_learner_me" %}',
-             explore: '{% url "api_learner_courses_explore" %}',
-             enroll: (id) => `/api/learner/courses/${id}/enroll/`,
-             courseDetail: (id) => `/api/learner/courses/${id}/`,
-           }
-         })"
-             x-init="init()">
+             x-data="exploreApp"
+             data-url-me="{% url 'api_learner_me' %}"
+             data-url-explore="{% url 'api_learner_courses_explore' %}">
 
         <!-- Header -->
         <div class="rounded-2xl border border-be-ink-100/70 bg-white/80 dark:bg-white/5 shadow-soft p-5">
@@ -80,7 +74,7 @@
             </svg>
           </span>
                         <input x-model.debounce.300ms="$store.explore.filters.q"
-                               @input="$store.explore.emit(true)"
+                               @input="emitSearch()"
                                placeholder="Ex: Excel, Budget, Investissement…"
                                class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm focus:outline-none focus:ring-4 focus:ring-be-sky-200/60"/>
                     </div>
@@ -88,7 +82,7 @@
 
                 <div class="md:col-span-2">
                     <label class="text-xs font-semibold text-be-ink-600">Type</label>
-                    <select x-model="$store.explore.filters.type" @change="$store.explore.emit(true)"
+                    <select x-model="$store.explore.filters.type" @change="emitSearch()"
                             class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
                         <option value="">Tous</option>
                         <option value="CERTIFIANTE">Certifiante</option>
@@ -100,7 +94,7 @@
 
                 <div class="md:col-span-2">
                     <label class="text-xs font-semibold text-be-ink-600">Pricing</label>
-                    <select x-model="$store.explore.filters.pricing" @change="$store.explore.emit(true)"
+                    <select x-model="$store.explore.filters.pricing" @change="emitSearch()"
                             class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
                         <option value="">Tous</option>
                         <option value="FREE">Gratuit</option>
@@ -111,7 +105,7 @@
 
                 <div class="md:col-span-3">
                     <label class="text-xs font-semibold text-be-ink-600">Trier</label>
-                    <select x-model="$store.explore.filters.sort" @change="$store.explore.emit(true)"
+                    <select x-model="$store.explore.filters.sort" @change="emitSearch()"
                             class="mt-1 w-full px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white text-sm">
                         <option value="recent">Récents</option>
                         <option value="popular">Populaires</option>
@@ -131,7 +125,7 @@
                     <div class="text-be-ink-600 mt-1" x-text="toast.message"></div>
                 </div>
                 <button class="text-xs px-2 py-1 rounded-lg border border-be-ink-100 hover:bg-be-ink-50"
-                        @click="toast.show=false">OK
+                        @click="clearToast()">OK
                 </button>
             </div>
         </template>
@@ -144,18 +138,18 @@
                     <div class="text-xs text-be-ink-500 mt-1">
                         <span x-text="meta.count"></span> cours •
                         <span x-text="meta.offset"></span> – <span
-                            x-text="Math.min(meta.offset + meta.limit, meta.count)"></span>
+                            x-text="paginationEnd()"></span>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-2">
                     <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
-                            :disabled="loading.explore || meta.offset<=0"
+                            :disabled="prevDisabled"
                             @click="prevPage()">
                         ← Précédent
                     </button>
                     <button class="px-3 py-2 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-xs font-semibold"
-                            :disabled="loading.explore || (meta.offset + meta.limit) >= meta.count"
+                            :disabled="nextDisabled"
                             @click="nextPage()">
                         Suivant →
                     </button>
@@ -181,7 +175,7 @@
                     </div>
                 </template>
 
-                <template x-if="!loading.explore && courses.length===0">
+                <template x-if="showEmpty()">
                     <div class="text-sm text-be-ink-500">Aucun cours trouvé.</div>
                 </template>
 
@@ -189,7 +183,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     <template x-for="c in courses" :key="c.id">
                         <div class="group rounded-2xl border border-be-ink-100 bg-white overflow-hidden hover:shadow-soft transition"
-                             :class="c.is_enrolled ? 'ring-1 ring-emerald-200/60' : ''">
+                             :class="courseCardClass(c)">
 
                             <!-- Thumbnail -->
                             <div class="relative aspect-[16/9] bg-be-ink-50 overflow-hidden">
@@ -197,7 +191,7 @@
                                      :src="c.thumbnail_url"
                                      class="w-full h-full object-cover group-hover:scale-[1.03] transition duration-200"
                                      alt="">
-                                <div x-show="!c.thumbnail_url"
+                                <div x-show="courseNoThumb(c)"
                                      class="w-full h-full flex items-center justify-center text-xs text-be-ink-400">
                                     No image
                                 </div>
@@ -210,7 +204,7 @@
                 </span>
 
                                     <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-white/85 border-be-ink-100 text-be-ink-800"
-                                          x-text="c.level_label || c.level || 'Niveau'"></span>
+                                          x-text="courseLevelLabel(c)"></span>
 
                                     <span x-show="c.company_only"
                                           class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-50 border border-purple-200 text-purple-700">
@@ -222,12 +216,10 @@
                                 <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
                                     <div class="flex items-center gap-2">
                   <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/85 border border-be-ink-100 text-be-ink-700"
-                        x-text="c.category_name || '—'"></span>
+                        x-text="courseCategoryName(c)"></span>
 
                                         <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold"
-                                              :class="(c.pricing_type==='PAID') ? 'bg-be-sun-50 border border-be-sun-200 text-be-sun-800'
-                               : (c.pricing_type==='FREE') ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-                               : 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'"
+                                              :class="pricingChipClass(c)"
                                               x-text="pricingChip(c)"></span>
                                     </div>
 
@@ -242,17 +234,17 @@
                             <!-- Body -->
                             <div class="p-4">
                                 <div class="font-semibold text-sm leading-snug line-clamp-2" x-text="c.title"></div>
-                                <div class="text-xs text-be-ink-500 mt-1 line-clamp-2" x-text="c.subtitle || ''"></div>
+                                <div class="text-xs text-be-ink-500 mt-1 line-clamp-2" x-text="courseSubtitle(c)"></div>
 
                                 <div class="mt-3 flex items-center justify-between gap-3">
                                     <div class="flex items-center gap-2 min-w-0">
                                         <div class="w-8 h-8 rounded-xl bg-be-ink-50 border border-be-ink-100 flex items-center justify-center text-[11px] font-bold text-be-ink-700"
-                                             x-text="(c.instructor_initials || (c.instructor_name||'F')[0] || 'F')"></div>
+                                             x-text="instructorInitials(c)"></div>
                                         <div class="min-w-0">
                                             <div class="text-[12px] font-semibold truncate"
-                                                 x-text="c.instructor_name || 'Formateur'"></div>
+                                                 x-text="courseInstructorName(c)"></div>
                                             <div class="text-[11px] text-be-ink-500 truncate">
-                                                <span x-text="c.course_type_label || c.course_type || ''"></span>
+                                                <span x-text="courseCourseType(c)"></span>
                                                 <span x-show="c.published_at" class="text-be-ink-400"> • </span>
                                                 <span x-show="c.published_at"
                                                       x-text="formatDateShort(c.published_at)"></span>
@@ -262,26 +254,26 @@
 
                                     <div class="text-right shrink-0">
                                         <div class="text-[12px] font-extrabold text-be-ink-900"
-                                             x-show="(c.pricing_type!=='FREE' && Number(c.price||0)>0)"
-                                             x-text="fmtMoney(c.price) + ' ' + moneyCur(c.currency)"></div>
+                                             x-show="isPaid(c)"
+                                             x-text="priceText(c)"></div>
 
                                         <div class="text-[12px] font-extrabold text-emerald-700"
-                                             x-show="(c.pricing_type==='FREE' || Number(c.price||0)===0)">
+                                             x-show="isFree(c)">
                                             Gratuit
                                         </div>
 
                                         <div class="text-[11px] text-be-ink-500"
-                                             x-text="'/ ' + (c.price_period || 'cours')"></div>
+                                             x-text="pricePeriod(c)"></div>
                                     </div>
                                 </div>
 
                                 <div class="mt-3 flex items-center justify-between text-[11px] text-be-ink-500">
                                     <div class="flex items-center gap-2">
                   <span class="inline-flex items-center gap-1 text-be-sun-700 font-semibold">
-                    ★ <span x-text="Number(c.rating||0).toFixed(1)"></span>
+                    ★ <span x-text="formatRating(c)"></span>
                   </span>
                                         <span class="text-be-ink-300">•</span>
-                                        <span class="inline-flex items-center gap-1" x-show="c.enrolled_count!=null">
+                                        <span class="inline-flex items-center gap-1" x-show="hasEnrolledCount(c)">
                     👥 <span x-text="c.enrolled_count"></span>
                   </span>
                                     </div>
@@ -300,17 +292,16 @@
                                     </button>
 
                                     <button class="flex-1 px-3 py-2 rounded-xl text-xs font-semibold transition"
-                                            :class="c.is_enrolled ? 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'
-                                             : 'bg-be-sky-600 text-white hover:bg-be-sky-700 shadow-soft'"
-                                            :disabled="loading.enrollId===c.id || c.is_enrolled"
+                                            :class="enrollBtnClass(c)"
+                                            :disabled="enrollDisabled(c)"
                                             @click="enroll(c)">
                                         <template x-if="c.is_enrolled">
                                             <span>Déjà inscrit</span>
                                         </template>
-                                        <template x-if="!c.is_enrolled">
-                                            <span x-show="loading.enrollId!==c.id">S’inscrire</span>
+                                        <template x-if="notEnrolled(c)">
+                                            <span x-show="notEnrolling(c)">S'inscrire</span>
                                         </template>
-                                        <span x-show="loading.enrollId===c.id">Inscription…</span>
+                                        <span x-show="isEnrolling(c)">Inscription…</span>
                                     </button>
                                 </div>
 
@@ -337,7 +328,7 @@
 
             <div class="relative w-full max-w-3xl rounded-2xl bg-white border border-be-ink-100 shadow-soft overflow-hidden">
                 <div class="px-5 py-4 border-b border-be-ink-100 flex items-center justify-between">
-                    <div class="font-semibold" x-text="detail?.title || 'Détails du cours'"></div>
+                    <div class="font-semibold" x-text="detailTitle()"></div>
                     <button class="w-9 h-9 rounded-xl border border-be-ink-100 hover:bg-be-ink-50"
                             @click="closeDetail()">✕
                     </button>
@@ -348,13 +339,13 @@
                         <div class="text-sm text-be-ink-500">Chargement…</div>
                     </template>
 
-                    <template x-if="!loading.detail && detail">
+                    <template x-if="detailReady()">
                         <div class="grid md:grid-cols-12 gap-4">
                             <div class="md:col-span-5">
                                 <div class="aspect-[16/9] rounded-2xl overflow-hidden border border-be-ink-100 bg-be-ink-50">
                                     <img x-show="detail.thumbnail_url" :src="detail.thumbnail_url"
                                          class="w-full h-full object-cover" alt="">
-                                    <div x-show="!detail.thumbnail_url"
+                                    <div x-show="detailNoThumb()"
                                          class="w-full h-full flex items-center justify-center text-sm text-be-ink-400">
                                         No image
                                     </div>
@@ -362,21 +353,19 @@
 
                                 <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
                 <span class="px-2 py-0.5 rounded-full border bg-be-ink-50 border-be-ink-100 text-be-ink-700"
-                      x-text="detail.category_name || '—'"></span>
+                      x-text="detailCategoryName()"></span>
                                     <span class="px-2 py-0.5 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700"
-                                          x-text="detail.course_type_label || detail.course_type || '—'"></span>
+                                          x-text="detailCourseType()"></span>
                                     <span class="px-2 py-0.5 rounded-full border"
-                                          :class="(detail.pricing_type==='PAID') ? 'bg-be-sun-50 border-be-sun-200 text-be-sun-800'
-                             : (detail.pricing_type==='FREE') ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                             : 'bg-be-ink-50 border-be-ink-100 text-be-ink-700'"
+                                          :class="detailPricingChipClass()"
                                           x-text="pricingLabel(detail)"></span>
                                 </div>
 
                                 <div class="mt-3 text-sm">
                                     <div class="font-semibold text-be-ink-900"
-                                         x-text="detail.instructor_name || 'Formateur'"></div>
+                                         x-text="detailInstructorName()"></div>
                                     <div class="text-xs text-be-ink-500 mt-1">
-                                        <span x-text="detail.level_label || detail.level || ''"></span>
+                                        <span x-text="detailLevelLabel()"></span>
                                         <span x-show="detail.published_at" class="text-be-ink-400"> • </span>
                                         <span x-show="detail.published_at"
                                               x-text="formatDateShort(detail.published_at)"></span>
@@ -387,12 +376,12 @@
                                     <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
                                         <span>Inscrits</span>
                                         <span class="font-semibold text-be-ink-900"
-                                              x-text="detail.enrolled_count ?? 0"></span>
+                                              x-text="detailEnrolledCount()"></span>
                                     </div>
                                     <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
                                         <span>Note</span>
                                         <span class="font-semibold text-be-ink-900"
-                                              x-text="Number(detail.rating||0).toFixed(1)"></span>
+                                              x-text="detailRating()"></span>
                                     </div>
                                 </div>
 
@@ -408,34 +397,34 @@
 
                             <div class="md:col-span-7">
                                 <div class="text-sm font-semibold" x-text="detail.title"></div>
-                                <div class="text-xs text-be-ink-500 mt-1" x-text="detail.subtitle || ''"></div>
+                                <div class="text-xs text-be-ink-500 mt-1" x-text="detailSubtitle()"></div>
 
                                 <div class="mt-4 text-sm text-be-ink-700 whitespace-pre-wrap"
-                                     x-text="detail.description || ''"></div>
+                                     x-text="detailDescription()"></div>
 
                                 <div class="mt-4 grid sm:grid-cols-2 gap-3 text-[12px] text-be-ink-600">
                                     <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
                                         <span>Prix</span>
                                         <span class="font-semibold text-be-ink-900">
-                    <span x-show="detail.pricing_type==='FREE' || Number(detail.price||0)===0" class="text-emerald-700">Gratuit</span>
-                    <span x-show="detail.pricing_type!=='FREE' && Number(detail.price||0)>0"
-                          x-text="fmtMoney(detail.price) + ' ' + moneyCur(detail.currency)"></span>
+                    <span x-show="detailIsFree()" class="text-emerald-700">Gratuit</span>
+                    <span x-show="detailIsPaid()"
+                          x-text="priceText(detail)"></span>
                   </span>
                                     </div>
                                     <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
                                         <span>Période</span>
                                         <span class="font-semibold text-be-ink-900"
-                                              x-text="detail.price_period || 'cours'"></span>
+                                              x-text="detailPricePeriod()"></span>
                                     </div>
                                     <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
                                         <span>Statut</span>
                                         <span class="font-semibold text-be-ink-900"
-                                              x-text="detail.status || '—'"></span>
+                                              x-text="detailStatus()"></span>
                                     </div>
                                     <div class="rounded-xl border border-be-ink-100 bg-white p-3 flex items-center justify-between">
                                         <span>Durée</span>
                                         <span class="font-semibold text-be-ink-900"
-                                              x-text="detail.duration || '—'"></span>
+                                              x-text="detailDuration()"></span>
                                     </div>
                                 </div>
 
@@ -460,13 +449,12 @@
                     </button>
 
                     <button class="px-4 py-2.5 rounded-xl text-sm font-semibold"
-                            :class="detail?.is_enrolled ? 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'
-                                           : 'bg-be-sky-600 text-white hover:bg-be-sky-700 shadow-soft'"
-                            :disabled="!detail || loading.enrollId===detail.id || detail.is_enrolled"
-                            @click="detail && enroll(detail)">
-                        <span x-show="detail && detail.is_enrolled">Déjà inscrit</span>
-                        <span x-show="detail && !detail.is_enrolled && loading.enrollId!==detail.id">S’inscrire</span>
-                        <span x-show="detail && loading.enrollId===detail.id">Inscription…</span>
+                            :class="detailEnrollBtnClass()"
+                            :disabled="detailEnrollDisabled()"
+                            @click="enrollDetail()">
+                        <span x-show="detailIsEnrolled()">Déjà inscrit</span>
+                        <span x-show="showDetailEnrollBtn()">S'inscrire</span>
+                        <span x-show="detailEnrolling()">Inscription…</span>
                     </button>
                 </div>
             </div>

@@ -1,34 +1,21 @@
-{% extends "layout/admin_base_template.html" %}
+{% extends "layout/app_shell.html" %}
 {% load static %}
 
 {% block title %}Membres — {{ organization.name }}{% endblock %}
-{% block page_title %}Membres de l’organisation{% endblock %}
+{% block page_title %}Membres de l'organisation{% endblock %}
 
 {% block content %}
 <section
   class="space-y-6"
-  x-data="{
-    q: '',
-    role: '',
-    get rows() {
-      return Array.from(document.querySelectorAll('[data-member-row]')).filter(row => {
-        const text = row.dataset.search || '';
-        const role = row.dataset.role || '';
-        return (!this.q || text.includes(this.q.toLowerCase())) && (!this.role || role === this.role);
-      });
-    },
-    refresh() {
-      document.querySelectorAll('[data-member-row]').forEach(row => row.classList.add('hidden'));
-      this.rows.forEach(row => row.classList.remove('hidden'));
-    }
-  }"
-  x-init="$watch('q', () => refresh()); $watch('role', () => refresh()); refresh();"
+  x-data="orgMemberFilter"
 >
 
-  <!-- HERO -->
-  <div class="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 p-6 md:p-8 text-white shadow-xl">
+  {# HERO #}
+  <div class="relative overflow-hidden rounded-[28px]
+              bg-gradient-to-br from-emerald-700 via-emerald-600 to-be-sky-500
+              p-6 md:p-8 text-white shadow-lift">
     <div class="absolute -right-16 -top-16 w-44 h-44 rounded-full bg-white/10"></div>
-    <div class="absolute -left-10 -bottom-16 w-40 h-40 rounded-full bg-yellow-300/20"></div>
+    <div class="absolute -left-10 -bottom-16 w-40 h-40 rounded-full bg-white/10"></div>
 
     <div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
       <div>
@@ -36,103 +23,102 @@
           <i class="fas fa-building"></i>
           {{ organization.name }}
         </div>
-        <h1 class="mt-4 text-2xl md:text-3xl font-black">
-          Gestion des membres
-        </h1>
-        <p class="mt-2 max-w-2xl text-sm md:text-base text-blue-50">
+        <h1 class="mt-4 text-2xl md:text-3xl font-black">Gestion des membres</h1>
+        <p class="mt-2 max-w-2xl text-sm md:text-base text-emerald-50">
           Gérez les formateurs, apprenants et administrateurs rattachés à votre organisation.
         </p>
       </div>
-
       <div class="flex flex-wrap gap-3">
-        <a href="{% url 'org:instructor_create' organization.id %}" class="btn-yellow">
-          <i class="fas fa-chalkboard-teacher"></i>
-          Ajouter formateur
+        <a href="{% url 'org:instructor_create' organization.id %}" class="btn-primary">
+          <i class="fas fa-chalkboard-teacher"></i> Ajouter formateur
         </a>
-        <a href="{% url 'org:learner_create' organization.id %}" class="btn-soft bg-white/95">
-          <i class="fas fa-user-graduate"></i>
-          Ajouter apprenant
+        <a href="{% url 'org:learner_create' organization.id %}" class="btn-soft">
+          <i class="fas fa-user-graduate"></i> Ajouter apprenant
         </a>
       </div>
     </div>
   </div>
 
-  <!-- STATS -->
+  {# STATS #}
   <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-    <div class="org-card p-5 card-lift">
-      <div class="flex items-center justify-between">
+    <div class="org-card card-lift p-5">
+      <div class="flex items-center justify-between gap-4">
         <div>
-          <p class="text-sm text-slate-500 font-semibold">Total membres</p>
-          <p class="mt-2 text-3xl font-black text-slate-900">{{ memberships|length }}</p>
+          <p class="text-xs font-semibold text-be-ink-500 dark:text-white/50 uppercase tracking-wide">Total membres</p>
+          <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">{{ memberships|length }}</p>
         </div>
-        <div class="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
+        <div class="w-12 h-12 rounded-2xl bg-be-sky-100 dark:bg-be-sky-900/40
+                    text-be-sky-600 dark:text-be-sky-300 flex items-center justify-center shrink-0">
           <i class="fas fa-users text-xl"></i>
         </div>
       </div>
     </div>
 
-    <div class="org-card p-5 card-lift">
-      <div class="flex items-center justify-between">
+    <div class="org-card card-lift p-5">
+      <div class="flex items-center justify-between gap-4">
         <div>
-          <p class="text-sm text-slate-500 font-semibold">Formateurs</p>
-          <p class="mt-2 text-3xl font-black text-slate-900">
+          <p class="text-xs font-semibold text-be-ink-500 dark:text-white/50 uppercase tracking-wide">Formateurs</p>
+          <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">
             {{ instructors_count|default:"—" }}
           </p>
         </div>
-        <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40
+                    text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0">
           <i class="fas fa-chalkboard-teacher text-xl"></i>
         </div>
       </div>
     </div>
 
-    <div class="org-card p-5 card-lift">
-      <div class="flex items-center justify-between">
+    <div class="org-card card-lift p-5">
+      <div class="flex items-center justify-between gap-4">
         <div>
-          <p class="text-sm text-slate-500 font-semibold">Apprenants</p>
-          <p class="mt-2 text-3xl font-black text-slate-900">
+          <p class="text-xs font-semibold text-be-ink-500 dark:text-white/50 uppercase tracking-wide">Apprenants</p>
+          <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">
             {{ learners_count|default:"—" }}
           </p>
         </div>
-        <div class="w-12 h-12 rounded-2xl bg-yellow-100 text-yellow-600 flex items-center justify-center">
+        <div class="w-12 h-12 rounded-2xl bg-be-sun-100 dark:bg-be-sun-900/40
+                    text-be-sun-600 dark:text-be-sun-300 flex items-center justify-center shrink-0">
           <i class="fas fa-user-graduate text-xl"></i>
         </div>
       </div>
     </div>
 
-    <div class="org-card p-5 card-lift">
-      <div class="flex items-center justify-between">
+    <div class="org-card card-lift p-5">
+      <div class="flex items-center justify-between gap-4">
         <div>
-          <p class="text-sm text-slate-500 font-semibold">Admins</p>
-          <p class="mt-2 text-3xl font-black text-slate-900">
+          <p class="text-xs font-semibold text-be-ink-500 dark:text-white/50 uppercase tracking-wide">Admins</p>
+          <p class="mt-2 text-3xl font-black text-be-ink-900 dark:text-white">
             {{ admins_count|default:"—" }}
           </p>
         </div>
-        <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center">
+        <div class="w-12 h-12 rounded-2xl bg-violet-100 dark:bg-violet-900/40
+                    text-violet-600 dark:text-violet-300 flex items-center justify-center shrink-0">
           <i class="fas fa-user-shield text-xl"></i>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- FILTERS -->
+  {# FILTERS #}
   <div class="org-card p-4 md:p-5">
     <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
       <div class="md:col-span-8">
-        <label class="text-xs font-bold text-slate-500">Recherche</label>
+        <label class="text-xs font-bold text-be-ink-500 dark:text-white/50">Recherche</label>
         <div class="mt-1 relative">
-          <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2
+                    text-be-ink-400 dark:text-white/30"></i>
           <input
             x-model.debounce.250ms="q"
             type="text"
             placeholder="Rechercher par nom, email ou rôle…"
-            class="pl-11"
+            class="input pl-11"
           >
         </div>
       </div>
-
       <div class="md:col-span-4">
-        <label class="text-xs font-bold text-slate-500">Rôle</label>
-        <select x-model="role" class="mt-1">
+        <label class="text-xs font-bold text-be-ink-500 dark:text-white/50">Rôle</label>
+        <select x-model="role" class="input mt-1">
           <option value="">Tous les rôles</option>
           <option value="OWNER">Propriétaire</option>
           <option value="ADMIN">Administrateur</option>
@@ -144,101 +130,126 @@
     </div>
   </div>
 
-  <!-- TABLE -->
+  {# TABLE #}
   <div class="org-card overflow-hidden">
-    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10
+                flex items-center justify-between gap-3">
       <div>
-        <h2 class="text-sm font-black text-slate-900">Liste des membres</h2>
-        <p class="text-xs text-slate-500 mt-1">Membres actifs rattachés à {{ organization.name }}</p>
+        <h2 class="text-sm font-black text-be-ink-900 dark:text-white">Liste des membres</h2>
+        <p class="text-xs text-be-ink-500 dark:text-white/50 mt-0.5">
+          Membres actifs rattachés à {{ organization.name }}
+        </p>
       </div>
       <a href="{% url 'org:member_create' organization.id %}" class="btn-primary">
-        <i class="fas fa-plus"></i>
-        Ajouter
+        <i class="fas fa-plus"></i> Ajouter
       </a>
     </div>
 
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
-        <thead class="bg-slate-50 border-b border-slate-100">
+        <thead class="bg-be-ink-50 dark:bg-be-ink-800/80
+                      border-b border-be-ink-100 dark:border-white/10">
           <tr>
-            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Membre</th>
-            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Rôle</th>
-            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Invitation</th>
-            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-500">Date</th>
-            <th class="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">Statut</th>
-            <th class="px-5 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-500">Actions</th>
+            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider
+                       text-be-ink-500 dark:text-white/40">Membre</th>
+            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider
+                       text-be-ink-500 dark:text-white/40">Rôle</th>
+            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider
+                       text-be-ink-500 dark:text-white/40">Invitation</th>
+            <th class="px-5 py-3 text-left text-xs font-black uppercase tracking-wider
+                       text-be-ink-500 dark:text-white/40">Date</th>
+            <th class="px-5 py-3 text-right text-xs font-black uppercase tracking-wider
+                       text-be-ink-500 dark:text-white/40">Statut</th>
+            <th class="px-5 py-3 text-right text-xs font-black uppercase tracking-wider
+                       text-be-ink-500 dark:text-white/40">Actions</th>
           </tr>
         </thead>
 
-        <tbody class="divide-y divide-slate-100">
+        <tbody class="divide-y divide-be-ink-100 dark:divide-white/10">
           {% for m in memberships %}
             <tr
               data-member-row
               data-role="{{ m.role }}"
               data-search="{{ m.user.email|lower }} {{ m.user.full_name|lower }} {{ m.get_role_display|lower }}"
-              class="hover:bg-blue-50/40 transition"
+              class="hover:bg-be-ink-50/60 dark:hover:bg-white/5 transition"
             >
               <td class="px-5 py-4">
                 <a href="{% url 'org:member_detail' organization.id m.id %}"
                    class="flex items-center gap-3 group">
-                  <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 text-white flex items-center justify-center font-black">
+                  <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-400
+                              text-white flex items-center justify-center font-black shrink-0">
                     {{ m.user.full_name|default:m.user.email|first|upper }}
                   </div>
                   <div>
-                    <div class="font-bold text-slate-900 group-hover:text-blue-600 transition">
+                    <div class="font-bold text-be-ink-900 dark:text-white
+                                group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
                       {{ m.user.full_name|default:"Nom non renseigné" }}
                     </div>
-                    <div class="text-xs text-slate-500">{{ m.user.email }}</div>
+                    <div class="text-xs text-be-ink-500 dark:text-white/50">{{ m.user.email }}</div>
                   </div>
                 </a>
               </td>
 
               <td class="px-5 py-4">
                 {% if m.role == "OWNER" %}
-                  <span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
+                  <span class="inline-flex items-center gap-1 rounded-full
+                               bg-violet-100 dark:bg-violet-900/40 px-3 py-1
+                               text-xs font-bold text-violet-700 dark:text-violet-300">
                     <i class="fas fa-crown"></i>{{ m.get_role_display }}
                   </span>
                 {% elif m.role == "ADMIN" %}
-                  <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                  <span class="inline-flex items-center gap-1 rounded-full
+                               bg-be-sky-100 dark:bg-be-sky-900/40 px-3 py-1
+                               text-xs font-bold text-be-sky-700 dark:text-be-sky-300">
                     <i class="fas fa-user-shield"></i>{{ m.get_role_display }}
                   </span>
                 {% elif m.role == "INSTRUCTOR" %}
-                  <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                  <span class="inline-flex items-center gap-1 rounded-full
+                               bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1
+                               text-xs font-bold text-emerald-700 dark:text-emerald-300">
                     <i class="fas fa-chalkboard-teacher"></i>{{ m.get_role_display }}
                   </span>
                 {% elif m.role == "LEARNER" %}
-                  <span class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-700">
+                  <span class="inline-flex items-center gap-1 rounded-full
+                               bg-amber-100 dark:bg-amber-900/40 px-3 py-1
+                               text-xs font-bold text-amber-700 dark:text-amber-300">
                     <i class="fas fa-user-graduate"></i>{{ m.get_role_display }}
                   </span>
                 {% else %}
-                  <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                  <span class="inline-flex items-center gap-1 rounded-full
+                               bg-be-ink-100 dark:bg-white/10 px-3 py-1
+                               text-xs font-bold text-be-ink-600 dark:text-white/70">
                     <i class="fas fa-user"></i>{{ m.get_role_display }}
                   </span>
                 {% endif %}
               </td>
 
-              <td class="px-5 py-4 text-slate-600">
+              <td class="px-5 py-4 text-be-ink-600 dark:text-white/70">
                 {% if m.invited_by %}
                   <div class="text-xs">
                     Par <span class="font-semibold">{{ m.invited_by.full_name|default:m.invited_by.email }}</span>
                   </div>
                 {% else %}
-                  <span class="text-xs text-slate-400">—</span>
+                  <span class="text-xs text-be-ink-400 dark:text-white/30">—</span>
                 {% endif %}
               </td>
 
-              <td class="px-5 py-4 text-slate-600">
+              <td class="px-5 py-4 text-be-ink-600 dark:text-white/70">
                 <div class="font-semibold">{{ m.joined_at|date:"d/m/Y" }}</div>
-                <div class="text-xs text-slate-400">{{ m.joined_at|date:"H:i" }}</div>
+                <div class="text-xs text-be-ink-400 dark:text-white/30">{{ m.joined_at|date:"H:i" }}</div>
               </td>
 
               <td class="px-5 py-4 text-right">
                 {% if m.is_active %}
-                  <span class="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-100">
+                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold
+                               bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300
+                               border border-emerald-100 dark:border-emerald-800/40">
                     Actif
                   </span>
                 {% else %}
-                  <span class="inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700 border border-red-100">
+                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold
+                               bg-rose-50 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300
+                               border border-rose-100 dark:border-rose-800/40">
                     Inactif
                   </span>
                 {% endif %}
@@ -247,7 +258,11 @@
               <td class="px-5 py-4 text-right">
                 <div class="inline-flex items-center gap-1">
                   <a href="{% url 'org:member_update' organization.id m.id %}"
-                     class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                     class="px-2.5 py-1.5 rounded-lg
+                            bg-be-ink-100 dark:bg-white/10
+                            hover:bg-be-ink-200 dark:hover:bg-white/20
+                            text-be-ink-700 dark:text-white/80
+                            text-xs font-semibold transition"
                      title="Modifier">
                     <i class="fas fa-pen"></i>
                   </a>
@@ -258,7 +273,11 @@
                           class="m-0">
                       {% csrf_token %}
                       <button type="submit"
-                              class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold transition"
+                              class="px-2.5 py-1.5 rounded-lg
+                                     bg-rose-50 dark:bg-rose-900/30
+                                     hover:bg-rose-100 dark:hover:bg-rose-900/50
+                                     text-rose-600 dark:text-rose-400
+                                     text-xs font-semibold transition"
                               title="Désactiver">
                         <i class="fas fa-user-slash"></i>
                       </button>
@@ -269,7 +288,11 @@
                           class="m-0">
                       {% csrf_token %}
                       <button type="submit"
-                              class="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition"
+                              class="px-2.5 py-1.5 rounded-lg
+                                     bg-emerald-50 dark:bg-emerald-900/30
+                                     hover:bg-emerald-100 dark:hover:bg-emerald-900/50
+                                     text-emerald-700 dark:text-emerald-400
+                                     text-xs font-semibold transition"
                               title="Réactiver">
                         <i class="fas fa-user-check"></i>
                       </button>
@@ -281,14 +304,16 @@
           {% empty %}
             <tr>
               <td colspan="6" class="px-5 py-12 text-center">
-                <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                  <i class="fas fa-users text-slate-400 text-2xl"></i>
+                <div class="w-16 h-16 rounded-full bg-be-ink-50 dark:bg-white/5
+                            flex items-center justify-center mx-auto mb-4">
+                  <i class="fas fa-users text-be-ink-300 dark:text-white/20 text-2xl"></i>
                 </div>
-                <h3 class="text-lg font-black text-slate-900">Aucun membre trouvé</h3>
-                <p class="text-sm text-slate-500 mt-1">Ajoutez vos formateurs et apprenants pour démarrer.</p>
+                <h3 class="text-lg font-black text-be-ink-900 dark:text-white">Aucun membre trouvé</h3>
+                <p class="text-sm text-be-ink-500 dark:text-white/50 mt-1">
+                  Ajoutez vos formateurs et apprenants pour démarrer.
+                </p>
                 <a href="{% url 'org:member_create' organization.id %}" class="btn-primary mt-5">
-                  <i class="fas fa-user-plus"></i>
-                  Ajouter un membre
+                  <i class="fas fa-user-plus"></i> Ajouter un membre
                 </a>
               </td>
             </tr>
@@ -299,4 +324,8 @@
   </div>
 
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'src/js/org-ui.js' %}"></script>
 {% endblock %}
