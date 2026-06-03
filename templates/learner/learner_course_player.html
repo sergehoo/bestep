@@ -321,10 +321,18 @@
                             <template x-if="showVideo()">
                                 <div class="rounded-2xl border border-be-ink-100 overflow-hidden bg-black">
                                     <template x-if="isMp4(lesson.video_url)">
+                                        {# HOTFIX SEC-33 : protections anti-piratage casual.
+                                           - controlsList="nodownload noremoteplayback noplaybackrate" supprime les options native du menu.
+                                           - disablePictureInPicture empêche le picture-in-picture (ré-encodage facile).
+                                           - oncontextmenu="return false" désactive le clic-droit (Save Video As).
+                                           Note : ne remplace PAS un signed URL court (V5.D, à câbler dans le JS), mais ferme les vecteurs de piratage casual visibles. #}
                                         <video
                                                 x-ref="videoEl"
                                                 class="w-full max-h-[520px]"
                                                 controls
+                                                controlsList="nodownload noremoteplayback noplaybackrate"
+                                                disablePictureInPicture
+                                                oncontextmenu="return false"
                                                 playsinline
                                                 preload="metadata"
                                                 @timeupdate="onVideoTimeUpdate()"
@@ -335,11 +343,14 @@
                                     </template>
 
                                     <template x-if="isIframe()">
+                                        {# HOTFIX SEC : sandbox iframe externe (YouTube/Vimeo) — pas d'accès au DOM parent. #}
                                         <iframe
                                                 class="w-full h-[520px]"
                                                 loading="lazy"
                                                 :src="lesson.video_url"
                                                 allowfullscreen
+                                                referrerpolicy="strict-origin-when-cross-origin"
+                                                sandbox="allow-same-origin allow-scripts allow-presentation allow-popups"
                                         ></iframe>
                                     </template>
                                 </div>

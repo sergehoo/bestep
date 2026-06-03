@@ -960,9 +960,67 @@ class LearnerExploreView(LoginRequiredMixin, LearnerRequiredMixin, TemplateView)
 class LearnerCoursePlayerView(LoginRequiredMixin, LearnerRequiredMixin, TemplateView):
     template_name = "learner/learner_course_player.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        """HOTFIX UX/sécurité : valide PUBLISHED + Enrollment actif avant rendu.
+
+        Avant : la vue rendait la page pour tout learner authentifié ; l'API
+        ``/api/learner/courses/<id>/outline/`` retournait 403 mais le squelette
+        restait visible indéfiniment. Mauvaise expérience.
+
+        Après :
+        - 404 si cours inexistant ou non PUBLISHED (anti-énumération),
+        - redirect vers le détail public + flash message si pas d'Enrollment,
+        - rendu de la page sinon.
+        """
+        from django.contrib import messages
+        from django.shortcuts import get_object_or_404, redirect
+        from catalog.models import Course
+        from enrollments.models import Enrollment
+
+        course_id = kwargs.get("course_id")
+        # 1. Course PUBLISHED obligatoire (CAT-01 / SEC).
+        course = get_object_or_404(
+            Course.objects.filter(status=Course.Status.PUBLISHED),
+            pk=course_id,
+        )
+        self.course = course
+
+        # 2. Enrollment actif obligatoire.
+        enrollment = (
+            Enrollment.objects.filter(user=request.user, course=course)
+            .exclude(status=Enrollment.Status.CANCELED)
+            .select_related("course", "current_lesson")
+            .first()
+        )
+        if enrollment is None:
+            messages.warning(
+                request,
+                "Vous devez être inscrit à ce cours pour le consulter.",
+            )
+            # Redirige vers la page de détail publique (pour inscription/achat).
+            try:
+                from django.urls import reverse
+                slug = course.slug or ""
+                target = reverse(
+                    "course_public_page",
+                    kwargs={"slug": slug, "course_id": course.id},
+                ) if slug else f"/landinghome/courses/{course.id}/"
+                return redirect(target)
+            except Exception:
+                return redirect("/")
+        self.enrollment = enrollment
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["course_id"] = self.kwargs.get("course_id")
+        # Exposer le course et l'enrollment au template pour un rendu
+        # server-side robuste (titre, breadcrumb, statut) — l'API JS
+        # reste utilisée pour le contenu dynamique.
+        if hasattr(self, "course"):
+            ctx["course"] = self.course
+        if hasattr(self, "enrollment"):
+            ctx["enrollment"] = self.enrollment
         return ctx
 
 
@@ -1854,6 +1912,65 @@ class CourseDetailPageView(TemplateView):
         ctx = super().get_context_data(**kwargs)
         ctx["course_id"] = self.kwargs.get("course_id")
         ctx["slug"] = self.kwargs.get("slug")  # ✅ plus de KeyError
+
+        # FIX HOTFIX : injecter le cours + sections + leçons côté serveur
+        # pour que la zone Programme/Curriculum se remplisse sans dépendre
+        # exclusivement du fetch JS côté client (qui parfois échoue ou
+        # ne consomme pas `sections`).
+        from django.db.models import Count, Prefetch
+        from catalog.models import Course, CourseSection, Lesson
+
+        course = (
+            get_visible_courses_qs(self.request.user, public_only=True)
+            .filter(id=self.kwargs.get("course_id"))
+            .select_related("category", "instructor")
+            .prefetch_related(
+                Prefetch(
+                    "sections",
+                    queryset=CourseSection.objects.order_by("order").prefetch_related(
+                        Prefetch(
+                            "lessons",
+                            queryset=Lesson.objects.order_by("order").only(
+                                "id", "title", "order", "section_id",
+                                "lesson_type", "is_preview", "duration_sec",
+                            ),
+                        )
+                    ),
+                )
+            )
+            .first()
+        )
+
+        if course is not None:
+            sections = []
+            total_lessons = 0
+            total_duration_sec = 0
+            for sec in course.sections.all():
+                lessons = []
+                for lsn in sec.lessons.all():
+                    lessons.append({
+                        "id": lsn.id,
+                        "title": lsn.title,
+                        "order": lsn.order,
+                        "lesson_type": lsn.lesson_type,
+                        "is_preview": lsn.is_preview,
+                        "duration_sec": lsn.duration_sec or 0,
+                    })
+                    total_duration_sec += lsn.duration_sec or 0
+                    total_lessons += 1
+                sections.append({
+                    "id": sec.id,
+                    "title": sec.title,
+                    "order": sec.order,
+                    "lessons": lessons,
+                    "lessons_count": len(lessons),
+                })
+            ctx["course_obj"] = course
+            ctx["sections"] = sections
+            ctx["sections_count"] = len(sections)
+            ctx["total_lessons"] = total_lessons
+            ctx["total_duration_sec"] = total_duration_sec
+
         return ctx
 
 

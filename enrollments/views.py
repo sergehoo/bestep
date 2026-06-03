@@ -1,53 +1,67 @@
 """
-enrollments/views.py — CORRECTIF P1.J (audit ENROLL-02).
+enrollments/views.py — CORRECTIF P1.J (audit ENROLL-02) + HOTFIX V_FIN.
 
-Avant : ``CourseLearnView.dispatch`` faisait ``get_object_or_404(Enrollment, ...)``
-puis ``get_context_data`` refaisait ``Enrollment.objects.get(...)``. La
-``DetailView`` parente faisait elle aussi un ``get_object()`` → 3 requêtes
-pour le même Enrollment sur la page la plus visitée du parcours apprenant.
-
-Après : on mémorise ``self.object`` + ``self.enrollment`` dès ``dispatch`` et
-on réutilise. Bonus : ``select_related`` sur ``course`` et ``current_lesson``.
+CourseLearnView convertie en redirect vers ``LearnerCoursePlayerView`` :
+le template ``learn/course_learn.html`` n'existait pas et le player
+définitif vit dans ``learner/learner_course_player.html`` côté
+``LearnerCoursePlayerView``. On résout le slug → course_id puis redirige.
 """
 from __future__ import annotations
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import get_object_or_404
-from django.views.generic import DetailView
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import NoReverseMatch, reverse
+from django.views.generic import View
 
 from catalog.models import Course
 
-from .models import Enrollment, LessonProgress
+from .models import Enrollment
 
 
-class CourseLearnView(LoginRequiredMixin, DetailView):
-    template_name = "learn/course_learn.html"
-    model = Course
-    slug_field = "slug"
-    slug_url_kwarg = "slug"
+class CourseLearnView(LoginRequiredMixin, View):
+    """
+    HOTFIX : redirige ``/learn/course/<slug>/`` vers le vrai player apprenant
+    ``LearnerCoursePlayerView`` (``/dashboard/learner/courses/<id>/``).
 
-    def dispatch(self, request, *args, **kwargs):
-        # 1. Récupère le Course (cache dans self.object pour éviter le double fetch).
-        self.object = super().get_object()
-        # 2. Récupère l'Enrollment du user pour ce cours, ou 404.
-        self.enrollment = get_object_or_404(
-            Enrollment.objects.select_related("course", "current_lesson"),
-            user=request.user,
-            course=self.object,
+    Vérifications :
+    1. Cours PUBLISHED obligatoire (anti-énumération).
+    2. Enrollment actif obligatoire ; sinon redirect vers la page publique
+       du cours avec un flash message UX.
+    """
+
+    def get(self, request, slug, *args, **kwargs):
+        # Course PUBLISHED.
+        course = get_object_or_404(
+            Course.objects.filter(status=Course.Status.PUBLISHED),
+            slug=slug,
         )
-        return super().dispatch(request, *args, **kwargs)
 
-    def get_object(self, queryset=None):
-        # Utilise la valeur mémorisée pour éviter le 3e fetch DetailView.
-        if getattr(self, "object", None) is not None:
-            return self.object
-        return super().get_object(queryset)
+        # Enrollment actif.
+        if not (
+            Enrollment.objects.filter(user=request.user, course=course)
+            .exclude(status=Enrollment.Status.CANCELED)
+            .exists()
+        ):
+            messages.warning(
+                request,
+                "Vous devez être inscrit à ce cours pour le suivre.",
+            )
+            try:
+                target = reverse(
+                    "course_public_page",
+                    kwargs={"slug": course.slug or "", "course_id": course.id},
+                )
+            except NoReverseMatch:
+                target = f"/landinghome/courses/{course.id}/"
+            return redirect(target)
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["enrollment"] = self.enrollment
-        ctx["progress_map"] = {
-            p.lesson_id: p
-            for p in LessonProgress.objects.filter(enrollment=self.enrollment).select_related("lesson")
-        }
-        return ctx
+        # Redirige vers le player apprenant définitif.
+        try:
+            target = reverse(
+                "learner:course_player",
+                kwargs={"course_id": course.id},
+            )
+        except NoReverseMatch:
+            target = f"/dashboard/learner/courses/{course.id}/"
+        return redirect(target)
