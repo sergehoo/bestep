@@ -115,6 +115,33 @@ class Course(models.Model):
     def __str__(self):
         return self.title
 
+    def get_absolute_url(self) -> str:
+        """
+        URL canonique publique du cours (convention Django).
+
+        Utilisée par ``partials/course_card.html`` quand aucun ``href`` n'est
+        fourni. Pour un cours non PUBLISHED, l'URL résolue renverra une 404
+        — c'est le comportement attendu : les contextes admin/instructor
+        doivent passer un ``href=`` explicite (édition, prévisualisation...).
+
+        Robustesse : protégée par ``NoReverseMatch`` pour éviter qu'un
+        environnement de test sans urlconf complète ne casse le rendu des
+        cartes (cf. régression observée : VariableDoesNotExist quand le
+        template évalue ``course.get_absolute_url``).
+        """
+        from django.urls import NoReverseMatch, reverse
+
+        try:
+            return reverse(
+                "course_public_page",
+                kwargs={
+                    "slug": self.slug or "course",
+                    "course_id": self.pk,
+                },
+            )
+        except NoReverseMatch:
+            return "#"
+
 
 class CourseSection(models.Model):
     course = models.ForeignKey("catalog.Course", on_delete=models.CASCADE, related_name="sections")
