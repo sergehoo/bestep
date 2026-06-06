@@ -1,11 +1,5 @@
 {% load static %}
-{#
-  partials/organization_side.html — Sidebar espace organisation
-  Accent : emerald (vert)
-  Sections : Pilotage · Membres · Catalogue · Évaluations · Paramètres
-  Variables contexte : organization (obj), active_workspace, request.user
-  Fallback org_id : active_workspace.organization_id si organization absent
-#}
+
 {% with m=mode|default:"desktop" org_id=organization.id|default:active_workspace.organization_id cur=request.resolver_match.url_name|default:"" %}
 
 <nav aria-label="Navigation organisation"
