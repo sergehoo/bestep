@@ -1906,6 +1906,21 @@ class CourseDetailPageView(TemplateView):
                 reverse("course_public_page", kwargs={"slug": canon_slug, "course_id": course.id})
             )
 
+        # CORRECTIF : si le cours n'est pas visible (non PUBLISHED, ou
+        # company_only et user hors organisation), on doit renvoyer 404
+        # AVANT de rendre le template. Sinon le squelette s'affiche puis
+        # le JS appelle /api/learner/courses/<id>/ qui retourne 403, ce
+        # qui pollue la console + casse l'UX. Cohérent avec l'API.
+        if course_id:
+            visible = (
+                get_visible_courses_qs(request.user, public_only=True)
+                .filter(id=course_id)
+                .exists()
+            )
+            if not visible:
+                from django.http import Http404
+                raise Http404("Cours non disponible.")
+
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
