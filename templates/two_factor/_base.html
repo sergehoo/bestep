@@ -1,0 +1,308 @@
+{% load static i18n %}<!doctype html>
+{% comment %}
+  templates/two_factor/_base.html — Layout focused pour django-two-factor-auth.
+
+  Pourquoi un layout focused (pas app_shell) ?
+  Le wizard 2FA est un flux critique de sécurité : on retire les
+  distractions (sidebar, topbar, notifs) pour focaliser l'utilisateur
+  sur les étapes. C'est aussi le pattern officiel recommandé par
+  django-two-factor-auth et utilisé par Stripe, GitHub, Google.
+
+  Les templates enfants de la lib (setup.html, login.html, qr.html,
+  backup_tokens.html, etc.) définissent ``{% block content %}`` —
+  on l'expose tel quel, encapsulé dans une carte centrée premium.
+{% endcomment %}
+<html lang="fr" class="h-full">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="{% trans 'Best Épargne — sécurité du compte (2FA)' %}">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0C87D6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121827" media="(prefers-color-scheme: dark)">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+
+  <title>
+    {% block title %}{% trans "Authentification à deux facteurs" %} — Best Épargne{% endblock %}
+  </title>
+
+  {# Injection synchrone du thème (cohérence avec app_shell) #}
+  <script src="{% static 'src/js/theme-init.js' %}"></script>
+
+  {# CSS principal — réutilise le build Tailwind unifié #}
+  <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
+
+  {# Font Awesome (icônes) #}
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        crossorigin="anonymous">
+
+  {% block extra_head %}{% endblock %}
+  {% block extra_media %}{% endblock %}
+</head>
+
+<body class="h-full
+             bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50
+             dark:from-be-ink-900 dark:via-be-ink-900 dark:to-black
+             text-be-ink-900 dark:text-be-ink-50
+             overflow-x-hidden antialiased
+             selection:bg-be-sky-200 selection:text-be-ink-900">
+
+  {# Bandeau "Sécurité" (rappel visuel du contexte) #}
+  <div class="border-b border-be-sky-100/70 dark:border-white/10
+              bg-white/60 dark:bg-white/5 backdrop-blur-md">
+    <div class="mx-auto max-w-3xl px-4 sm:px-6 py-3 flex items-center justify-between">
+      <a href="{% url 'home' %}"
+         class="flex items-center gap-2.5 group focus-visible:outline-none
+                focus-visible:ring-4 focus-visible:ring-be-sky-200/60 rounded-xl">
+        <div class="w-9 h-9 rounded-xl shrink-0
+                    bg-gradient-to-br from-be-sky-500 to-be-sky-700
+                    text-white flex items-center justify-center shadow-ring
+                    transition-transform duration-300 group-hover:scale-[1.04]">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3l9 5-9 5-9-5 9-5Z"
+                  stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M3 10l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M3 14l9 5 9-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="leading-tight">
+          <div class="font-semibold tracking-tight text-be-ink-900 dark:text-white text-sm">
+            best-épargne
+          </div>
+          <div class="text-[11px] text-be-ink-500 dark:text-white/60 -mt-0.5">
+            {% trans "Sécurité du compte" %}
+          </div>
+        </div>
+      </a>
+
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1
+                   rounded-full text-[11px] font-semibold
+                   bg-emerald-100 text-emerald-800
+                   dark:bg-emerald-900/40 dark:text-emerald-300">
+        <i class="fas fa-shield-halved text-[10px]" aria-hidden="true"></i>
+        {% trans "Flux sécurisé" %}
+      </span>
+    </div>
+  </div>
+
+  <main id="be-main" class="mx-auto max-w-3xl px-4 sm:px-6 py-10 sm:py-14" role="main">
+
+    {# Messages Django (succès / erreur) #}
+    {% if messages %}
+      <ul class="mb-6 space-y-2" role="status" aria-live="polite">
+        {% for message in messages %}
+          <li class="flex items-start gap-2.5 px-4 py-3 rounded-2xl text-sm
+                     {% if message.tags == 'error' or 'error' in message.tags %}
+                       bg-rose-50 text-rose-800 dark:bg-rose-900/30 dark:text-rose-200
+                       border border-rose-200/60 dark:border-rose-700/40
+                     {% elif message.tags == 'warning' or 'warning' in message.tags %}
+                       bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200
+                       border border-amber-200/60 dark:border-amber-700/40
+                     {% else %}
+                       bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200
+                       border border-emerald-200/60 dark:border-emerald-700/40
+                     {% endif %}">
+            <i class="fas
+              {% if message.tags == 'error' or 'error' in message.tags %}fa-circle-exclamation
+              {% elif message.tags == 'warning' or 'warning' in message.tags %}fa-triangle-exclamation
+              {% else %}fa-circle-check{% endif %}
+              mt-0.5" aria-hidden="true"></i>
+            <span class="flex-1">{{ message }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {# ────────── Carte centrale qui reçoit le wizard ────────── #}
+    <section class="rounded-3xl border border-be-sky-100/70 dark:border-white/10
+                    bg-white/90 dark:bg-be-ink-800/60 backdrop-blur-xl
+                    shadow-lift dark:shadow-none
+                    px-6 sm:px-10 py-8 sm:py-10
+                    space-y-6"
+             aria-labelledby="tf-heading">
+
+      {# Pictogramme + accroche par défaut (les enfants ré-écrivent juste le content) #}
+      <header class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-2xl shrink-0
+                    bg-gradient-to-br from-be-sky-500 to-be-sky-700
+                    text-white flex items-center justify-center shadow-ring">
+          <i class="fas fa-shield-halved text-lg" aria-hidden="true"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h1 id="tf-heading"
+              class="text-2xl font-semibold tracking-tight
+                     text-be-ink-900 dark:text-white">
+            {% block tf_heading %}{% trans "Authentification à deux facteurs" %}{% endblock %}
+          </h1>
+          <p class="mt-1 text-sm text-be-ink-500 dark:text-white/60">
+            {% block tf_subtitle %}
+              {% trans "Renforcez la sécurité de votre compte en quelques étapes." %}
+            {% endblock %}
+          </p>
+        </div>
+      </header>
+
+      {# Slot principal — les templates enfants de la lib y injectent leur form #}
+      <div class="tf-content space-y-5
+                  prose-sm max-w-none
+                  prose-headings:font-semibold prose-headings:text-be-ink-900
+                  dark:prose-headings:text-white
+                  prose-p:text-be-ink-700 dark:prose-p:text-white/70
+                  prose-a:text-be-sky-600 dark:prose-a:text-be-sky-400
+                  prose-strong:text-be-ink-900 dark:prose-strong:text-white">
+        {% block content %}{% endblock %}
+      </div>
+    </section>
+
+    {# Lien retour discret #}
+    <div class="mt-6 text-center text-sm">
+      <a href="{% url 'home' %}"
+         class="inline-flex items-center gap-1.5
+                text-be-ink-500 dark:text-white/60
+                hover:text-be-ink-900 dark:hover:text-white
+                focus-visible:outline-none focus-visible:underline">
+        <i class="fas fa-arrow-left text-[11px]" aria-hidden="true"></i>
+        {% trans "Retour à mon espace" %}
+      </a>
+    </div>
+
+  </main>
+
+  <footer class="mx-auto max-w-3xl px-4 sm:px-6 pb-8 pt-2
+                 text-[11px] text-be-ink-400 dark:text-white/30 text-center">
+    &copy; {% now "Y" %} Best Épargne — {% trans "tous droits réservés" %}
+  </footer>
+
+  {# ────────── Styling natif pour les forms 2FA non préfixées Tailwind ────────── #}
+  <style>
+    /* Restyle léger des inputs/buttons générés par les forms django-two-factor-auth
+       (les forms de la lib ne portent pas nos classes Tailwind par défaut).        */
+    .tf-content form input[type="text"],
+    .tf-content form input[type="password"],
+    .tf-content form input[type="email"],
+    .tf-content form input[type="tel"],
+    .tf-content form input[type="number"],
+    .tf-content form select,
+    .tf-content form textarea {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      border-radius: 0.875rem;
+      background: var(--tf-input-bg, #fff);
+      color: inherit;
+      border: 1px solid rgb(var(--be-ink-100-rgb, 226 232 240) / 1);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .tf-content form input:focus,
+    .tf-content form select:focus,
+    .tf-content form textarea:focus {
+      outline: none;
+      border-color: rgb(12 135 214 / 1);
+      box-shadow: 0 0 0 4px rgb(12 135 214 / 0.18);
+    }
+    .tf-content form label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: rgb(71 85 105 / 1);
+      margin-bottom: 0.375rem;
+      letter-spacing: 0.01em;
+    }
+    .tf-content form button,
+    .tf-content form input[type="submit"],
+    .tf-content form .btn,
+    .tf-content form .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.125rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 0.875rem;
+      border: 1px solid transparent;
+      background: linear-gradient(135deg, #0C87D6 0%, #0a6cb0 100%);
+      color: #fff;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s, opacity .15s;
+    }
+    .tf-content form button:hover,
+    .tf-content form input[type="submit"]:hover,
+    .tf-content form .btn:hover,
+    .tf-content form .button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px -8px rgb(12 135 214 / 0.5);
+    }
+    .tf-content form button:active,
+    .tf-content form input[type="submit"]:active {
+      transform: translateY(0);
+    }
+    .tf-content form button.btn-link,
+    .tf-content form button[type="button"]:not(.primary) {
+      background: transparent;
+      color: rgb(12 135 214 / 1);
+      border: 1px solid rgb(12 135 214 / 0.3);
+    }
+    .tf-content form button.btn-link:hover,
+    .tf-content form button[type="button"]:not(.primary):hover {
+      background: rgb(12 135 214 / 0.06);
+      box-shadow: none;
+    }
+    .tf-content ul.errorlist {
+      list-style: none;
+      padding: 0;
+      margin: 0.25rem 0 0;
+      font-size: 0.8rem;
+      color: rgb(190 18 60 / 1);
+    }
+    .tf-content table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .tf-content table th,
+    .tf-content table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid rgb(226 232 240 / 1);
+      text-align: left;
+    }
+    .tf-content table th { font-weight: 600; color: rgb(71 85 105 / 1); }
+
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+      .tf-content form input[type="text"],
+      .tf-content form input[type="password"],
+      .tf-content form input[type="email"],
+      .tf-content form input[type="tel"],
+      .tf-content form input[type="number"],
+      .tf-content form select,
+      .tf-content form textarea {
+        background: rgb(255 255 255 / 0.05);
+        border-color: rgb(255 255 255 / 0.1);
+        color: #fff;
+      }
+      .tf-content form label { color: rgb(255 255 255 / 0.7); }
+      .tf-content table th,
+      .tf-content table td { border-bottom-color: rgb(255 255 255 / 0.08); }
+      .tf-content table th { color: rgb(255 255 255 / 0.7); }
+    }
+
+    /* QR code SVG/img — centrage + cadre soft */
+    .tf-content img,
+    .tf-content svg.qrcode {
+      max-width: 240px;
+      margin: 1rem auto;
+      display: block;
+      padding: 0.75rem;
+      background: #fff;
+      border-radius: 1rem;
+      border: 1px solid rgb(226 232 240 / 1);
+    }
+  </style>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
