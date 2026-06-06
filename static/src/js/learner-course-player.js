@@ -20,6 +20,46 @@
  *   showLastSaved, completedLessons, totalLessons.
  */
 
+/**
+ * Convertit une URL vidéo "publique" (YouTube share, watch, shorts, Vimeo, etc.)
+ * vers son URL embed officielle, seule autorisée dans un <iframe>.
+ *
+ * youtu.be et youtube.com/watch?v= refusent l'embed (X-Frame-Options) ;
+ * il faut systématiquement passer par https://www.youtube.com/embed/<id>.
+ *
+ * Préserve les URLs déjà au format embed et les MP4/HLS/MinIO directs.
+ * CSP-safe : pas de eval, regex literals OK car exécuté côté JS pur (pas Alpine).
+ */
+function toEmbedUrl(u) {
+  if (!u || typeof u !== 'string') return u;
+  // Already embed
+  if (u.indexOf('youtube.com/embed/') !== -1) return u;
+  if (u.indexOf('player.vimeo.com/video/') !== -1) return u;
+
+  // YouTube short link : https://youtu.be/<id>?...
+  let m = u.match(/^https?:\/\/(?:www\.)?youtu\.be\/([\w-]{6,})/);
+  if (m) return 'https://www.youtube.com/embed/' + m[1];
+
+  // YouTube watch : https://www.youtube.com/watch?v=<id>&...
+  m = u.match(/^https?:\/\/(?:www\.|m\.)?youtube\.com\/watch\?[^#]*\bv=([\w-]{6,})/);
+  if (m) return 'https://www.youtube.com/embed/' + m[1];
+
+  // YouTube shorts : https://www.youtube.com/shorts/<id>
+  m = u.match(/^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([\w-]{6,})/);
+  if (m) return 'https://www.youtube.com/embed/' + m[1];
+
+  // Vimeo : https://vimeo.com/<id>
+  m = u.match(/^https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
+  if (m) return 'https://player.vimeo.com/video/' + m[1];
+
+  // Dailymotion : https://www.dailymotion.com/video/<id>
+  m = u.match(/^https?:\/\/(?:www\.)?dailymotion\.com\/video\/([a-z0-9]+)/i);
+  if (m) return 'https://www.dailymotion.com/embed/video/' + m[1];
+
+  // Sinon : MP4/HLS/MinIO direct ou format non reconnu — on retourne tel quel.
+  return u;
+}
+
 document.addEventListener('alpine:init', () => {
 
   Alpine.data('coursePlayerUdemy', () => {
@@ -540,7 +580,9 @@ document.addEventListener('alpine:init', () => {
             id:           raw.id || null,
             title:        raw.title || '',
             type,
-            video_url:    raw.video_url || raw.videoUrl || raw.video || null,
+            // Normalise l'URL YouTube/Vimeo en URL embed officielle
+            // (youtu.be et watch?v= refusent l'embed via X-Frame-Options).
+            video_url:    toEmbedUrl(raw.video_url || raw.videoUrl || raw.video || null),
             file_url:     raw.file_url  || raw.fileUrl  || raw.file  || null,
             content:      raw.content   || raw.text     || raw.html  || null,
             duration_sec: raw.duration_sec ?? raw.duration ?? null,

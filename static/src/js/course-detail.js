@@ -1,4 +1,26 @@
 // ---------- helpers ----------
+/**
+ * Convertit une URL vidéo "publique" (YouTube share, watch, shorts, Vimeo)
+ * vers son URL embed officielle (acceptée par X-Frame-Options et CSP frame-src).
+ * Copie locale — voir learner-course-player.js pour la version maître.
+ */
+function toEmbedUrl(u) {
+  if (!u || typeof u !== 'string') return u;
+  if (u.indexOf('youtube.com/embed/') !== -1) return u;
+  if (u.indexOf('player.vimeo.com/video/') !== -1) return u;
+  let m = u.match(/^https?:\/\/(?:www\.)?youtu\.be\/([\w-]{6,})/);
+  if (m) return 'https://www.youtube.com/embed/' + m[1];
+  m = u.match(/^https?:\/\/(?:www\.|m\.)?youtube\.com\/watch\?[^#]*\bv=([\w-]{6,})/);
+  if (m) return 'https://www.youtube.com/embed/' + m[1];
+  m = u.match(/^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([\w-]{6,})/);
+  if (m) return 'https://www.youtube.com/embed/' + m[1];
+  m = u.match(/^https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
+  if (m) return 'https://player.vimeo.com/video/' + m[1];
+  m = u.match(/^https?:\/\/(?:www\.)?dailymotion\.com\/video\/([a-z0-9]+)/i);
+  if (m) return 'https://www.dailymotion.com/embed/video/' + m[1];
+  return u;
+}
+
 const CoursePageConfig = document.body ? document.body.dataset : {};
 const courseId = Number(CoursePageConfig.courseId || 0);
 const IS_AUTH = CoursePageConfig.isAuth === "true";
@@ -111,7 +133,8 @@ function openVideo(url){
   const modal = document.getElementById("videoModal");
   const frame = document.getElementById("videoFrame");
   if(!modal || !frame) return;
-  frame.src = url;
+  // Normalise youtu.be / watch?v= → /embed/ pour passer X-Frame-Options.
+  frame.src = toEmbedUrl(url);
   modal.classList.remove("hidden");
 }
 function closeVideo(){
