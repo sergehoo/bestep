@@ -961,16 +961,19 @@ class LearnerCoursePlayerView(LoginRequiredMixin, LearnerRequiredMixin, Template
     template_name = "learner/learner_course_player.html"
 
     def dispatch(self, request, *args, **kwargs):
-        """HOTFIX UX/sécurité : valide PUBLISHED + Enrollment actif avant rendu.
+        """Sécurité + UX : valide Enrollment actif avant rendu.
 
-        Avant : la vue rendait la page pour tout learner authentifié ; l'API
-        ``/api/learner/courses/<id>/outline/`` retournait 403 mais le squelette
-        restait visible indéfiniment. Mauvaise expérience.
-
-        Après :
-        - 404 si cours inexistant ou non PUBLISHED (anti-énumération),
-        - redirect vers le détail public + flash message si pas d'Enrollment,
-        - rendu de la page sinon.
+        Policy (corrigée) :
+        - 404 si cours inexistant (anti-énumération).
+        - Le statut du cours (PUBLISHED / DRAFT / REVIEW) n'est plus
+          bloquant côté player. Un apprenant inscrit doit pouvoir revenir
+          consulter ses leçons même si l'instructor a temporairement
+          basculé le cours en DRAFT pour mise à jour. Seul un cours
+          ARCHIVED reste bloqué (cours retiré du catalogue, on protège
+          en redirigeant).
+        - Redirect vers le détail public + flash message si pas
+          d'Enrollment actif.
+        - Rendu de la page sinon.
         """
         from django.contrib import messages
         from django.shortcuts import get_object_or_404, redirect
@@ -978,14 +981,20 @@ class LearnerCoursePlayerView(LoginRequiredMixin, LearnerRequiredMixin, Template
         from enrollments.models import Enrollment
 
         course_id = kwargs.get("course_id")
-        # 1. Course PUBLISHED obligatoire (CAT-01 / SEC).
-        course = get_object_or_404(
-            Course.objects.filter(status=Course.Status.PUBLISHED),
-            pk=course_id,
-        )
+        # 1. Cours existant (anti-énumération).
+        course = get_object_or_404(Course, pk=course_id)
         self.course = course
 
-        # 2. Enrollment actif obligatoire.
+        # 2. Cours archivé → on bloque l'accès player (l'instructor a
+        #    explicitement retiré le cours).
+        if course.status == Course.Status.ARCHIVED:
+            messages.warning(
+                request,
+                "Ce cours a été archivé et n'est plus accessible.",
+            )
+            return redirect("/")
+
+        # 3. Enrollment actif obligatoire.
         enrollment = (
             Enrollment.objects.filter(user=request.user, course=course)
             .exclude(status=Enrollment.Status.CANCELED)
@@ -1887,6 +1896,76 @@ class PublicExploreCoursesView(APIView):
         })
 
 
+def _user_can_preview_course(user, course_id: int) -> bool:
+    """Renvoie True si l'utilisateur peut consulter la page détail d'un
+    cours non listé publiquement (status != PUBLISHED, ou company_only).
+
+    Cas autorisés :
+      - utilisateur ayant une Enrollment non CANCELED (a déjà payé / s'est
+        inscrit avant le passage en DRAFT) ;
+      - instructor du cours (preview de son propre travail) ;
+      - membre OWNER / ADMIN actif de l'organisation propriétaire ;
+      - administrateur plateforme.
+    """
+    if not user or not user.is_authenticated:
+        return False
+
+    # 1. Admin plateforme.
+    try:
+        from core.permissions import is_platform_admin
+        if is_platform_admin(user):
+            return True
+    except Exception:
+        pass
+
+    # 2. Charge le cours pour les checks suivants.
+    try:
+        from catalog.models import Course
+        course = Course.objects.only(
+            "id", "instructor_id", "company_id", "company_only", "status"
+        ).get(pk=course_id)
+    except Exception:
+        return False
+
+    # 3. Instructor du cours.
+    if course.instructor_id == getattr(user, "id", None):
+        return True
+
+    # 4. Enrollment actif.
+    try:
+        from enrollments.models import Enrollment
+        if (
+            Enrollment.objects
+            .filter(user=user, course_id=course.id)
+            .exclude(status=Enrollment.Status.CANCELED)
+            .exists()
+        ):
+            return True
+    except Exception:
+        pass
+
+    # 5. Admin/Owner de l'organisation propriétaire.
+    if course.company_id:
+        try:
+            from organizations.models import OrganizationMembership
+            if (
+                OrganizationMembership.objects.filter(
+                    user=user,
+                    organization_id=course.company_id,
+                    is_active=True,
+                    role__in=(
+                        OrganizationMembership.Role.OWNER,
+                        OrganizationMembership.Role.ADMIN,
+                    ),
+                ).exists()
+            ):
+                return True
+        except Exception:
+            pass
+
+    return False
+
+
 class CourseDetailPageView(TemplateView):
     template_name = "home/course_detail.html"
 
@@ -1906,20 +1985,28 @@ class CourseDetailPageView(TemplateView):
                 reverse("course_public_page", kwargs={"slug": canon_slug, "course_id": course.id})
             )
 
-        # CORRECTIF : si le cours n'est pas visible (non PUBLISHED, ou
-        # company_only et user hors organisation), on doit renvoyer 404
-        # AVANT de rendre le template. Sinon le squelette s'affiche puis
-        # le JS appelle /api/learner/courses/<id>/ qui retourne 403, ce
-        # qui pollue la console + casse l'UX. Cohérent avec l'API.
+        # CORRECTIF : on garde la 404 SEULEMENT si le cours n'est ni
+        # visible publiquement, ni accessible via un lien privilégié.
+        # Cas autorisés à voir la page détail d'un cours non PUBLISHED :
+        #   - utilisateur déjà inscrit (Enrollment actif) — accès continu
+        #     même si l'instructor passe en DRAFT pour mise à jour ;
+        #   - instructor du cours — preview de son propre travail ;
+        #   - membre ADMIN/OWNER de l'organisation propriétaire ;
+        #   - admin plateforme.
+        # Pour ces utilisateurs, le template affichera la page (ils
+        # peuvent toujours fermer en interne s'ils ne veulent pas la
+        # publier — c'est leur cours).
         if course_id:
-            visible = (
+            visible_public = (
                 get_visible_courses_qs(request.user, public_only=True)
                 .filter(id=course_id)
                 .exists()
             )
-            if not visible:
-                from django.http import Http404
-                raise Http404("Cours non disponible.")
+            if not visible_public:
+                # Fallback : accès privilégié (inscrit / instructor / admin).
+                if not _user_can_preview_course(request.user, course_id):
+                    from django.http import Http404
+                    raise Http404("Cours non disponible.")
 
         return super().dispatch(request, *args, **kwargs)
 
@@ -1935,9 +2022,12 @@ class CourseDetailPageView(TemplateView):
         from django.db.models import Count, Prefetch
         from catalog.models import Course, CourseSection, Lesson
 
-        course = (
-            get_visible_courses_qs(self.request.user, public_only=True)
-            .filter(id=self.kwargs.get("course_id"))
+        course_id = self.kwargs.get("course_id")
+
+        # On essaie d'abord la query "publique stricte" pour cohérence avec
+        # les filtres marketing.
+        base_qs = (
+            Course.objects
             .select_related("category", "instructor")
             .prefetch_related(
                 Prefetch(
@@ -1953,8 +2043,21 @@ class CourseDetailPageView(TemplateView):
                     ),
                 )
             )
+        )
+
+        course = (
+            get_visible_courses_qs(self.request.user, public_only=True, base_qs=base_qs)
+            .filter(id=course_id)
             .first()
         )
+
+        # Si pas visible publiquement mais accès privilégié (cf. dispatch),
+        # on charge quand même le cours pour pouvoir l'afficher en mode
+        # preview (sinon le user passe le dispatch mais le template est vide).
+        if course is None and _user_can_preview_course(self.request.user, course_id):
+            course = base_qs.filter(id=course_id).first()
+            ctx["preview_mode"] = True  # le template peut afficher un badge
+            ctx["preview_status"] = getattr(course, "status", None) if course else None
 
         if course is not None:
             sections = []
@@ -2138,7 +2241,14 @@ class LearnerCourseDetailView(APIView):
             return Response({"detail": "Cours introuvable."}, status=status.HTTP_404_NOT_FOUND)
 
         if course.status != Course.Status.PUBLISHED:
-            return Response({"detail": "Cours non disponible."}, status=status.HTTP_403_FORBIDDEN)
+            # Cours non publié — autorisé seulement pour les users
+            # privilégiés (inscrits, instructor, admin org, admin plateforme).
+            # Cohérent avec ``CourseDetailPageView`` côté template.
+            if not _user_can_preview_course(request.user, course.id):
+                return Response(
+                    {"detail": "Cours non disponible."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         e = Enrollment.objects.filter(user=request.user, course=course).first()
 
