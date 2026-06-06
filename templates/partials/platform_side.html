@@ -1,11 +1,5 @@
 {% load static %}
-{#
-  partials/platform_side.html — Sidebar administration plateforme
-  Accent : rose (rouge)
-  Sections : Pilotage · Gestion · Catalogue · Finances · Accès personnels
-  Variables contexte : request.user, active_workspace
-  Note : aucun lien vers /admin/ Django — réservé staff technique
-#}
+
 {% with m=mode|default:"desktop" cur=request.resolver_match.url_name|default:"" %}
 
 <nav aria-label="Navigation administrateur plateforme"

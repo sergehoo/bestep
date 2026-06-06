@@ -1,10 +1,5 @@
 {% load static %}
-{#
-  partials/instructor_side.html — Sidebar espace formateur
-  Accent : violet/indigo
-  Sections : Contenus · Évaluations · Engagement · Finances
-  Variables contexte : request.user, active_workspace, side_active (optionnel)
-#}
+
 {% with active=side_active|default:"" m=mode|default:"desktop" %}
 
 <nav aria-label="Navigation formateur"

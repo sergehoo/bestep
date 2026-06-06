@@ -3,19 +3,20 @@
 
   Usage :
       {% include "partials/course_card.html" with course=course %}
-      {% include "partials/course_card.html" with course=course size="lg" context="instructor" %}
+      {% include "partials/course_card.html" with course=course size="lg" card_context="instructor" %}
 
   Variables acceptées :
     - course (obligatoire) : instance Course
     - size : "sm" | "md" (défaut) | "lg"
-    - context : "public" | "learner" | "instructor" | "org"
+    - card_context : "public" | "learner" | "instructor" | "org"
+      (variable réservée Django — ne pas nommer "context")
     - href : URL custom (sinon fallback course_public_page)
     - badge_text / badge_tone : badge optionnel en haut à droite
     - progress_percent : 0-100, affiche une barre si fourni
 {% endcomment %}
 {% load humanize %}
 
-{% with size=size|default:"md" context=context|default:"public" %}
+{% with size=size|default:"md" card_context=card_context|default:"public" %}
 <article class="group bg-white dark:bg-be-ink-800/60
                 rounded-2xl shadow-sm hover:shadow-md transition-shadow
                 overflow-hidden border border-be-ink-100 dark:border-white/10"

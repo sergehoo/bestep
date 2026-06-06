@@ -94,7 +94,7 @@
     {% if active_enrollments %}
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {% for e in active_enrollments|slice:":6" %}
-          {% include "partials/course_card.html" with course=e.course size="md" context="learner" progress_percent=e.progress_percent %}
+          {% include "partials/course_card.html" with course=e.course size="md" card_context="learner" progress_percent=e.progress_percent %}
         {% endfor %}
       </div>
     {% else %}
@@ -110,7 +110,7 @@
       </h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {% for course in recommended_courses|slice:":4" %}
-          {% include "partials/course_card.html" with course=course size="sm" context="learner" %}
+          {% include "partials/course_card.html" with course=course size="sm" card_context="learner" %}
         {% endfor %}
       </div>
     </section>

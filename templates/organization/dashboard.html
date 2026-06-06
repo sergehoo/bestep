@@ -47,7 +47,7 @@
     {% if recent_courses %}
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {% for course in recent_courses %}
-          {% include "partials/course_card.html" with course=course size="md" context="org" %}
+          {% include "partials/course_card.html" with course=course size="md" card_context="org" %}
         {% endfor %}
       </div>
     {% else %}
