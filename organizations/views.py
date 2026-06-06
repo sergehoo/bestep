@@ -281,8 +281,29 @@ class OrganisationDashboard(OrganizationScopedMixin, TemplateView):
             .order_by("-updated_at")[:8]
         )
 
-        recent_instructors = instructors_qs.order_by("-created_at")[:8]
-        recent_learners = learners_qs.order_by("-created_at")[:8]
+        # CORRECTIF : le template attend des OrganizationMembership (avec .user,
+        # .get_role_display, .joined_at) — pas des User. Auparavant on passait
+        # ``instructors_qs.order_by("-created_at")[:8]`` (queryset de User) ce
+        # qui faisait planter le template avec VariableDoesNotExist sur
+        # ``membership.user``. On bascule sur le bon modèle avec select_related.
+        recent_instructors = (
+            OrganizationMembership.objects.filter(
+                organization=organization,
+                is_active=True,
+                role=OrganizationMembership.Role.INSTRUCTOR,
+            )
+            .select_related("user")
+            .order_by("-joined_at")[:8]
+        )
+        recent_learners = (
+            OrganizationMembership.objects.filter(
+                organization=organization,
+                is_active=True,
+                role=OrganizationMembership.Role.LEARNER,
+            )
+            .select_related("user")
+            .order_by("-joined_at")[:8]
+        )
 
         top_categories = (
             Category.objects.filter(courses__company=organization)
