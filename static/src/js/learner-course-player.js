@@ -267,6 +267,72 @@ document.addEventListener('alpine:init', () => {
         return u.includes('.mp4') || u.includes('video/mp4') || u.includes('content-type=video');
       },
 
+      /**
+       * Monte un <video> MP4 ou un <iframe> YouTube/Vimeo dans #videoHost
+       * en vanilla JS (CSP-build interdit :src + Alpine sur <iframe>).
+       *
+       * Sécurité :
+       * - URL passée par toEmbedUrl() (whitelist hostnames YouTube/Vimeo/Dailymotion)
+       * - <video> : controlsList, disablePictureInPicture, oncontextmenu (V5.D)
+       * - <iframe> : sandbox SANS allow-same-origin (sinon le sandboxing est nul),
+       *   referrerpolicy strict-origin-when-cross-origin.
+       */
+      mountVideo() {
+        const host = this.$refs && this.$refs.videoHost;
+        if (!host) return;
+        // Nettoie le host (révoque l'ancien player s'il existe).
+        while (host.firstChild) host.removeChild(host.firstChild);
+
+        const url = this.lesson && this.lesson.video_url;
+        if (!url || this.lesson.type !== 'VIDEO') return;
+
+        if (this.isMp4(url)) {
+          // ===== MP4 / HLS direct (MinIO) =====
+          const v = document.createElement('video');
+          v.className = 'w-full max-h-[520px]';
+          v.controls = true;
+          v.setAttribute('controlsList', 'nodownload noremoteplayback noplaybackrate');
+          v.setAttribute('disablePictureInPicture', '');
+          v.setAttribute('playsinline', '');
+          v.setAttribute('preload', 'metadata');
+          v.oncontextmenu = () => false;
+          v.src = url;
+          // Évènements progress (préserve l'UX existante).
+          v.addEventListener('timeupdate',     () => this.onVideoTimeUpdate && this.onVideoTimeUpdate());
+          v.addEventListener('ended',          () => this.onVideoEnded     && this.onVideoEnded());
+          v.addEventListener('loadedmetadata', () => this.onVideoLoaded    && this.onVideoLoaded());
+          // Expose comme ref ad-hoc (les méthodes du composant peuvent y accéder).
+          this._videoEl = v;
+          host.appendChild(v);
+        } else {
+          // ===== iframe embed (YouTube / Vimeo / Dailymotion) =====
+          const f = document.createElement('iframe');
+          f.className = 'w-full h-[520px]';
+          f.loading = 'lazy';
+          f.allowFullscreen = true;
+          f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+          // ⚠️ allow-same-origin EST RETIRÉ : sa combinaison avec allow-scripts
+          // neutralise le sandboxing (l'iframe pourrait remonter au parent
+          // via window.parent). YouTube embed fonctionne sans en lecture standard.
+          f.setAttribute('sandbox', 'allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox');
+          // L'URL est DÉJÀ normalisée embed côté parse() (toEmbedUrl).
+          f.src = url;
+          host.appendChild(f);
+        }
+      },
+
+      /**
+       * Monte le HTML d'une leçon TEXT dans #textHost via innerHTML
+       * (CSP-build interdit x-html). Le contenu est déjà bleach-sanitized
+       * côté serveur (V1.D REV-02), donc safe à injecter.
+       */
+      mountLessonHtml() {
+        const host = this.$refs && this.$refs.textHost;
+        if (!host) return;
+        const html = (this.lesson && this.lesson.content) || '<p>Contenu vide.</p>';
+        host.innerHTML = html;
+      },
+
       nowTime() {
         const d = new Date();
         return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -333,6 +399,12 @@ document.addEventListener('alpine:init', () => {
           } else if (mq.addListener) {
             mq.addListener(updateDesktop);
           }
+
+          // CSP-build : on remplace x-html et :src d'iframe par des watchers
+          // qui pilotent les refs videoHost / textHost en vanilla JS.
+          this.$watch('lesson.video_url', () => this.mountVideo());
+          this.$watch('lesson.type',      () => this.mountVideo());
+          this.$watch('lesson.content',   () => this.mountLessonHtml());
 
           await this.loadOutline();
           await this.resolveContinueLesson();
@@ -754,7 +826,10 @@ document.addEventListener('alpine:init', () => {
       onVideoLoaded() { this.seekVideoIfPossible(); },
 
       seekVideoIfPossible() {
-        const v = this.$refs.videoEl;
+        // CSP-build : l'élément <video> est créé en vanilla par mountVideo()
+        // (pas via x-ref). On utilise _videoEl, fallback ancien comportement
+        // pour les tests qui pourraient encore poser $refs.videoEl.
+        const v = this._videoEl || (this.$refs && this.$refs.videoEl);
         if (!v || this._videoSeekDone) return;
         const pos = Number(this.lessonProgress.last_position_seconds || 0);
         if (pos > 2 && isFinite(pos)) {
@@ -764,7 +839,10 @@ document.addEventListener('alpine:init', () => {
       },
 
       onVideoTimeUpdate() {
-        const v = this.$refs.videoEl;
+        // CSP-build : l'élément <video> est créé en vanilla par mountVideo()
+        // (pas via x-ref). On utilise _videoEl, fallback ancien comportement
+        // pour les tests qui pourraient encore poser $refs.videoEl.
+        const v = this._videoEl || (this.$refs && this.$refs.videoEl);
         if (!v || !isFinite(v.duration) || !v.duration) return;
         const now      = Date.now();
         const current  = Math.floor(v.currentTime || 0);
