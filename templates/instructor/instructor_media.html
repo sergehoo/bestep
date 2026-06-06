@@ -754,7 +754,7 @@
                                 >
                                     <option value="">— Sélectionner —</option>
                                     <template x-for="c in courses" :key="c.id">
-                                        <option :value="String(c.id)" x-text="c.title"></option>
+                                        <option :value="c.id + ''" x-text="c.title"></option>
                                     </template>
                                 </select>
                             </div>
@@ -771,7 +771,7 @@
                                 >
                                     <option value="">— Sélectionner —</option>
                                     <template x-for="s in bindSections" :key="s.id">
-                                        <option :value="String(s.id)" x-text="sectionOptionText(s)"></option>
+                                        <option :value="s.id + ''" x-text="sectionOptionText(s)"></option>
                                     </template>
                                 </select>
                             </div>
@@ -787,7 +787,7 @@
                                 >
                                     <option value="">— Sélectionner —</option>
                                     <template x-for="l in bindLessons" :key="l.id">
-                                        <option :value="String(l.id)" x-text="lessonOptionText(l)"></option>
+                                        <option :value="l.id + ''" x-text="lessonOptionText(l)"></option>
                                     </template>
                                 </select>
                             </div>
@@ -1131,7 +1131,7 @@
         </div>
 
         <!-- DELETE MODAL -->
-        <div x-cloak x-show="modals.delete" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div x-cloak x-show="modals.remove" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/50" @click="closeDeleteModal()"></div>
 
             <div class="relative w-full max-w-lg rounded-[28px] bg-white dark:bg-[#0f172a] border border-be-ink-100 dark:border-white/10 shadow-soft overflow-hidden">

@@ -38,7 +38,10 @@ document.addEventListener('alpine:init', () => {
     pagination: { page: 1, pageSize: 10, count: 0, totalPages: 1 },
 
     drawers: { upload: false, detail: false },
-    modals: { preview: false, edit: false, delete: false },
+    // NB: la clé "delete" est un mot-clé JS — interdit par le build
+    // @alpinejs/csp (Expected IDENTIFIER but got KEYWORD "delete").
+    // On utilise "remove" qui est sémantiquement équivalent.
+    modals: { preview: false, edit: false, remove: false },
 
     previewItem: null,
     previewUrl: '',
@@ -550,8 +553,8 @@ document.addEventListener('alpine:init', () => {
       } finally { this.editSaving = false; }
     },
 
-    confirmDelete(m)  { this.deleteItem = m; this.modals.delete = true; },
-    closeDeleteModal() { this.modals.delete = false; this.deleteItem = null; },
+    confirmDelete(m)  { this.deleteItem = m; this.modals.remove = true; },
+    closeDeleteModal() { this.modals.remove = false; this.deleteItem = null; },
 
     async deleteMedia() {
       try {
