@@ -60,7 +60,20 @@ function toEmbedUrl(u) {
   return u;
 }
 
-document.addEventListener('alpine:init', () => {
+/**
+ * Enregistrement défensif : si Alpine est déjà chargé/initialisé quand
+ * ce script s'exécute (cas defer/cache/late inject), on enregistre tout
+ * de suite. Sinon on attend l'événement 'alpine:init' classique.
+ *
+ * Sans ce double-pattern, un cache HTTP qui sert ce JS APRÈS qu'Alpine
+ * a fini de booter cause "Undefined variable: coursePlayerUdemy" sur
+ * toutes les expressions du template (cascade).
+ */
+function _registerCoursePlayer() {
+  if (typeof Alpine === 'undefined' || !Alpine.data) {
+    // Alpine pas encore prêt — on retentera via 'alpine:init'.
+    return;
+  }
 
   Alpine.data('coursePlayerUdemy', () => {
     /* Read config from the hidden #player-config element */
@@ -898,5 +911,12 @@ document.addEventListener('alpine:init', () => {
 
     }; // end return
   }); // end Alpine.data
+} // end _registerCoursePlayer
 
-}); // end alpine:init
+// Double-dispatch : si Alpine est déjà initialisé (script chargé tardivement),
+// on enregistre immédiatement. Sinon on attend l'événement 'alpine:init'.
+if (typeof Alpine !== 'undefined' && Alpine.data) {
+  _registerCoursePlayer();
+} else {
+  document.addEventListener('alpine:init', _registerCoursePlayer);
+}
