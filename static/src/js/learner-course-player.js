@@ -1,922 +1,711 @@
 /**
- * learner-course-player.js — Alpine component for the Udemy-style course player.
+ * learner-course-player.js — REFONTE COMPLÈTE.
  *
- * Registered as: Alpine.data('coursePlayerUdemy')
- * Config is read from the #player-config hidden element (data-* attributes).
+ * Player vidéo apprenant en vanilla JS pur (no Alpine).
  *
- * Helper methods (no JS operators in template expressions):
- *   toastIsOk/Warn/Sync, toggleSidebar, closeSidebar, progressPercent,
- *   lessonProgressPercent, progressBarClass, sidebarClass, showSidebar,
- *   outlineEmpty, sectionChevronClass, lessonIconClass, unknownLessonType,
- *   lessonItemPercent, prevDisabled, nextDisabled, prevNavClass, nextNavClass,
- *   toggleBtnClass, showMarkComplete, lessonLoaded, showVideo, isIframe,
- *   showFile, isTextLesson, isQuizLesson, isLiveLesson, noLessonType,
- *   lessonHtml, quizLoadError, showQuizResult, quizResultClass, quizIconClass,
- *   quizTitleClass, quizSubtitleClass, quizResultTitle, quizFailed,
- *   quizScoreText, quizPassingScoreText, quizAnswersTxt, showRetry,
- *   multiAttempts, showQuizForm, quizPassingDataText, questionPrompt,
- *   choiceClass, choiceChecked, setAnswer, submitDisabled, notSubmitting,
- *   quizSubmitText, notAllAnswered, showQuizLocked, notSavingLesson,
- *   showLastSaved, completedLessons, totalLessons.
+ * Pourquoi vanilla ?
+ *   Le composant Alpine précédent (~900 lignes) accumulait des problèmes
+ *   avec @alpinejs/csp (timing d'enregistrement, x-html interdit,
+ *   expressions sur <iframe> interdites, mots-clés JS comme identifiants
+ *   interdits, etc.). Cette refonte élimine la dépendance Alpine sur la
+ *   page player pour stabiliser la lecture des cours.
+ *
+ * Architecture :
+ *   - Module IIFE, pas de globals exposés (sauf debug : window.beCoursePlayer).
+ *   - Une seule classe CoursePlayer qui orchestre tout.
+ *   - DOM API moderne : querySelector, classList, addEventListener.
+ *   - fetch() pour toutes les API, AbortController pour annuler les requêtes
+ *     orphelines lors d'un changement rapide de leçon.
+ *   - Auto-save de la progression avec debounce 800ms.
+ *
+ * Endpoints consommés (lecture seule pour cette doc) :
+ *   - GET  /api/learner/courses/<id>/outline/   → {course, sections[]}
+ *   - GET  /api/learner/courses/<id>/continue/  → {lesson_id} (reprise)
+ *   - GET  /api/learner/courses/<id>/lessons/<lid>/state/
+ *           → {lesson, progress, nav: {prev_id, next_id}}
+ *   - POST /api/learner/courses/<id>/lessons/<lid>/progress/
+ *           → {percent, is_completed, last_position_seconds}
+ *   - POST /api/learner/courses/<id>/set-current/
+ *           → {lesson_id}
  */
+(function () {
+  'use strict';
 
-/**
- * Convertit une URL vidéo "publique" (YouTube share, watch, shorts, Vimeo, etc.)
- * vers son URL embed officielle, seule autorisée dans un <iframe>.
- *
- * youtu.be et youtube.com/watch?v= refusent l'embed (X-Frame-Options) ;
- * il faut systématiquement passer par https://www.youtube.com/embed/<id>.
- *
- * Préserve les URLs déjà au format embed et les MP4/HLS/MinIO directs.
- * CSP-safe : pas de eval, regex literals OK car exécuté côté JS pur (pas Alpine).
- */
-function toEmbedUrl(u) {
-  if (!u || typeof u !== 'string') return u;
-  // Already embed
-  if (u.indexOf('youtube.com/embed/') !== -1) return u;
-  if (u.indexOf('player.vimeo.com/video/') !== -1) return u;
+  // ─────────────────────────────────────────────────────────────────────
+  // Utilities
+  // ─────────────────────────────────────────────────────────────────────
 
-  // YouTube short link : https://youtu.be/<id>?...
-  let m = u.match(/^https?:\/\/(?:www\.)?youtu\.be\/([\w-]{6,})/);
-  if (m) return 'https://www.youtube.com/embed/' + m[1];
-
-  // YouTube watch : https://www.youtube.com/watch?v=<id>&...
-  m = u.match(/^https?:\/\/(?:www\.|m\.)?youtube\.com\/watch\?[^#]*\bv=([\w-]{6,})/);
-  if (m) return 'https://www.youtube.com/embed/' + m[1];
-
-  // YouTube shorts : https://www.youtube.com/shorts/<id>
-  m = u.match(/^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([\w-]{6,})/);
-  if (m) return 'https://www.youtube.com/embed/' + m[1];
-
-  // Vimeo : https://vimeo.com/<id>
-  m = u.match(/^https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
-  if (m) return 'https://player.vimeo.com/video/' + m[1];
-
-  // Dailymotion : https://www.dailymotion.com/video/<id>
-  m = u.match(/^https?:\/\/(?:www\.)?dailymotion\.com\/video\/([a-z0-9]+)/i);
-  if (m) return 'https://www.dailymotion.com/embed/video/' + m[1];
-
-  // Sinon : MP4/HLS/MinIO direct ou format non reconnu — on retourne tel quel.
-  return u;
-}
-
-/**
- * Enregistrement défensif : si Alpine est déjà chargé/initialisé quand
- * ce script s'exécute (cas defer/cache/late inject), on enregistre tout
- * de suite. Sinon on attend l'événement 'alpine:init' classique.
- *
- * Sans ce double-pattern, un cache HTTP qui sert ce JS APRÈS qu'Alpine
- * a fini de booter cause "Undefined variable: coursePlayerUdemy" sur
- * toutes les expressions du template (cascade).
- */
-function _registerCoursePlayer() {
-  if (typeof Alpine === 'undefined' || !Alpine.data) {
-    // Alpine pas encore prêt — on retentera via 'alpine:init'.
-    return;
+  /**
+   * Convertit youtu.be / youtube.com/watch / shorts / vimeo / dailymotion
+   * vers l'URL embed officielle (autres URLs : passthrough).
+   * Indispensable car YouTube refuse l'embed via youtu.be (X-Frame-Options).
+   */
+  function toEmbedUrl(u) {
+    if (!u || typeof u !== 'string') return u;
+    if (u.indexOf('youtube.com/embed/') !== -1) return u;
+    if (u.indexOf('player.vimeo.com/video/') !== -1) return u;
+    let m = u.match(/^https?:\/\/(?:www\.)?youtu\.be\/([\w-]{6,})/);
+    if (m) return 'https://www.youtube.com/embed/' + m[1];
+    m = u.match(/^https?:\/\/(?:www\.|m\.)?youtube\.com\/watch\?[^#]*\bv=([\w-]{6,})/);
+    if (m) return 'https://www.youtube.com/embed/' + m[1];
+    m = u.match(/^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([\w-]{6,})/);
+    if (m) return 'https://www.youtube.com/embed/' + m[1];
+    m = u.match(/^https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
+    if (m) return 'https://player.vimeo.com/video/' + m[1];
+    m = u.match(/^https?:\/\/(?:www\.)?dailymotion\.com\/video\/([a-z0-9]+)/i);
+    if (m) return 'https://www.dailymotion.com/embed/video/' + m[1];
+    return u;
   }
 
-  Alpine.data('coursePlayerUdemy', () => {
-    /* Read config from the hidden #player-config element */
-    const configNode = document.getElementById('player-config');
-    const config = configNode ? configNode.dataset : {};
-    const cfg = {
-      courseId: config.courseId ? Number(config.courseId) : null,
-      api: {
-        outline:          config.outlineUrl          || '',
-        continue:         config.continueUrl         || '',
-        lessonStateBase:  config.lessonStateBase     || '',
-        lessonProgressBase: config.lessonProgressBase || '',
-        setCurrent:       config.setCurrentUrl       || '',
-      },
+  function isDirectVideo(u) {
+    if (!u) return false;
+    const x = String(u).toLowerCase();
+    return x.indexOf('.mp4') !== -1 ||
+           x.indexOf('.webm') !== -1 ||
+           x.indexOf('.mov') !== -1 ||
+           x.indexOf('.m3u8') !== -1;
+  }
+
+  function getCsrf() {
+    const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (m) return decodeURIComponent(m[1]);
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+  }
+
+  function fmtDuration(sec) {
+    sec = Number(sec || 0);
+    if (!sec || !isFinite(sec)) return '';
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+    if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+    return `${s}s`;
+  }
+
+  function debounce(fn, ms) {
+    let t = null;
+    return function () {
+      const args = arguments, ctx = this;
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(ctx, args), ms);
     };
+  }
 
-    return {
-      courseId: cfg.courseId,
-      api: cfg.api || {},
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
 
-      loading: { outline: true, lesson: true },
-      saving:  { any: false, lesson: false },
+  // ─────────────────────────────────────────────────────────────────────
+  // Classe principale
+  // ─────────────────────────────────────────────────────────────────────
 
-      course: { id: null, title: '' },
-      sections: [],
-      progress: { percent: 0, completed_lessons: 0, total_lessons: 0 },
+  class CoursePlayer {
+    constructor(cfg) {
+      this.cfg = cfg;
+      this.state = {
+        course: null,
+        sections: [],         // [{id, title, lessons:[{id, title, order, lesson_type, is_completed, ...}]}]
+        currentLessonId: null,
+        currentLesson: null,
+        lessonProgress: { percent: 0, is_completed: false, last_position_seconds: 0 },
+        nav: { prev_id: null, next_id: null },
+        searchFilter: '',
+        loading: { outline: false, lesson: false, saving: false },
+      };
+      this._lessonAbort = null;   // AbortController pour la requête en cours
+      this._videoEl = null;        // référence au <video> ou <iframe> courant
+      this._saveDebounced = debounce(() => this._saveProgress(false), 800);
+      this._lastSaveAt = 0;
+      this._toastTimer = null;
+      this._cacheDom();
+      this._bindEvents();
+    }
 
-      currentLessonId: null,
-      lesson: {
-        id: null, title: '', type: '',
-        video_url: null, file_url: null, content: null, duration_sec: null,
-      },
-      lessonProgress: { percent: 0, is_completed: false, last_position_seconds: 0 },
+    // Cache des nodes DOM (un seul querySelector chacun)
+    _cacheDom() {
+      this.$root           = document.getElementById('be-player-root');
+      this.$sidebar        = document.getElementById('be-sidebar');
+      this.$sidebarBackdrop = document.getElementById('be-sidebar-backdrop');
+      this.$sidebarToggle  = document.getElementById('be-sidebar-toggle');
+      this.$sidebarClose   = document.getElementById('be-sidebar-close');
+      this.$outlineList    = document.getElementById('be-outline-list');
+      this.$outlineSearch  = document.getElementById('be-outline-search');
+      this.$courseTitle    = document.getElementById('be-course-title');
+      this.$lessonTitle    = document.getElementById('be-lesson-title');
+      this.$lessonLoader   = document.getElementById('be-lesson-loader');
+      this.$lessonContainer = document.getElementById('be-lesson-container');
+      this.$videoBlock     = document.getElementById('be-video-block');
+      this.$videoHost      = document.getElementById('be-video-host');
+      this.$fileBlock      = document.getElementById('be-file-block');
+      this.$fileLink       = document.getElementById('be-file-link');
+      this.$textBlock      = document.getElementById('be-text-block');
+      this.$textContent    = document.getElementById('be-text-content');
+      this.$textSentinel   = document.getElementById('be-text-sentinel');
+      this.$otherBlock     = document.getElementById('be-other-block');
+      this.$otherMessage   = document.getElementById('be-other-message');
+      this.$lessonTypeText = document.getElementById('be-lesson-type-text');
+      this.$lessonDuration = document.getElementById('be-lesson-duration');
+      this.$lessonPercent  = document.getElementById('be-lesson-percent');
+      this.$lessonBar      = document.getElementById('be-lesson-bar');
+      this.$overallBar     = document.getElementById('be-overall-bar');
+      this.$overallPercent = document.getElementById('be-overall-percent');
+      this.$completedCount = document.getElementById('be-completed-count');
+      this.$totalCount     = document.getElementById('be-total-count');
+      this.$prevBtn        = document.getElementById('be-prev-btn');
+      this.$nextBtn        = document.getElementById('be-next-btn');
+      this.$completeBtn    = document.getElementById('be-complete-btn');
+      this.$completeLabel  = document.getElementById('be-complete-btn-label');
+      this.$savingIndicator = document.getElementById('be-saving-indicator');
+      this.$toast          = document.getElementById('be-toast');
+    }
 
-      nav: { prevId: null, nextId: null },
-      lastSavedAt: '',
-      ui: {
-        sidebarOpen: false,
-        search: '',
-        openSections: {},
-        isDesktop: false,
-        toast: { show: false, msg: '', type: 'ok', t: null },
-      },
+    _bindEvents() {
+      this.$sidebarToggle?.addEventListener('click', () => this._setSidebarOpen(true));
+      this.$sidebarClose?.addEventListener('click', () => this._setSidebarOpen(false));
+      this.$sidebarBackdrop?.addEventListener('click', () => this._setSidebarOpen(false));
+      this.$outlineSearch?.addEventListener('input', (e) => {
+        this.state.searchFilter = String(e.target.value || '').toLowerCase().trim();
+        this._renderOutline();
+      });
+      this.$prevBtn?.addEventListener('click', () => this._goPrev());
+      this.$nextBtn?.addEventListener('click', () => this._goNext());
+      this.$completeBtn?.addEventListener('click', () => this._toggleComplete());
 
-      /* Quiz state */
-      quiz: {
-        loading: false, loaded: false, data: null,
-        answers: {}, submitting: false, result: null, error: null, attemptsLeft: 0,
-      },
+      // Scroll dans le contenu texte → marque complete à la fin
+      this.$textSentinel && new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting && !this.state.lessonProgress.is_completed) {
+          this._setLessonPercent(99);
+          this._saveDebounced();
+        }
+      }, { threshold: 0.6 }).observe(this.$textSentinel);
+    }
 
-      _outlineRefreshTimer: null,
-      _videoSeekDone: false,
-      _textObserver: null,
-      _saveCount: 0,
-      _prefetchCache: new Map(),
-      _saveAbort: null,
-      _saveDebounceTimer: null,
-      _videoTickLastSentAt: 0,
-      lastSentPercent: -1,
-      lastSentSecond: -1,
-
-      /* ── CSP-safe template helpers ──────────────────────────────── */
-
-      /* Toast */
-      toastIsOk()   { return this.ui.toast.type === 'ok'; },
-      toastIsWarn() { return this.ui.toast.type === 'warn'; },
-      toastIsSync() { return this.ui.toast.type === 'sync'; },
-
-      /* Sidebar */
-      toggleSidebar() { this.ui.sidebarOpen = !this.ui.sidebarOpen; },
-      closeSidebar()  { this.ui.sidebarOpen = false; },
-      showSidebar()   { return this.ui.sidebarOpen || this.ui.isDesktop; },
-      sidebarClass()  {
-        return this.ui.sidebarOpen
-          ? 'fixed inset-y-0 left-0 w-[88%] max-w-sm shadow-2xl'
-          : 'hidden lg:block';
-      },
-
-      /* Progress */
-      progressPercent()       { return (this.progress.percent || 0) + '%'; },
-      lessonProgressPercent() { return (this.lessonProgress.percent || 0) + '%'; },
-      completedLessons()      { return this.progress.completed_lessons || 0; },
-      totalLessons()          { return this.progress.total_lessons || 0; },
-      progressBarClass(val)   {
-        return 'w-pct-' + Math.max(0, Math.min(100, Math.round(val || 0)));
-      },
-
-      /* Course / lesson title helpers */
-      courseTitle()   { return this.course.title || 'Cours'; },
-      lessonTitle()   { return this.lesson.title || 'Leçon'; },
-      lessonTypeText(){ return this.lesson.type || ''; },
-
-      /* Section helpers */
-      sectionLessonsCount(s) { return (s && s.lessons) ? s.lessons.length : 0; },
-      sectionLessons(s)      { return (s && s.lessons) ? s.lessons : []; },
-
-      /* Lesson-type icon helpers (for sidebar x-if) */
-      isVideoType(l) { return l.type === 'VIDEO'; },
-      isTextType(l)  { return l.type === 'TEXT'; },
-      isQuizType(l)  { return l.type === 'QUIZ'; },
-      isLiveType(l)  { return l.type === 'LIVE'; },
-      isFileType(l)  { return l.type === 'FILE'; },
-
-      /* Quiz iteration helpers */
-      quizQuestions()        { return (this.quiz.data && this.quiz.data.questions) ? this.quiz.data.questions : []; },
-      questionChoices(q)     { return (q && q.choices) ? q.choices : []; },
-      questionInputName(q)   { return 'q_' + q.id; },
-
-      /* Save button class */
-      savingLessonClass()    { return this.saving.lesson ? 'opacity-60 cursor-not-allowed' : ''; },
-
-      /* Outline */
-      outlineEmpty()            { return !this.loading.outline && this.filteredSections().length === 0; },
-      sectionChevronClass(id)   { return this.ui.openSections[id] ? 'rotate-180' : ''; },
-      activeLessonClass(lId)    { return Number(lId) === Number(this.currentLessonId) ? 'bg-be-sky-50' : ''; },
-      lessonIconClass(l) {
-        if (l.is_completed) return 'bg-emerald-100 text-emerald-700';
-        if (Number(l.id) === Number(this.currentLessonId)) return 'bg-be-sky-100 text-be-sky-700';
-        return 'bg-be-ink-50 text-be-ink-600';
-      },
-      unknownLessonType(type)   { return !['VIDEO', 'TEXT', 'QUIZ', 'LIVE', 'FILE'].includes(type); },
-      lessonItemPercent(l)      { return (l.percent != null ? l.percent : 0) + '%'; },
-
-      /* Navigation */
-      get prevDisabled() { return !this.nav.prevId || this.loading.lesson; },
-      get nextDisabled() { return !this.nav.nextId || this.loading.lesson; },
-      prevNavClass()   { return this.prevDisabled ? 'opacity-50 cursor-not-allowed' : ''; },
-      nextNavClass()   { return this.nextDisabled ? 'opacity-50 cursor-not-allowed' : ''; },
-      toggleBtnClass() { return this.loading.lesson ? 'opacity-50 cursor-not-allowed' : ''; },
-
-      /* Lesson display */
-      showMarkComplete()  { return !this.lessonProgress.is_completed; },
-      lessonLoaded()      { return !this.loading.lesson; },
-      showVideo()         { return this.lesson.type === 'VIDEO' && !!this.lesson.video_url; },
-      isIframe()          { return !this.isMp4(this.lesson.video_url); },
-      showFile()          { return this.lesson.type === 'FILE' && !!this.lesson.file_url; },
-      isTextLesson()      { return this.lesson.type === 'TEXT'; },
-      isQuizLesson()      { return this.lesson.type === 'QUIZ'; },
-      isLiveLesson()      { return this.lesson.type === 'LIVE'; },
-      noLessonType()      { return !this.lesson.type; },
-      lessonHtml()        { return this.lesson.content || '<p>Contenu vide.</p>'; },
-
-      /* Save state */
-      notSavingLesson() { return !this.saving.lesson; },
-      showLastSaved()   { return !this.saving.lesson && !!this.lastSavedAt; },
-
-      /* Quiz helpers */
-      quizLoadError()   { return !this.quiz.loading && !!this.quiz.error && !this.quiz.loaded; },
-      showQuizResult()  { return this.quiz.loaded && !!this.quiz.result; },
-      showQuizForm()    { return this.quiz.loaded && !this.quiz.result && !!this.quiz.data; },
-      showQuizLocked()  { return this.quiz.loaded && !this.quiz.result && !this.quiz.data; },
-      quizFailed()      { return !this.quiz.result.passed; },
-      showRetry()       { return !this.quiz.result.passed && !!this.quiz.data && this.quiz.attemptsLeft > 0; },
-      multiAttempts()   { return this.quiz.attemptsLeft > 1; },
-      quizResultClass() {
-        return this.quiz.result.passed
-          ? 'border-emerald-100 bg-emerald-50'
-          : 'border-amber-100 bg-amber-50';
-      },
-      quizIconClass() {
-        return this.quiz.result.passed
-          ? 'bg-emerald-100 text-emerald-700'
-          : 'bg-amber-100 text-amber-700';
-      },
-      quizTitleClass() {
-        return this.quiz.result.passed ? 'text-emerald-900' : 'text-amber-900';
-      },
-      quizSubtitleClass() {
-        return this.quiz.result.passed ? 'text-emerald-700' : 'text-amber-700';
-      },
-      quizResultTitle() {
-        return this.quiz.result.passed ? '🎉 Bravo, tu as réussi !' : "Continue à t'entraîner";
-      },
-      quizScoreText()       { return this.quiz.result.score_percent + '%'; },
-      quizPassingScoreText(){ return this.quiz.result.passing_score + '%'; },
-      quizAnswersTxt()      { return this.quiz.result.good_answers + '/' + this.quiz.result.total_questions; },
-      quizPassingDataText() { return this.quiz.data.passing_score + '%'; },
-      questionPrompt(qi, q) { return (qi + 1) + '. ' + q.prompt; },
-      choiceClass(q, c) {
-        return this.quiz.answers[q.id] == c.id
-          ? 'border-be-sky-400 bg-be-sky-50 text-be-sky-800'
-          : 'border-be-ink-100 bg-white text-be-ink-700 hover:border-be-ink-200 hover:bg-be-ink-50';
-      },
-      choiceChecked(q, c) { return this.quiz.answers[q.id] == c.id; },
-      setAnswer(q, c)     { this.quiz.answers[q.id] = c.id; },
-      get submitDisabled()  { return this.quiz.submitting || !this.quizAllAnswered(); },
-      notSubmitting()      { return !this.quiz.submitting; },
-      notAllAnswered()     { return !this.quizAllAnswered(); },
-      quizSubmitText()     { return this.quiz.submitting ? 'Envoi…' : 'Soumettre mes réponses'; },
-
-      /* ── Core methods (unchanged logic) ─────────────────────────── */
-
-      formatDuration(sec) {
-        const n = Number(sec || 0);
-        if (!n || n < 0) return '—';
-        const m = Math.floor(n / 60);
-        const s = Math.floor(n % 60);
-        if (m <= 0) return `${s}s`;
-        return `${m}m ${String(s).padStart(2, '0')}s`;
-      },
-
-      isMp4(url) {
-        const u = String(url || '').toLowerCase();
-        return u.includes('.mp4') || u.includes('video/mp4') || u.includes('content-type=video');
-      },
-
-      /**
-       * Monte un <video> MP4 ou un <iframe> YouTube/Vimeo dans #videoHost
-       * en vanilla JS (CSP-build interdit :src + Alpine sur <iframe>).
-       *
-       * Sécurité :
-       * - URL passée par toEmbedUrl() (whitelist hostnames YouTube/Vimeo/Dailymotion)
-       * - <video> : controlsList, disablePictureInPicture, oncontextmenu (V5.D)
-       * - <iframe> : sandbox SANS allow-same-origin (sinon le sandboxing est nul),
-       *   referrerpolicy strict-origin-when-cross-origin.
-       */
-      mountVideo() {
-        const host = this.$refs && this.$refs.videoHost;
-        if (!host) return;
-        // Nettoie le host (révoque l'ancien player s'il existe).
-        while (host.firstChild) host.removeChild(host.firstChild);
-
-        const url = this.lesson && this.lesson.video_url;
-        if (!url || this.lesson.type !== 'VIDEO') return;
-
-        if (this.isMp4(url)) {
-          // ===== MP4 / HLS direct (MinIO) =====
-          const v = document.createElement('video');
-          v.className = 'w-full max-h-[520px]';
-          v.controls = true;
-          v.setAttribute('controlsList', 'nodownload noremoteplayback noplaybackrate');
-          v.setAttribute('disablePictureInPicture', '');
-          v.setAttribute('playsinline', '');
-          v.setAttribute('preload', 'metadata');
-          v.oncontextmenu = () => false;
-          v.src = url;
-          // Évènements progress (préserve l'UX existante).
-          v.addEventListener('timeupdate',     () => this.onVideoTimeUpdate && this.onVideoTimeUpdate());
-          v.addEventListener('ended',          () => this.onVideoEnded     && this.onVideoEnded());
-          v.addEventListener('loadedmetadata', () => this.onVideoLoaded    && this.onVideoLoaded());
-          // Expose comme ref ad-hoc (les méthodes du composant peuvent y accéder).
-          this._videoEl = v;
-          host.appendChild(v);
+    // ─── Init ─────────────────────────────────────────────────────────
+    async init() {
+      try {
+        await this._loadOutline();
+        const continueLessonId = await this._resolveContinueLesson();
+        if (continueLessonId) {
+          await this._loadLesson(continueLessonId);
         } else {
-          // ===== iframe embed (YouTube / Vimeo / Dailymotion) =====
-          const f = document.createElement('iframe');
-          f.className = 'w-full h-[520px]';
-          f.loading = 'lazy';
-          f.allowFullscreen = true;
-          f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-          // ⚠️ allow-same-origin EST RETIRÉ : sa combinaison avec allow-scripts
-          // neutralise le sandboxing (l'iframe pourrait remonter au parent
-          // via window.parent). YouTube embed fonctionne sans en lecture standard.
-          f.setAttribute('sandbox', 'allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox');
-          // L'URL est DÉJÀ normalisée embed côté parse() (toEmbedUrl).
-          f.src = url;
-          host.appendChild(f);
+          this._showEmpty();
         }
-      },
+      } catch (err) {
+        console.error('CoursePlayer.init error:', err);
+        this._toast('Erreur de chargement du cours', 'error');
+        this._showEmpty();
+      }
+    }
 
-      /**
-       * Monte le HTML d'une leçon TEXT dans #textHost via innerHTML
-       * (CSP-build interdit x-html). Le contenu est déjà bleach-sanitized
-       * côté serveur (V1.D REV-02), donc safe à injecter.
-       */
-      mountLessonHtml() {
-        const host = this.$refs && this.$refs.textHost;
-        if (!host) return;
-        const html = (this.lesson && this.lesson.content) || '<p>Contenu vide.</p>';
-        host.innerHTML = html;
-      },
+    // ─── Fetchers ─────────────────────────────────────────────────────
+    async _fetchJson(url, opts = {}) {
+      const res = await fetch(url, {
+        credentials: 'same-origin',
+        headers: Object.assign(
+          { 'Accept': 'application/json' },
+          opts.method && opts.method !== 'GET'
+            ? { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' }
+            : {}
+        ),
+        ...opts,
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${txt.slice(0, 200)}`);
+      }
+      return res.json();
+    }
 
-      nowTime() {
-        const d = new Date();
-        return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      },
-
-      toast(msg, type = 'ok') {
-        try {
-          clearTimeout(this.ui.toast.t);
-          this.ui.toast.msg  = msg || '';
-          this.ui.toast.type = type || 'ok';
-          this.ui.toast.show = true;
-          this.ui.toast.t = setTimeout(() => { this.ui.toast.show = false; }, 1800);
-        } catch (e) {
-          console.warn('toast error', e);
+    async _loadOutline() {
+      this.state.loading.outline = true;
+      try {
+        const data = await this._fetchJson(this.cfg.outline);
+        this.state.course = data.course || data || { title: '' };
+        this.state.sections = Array.isArray(data.sections) ? data.sections : [];
+        if (this.$courseTitle) {
+          this.$courseTitle.textContent = (this.state.course.title || 'Cours');
         }
-      },
+        this._renderOutline();
+        this._renderOverallProgress();
+      } finally {
+        this.state.loading.outline = false;
+      }
+    }
 
-      async apiGet(url) {
-        if (!url) throw new Error('Missing GET URL');
-        const res = await fetch(url, {
-          headers: { Accept: 'application/json' },
-          credentials: 'same-origin',
-        });
-        if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
-        return await res.json();
-      },
-
-      getCsrf() {
-        const m = document.cookie.match(/csrftoken=([^;]+)/);
-        return m ? m[1] : '';
-      },
-
-      async apiPost(url, payload = {}, signal = null) {
-        if (!url) throw new Error('Missing POST URL');
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': this.getCsrf(),
-            Accept: 'application/json',
-          },
-          body: JSON.stringify(payload || {}),
-          credentials: 'same-origin',
-          signal,
-        });
-        if (!res.ok) {
-          let d = '';
-          try { d = JSON.stringify(await res.json()); } catch (_) {}
-          throw new Error(`POST ${url} -> ${res.status} ${d}`);
-        }
-        return await res.json();
-      },
-
-      async init() {
-        try {
-          const mq = window.matchMedia('(min-width: 1024px)');
-          const updateDesktop = () => {
-            this.ui.isDesktop = mq.matches;
-            if (this.ui.isDesktop) this.ui.sidebarOpen = false;
-          };
-          updateDesktop();
-          if (mq.addEventListener) {
-            mq.addEventListener('change', updateDesktop);
-          } else if (mq.addListener) {
-            mq.addListener(updateDesktop);
-          }
-
-          // CSP-build : on remplace x-html et :src d'iframe par des watchers
-          // qui pilotent les refs videoHost / textHost en vanilla JS.
-          this.$watch('lesson.video_url', () => this.mountVideo());
-          this.$watch('lesson.type',      () => this.mountVideo());
-          this.$watch('lesson.content',   () => this.mountLessonHtml());
-
-          await this.loadOutline();
-          await this.resolveContinueLesson();
-
-          if (this.currentLessonId) {
-            await this.loadLesson(this.currentLessonId);
-            this.computeNav();
-            this.prefetchAround();
-          } else {
-            this.loading.lesson = false;
-          }
-
-          this.startAutoRefreshOutline();
-          if (!this.ui.isDesktop) this.ui.sidebarOpen = false;
-        } catch (e) {
-          console.error('init error', e);
-          this.loading.outline = false;
-          this.loading.lesson  = false;
-          this.toast('Erreur de chargement du lecteur', 'warn');
-        }
-      },
-
-      startAutoRefreshOutline() {
-        try {
-          clearInterval(this._outlineRefreshTimer);
-          this._outlineRefreshTimer = setInterval(() => {
-            this.refreshOutline(false).catch(() => {});
-          }, 30000);
-        } catch (e) {
-          console.warn('auto refresh error', e);
-        }
-      },
-
-      async loadOutline() {
-        try {
-          this.loading.outline = true;
-          const data = await this.apiGet(this.api.outline);
-
-          this.course   = data?.course || this.course;
-          this.sections = (data?.sections || []).map(s => ({
-            ...s,
-            lessons: (s.lessons || []).map(l => ({
-              id:           l.id,
-              title:        l.title || '',
-              type:         l.lesson_type || l.type || '',
-              duration_sec: l.duration_sec ?? null,
-              percent:      Number(l.progress_percent ?? l.percent ?? 0),
-              is_completed: !!(l.completed ?? l.is_completed),
-              is_preview:   !!l.is_preview,
-            })),
-          }));
-
-          this.progress = {
-            percent:            Number(data?.progress?.percent ?? 0),
-            completed_lessons:  Number(data?.progress?.completed_lessons ?? 0),
-            total_lessons:      Number(data?.progress?.total_lessons ?? 0),
-          };
-
-          this.currentLessonId = data?.current_lesson_id || this.currentLessonId;
-
-          if (!Object.keys(this.ui.openSections).length && this.sections.length) {
-            this.ui.openSections[this.sections[0].id] = true;
-          }
-        } catch (e) {
-          console.error('loadOutline error', e);
-          this.toast('Impossible de charger le plan', 'warn');
-        } finally {
-          this.loading.outline = false;
-        }
-      },
-
-      async refreshOutline(showToastMsg = false) {
-        if (this.loading.outline) return;
-        await this.loadOutline();
-        this.computeNav();
-        if (showToastMsg) this.toast('Plan mis à jour', 'ok');
-      },
-
-      async resolveContinueLesson() {
-        try {
-          if (this.currentLessonId) return;
-          const data = await this.apiGet(this.api.continue);
-          this.currentLessonId = data?.lesson_id || null;
-        } catch (e) {
-          console.error('resolveContinueLesson error', e);
-        }
-      },
-
-      filteredSections() {
-        const q = String(this.ui.search || '').trim().toLowerCase();
-        if (!q) return this.sections || [];
-        return (this.sections || [])
-          .map(s => {
-            const lessons = (s.lessons || []).filter(l => {
-              return String(l.title || '').toLowerCase().includes(q)
-                  || String(l.type  || '').toLowerCase().includes(q);
-            });
-            return lessons.length ? { ...s, lessons } : null;
-          })
-          .filter(Boolean);
-      },
-
-      toggleSection(sectionId) {
-        this.ui.openSections[sectionId] = !this.ui.openSections[sectionId];
-      },
-
-      /* ── Quiz ────────────────────────────────────────────────────── */
-      findSectionIdForLesson(lessonId) {
-        for (const s of (this.sections || [])) {
-          for (const l of (s.lessons || [])) {
-            if (Number(l.id) === Number(lessonId)) return s.id;
+    async _resolveContinueLesson() {
+      // 1. URL hash explicite : #lesson=<id>
+      const m = window.location.hash.match(/lesson=(\d+)/);
+      if (m) return Number(m[1]);
+      // 2. API continue
+      try {
+        const data = await this._fetchJson(this.cfg.continue);
+        return data?.lesson_id || data?.id || null;
+      } catch (e) {
+        // 3. Fallback : première leçon disponible
+        for (const sec of this.state.sections) {
+          for (const lsn of (sec.lessons || [])) {
+            if (lsn.id) return lsn.id;
           }
         }
         return null;
-      },
+      }
+    }
 
-      async loadQuiz() {
-        this.quiz = {
-          loading: true, loaded: false, data: null,
-          answers: {}, submitting: false, result: null, error: null, attemptsLeft: 0,
-        };
-        const sectionId = this.findSectionIdForLesson(this.currentLessonId);
-        if (!sectionId) {
-          this.quiz.loading = false;
-          this.quiz.loaded  = true;
-          this.quiz.error   = 'Section introuvable pour ce quiz.';
-          return;
-        }
-        try {
-          const url  = `/api/learner/courses/${this.courseId}/sections/${sectionId}/quiz/`;
-          const data = await this.apiGet(url);
-          this.quiz.data         = data;
-          this.quiz.attemptsLeft = Math.max(0, (data.max_attempts || 0) - (data.attempts_count || 0));
-          this.quiz.loaded       = true;
-        } catch (e) {
-          this.quiz.error  = e?.detail || 'Impossible de charger le quiz.';
-          this.quiz.loaded = true;
-        } finally {
-          this.quiz.loading = false;
-        }
-      },
+    async _loadLesson(lessonId) {
+      if (!lessonId) return;
+      // Cancel précédente requête si l'utilisateur clique vite.
+      if (this._lessonAbort) this._lessonAbort.abort();
+      this._lessonAbort = new AbortController();
 
-      quizAllAnswered() {
-        if (!this.quiz.data?.questions?.length) return false;
-        return this.quiz.data.questions.every(q => this.quiz.answers[q.id] != null);
-      },
+      this.state.currentLessonId = lessonId;
+      this.state.loading.lesson = true;
+      this._showLoader(true);
+      // Met à jour l'URL hash pour permettre les deep-links.
+      try { history.replaceState(null, '', `#lesson=${lessonId}`); } catch (_) {}
 
-      async submitQuiz() {
-        if (!this.quizAllAnswered()) return;
-        this.quiz.submitting = true;
-        this.quiz.error      = null;
-        const sectionId = this.findSectionIdForLesson(this.currentLessonId);
-        try {
-          const answers = Object.entries(this.quiz.answers).map(([qid, cid]) => ({
-            question_id: Number(qid),
-            choice_id:   Number(cid),
-          }));
-          const url    = `/api/learner/courses/${this.courseId}/sections/${sectionId}/quiz/submit/`;
-          const result = await this.apiPost(url, { answers });
-          this.quiz.result       = result;
-          this.quiz.attemptsLeft = Math.max(0, this.quiz.attemptsLeft - 1);
-          if (result?.passed) {
-            this.$nextTick(() => this.refreshOutlineSilently());
-          }
-        } catch (e) {
-          this.quiz.error = e?.detail || e?.message || 'Erreur lors de la soumission.';
-        } finally {
-          this.quiz.submitting = false;
-        }
-      },
+      try {
+        const data = await this._fetchJson(
+          this.cfg.lessonStateBase + lessonId + '/state/',
+          { signal: this._lessonAbort.signal }
+        );
+        this.state.currentLesson = data.lesson || data;
+        this.state.lessonProgress = Object.assign(
+          { percent: 0, is_completed: false, last_position_seconds: 0 },
+          data.progress || {}
+        );
+        this.state.nav = data.nav || { prev_id: null, next_id: null };
 
-      async resetQuiz() { await this.loadQuiz(); },
+        this._renderLesson();
+        this._renderOutline();           // re-render pour highlight la leçon active
+        this._renderNavigation();
+        this._renderLessonProgress();
 
-      async refreshOutlineSilently() {
-        try {
-          const data = await this.apiGet(this.api.outline);
-          this.progress = {
-            percent:           Number(data?.progress?.percent ?? 0),
-            completed_lessons: Number(data?.progress?.completed_lessons ?? 0),
-            total_lessons:     Number(data?.progress?.total_lessons ?? 0),
-          };
-          (data?.sections || []).forEach(s => {
-            const sec = this.sections.find(x => x.id === s.id);
-            if (!sec) return;
-            (s.lessons || []).forEach(l => {
-              const lesson = sec.lessons.find(x => x.id === l.id);
-              if (lesson) {
-                lesson.is_completed = !!(l.completed ?? l.is_completed);
-                lesson.percent      = Number(l.progress_percent ?? l.percent ?? 0);
-              }
-            });
-          });
-        } catch (_) { /* silent */ }
-      },
+        // Notifie le serveur que c'est la leçon courante (best-effort).
+        this._setCurrentLesson(lessonId);
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.error('loadLesson error:', err);
+        this._toast('Impossible de charger la leçon', 'error');
+      } finally {
+        this.state.loading.lesson = false;
+        this._showLoader(false);
+      }
+    }
 
-      expandAll(open) {
-        (this.sections || []).forEach(s => { this.ui.openSections[s.id] = !!open; });
-      },
-
-      countCompleted(section) {
-        return (section?.lessons || []).filter(l => l.is_completed).length;
-      },
-
-      flattenLessons() {
-        const out = [];
-        (this.sections || []).forEach(s => {
-          (s.lessons || []).forEach(l => out.push(l));
+    async _setCurrentLesson(lessonId) {
+      try {
+        await fetch(this.cfg.setCurrent, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lesson_id: lessonId }),
         });
-        return out;
-      },
+      } catch (_) { /* best effort */ }
+    }
 
-      computeNav() {
-        const list = this.flattenLessons();
-        const idx  = list.findIndex(x => Number(x.id) === Number(this.currentLessonId));
-        this.nav.prevId = idx > 0 ? list[idx - 1].id : null;
-        this.nav.nextId = (idx >= 0 && idx < list.length - 1) ? list[idx + 1].id : null;
-      },
-
-      async prevLesson() { if (this.nav.prevId) await this.openLesson(this.nav.prevId); },
-      async nextLesson() { if (this.nav.nextId) await this.openLesson(this.nav.nextId); },
-
-      async openLesson(lessonId) {
-        if (!lessonId) return;
-        if (Number(lessonId) === Number(this.currentLessonId) && !this.loading.lesson) return;
-
-        this.currentLessonId = lessonId;
-        this.computeNav();
-        if (!this.ui.isDesktop) this.ui.sidebarOpen = false;
-
-        try {
-          await this.apiPost(this.api.setCurrent, { lesson_id: lessonId });
-        } catch (e) {
-          console.warn('setCurrent error', e);
-        }
-        await this.loadLesson(lessonId);
-        this.prefetchAround();
-      },
-
-      normalizeLessonState(data) {
-        const raw  = data?.lesson || {};
-        const type = raw.type || raw.lesson_type || raw.lessonType || '';
-        return {
-          lesson: {
-            ...raw,
-            id:           raw.id || null,
-            title:        raw.title || '',
-            type,
-            // Normalise l'URL YouTube/Vimeo en URL embed officielle
-            // (youtu.be et watch?v= refusent l'embed via X-Frame-Options).
-            video_url:    toEmbedUrl(raw.video_url || raw.videoUrl || raw.video || null),
-            file_url:     raw.file_url  || raw.fileUrl  || raw.file  || null,
-            content:      raw.content   || raw.text     || raw.html  || null,
-            duration_sec: raw.duration_sec ?? raw.duration ?? null,
-          },
-          progress: {
-            percent:                Number(data?.progress?.percent ?? data?.progress?.progress_percent ?? 0),
-            is_completed:           !!(data?.progress?.is_completed ?? data?.progress?.completed),
-            last_position_seconds:  Number(data?.progress?.last_position_seconds ?? 0),
-          },
+    async _saveProgress(forceComplete) {
+      const lid = this.state.currentLessonId;
+      if (!lid) return;
+      this.state.loading.saving = true;
+      this._setSavingIndicator(true);
+      try {
+        const body = {
+          percent: this.state.lessonProgress.percent,
+          last_position_seconds: this.state.lessonProgress.last_position_seconds,
         };
-      },
-
-      async loadLesson(lessonId) {
-        try {
-          this.loading.lesson = true;
-          this._videoSeekDone = false;
-          this.teardownTextObserver();
-
-          const key = Number(lessonId);
-          if (this._prefetchCache.has(key)) {
-            const cached = this._prefetchCache.get(key);
-            this.lesson         = cached.lesson   || this.lesson;
-            this.lessonProgress = cached.progress || this.lessonProgress;
-            this.applyOptimisticToSidebar(lessonId, this.lessonProgress);
-            this.$nextTick(() => {
-              if (this.lesson.type === 'TEXT')  this.setupTextAutoComplete();
-              if (this.lesson.type === 'VIDEO') this.seekVideoIfPossible();
-              if (this.lesson.type === 'QUIZ')  this.loadQuiz();
-            });
-            return;
-          }
-
-          const url        = `${this.api.lessonStateBase}${lessonId}/state/`;
-          const data       = await this.apiGet(url);
-          const normalized = this.normalizeLessonState(data);
-
-          this.lesson         = normalized.lesson;
-          this.lessonProgress = normalized.progress;
-          this.applyOptimisticToSidebar(lessonId, this.lessonProgress);
-
-          this.$nextTick(() => {
-            if (this.lesson.type === 'TEXT')  this.setupTextAutoComplete();
-            if (this.lesson.type === 'VIDEO') this.seekVideoIfPossible();
-            if (this.lesson.type === 'QUIZ')  this.loadQuiz();
-          });
-        } catch (e) {
-          console.error('loadLesson error', e);
-          this.lesson = {
-            id: null, title: 'Erreur de chargement', type: '',
-            video_url: null, file_url: null,
-            content: '<p>Impossible de charger cette leçon.</p>',
-            duration_sec: null,
-          };
-          this.lessonProgress = { percent: 0, is_completed: false, last_position_seconds: 0 };
-          this.toast('Impossible de charger la leçon', 'warn');
-        } finally {
-          this.loading.lesson = false;
-        }
-      },
-
-      prefetchAround() {
-        [this.nav.prevId, this.nav.nextId].filter(Boolean).forEach(id => this.prefetchLesson(id));
-      },
-
-      async prefetchLesson(lessonId) {
-        const key = Number(lessonId);
-        if (!key || this._prefetchCache.has(key)) return;
-        try {
-          const url        = `${this.api.lessonStateBase}${lessonId}/state/`;
-          const data       = await this.apiGet(url);
-          const normalized = this.normalizeLessonState(data);
-          this._prefetchCache.set(key, normalized);
-          if (this._prefetchCache.size > 6) {
-            const firstKey = this._prefetchCache.keys().next().value;
-            this._prefetchCache.delete(firstKey);
-          }
-        } catch (e) {
-          console.warn('prefetchLesson error', e);
-        }
-      },
-
-      applyOptimisticToSidebar(lessonId, prog) {
-        (this.sections || []).forEach(s => {
-          (s.lessons || []).forEach(l => {
-            if (Number(l.id) === Number(lessonId)) {
-              l.percent      = Number(prog?.percent ?? l.percent ?? 0);
-              l.is_completed = !!(prog?.is_completed ?? l.is_completed);
+        if (forceComplete) body.is_completed = true;
+        const data = await this._fetchJson(
+          this.cfg.lessonProgressBase + lid + '/progress/',
+          { method: 'POST', body: JSON.stringify(body) }
+        );
+        this.state.lessonProgress = Object.assign(this.state.lessonProgress, data || {});
+        // Met à jour le state de l'outline (is_completed sur la leçon).
+        for (const sec of this.state.sections) {
+          for (const lsn of (sec.lessons || [])) {
+            if (lsn.id === lid) {
+              lsn.is_completed = !!data?.is_completed || forceComplete;
+              lsn.percent = data?.percent ?? this.state.lessonProgress.percent;
             }
-          });
+          }
+        }
+        this._renderOutline();
+        this._renderOverallProgress();
+        this._renderLessonProgress();
+        if (forceComplete) {
+          this._toast('Leçon marquée terminée', 'success');
+          this._renderCompleteButton();
+        }
+        this._lastSaveAt = Date.now();
+      } catch (err) {
+        console.error('saveProgress error:', err);
+        this._toast('Sauvegarde impossible', 'error');
+      } finally {
+        this.state.loading.saving = false;
+        this._setSavingIndicator(false);
+      }
+    }
+
+    // ─── Renderers ────────────────────────────────────────────────────
+    _renderOutline() {
+      if (!this.$outlineList) return;
+      const q = this.state.searchFilter;
+      const html = [];
+      for (const sec of this.state.sections) {
+        const lessons = (sec.lessons || []).filter((l) =>
+          !q || (l.title || '').toLowerCase().indexOf(q) !== -1
+        );
+        if (q && lessons.length === 0) continue;
+        html.push(`
+          <details class="px-1 py-1" ${q || sec.lessons?.some(l => l.id === this.state.currentLessonId) ? 'open' : 'open'}>
+            <summary class="px-3 py-2 cursor-pointer text-xs font-bold uppercase tracking-wide
+                            text-be-ink-700 dark:text-white/70 select-none
+                            hover:text-be-ink-900 dark:hover:text-white">
+              ${escapeHtml(sec.title || 'Section')}
+            </summary>
+            <ul class="mt-1 space-y-0.5" role="list">
+              ${lessons.map((l) => this._renderLessonRow(l)).join('')}
+            </ul>
+          </details>
+        `);
+      }
+      if (!html.length) {
+        html.push(`
+          <div class="text-center text-sm text-be-ink-500 dark:text-white/60 py-8">
+            <i class="fa-solid fa-folder-open text-2xl mb-2 opacity-50"></i>
+            <p>${q ? 'Aucune leçon trouvée.' : 'Aucune leçon disponible.'}</p>
+          </div>
+        `);
+      }
+      this.$outlineList.innerHTML = html.join('');
+      // Bind clicks on lesson rows (delegation).
+      this.$outlineList.querySelectorAll('[data-lesson-id]').forEach((el) => {
+        el.addEventListener('click', (e) => {
+          e.preventDefault();
+          const id = Number(el.getAttribute('data-lesson-id'));
+          if (id && id !== this.state.currentLessonId) {
+            this._loadLesson(id);
+            if (window.matchMedia('(max-width: 1023px)').matches) {
+              this._setSidebarOpen(false);
+            }
+          }
         });
-      },
+      });
+    }
 
-      scheduleSave(markDone = false, opts = {}) {
-        clearTimeout(this._saveDebounceTimer);
-        this._saveDebounceTimer = setTimeout(() => {
-          this.saveProgress(markDone, opts).catch(() => {});
-        }, opts.delayMs || 450);
-      },
+    _renderLessonRow(l) {
+      const active = l.id === this.state.currentLessonId;
+      const completed = !!l.is_completed;
+      const icon = completed
+        ? '<i class="fa-solid fa-circle-check text-emerald-500"></i>'
+        : (active
+            ? '<i class="fa-solid fa-circle-play text-be-sky-600"></i>'
+            : '<i class="fa-regular fa-circle text-be-ink-400"></i>');
+      const typeIcon = ({
+        VIDEO: 'fa-play',
+        TEXT:  'fa-align-left',
+        QUIZ:  'fa-clipboard-question',
+        FILE:  'fa-file-arrow-down',
+        LIVE:  'fa-video',
+      })[l.lesson_type] || 'fa-circle';
+      const dur = fmtDuration(l.duration_sec);
+      return `
+        <li>
+          <a href="#lesson=${l.id}"
+             data-lesson-id="${l.id}"
+             data-active="${active}"
+             data-completed="${completed}"
+             class="be-lesson-row flex items-center gap-2.5 px-3 py-2 rounded-lg
+                    hover:bg-be-ink-50 dark:hover:bg-white/5
+                    transition cursor-pointer">
+            <span class="be-lesson-icon w-5 text-center text-sm" aria-hidden="true">${icon}</span>
+            <span class="flex-1 min-w-0">
+              <span class="block text-sm font-medium truncate
+                           ${active ? 'text-be-sky-700 dark:text-be-sky-300 font-semibold' : 'text-be-ink-800 dark:text-white/80'}">
+                ${escapeHtml(l.title || 'Leçon')}
+              </span>
+              <span class="block text-[11px] text-be-ink-500 dark:text-white/50 mt-0.5
+                           flex items-center gap-1.5">
+                <i class="fa-solid ${typeIcon} text-[10px]" aria-hidden="true"></i>
+                <span>${l.lesson_type || ''}</span>
+                ${dur ? `<span class="opacity-50">•</span><span>${dur}</span>` : ''}
+              </span>
+            </span>
+          </a>
+        </li>
+      `;
+    }
 
-      async saveProgress(markDone = false, opts = {}) {
-        const force     = !!opts.force;
-        const wantToast = !!opts.toast;
-        if (!this.currentLessonId) return;
+    _renderLesson() {
+      const l = this.state.currentLesson || {};
+      if (this.$lessonTitle) this.$lessonTitle.textContent = l.title || '';
+      if (this.$lessonTypeText) this.$lessonTypeText.textContent = ({
+        VIDEO: 'Leçon vidéo',
+        TEXT:  'Leçon texte',
+        QUIZ:  'Quiz',
+        FILE:  'Ressource',
+        LIVE:  'Session live',
+      })[l.lesson_type] || 'Leçon';
+      if (this.$lessonDuration) {
+        const d = fmtDuration(l.duration_sec);
+        this.$lessonDuration.textContent = d ? `• ${d}` : '';
+      }
+      if (this.$lessonContainer) this.$lessonContainer.classList.remove('hidden');
 
-        const percent    = Math.max(0, Math.min(100, Number(this.lessonProgress.percent || 0)));
-        const seconds    = Math.max(0, Number(this.lessonProgress.last_position_seconds || 0));
-        const is_completed = !!markDone || !!this.lessonProgress.is_completed;
+      this._unmountAllBlocks();
 
-        const percentDelta = Math.abs(percent - (this.lastSentPercent < 0 ? percent : this.lastSentPercent));
-        const secondsDelta = Math.abs(seconds - (this.lastSentSecond  < 0 ? seconds : this.lastSentSecond));
+      switch (l.lesson_type) {
+        case 'VIDEO': this._mountVideo(l); break;
+        case 'FILE':  this._mountFile(l);  break;
+        case 'TEXT':  this._mountText(l);  break;
+        default:      this._mountOther(l); break;
+      }
+      this._renderCompleteButton();
+    }
 
-        if (!force && !markDone && percentDelta < 2 && secondsDelta < 10) return;
+    _unmountAllBlocks() {
+      // Détache l'élément vidéo précédent pour stopper la lecture/ressources.
+      if (this._videoEl) {
+        try { this._videoEl.pause && this._videoEl.pause(); } catch (_) {}
+        this._videoEl = null;
+      }
+      if (this.$videoHost) this.$videoHost.innerHTML = '';
+      if (this.$videoBlock) this.$videoBlock.classList.add('hidden');
+      if (this.$fileBlock) this.$fileBlock.classList.add('hidden');
+      if (this.$textBlock) this.$textBlock.classList.add('hidden');
+      if (this.$otherBlock) this.$otherBlock.classList.add('hidden');
+    }
 
-        try { this._saveAbort?.abort(); } catch (_) {}
-
-        this._saveAbort    = new AbortController();
-        this.saving.lesson = true;
-        this.saving.any    = true;
-
-        try {
-          const url     = `${this.api.lessonProgressBase}${this.currentLessonId}/progress/`;
-          const payload = { percent, last_position_seconds: seconds, is_completed };
-
-          this.lessonProgress.percent      = percent;
-          this.lessonProgress.is_completed = is_completed;
-          this.applyOptimisticToSidebar(this.currentLessonId, this.lessonProgress);
-
-          const data = await this.apiPost(url, payload, this._saveAbort.signal);
-
-          if (data?.progress) {
-            this.lessonProgress.percent               = Number(data.progress.percent ?? this.lessonProgress.percent);
-            this.lessonProgress.is_completed          = !!(data.progress.is_completed ?? this.lessonProgress.is_completed);
-            this.lessonProgress.last_position_seconds = Number(data.progress.last_position_seconds ?? this.lessonProgress.last_position_seconds);
-            this.applyOptimisticToSidebar(this.currentLessonId, this.lessonProgress);
+    _mountVideo(l) {
+      if (!this.$videoBlock || !this.$videoHost) return;
+      const url = toEmbedUrl(l.video_url || '');
+      if (!url) {
+        this._mountOther({ message: 'Vidéo non disponible pour cette leçon.' });
+        return;
+      }
+      this.$videoBlock.classList.remove('hidden');
+      if (isDirectVideo(url)) {
+        // ===== MP4 / HLS direct =====
+        const v = document.createElement('video');
+        v.controls = true;
+        v.playsInline = true;
+        v.preload = 'metadata';
+        v.setAttribute('controlsList', 'nodownload noremoteplayback noplaybackrate');
+        v.setAttribute('disablePictureInPicture', '');
+        v.oncontextmenu = () => false;
+        v.src = url;
+        v.addEventListener('timeupdate', () => this._onVideoTime(v));
+        v.addEventListener('ended', () => this._onVideoEnded(v));
+        v.addEventListener('loadedmetadata', () => {
+          const pos = Number(this.state.lessonProgress.last_position_seconds || 0);
+          if (pos > 2 && isFinite(pos) && pos < (v.duration || Infinity)) {
+            try { v.currentTime = pos; } catch (_) {}
           }
+        });
+        this._videoEl = v;
+        this.$videoHost.appendChild(v);
+      } else {
+        // ===== iframe YouTube / Vimeo / Dailymotion =====
+        const f = document.createElement('iframe');
+        f.loading = 'lazy';
+        f.allowFullscreen = true;
+        f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        // allow-same-origin RETIRÉ → sandbox effectif (sinon warning navigateur).
+        f.setAttribute('sandbox',
+          'allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox');
+        f.src = url;
+        this._videoEl = f;
+        this.$videoHost.appendChild(f);
+      }
+    }
 
-          this.lastSentPercent = this.lessonProgress.percent;
-          this.lastSentSecond  = this.lessonProgress.last_position_seconds;
-          this.lastSavedAt     = this.nowTime();
-
-          this._saveCount += 1;
-          if (this.lessonProgress.is_completed || this._saveCount % 4 === 0) {
-            await this.refreshOutline(false);
-          }
-          if (wantToast) this.toast('Progress enregistré', 'ok');
-        } catch (e) {
-          if (e.name !== 'AbortError') {
-            console.error('saveProgress error', e);
-            this.toast('Erreur de synchronisation', 'warn');
-          }
-        } finally {
-          this.saving.lesson = false;
-          this.saving.any    = false;
+    _mountFile(l) {
+      if (!this.$fileBlock || !this.$fileLink) return;
+      this.$fileBlock.classList.remove('hidden');
+      this.$fileLink.href = l.file_url || l.file || '#';
+      this.$fileLink.addEventListener('click', () => {
+        if (this.state.lessonProgress.percent < 30) {
+          this._setLessonPercent(30);
+          this._saveDebounced();
         }
-      },
+      }, { once: true });
+    }
 
-      async toggleCompleted() {
-        if (this.loading.lesson) return;
-        if (this.lessonProgress.is_completed) {
-          this.lessonProgress.is_completed = false;
-          await this.saveProgress(false, { force: true, toast: true });
-          return;
+    _mountText(l) {
+      if (!this.$textBlock || !this.$textContent) return;
+      this.$textBlock.classList.remove('hidden');
+      // Le HTML est déjà bleach-sanitized côté serveur (V1.D REV-02).
+      this.$textContent.innerHTML = l.content || '<p>Contenu vide.</p>';
+    }
+
+    _mountOther(l) {
+      if (!this.$otherBlock || !this.$otherMessage) return;
+      this.$otherBlock.classList.remove('hidden');
+      this.$otherMessage.textContent = l.message || ({
+        QUIZ: 'Ouvre le quiz depuis le dashboard pour le réaliser.',
+        LIVE: 'Session live programmée — rendez-vous à l\'heure indiquée.',
+      })[this.state.currentLesson?.lesson_type] || 'Contenu non disponible.';
+    }
+
+    _onVideoTime(v) {
+      if (!v || !isFinite(v.duration) || !v.duration) return;
+      const current = Math.floor(v.currentTime || 0);
+      const duration = Math.floor(v.duration || 0);
+      const percent = duration ? Math.floor((current / duration) * 100) : 0;
+      this.state.lessonProgress.last_position_seconds = current;
+      const prev = Number(this.state.lessonProgress.percent || 0);
+      this.state.lessonProgress.percent = Math.min(99, Math.max(prev, percent));
+      this._renderLessonProgress();
+      // Auto-save toutes les ~2.5s en moyenne grâce au debounce 800ms.
+      this._saveDebounced();
+    }
+
+    _onVideoEnded() {
+      this._setLessonPercent(100);
+      this._saveProgress(true);
+    }
+
+    _setLessonPercent(p) {
+      this.state.lessonProgress.percent = Math.max(
+        Number(this.state.lessonProgress.percent || 0), p
+      );
+      this._renderLessonProgress();
+    }
+
+    _renderLessonProgress() {
+      const p = Math.round(Number(this.state.lessonProgress.percent || 0));
+      if (this.$lessonPercent) this.$lessonPercent.textContent = p;
+      if (this.$lessonBar) this.$lessonBar.style.width = p + '%';
+    }
+
+    _renderOverallProgress() {
+      let total = 0, done = 0;
+      for (const sec of this.state.sections) {
+        for (const l of (sec.lessons || [])) {
+          total++;
+          if (l.is_completed) done++;
         }
-        this.lessonProgress.percent      = 100;
-        this.lessonProgress.is_completed = true;
-        await this.saveProgress(true, { force: true, toast: true });
-      },
+      }
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      if (this.$completedCount) this.$completedCount.textContent = done;
+      if (this.$totalCount) this.$totalCount.textContent = total;
+      if (this.$overallPercent) this.$overallPercent.textContent = pct + ' %';
+      if (this.$overallBar) this.$overallBar.style.width = pct + '%';
+    }
 
-      onVideoLoaded() { this.seekVideoIfPossible(); },
+    _renderNavigation() {
+      const n = this.state.nav || {};
+      if (this.$prevBtn) this.$prevBtn.disabled = !n.prev_id;
+      if (this.$nextBtn) this.$nextBtn.disabled = !n.next_id;
+    }
 
-      seekVideoIfPossible() {
-        // CSP-build : l'élément <video> est créé en vanilla par mountVideo()
-        // (pas via x-ref). On utilise _videoEl, fallback ancien comportement
-        // pour les tests qui pourraient encore poser $refs.videoEl.
-        const v = this._videoEl || (this.$refs && this.$refs.videoEl);
-        if (!v || this._videoSeekDone) return;
-        const pos = Number(this.lessonProgress.last_position_seconds || 0);
-        if (pos > 2 && isFinite(pos)) {
-          try { v.currentTime = pos; } catch (e) { console.warn('seek error', e); }
-        }
-        this._videoSeekDone = true;
-      },
+    _renderCompleteButton() {
+      const done = !!this.state.lessonProgress.is_completed;
+      if (this.$completeLabel) {
+        this.$completeLabel.textContent = done ? 'Marquer non terminé' : 'Marquer terminé';
+      }
+      if (this.$completeBtn) {
+        this.$completeBtn.classList.toggle('bg-emerald-600', !done);
+        this.$completeBtn.classList.toggle('hover:bg-emerald-700', !done);
+        this.$completeBtn.classList.toggle('bg-be-ink-500', done);
+        this.$completeBtn.classList.toggle('hover:bg-be-ink-600', done);
+      }
+    }
 
-      onVideoTimeUpdate() {
-        // CSP-build : l'élément <video> est créé en vanilla par mountVideo()
-        // (pas via x-ref). On utilise _videoEl, fallback ancien comportement
-        // pour les tests qui pourraient encore poser $refs.videoEl.
-        const v = this._videoEl || (this.$refs && this.$refs.videoEl);
-        if (!v || !isFinite(v.duration) || !v.duration) return;
-        const now      = Date.now();
-        const current  = Math.floor(v.currentTime || 0);
-        const duration = Math.floor(v.duration || 0);
-        const percent  = duration ? Math.floor((current / duration) * 100) : 0;
+    _setSavingIndicator(on) {
+      if (!this.$savingIndicator) return;
+      this.$savingIndicator.classList.toggle('hidden', !on);
+    }
 
-        this.lessonProgress.last_position_seconds = current;
-        this.lessonProgress.percent = Math.min(99, Math.max(Number(this.lessonProgress.percent || 0), percent));
+    _showLoader(on) {
+      if (this.$lessonLoader) this.$lessonLoader.classList.toggle('hidden', !on);
+      if (this.$lessonContainer) this.$lessonContainer.classList.toggle('hidden', on);
+    }
 
-        if (now - this._videoTickLastSentAt > 2500) {
-          this._videoTickLastSentAt = now;
-          this.scheduleSave(false, { force: false, delayMs: 400 });
-        }
-      },
+    _showEmpty() {
+      if (this.$lessonLoader) this.$lessonLoader.classList.add('hidden');
+      if (this.$lessonContainer) this.$lessonContainer.classList.remove('hidden');
+      this._unmountAllBlocks();
+      this._mountOther({ message: 'Aucune leçon disponible pour ce cours pour le moment.' });
+    }
 
-      async onVideoEnded() {
-        this.lessonProgress.percent      = 100;
-        this.lessonProgress.is_completed = true;
-        await this.saveProgress(true, { force: true, toast: true });
-      },
+    // ─── Navigation ────────────────────────────────────────────────────
+    _goPrev() {
+      const id = this.state.nav?.prev_id;
+      if (id) this._loadLesson(id);
+    }
 
-      setupTextAutoComplete() {
-        if (this.lessonProgress.is_completed) return;
-        const sentinel = this.$refs.textEndSentinel;
-        const root     = this.$refs.playerScroll;
-        if (!sentinel || !root) return;
+    _goNext() {
+      const id = this.state.nav?.next_id;
+      if (id) this._loadLesson(id);
+    }
 
-        this._textObserver = new IntersectionObserver(async (entries) => {
-          const hit = entries.some(e => e.isIntersecting);
-          if (!hit) return;
-          this.lessonProgress.percent      = 100;
-          this.lessonProgress.is_completed = true;
-          await this.saveProgress(true, { force: true, toast: true });
-          this.teardownTextObserver();
-        }, { root, threshold: 0.6 });
+    _toggleComplete() {
+      const done = !!this.state.lessonProgress.is_completed;
+      this.state.lessonProgress.is_completed = !done;
+      if (!done) this.state.lessonProgress.percent = 100;
+      this._saveProgress(!done);
+    }
 
-        this._textObserver.observe(sentinel);
-      },
+    // ─── Sidebar UI ────────────────────────────────────────────────────
+    _setSidebarOpen(open) {
+      if (this.$sidebar) this.$sidebar.setAttribute('data-open', open ? 'true' : 'false');
+      if (this.$sidebarBackdrop)
+        this.$sidebarBackdrop.setAttribute('data-open', open ? 'true' : 'false');
+    }
 
-      teardownTextObserver() {
-        if (this._textObserver) {
-          try { this._textObserver.disconnect(); } catch (_) {}
-          this._textObserver = null;
-        }
-      },
+    // ─── Toast ─────────────────────────────────────────────────────────
+    _toast(msg, kind) {
+      if (!this.$toast) return;
+      this.$toast.textContent = msg;
+      const palette = {
+        success: 'bg-emerald-600',
+        error:   'bg-rose-600',
+        info:    'bg-be-sky-600',
+      };
+      // Reset classes de couleur
+      this.$toast.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-[100] ' +
+        'px-4 py-2.5 rounded-xl shadow-lift text-sm font-semibold text-white ' +
+        'opacity-100 transition-opacity duration-200 ' +
+        (palette[kind] || 'bg-be-ink-900');
+      clearTimeout(this._toastTimer);
+      this._toastTimer = setTimeout(() => {
+        this.$toast.style.opacity = '0';
+      }, 2400);
+      this.$toast.style.opacity = '1';
+    }
+  }
 
-      onFileOpened() {
-        if (this.lessonProgress.is_completed) return;
-        this.lessonProgress.percent = Math.max(Number(this.lessonProgress.percent || 0), 30);
-        this.scheduleSave(false, { force: false, delayMs: 400 });
-        this.toast('Ressource ouverte', 'sync');
-      },
+  // ─────────────────────────────────────────────────────────────────────
+  // Bootstrap
+  // ─────────────────────────────────────────────────────────────────────
+  function boot() {
+    const cfgNode = document.getElementById('player-config');
+    if (!cfgNode) {
+      console.warn('[course-player] #player-config introuvable, abort.');
+      return;
+    }
+    const ds = cfgNode.dataset;
+    const cfg = {
+      courseId:           Number(ds.courseId) || null,
+      outline:            ds.outlineUrl,
+      continue:           ds.continueUrl,
+      lessonStateBase:    ds.lessonStateBase,
+      lessonProgressBase: ds.lessonProgressBase,
+      setCurrent:         ds.setCurrentUrl,
+      backUrl:            ds.backUrl || '/',
+    };
+    const player = new CoursePlayer(cfg);
+    window.beCoursePlayer = player; // debug uniquement
+    player.init();
+  }
 
-    }; // end return
-  }); // end Alpine.data
-} // end _registerCoursePlayer
-
-// Double-dispatch : si Alpine est déjà initialisé (script chargé tardivement),
-// on enregistre immédiatement. Sinon on attend l'événement 'alpine:init'.
-if (typeof Alpine !== 'undefined' && Alpine.data) {
-  _registerCoursePlayer();
-} else {
-  document.addEventListener('alpine:init', _registerCoursePlayer);
-}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();

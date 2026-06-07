@@ -1,585 +1,341 @@
 {% extends "layout/app_shell.html" %}
 {% load static %}
 
-{% block title %}Continuer le cours{% endblock %}
-{% block topbar_subtitle %}Continuer{% endblock %}
+{% comment %}
+  templates/learner/learner_course_player.html — REFONTE COMPLÈTE.
+
+  Pourquoi cette refonte ?
+  Le composant Alpine précédent (≈900 lignes) cumulait :
+   - Cascade d'erreurs "Undefined variable" liées au timing d'enregistrement
+     dans @alpinejs/csp build (alpine:init fired avant exécution du script).
+   - Restrictions CSP-build : x-html interdit, expressions sur <iframe>
+     interdites, mots-clés JS interdits comme identifiants (delete, etc.).
+   - Difficultés de debug (couplage fort template/composant Alpine).
+
+  Cette refonte :
+   - Aucune dépendance Alpine sur cette page (vanilla JS pur).
+   - Structure HTML statique, le JS pilote tout (fetch, render, events).
+   - CSP-friendly : aucun script inline, aucune expression "exécutable".
+   - DOM API moderne : querySelector, classList, addEventListener, fetch.
+{% endcomment %}
+
+{% block title %}{{ course_title|default:"Continuer le cours" }}{% endblock %}
+{% block topbar_subtitle %}Lecture du cours{% endblock %}
+
+{% block extra_head %}
+  <style>
+    /* Cosmétique spécifique au player */
+    .be-player-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      min-height: calc(100vh - 64px);
+    }
+    @media (min-width: 1024px) {
+      .be-player-grid { grid-template-columns: 360px 1fr; }
+    }
+    .be-outline-list { max-height: calc(100vh - 200px); }
+    .be-video-host {
+      position: relative;
+      background: #0f172a;
+      border-radius: 1rem;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+    }
+    .be-video-host > video,
+    .be-video-host > iframe {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border: 0;
+    }
+    .be-lesson-row[data-active="true"] {
+      background: rgb(12 135 214 / 0.08);
+      border-left: 3px solid rgb(12 135 214);
+    }
+    .be-lesson-row[data-completed="true"] .be-lesson-icon {
+      color: rgb(5 150 105);
+    }
+    /* Sidebar mobile sliding */
+    @media (max-width: 1023px) {
+      .be-sidebar {
+        position: fixed; inset: 0 auto 0 0; z-index: 60;
+        width: min(360px, 88vw);
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        box-shadow: 0 0 50px rgb(0 0 0 / .2);
+      }
+      .be-sidebar[data-open="true"] { transform: translateX(0); }
+      .be-sidebar-backdrop {
+        display: none;
+        position: fixed; inset: 0; z-index: 55;
+        background: rgb(0 0 0 / .55);
+      }
+      .be-sidebar-backdrop[data-open="true"] { display: block; }
+    }
+  </style>
+{% endblock %}
 
 {% block content %}
-    <div id="player-config"
-         hidden
-         data-course-id="{{ course_id|default:'' }}"
-         data-outline-url="/api/learner/courses/{{ course_id }}/outline/"
-         data-continue-url="/api/learner/courses/{{ course_id }}/continue/"
-         data-lesson-state-base="/api/learner/courses/{{ course_id }}/lessons/"
-         data-lesson-progress-base="/api/learner/courses/{{ course_id }}/lessons/"
-         data-set-current-url="/api/learner/courses/{{ course_id }}/set-current/"></div>
+{# Config exposée au JS via data-* (no inline script). #}
+<div id="player-config"
+     hidden
+     data-course-id="{{ course_id|default:'' }}"
+     data-outline-url="/api/learner/courses/{{ course_id }}/outline/"
+     data-continue-url="/api/learner/courses/{{ course_id }}/continue/"
+     data-lesson-state-base="/api/learner/courses/{{ course_id }}/lessons/"
+     data-lesson-progress-base="/api/learner/courses/{{ course_id }}/lessons/"
+     data-set-current-url="/api/learner/courses/{{ course_id }}/set-current/"
+     data-back-url="{% url 'learner:dashboard' %}"></div>
 
-<div class="relative" x-data="coursePlayerUdemy">
-        <!-- Toast -->
-        <div x-cloak x-show="ui.toast.show" x-transition.opacity class="toast">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-circle-check text-emerald-400" x-show="toastIsOk()"></i>
-                <i class="fa-solid fa-triangle-exclamation text-amber-300" x-show="toastIsWarn()"></i>
-                <i class="fa-solid fa-cloud-arrow-up text-sky-300" x-show="toastIsSync()"></i>
-                <span x-text="ui.toast.msg"></span>
-            </div>
-        </div>
+<div id="be-player-root" class="be-player-grid bg-be-ink-50 dark:bg-be-ink-900">
 
-        <!-- Top bar -->
-        <div class="sticky top-0 z-40 bg-be-ink-50 dark:bg-white/5 text-white border-b border-white/10">
-            <div class="px-3 sm:px-5 py-3 flex items-center justify-between gap-3">
-                <div class="min-w-0 flex items-center gap-3">
-                    <button
-                            class="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15 active:scale-[.98] transition"
-                            @click="toggleSidebar()"
-                            aria-label="Ouvrir le plan"
-                            type="button"
-                    >
-                        <i class="fa-solid fa-bars"></i>
-                    </button>
+  {# ── Backdrop mobile ──────────────────────────────────────────────────── #}
+  <div id="be-sidebar-backdrop" class="be-sidebar-backdrop" data-open="false"></div>
 
-                    <div class="min-w-0">
-                        <div class="text-sm font-semibold truncate" x-text="courseTitle()"></div>
-                        <div class="text-[11px] text-white/70 flex items-center gap-2">
-                            <span class="truncate max-w-[46vw] sm:max-w-[420px]"
-                                  x-text="lessonTitle()"></span>
-                            <span class="opacity-60">•</span>
-                            <span>Progression</span>
-                            <span class="font-semibold" x-text="progressPercent()"></span>
-                            <span class="opacity-60" x-show="saving.any">•</span>
-                            <span class="text-sky-200 font-semibold" x-show="saving.any">
-                            <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Sync…
-                        </span>
-                        </div>
-                    </div>
-                </div>
+  {# ── SIDEBAR : outline + recherche ────────────────────────────────────── #}
+  <aside id="be-sidebar"
+         class="be-sidebar bg-white dark:bg-be-ink-800/60
+                border-r border-be-ink-100 dark:border-white/10
+                flex flex-col"
+         data-open="false"
+         aria-label="Plan du cours">
 
-                <div class="flex items-center gap-2 shrink-0">
-                    <button
-                            class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold active:scale-[.98] transition"
-                            @click="refreshOutline(true)"
-                            :disabled="loading.outline"
-                            type="button"
-                    >
-                        <i class="fa-solid fa-rotate mr-2"></i>Actualiser
-                    </button>
+    <div class="p-4 border-b border-be-ink-100 dark:border-white/10 space-y-3">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-sm font-bold text-be-ink-900 dark:text-white">
+          Plan du cours
+        </h2>
+        <button type="button"
+                id="be-sidebar-close"
+                class="lg:hidden w-8 h-8 inline-flex items-center justify-center
+                       rounded-xl hover:bg-be-ink-50 dark:hover:bg-white/10
+                       focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60"
+                aria-label="Fermer le plan">
+          <i class="fa-solid fa-xmark text-sm text-be-ink-500"></i>
+        </button>
+      </div>
 
-                    <div class="hidden sm:flex items-center gap-2">
-                        <div class="w-44 h-2 rounded-full bg-white/10 overflow-hidden">
-                            <div
-                                    class="h-full bg-emerald-400 rounded-full transition-all duration-300"
-                                    :class="progressBarClass(progress.percent)"
-                            ></div>
-                        </div>
-                        <div class="text-[11px] text-white/70">
-                            <span x-text="completedLessons()"></span>/<span
-                                x-text="totalLessons()"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+      <div class="relative">
+        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 text-xs"
+           aria-hidden="true"></i>
+        <input type="text"
+               id="be-outline-search"
+               placeholder="Rechercher une leçon…"
+               class="w-full pl-9 pr-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10
+                      bg-white dark:bg-white/5 text-sm
+                      focus:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60">
+      </div>
 
-        <!-- Main layout -->
-        <div class="grid lg:grid-cols-12 gap-0">
-            <!-- Mobile overlay -->
-            <div x-cloak
-                    class="lg:hidden fixed inset-0 z-40 bg-black/50"
-                    x-show="ui.sidebarOpen"
-                    x-transition.opacity
-                    @click="closeSidebar()"
-            ></div>
-
-            <!-- Sidebar -->
-            <aside x-cloak
-                    class="lg:col-span-4 xl:col-span-3 bg-white border-r border-be-ink-100 lg:sticky lg:top-[56px] lg:h-[calc(100vh-56px)] z-50"
-                    :class="sidebarClass()"
-                    x-show="showSidebar()"
-                    x-transition
-            >
-                <div class="p-4 border-b border-be-ink-100">
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <div class="text-sm font-extrabold text-be-ink-900 dark:text-white truncate"
-                                 x-text="courseTitle()"></div>
-                            <div class="text-xs text-be-ink-500 mt-1">
-                                <span class="font-semibold" x-text="progressPercent()"></span>
-                                • <span x-text="completedLessons()"></span>/<span
-                                    x-text="totalLessons()"></span>
-                                <span class="ml-2" x-show="saving.any">
-                                <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Sync…
-                            </span>
-                            </div>
-                        </div>
-
-                        <button
-                                class="lg:hidden w-10 h-10 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 active:scale-[.98] transition"
-                                @click="closeSidebar()"
-                                aria-label="Fermer"
-                                type="button"
-                        >
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    </div>
-
-                    <div class="mt-3 h-2 rounded-full bg-be-ink-100 overflow-hidden">
-                        <div
-                                class="h-full rounded-full bg-be-sky-600 transition-all duration-300"
-                                :class="progressBarClass(progress.percent)"
-                        ></div>
-                    </div>
-
-                    <div class="mt-4">
-                        <div class="relative">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 text-sm"></i>
-                            <input
-                                    x-model.debounce.200ms="ui.search"
-                                    placeholder="Rechercher une leçon…"
-                                    class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-be-ink-100/70 bg-white/80 focus:outline-none focus:ring-4 focus:ring-be-sky-200/60 text-sm"
-                                    type="text"
-                            />
-                        </div>
-                    </div>
-
-                    <div class="mt-3 flex items-center gap-2">
-                        <button
-                                class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-xs font-semibold active:scale-[.98] transition"
-                                @click="expandAll(true)"
-                                type="button"
-                        >
-                            Tout ouvrir
-                        </button>
-                        <button
-                                class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-xs font-semibold active:scale-[.98] transition"
-                                @click="expandAll(false)"
-                                type="button"
-                        >
-                            Tout fermer
-                        </button>
-                    </div>
-                </div>
-
-                <div class="p-3 overflow-auto no-scrollbar h-[calc(100%-184px)]">
-                    <template x-if="loading.outline">
-                        <div class="p-3">
-                            <div class="text-sm text-be-ink-500">Chargement du plan…</div>
-                            <div class="mt-3 space-y-2">
-                                <div class="h-10 rounded-xl bg-be-ink-100/70 animate-pulse"></div>
-                                <div class="h-10 rounded-xl bg-be-ink-100/70 animate-pulse"></div>
-                                <div class="h-10 rounded-xl bg-be-ink-100/70 animate-pulse"></div>
-                            </div>
-                        </div>
-                    </template>
-
-                    <template x-if="outlineEmpty()">
-                        <div class="p-3 text-sm text-be-ink-500">Aucun résultat.</div>
-                    </template>
-
-                    <template x-for="s in filteredSections()" :key="s.id">
-                        <div class="mb-3 rounded-2xl border border-be-ink-100 overflow-hidden">
-                            <button
-                                    class="w-full px-3 py-3 flex items-center justify-between gap-3 bg-white hover:bg-be-ink-50 active:scale-[.99] transition"
-                                    @click="toggleSection(s.id)"
-                                    type="button"
-                            >
-                                <div class="min-w-0 text-left">
-                                    <div class="text-xs font-extrabold text-be-ink-900 dark:text-white truncate" x-text="s.title"></div>
-                                    <div class="text-[11px] text-be-ink-500 mt-1">
-                                        <span x-text="countCompleted(s)"></span>/<span
-                                            x-text="sectionLessonsCount(s)"></span> leçons terminées
-                                    </div>
-                                </div>
-                                <i class="fa-solid fa-chevron-down text-be-ink-400 transition"
-                                   :class="sectionChevronClass(s.id)"></i>
-                            </button>
-
-                            <div x-show="ui.openSections[s.id]" x-transition
-                                 class="border-t border-be-ink-100 bg-white">
-                                <template x-for="l in sectionLessons(s)" :key="l.id">
-                                    <button
-                                            class="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-be-ink-50 active:scale-[.99] transition"
-                                            :class="activeLessonClass(l.id)"
-                                            @click="openLesson(l.id)"
-                                            type="button"
-                                    >
-                                        <div
-                                                class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                                                :class="lessonIconClass(l)"
-                                        >
-                                            <template x-if="isVideoType(l)"><i class="fa-solid fa-circle-play"></i>
-                                            </template>
-                                            <template x-if="isTextType(l)"><i class="fa-solid fa-file-lines"></i>
-                                            </template>
-                                            <template x-if="isQuizType(l)"><i
-                                                    class="fa-solid fa-circle-question"></i></template>
-                                            <template x-if="isLiveType(l)"><i
-                                                    class="fa-solid fa-tower-broadcast"></i></template>
-                                            <template x-if="isFileType(l)"><i class="fa-solid fa-paperclip"></i>
-                                            </template>
-                                            <template x-if="unknownLessonType(l.type)">
-                                                <i class="fa-solid fa-circle"></i>
-                                            </template>
-                                        </div>
-
-                                        <div class="min-w-0 flex-1">
-                                            <div class="text-sm font-semibold text-be-ink-900 dark:text-white truncate"
-                                                 x-text="l.title"></div>
-                                            <div class="mt-1 flex items-center gap-2 text-[11px] text-be-ink-500">
-                                                <span x-text="l.type"></span>
-                                                <span class="opacity-60">•</span>
-                                                <span x-text="lessonItemPercent(l)"></span>
-                                                <span class="ml-1" x-show="l.is_completed">✅</span>
-                                            </div>
-
-                                            <div class="mt-2 h-1.5 rounded-full bg-be-ink-100 overflow-hidden">
-                                                <div
-                                                        class="h-full rounded-full bg-be-sky-600 transition-all duration-300"
-                                                        :class="progressBarClass(l.percent)"
-                                                ></div>
-                                            </div>
-                                        </div>
-
-                                        <div class="text-[11px] font-semibold text-be-ink-600 shrink-0">
-                                            <span x-text="formatDuration(l.duration_sec)"></span>
-                                        </div>
-                                    </button>
-                                </template>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-            </aside>
-
-            <!-- Player -->
-            <section class="lg:col-span-8 xl:col-span-9 bg-white lg:sticky lg:top-[56px] lg:h-[calc(100vh-56px)]">
-                <div class="border-b border-be-ink-100 bg-white px-4 py-3 flex items-center justify-between gap-3">
-                    <div class="min-w-0">
-                        <div class="text-sm font-extrabold text-be-ink-900 dark:text-white truncate"
-                             x-text="lessonTitle()"></div>
-                        <div class="text-xs text-be-ink-500 mt-1 flex flex-wrap items-center gap-2">
-                        <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-be-ink-50 border border-be-ink-100">
-                            <span class="font-semibold" x-text="lessonTypeText()"></span>
-                        </span>
-                            <span class="opacity-60">•</span>
-                            <span>Progress:</span>
-                            <span class="font-semibold" x-text="lessonProgressPercent()"></span>
-                            <span class="opacity-60">•</span>
-                            <span x-show="lessonProgress.is_completed"
-                                  class="text-emerald-700 font-semibold">✅ Terminé</span>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-2 shrink-0">
-                        <button
-                                class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold active:scale-[.98] transition"
-                                @click="prevLesson()"
-                                :disabled="prevDisabled"
-                                :class="prevNavClass()"
-                                type="button"
-                        >
-                            ← Préc.
-                        </button>
-
-                        <button
-                                class="px-3 py-2 rounded-xl border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold active:scale-[.98] transition"
-                                @click="toggleCompleted()"
-                                :disabled="loading.lesson"
-                                :class="toggleBtnClass()"
-                                type="button"
-                        >
-                            <span x-show="showMarkComplete()">Marquer terminé</span>
-                            <span x-show="lessonProgress.is_completed">Marquer non terminé</span>
-                        </button>
-
-                        <button
-                                class="px-3 py-2 rounded-xl bg-be-ink-900 text-white hover:opacity-90 text-sm font-semibold active:scale-[.98] transition"
-                                @click="nextLesson()"
-                                :disabled="nextDisabled"
-                                :class="nextNavClass()"
-                                type="button"
-                        >
-                            Suivant →
-                        </button>
-                    </div>
-                </div>
-
-                <div
-                        x-ref="playerScroll"
-                        class="p-4 lg:p-6 overflow-auto no-scrollbar gpu h-[calc(100%-58px)]"
-                >
-                    <template x-if="loading.lesson">
-                        <div class="space-y-4">
-                            <div class="h-7 w-1/2 rounded-xl bg-be-ink-100/70 animate-pulse"></div>
-                            <div class="h-64 rounded-2xl bg-be-ink-100/70 animate-pulse"></div>
-                            <div class="h-24 rounded-2xl bg-be-ink-100/70 animate-pulse"></div>
-                        </div>
-                    </template>
-
-                    <template x-if="lessonLoaded()">
-                        <div class="space-y-5">
-                            <!-- VIDEO -->
-                            {# CORRECTIF CSP-build : @alpinejs/csp refuse toute expression sur
-                               un <iframe> ET refuse x-html. On héberge donc l'iframe (et la
-                               <video> MP4) dans un conteneur dont le contenu est piloté
-                               EN VANILLA JS par le composant via this.$refs.videoHost (cf.
-                               mountVideo() dans learner-course-player.js).
-
-                               Ce <div> n'a AUCUNE directive Alpine au-delà de x-ref —
-                               Alpine ne touche pas à ses enfants. Pas de :src, pas de x-if
-                               à l'intérieur. C'est le code JS du composant qui crée/remplace
-                               <video> ou <iframe> selon le type de l'URL. #}
-                            <template x-if="showVideo()">
-                                <div class="rounded-2xl border border-be-ink-100 overflow-hidden bg-black">
-                                    <div x-ref="videoHost"
-                                         x-init="mountVideo()"
-                                         class="js-video-host w-full"
-                                         aria-live="polite"></div>
-                                </div>
-                            </template>
-
-                            <!-- FILE -->
-                            <template x-if="showFile()">
-                                <div class="rounded-2xl border border-be-ink-100 p-4 bg-be-ink-50/40">
-                                    <div class="flex items-start justify-between gap-3">
-                                        <div class="min-w-0">
-                                            <div class="text-sm font-extrabold text-be-ink-900 dark:text-white">Ressource</div>
-                                            <div class="text-xs text-be-ink-500 mt-1">
-                                                Ouvre le document. Tu peux ensuite marquer terminé.
-                                            </div>
-                                        </div>
-                                        <a
-                                                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-be-ink-100 hover:bg-be-ink-50 text-sm font-semibold active:scale-[.98] transition"
-                                                :href="lesson.file_url"
-                                                target="_blank"
-                                                rel="noopener"
-                                                @click="onFileOpened()"
-                                        >
-                                            <i class="fa-solid fa-file-arrow-down"></i> Ouvrir
-                                        </a>
-                                    </div>
-                                </div>
-                            </template>
-
-                            <!-- TEXT -->
-                            {# CORRECTIF CSP-build : x-html est interdit. On utilise un host
-                               div x-ref dont le contenu est rempli en vanilla JS via
-                               mountLessonHtml() (cf. learner-course-player.js). Le HTML
-                               est déjà bleach-sanitized côté serveur (V1.D REV-02). #}
-                            <template x-if="isTextLesson()">
-                                <div class="rounded-2xl border border-be-ink-100 p-5">
-                                    <div class="prose max-w-none">
-                                        <div x-ref="textHost"
-                                             x-init="mountLessonHtml()"
-                                             class="js-text-host"></div>
-                                    </div>
-
-                                    <div class="mt-8 pt-6 border-t border-be-ink-100">
-                                        <div class="text-xs text-be-ink-500">
-                                            Astuce: en arrivant en bas, la leçon se marque comme terminée
-                                            automatiquement.
-                                        </div>
-                                        <div x-ref="textEndSentinel" class="h-1 w-full"></div>
-                                    </div>
-                                </div>
-                            </template>
-
-                            <!-- QUIZ -->
-                            <template x-if="isQuizLesson()">
-                                <div class="space-y-4">
-
-                                    <!-- Chargement -->
-                                    <template x-if="quiz.loading">
-                                        <div class="rounded-2xl border border-be-ink-100 p-6 text-center text-sm text-be-ink-500">
-                                            <div class="inline-block w-5 h-5 border-2 border-be-sky-300 border-t-be-sky-600 rounded-full animate-spin mb-2"></div>
-                                            <div>Chargement du quiz…</div>
-                                        </div>
-                                    </template>
-
-                                    <!-- Erreur chargement -->
-                                    <template x-if="quizLoadError()">
-                                        <div class="rounded-2xl border border-red-100 bg-red-50 p-5 text-sm text-red-700" x-text="quiz.error"></div>
-                                    </template>
-
-                                    <!-- Quiz chargé — déjà soumis (résultat) -->
-                                    <template x-if="showQuizResult()">
-                                        <div>
-                                            <!-- Résultat -->
-                                            <div :class="quizResultClass()"
-                                                 class="rounded-2xl border p-5">
-                                                <div class="flex items-center gap-3">
-                                                    <div :class="quizIconClass()"
-                                                         class="w-10 h-10 rounded-xl flex items-center justify-center text-lg">
-                                                        <template x-if="quiz.result.passed"><i class="fas fa-circle-check"></i></template>
-                                                        <template x-if="quizFailed()"><i class="fas fa-rotate-right"></i></template>
-                                                    </div>
-                                                    <div>
-                                                        <div :class="quizTitleClass()"
-                                                             class="font-semibold text-sm"
-                                                             x-text="quizResultTitle()"></div>
-                                                        <div class="text-xs mt-0.5"
-                                                             :class="quizSubtitleClass()">
-                                                            Score : <span class="font-bold" x-text="quizScoreText()"></span>
-                                                            · Score requis : <span x-text="quizPassingScoreText()"></span>
-                                                            · <span x-text="quizAnswersTxt()"></span> bonne(s) réponse(s)
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Réessayer si tentatives restantes -->
-                                            <template x-if="showRetry()">
-                                                <button @click="resetQuiz()"
-                                                        class="mt-3 w-full py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold">
-                                                    Réessayer
-                                                    (<span x-text="quiz.attemptsLeft"></span> tentative<span x-show="multiAttempts()">s</span> restante<span x-show="multiAttempts()">s</span>)
-                                                </button>
-                                            </template>
-                                        </div>
-                                    </template>
-
-                                    <!-- Quiz chargé — formulaire de réponses -->
-                                    <template x-if="showQuizForm()">
-                                        <div class="space-y-4">
-                                            <!-- En-tête quiz -->
-                                            <div class="rounded-2xl border border-be-sky-100 bg-be-sky-50 px-5 py-4 flex items-center justify-between gap-3">
-                                                <div>
-                                                    <div class="text-sm font-extrabold text-be-sky-900" x-text="quiz.data.title"></div>
-                                                    <div class="text-xs text-be-sky-700 mt-0.5">
-                                                        Score requis : <span class="font-semibold" x-text="quizPassingDataText()"></span>
-                                                        · Max tentatives : <span class="font-semibold" x-text="quiz.data.max_attempts"></span>
-                                                        · Tentatives effectuées : <span class="font-semibold" x-text="quiz.data.attempts_count"></span>
-                                                    </div>
-                                                </div>
-                                                <i class="fas fa-clipboard-question text-be-sky-400 text-xl"></i>
-                                            </div>
-
-                                            <!-- Questions -->
-                                            <template x-for="(q, qi) in quizQuestions()" :key="q.id">
-                                                <div class="rounded-2xl border border-be-ink-100 bg-white p-5">
-                                                    <div class="text-sm font-semibold text-be-ink-900 dark:text-white mb-3"
-                                                         x-text="questionPrompt(qi, q)"></div>
-                                                    <div class="space-y-2">
-                                                        <template x-for="c in questionChoices(q)" :key="c.id">
-                                                            <label :class="choiceClass(q, c)"
-                                                                   class="flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition">
-                                                                <input type="radio"
-                                                                       :name="questionInputName(q)"
-                                                                       :value="c.id"
-                                                                       :checked="choiceChecked(q, c)"
-                                                                       @change="setAnswer(q, c)"
-                                                                       class="accent-be-sky-600 flex-shrink-0">
-                                                                <span class="text-sm" x-text="c.text"></span>
-                                                            </label>
-                                                        </template>
-                                                    </div>
-                                                </div>
-                                            </template>
-
-                                            <!-- Erreur soumission -->
-                                            <template x-if="quiz.error">
-                                                <div class="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
-                                                     x-text="quiz.error"></div>
-                                            </template>
-
-                                            <!-- Bouton soumettre -->
-                                            <button @click="submitQuiz()"
-                                                    :disabled="submitDisabled"
-                                                    class="w-full py-3 rounded-2xl bg-gradient-to-r from-be-sky-600 to-be-sky-500 text-white font-semibold shadow-soft hover:brightness-[1.02] transition disabled:opacity-50 flex items-center justify-center gap-2">
-                                                <span x-show="quiz.submitting"
-                                                      class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-                                                <i x-show="notSubmitting()" class="fas fa-paper-plane"></i>
-                                                <span x-text="quizSubmitText()"></span>
-                                            </button>
-                                            <p class="text-[11px] text-be-ink-400 text-center"
-                                               x-show="notAllAnswered()">
-                                                Réponds à toutes les questions avant de soumettre.
-                                            </p>
-                                        </div>
-                                    </template>
-
-                                    <!-- Max tentatives atteint, pas encore de résultat -->
-                                    <template x-if="showQuizLocked()">
-                                        <div class="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
-                                            <i class="fas fa-lock mr-2"></i>
-                                            Nombre maximal de tentatives atteint pour ce quiz.
-                                        </div>
-                                    </template>
-                                </div>
-                            </template>
-
-                            <!-- LIVE -->
-                            <template x-if="isLiveLesson()">
-                                <div class="rounded-2xl border border-be-ink-100 p-5 bg-be-ink-50/40">
-                                    <div class="text-sm font-extrabold text-be-ink-900 dark:text-white">Session Live</div>
-                                    <div class="text-xs text-be-ink-500 mt-1">
-                                        Ajoute l'URL de la session live / calendrier.
-                                    </div>
-                                </div>
-                            </template>
-
-                            <!-- Empty state -->
-                            <template x-if="noLessonType()">
-                                <div class="rounded-2xl border border-be-ink-100 p-8 text-center text-be-ink-500">
-                                    Aucune leçon disponible.
-                                </div>
-                            </template>
-
-                            <!-- Lesson progress -->
-                            <div class="rounded-2xl border border-be-ink-100 p-4">
-                                <div class="flex items-center justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <div class="text-xs font-extrabold text-be-ink-900 dark:text-white">Progression de cette leçon
-                                        </div>
-                                        <div class="text-xs text-be-ink-500 mt-1">
-                                            Mise à jour auto (vidéo mp4 / lecture texte). Sinon ajuste manuellement.
-                                        </div>
-                                    </div>
-                                    <div class="text-sm font-extrabold text-be-ink-900 dark:text-white"
-                                         x-text="lessonProgressPercent()"></div>
-                                </div>
-
-                                <div class="mt-3 h-2 rounded-full bg-be-ink-100 overflow-hidden">
-                                    <div
-                                            class="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                                            :class="progressBarClass(lessonProgress.percent)"
-                                    ></div>
-                                </div>
-
-                                <div class="mt-4 flex items-center gap-2">
-                                    <input
-                                            type="range"
-                                            min="0"
-                                            max="100"
-                                            x-model.number="lessonProgress.percent"
-                                            class="w-full"
-                                    >
-                                    <button
-                                            class="px-3 py-2 rounded-xl bg-be-sky-600 text-white text-sm font-semibold hover:opacity-90 active:scale-[.98] transition"
-                                            @click="saveProgress(false, { force: true, toast: true })"
-                                            :disabled="saving.lesson"
-                                            :class="savingLessonClass()"
-                                            type="button"
-                                    >
-                                        <span x-show="notSavingLesson()">Enregistrer</span>
-                                        <span x-show="saving.lesson">Sync…</span>
-                                    </button>
-                                </div>
-
-                                <div class="mt-2 text-[11px] text-be-ink-500">
-                                    <span x-show="saving.lesson">Enregistrement…</span>
-                                    <span x-show="showLastSaved()">
-                                    Dernière sauvegarde: <span x-text="lastSavedAt"></span>
-                                </span>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-            </section>
-        </div>
+      <div class="text-[11px] text-be-ink-500 dark:text-white/60 flex items-center justify-between">
+        <span>
+          <span id="be-completed-count">0</span>
+          / <span id="be-total-count">0</span> leçons
+        </span>
+        <span id="be-overall-percent" class="font-semibold text-be-sky-600">0 %</span>
+      </div>
+      <div class="h-1.5 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+        <div id="be-overall-bar"
+             class="h-full bg-be-sky-500 transition-all duration-300"
+             style="width: 0%"></div>
+      </div>
     </div>
+
+    <div id="be-outline-list"
+         class="be-outline-list flex-1 overflow-y-auto px-2 py-3 space-y-1"
+         role="navigation"
+         aria-label="Liste des leçons">
+      {# Skeleton initial — remplacé après fetch outline #}
+      <div class="space-y-2 px-2">
+        <div class="h-12 rounded-xl bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
+        <div class="h-12 rounded-xl bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
+        <div class="h-12 rounded-xl bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
+      </div>
+    </div>
+  </aside>
+
+  {# ── MAIN : lecteur + navigation ──────────────────────────────────────── #}
+  <main class="flex flex-col min-w-0" role="main">
+
+    {# ── HEADER (sticky) ───────────────────────────────────────────────── #}
+    <header class="sticky top-0 z-30
+                   bg-white/90 dark:bg-be-ink-800/80 backdrop-blur-xl
+                   border-b border-be-ink-100 dark:border-white/10">
+      <div class="px-4 sm:px-6 py-3 flex items-center gap-3">
+
+        <button type="button"
+                id="be-sidebar-toggle"
+                class="lg:hidden w-10 h-10 inline-flex items-center justify-center
+                       rounded-xl border border-be-ink-100 dark:border-white/10
+                       hover:bg-be-ink-50 dark:hover:bg-white/10
+                       focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60"
+                aria-label="Ouvrir le plan">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+
+        <div class="flex-1 min-w-0">
+          <div id="be-course-title"
+               class="text-sm font-bold text-be-ink-900 dark:text-white truncate">
+            Chargement…
+          </div>
+          <div class="flex items-center gap-2 text-[11px] text-be-ink-500 dark:text-white/60">
+            <span id="be-lesson-title" class="truncate max-w-[60vw]">—</span>
+            <span class="opacity-50">•</span>
+            <span id="be-saving-indicator" class="hidden text-be-sky-600 font-semibold">
+              <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Sync…
+            </span>
+          </div>
+        </div>
+
+        <a href="{% url 'learner:dashboard' %}"
+           class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl
+                  border border-be-ink-100 dark:border-white/10
+                  hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold">
+          <i class="fa-solid fa-arrow-left text-xs"></i>
+          Tableau de bord
+        </a>
+      </div>
+    </header>
+
+    {# ── CONTENU LEÇON ──────────────────────────────────────────────────── #}
+    <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
+      <div class="mx-auto max-w-4xl space-y-5">
+
+        {# Loader leçon — visible par défaut, masqué via JS #}
+        <div id="be-lesson-loader" class="space-y-3">
+          <div class="be-video-host bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
+          <div class="h-6 w-1/2 rounded bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
+          <div class="h-4 w-3/4 rounded bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
+        </div>
+
+        {# Container leçon — rempli dynamiquement #}
+        <div id="be-lesson-container" class="hidden space-y-5">
+
+          {# Type VIDEO — host pour <video> ou <iframe> #}
+          <div id="be-video-block" class="hidden">
+            <div id="be-video-host" class="be-video-host"></div>
+          </div>
+
+          {# Type FILE — bouton de téléchargement #}
+          <div id="be-file-block"
+               class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
+                      bg-white dark:bg-be-ink-800/60 p-5
+                      flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <div class="text-sm font-bold text-be-ink-900 dark:text-white">
+                Ressource à consulter
+              </div>
+              <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">
+                Ouvre le document puis marque la leçon comme terminée.
+              </div>
+            </div>
+            <a id="be-file-link"
+               href="#"
+               target="_blank"
+               rel="noopener"
+               class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+                      bg-be-sky-600 text-white font-semibold text-sm
+                      hover:bg-be-sky-700 active:scale-[.98] transition">
+              <i class="fa-solid fa-file-arrow-down"></i>
+              Ouvrir
+            </a>
+          </div>
+
+          {# Type TEXT — contenu HTML sanitized #}
+          <div id="be-text-block"
+               class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
+                      bg-white dark:bg-be-ink-800/60 p-6">
+            <div id="be-text-content"
+                 class="prose prose-sm max-w-none
+                        prose-headings:text-be-ink-900 dark:prose-headings:text-white
+                        prose-p:text-be-ink-700 dark:prose-p:text-white/70
+                        prose-a:text-be-sky-600 prose-strong:font-semibold"></div>
+            <div id="be-text-sentinel" class="h-1 w-full mt-8"
+                 aria-hidden="true"></div>
+          </div>
+
+          {# Type QUIZ/LIVE — placeholder informatif #}
+          <div id="be-other-block"
+               class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
+                      bg-white dark:bg-be-ink-800/60 p-6 text-center">
+            <i class="fa-solid fa-info-circle text-3xl text-be-sky-500 mb-3"></i>
+            <p id="be-other-message" class="text-be-ink-700 dark:text-white/70 text-sm">
+              Ce type de leçon n'est pas encore lisible ici.
+            </p>
+          </div>
+
+          {# Métadonnées + barre de progression de la leçon #}
+          <div class="rounded-2xl border border-be-ink-100 dark:border-white/10
+                      bg-white dark:bg-be-ink-800/60 p-4 space-y-2">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <span class="font-semibold text-be-ink-700 dark:text-white/70">
+                <span id="be-lesson-type-text">Leçon</span>
+                <span id="be-lesson-duration" class="text-be-ink-500 ml-2"></span>
+              </span>
+              <span class="font-semibold text-be-sky-600">
+                <span id="be-lesson-percent">0</span> %
+              </span>
+            </div>
+            <div class="h-1.5 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+              <div id="be-lesson-bar"
+                   class="h-full bg-be-sky-500 transition-all duration-300"
+                   style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ── NAVIGATION (footer sticky) ─────────────────────────────────────── #}
+    <footer class="sticky bottom-0 z-20
+                   border-t border-be-ink-100 dark:border-white/10
+                   bg-white/95 dark:bg-be-ink-800/90 backdrop-blur-xl">
+      <div class="px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+
+        <button type="button"
+                id="be-prev-btn"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+                       border border-be-ink-100 dark:border-white/10
+                       hover:bg-be-ink-50 dark:hover:bg-white/10
+                       text-sm font-semibold transition
+                       disabled:opacity-50 disabled:cursor-not-allowed">
+          <i class="fa-solid fa-arrow-left text-xs"></i>
+          <span class="hidden sm:inline">Précédent</span>
+        </button>
+
+        <button type="button"
+                id="be-complete-btn"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+                       bg-emerald-600 hover:bg-emerald-700 text-white
+                       text-sm font-semibold transition active:scale-[.98]
+                       disabled:opacity-50 disabled:cursor-not-allowed">
+          <i class="fa-solid fa-check text-xs"></i>
+          <span id="be-complete-btn-label">Marquer terminé</span>
+        </button>
+
+        <button type="button"
+                id="be-next-btn"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+                       bg-be-ink-900 hover:opacity-90 text-white
+                       text-sm font-semibold transition active:scale-[.98]
+                       disabled:opacity-50 disabled:cursor-not-allowed">
+          <span class="hidden sm:inline">Suivant</span>
+          <i class="fa-solid fa-arrow-right text-xs"></i>
+        </button>
+      </div>
+    </footer>
+  </main>
+</div>
+
+{# ── Toast notifications (zone aria-live, masquée par défaut) ──────────── #}
+<div id="be-toast"
+     class="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100]
+            px-4 py-2.5 rounded-xl shadow-lift text-sm font-semibold
+            bg-be-ink-900 text-white opacity-0 pointer-events-none
+            transition-opacity duration-200"
+     role="status"
+     aria-live="polite"></div>
 {% endblock %}
 
 {% block extra_js %}
-    <script src="{% static 'src/js/learner-course-player.js' %}"></script>
+  <script src="{% static 'src/js/learner-course-player.js' %}"></script>
 {% endblock %}
