@@ -1,0 +1,211 @@
+/* ============================================================
+ * learner-course-player.css
+ * Styles spécifiques au player de cours apprenant (standalone).
+ *
+ * Externalisé pour passer la CSP `style-src 'self'` (sans 'unsafe-inline').
+ * Les classes Tailwind du build dist/app.min.css restent utilisables ;
+ * ce fichier ajoute uniquement les composants spécifiques au player.
+ * ============================================================ */
+
+/* ─── Layout global ──────────────────────────────────────────── */
+html, body { height: 100%; margin: 0; padding: 0; }
+body { overflow: hidden; }
+
+.be-player-grid {
+  display: grid;
+  grid-template-rows: 1fr;
+  grid-template-columns: 1fr;
+  height: 100vh;
+  height: 100dvh;  /* viewport dynamique iOS Safari */
+  width: 100%;
+}
+@media (min-width: 1024px) {
+  .be-player-grid { grid-template-columns: 320px 1fr; }
+}
+
+/* ─── Sidebar ────────────────────────────────────────────────── */
+.be-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #ffffff;
+  border-right: 1px solid rgb(226 232 240);
+}
+@media (prefers-color-scheme: dark) {
+  .be-sidebar {
+    background: rgb(30 41 59);
+    border-right-color: rgb(255 255 255 / .08);
+  }
+}
+.be-outline-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Mobile : sidebar coulissante */
+@media (max-width: 1023px) {
+  .be-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(320px, 88vw);
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    box-shadow: 0 0 40px rgb(0 0 0 / .25);
+  }
+  .be-sidebar[data-open="true"] { transform: translateX(0); }
+  .be-sidebar-backdrop {
+    display: none;
+    position: fixed; inset: 0; z-index: 55;
+    background: rgb(0 0 0 / .55);
+  }
+  .be-sidebar-backdrop[data-open="true"] { display: block; }
+}
+
+/* ─── Main ───────────────────────────────────────────────────── */
+.be-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: rgb(248 250 252);
+}
+@media (prefers-color-scheme: dark) {
+  .be-main { background: rgb(15 23 42); }
+}
+.be-main-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ─── Player vidéo ───────────────────────────────────────────── */
+.be-video-host {
+  position: relative;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  background: #000;
+  border-radius: 14px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+.be-video-host > video,
+.be-video-host > iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+}
+
+/* ─── Lesson rows (sidebar) ──────────────────────────────────── */
+.be-lesson-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  color: inherit;
+  transition: background .15s ease;
+}
+.be-lesson-row:hover {
+  background: rgb(241 245 249);
+}
+@media (prefers-color-scheme: dark) {
+  .be-lesson-row:hover { background: rgb(255 255 255 / .05); }
+}
+.be-lesson-row[data-active="true"] {
+  background: rgb(12 135 214 / 0.10);
+  border-left: 3px solid rgb(12 135 214);
+  padding-left: calc(0.75rem - 3px);
+}
+.be-lesson-row[data-completed="true"] .be-lesson-icon { color: rgb(5 150 105); }
+.be-lesson-row[data-locked="true"]    { opacity: .55; cursor: not-allowed; }
+
+.be-lesson-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+/* ─── Progress bars initiales (avant JS) ─────────────────────── */
+#be-overall-bar,
+#be-lesson-bar {
+  width: 0%;  /* override programmatique via element.style.width — OK CSP */
+  transition: width .3s ease;
+}
+
+/* ─── Toast notifications ────────────────────────────────────── */
+#be-toast {
+  position: fixed;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  padding: 0.6rem 1rem;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgb(0 0 0 / .25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+  background: rgb(15 23 42);  /* fallback ; override par JS via element.style */
+  max-width: calc(100vw - 2rem);
+  text-align: center;
+}
+#be-toast[data-show="true"] { opacity: 1; }
+
+/* ─── Skeletons (loader) ─────────────────────────────────────── */
+.be-skeleton {
+  background: linear-gradient(90deg,
+    rgb(226 232 240) 0%,
+    rgb(241 245 249) 50%,
+    rgb(226 232 240) 100%);
+  background-size: 200% 100%;
+  animation: be-shimmer 1.4s ease infinite;
+  border-radius: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  .be-skeleton {
+    background: linear-gradient(90deg,
+      rgb(30 41 59) 0%,
+      rgb(51 65 85) 50%,
+      rgb(30 41 59) 100%);
+    background-size: 200% 100%;
+  }
+}
+@keyframes be-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Utilities ──────────────────────────────────────────────── */
+.be-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.be-prose {
+  line-height: 1.6;
+}
+.be-prose p { margin: 0.75em 0; }
+.be-prose h1, .be-prose h2, .be-prose h3 {
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+}
+.be-prose a { color: rgb(12 135 214); text-decoration: underline; }
+.be-prose ul, .be-prose ol { padding-left: 1.5em; margin: 0.75em 0; }
+.be-prose img { max-width: 100%; height: auto; border-radius: 8px; }
+
+/* ─── Focus visible (accessibilité) ──────────────────────────── */
+*:focus-visible {
+  outline: 2px solid rgb(12 135 214);
+  outline-offset: 2px;
+}

@@ -39,125 +39,9 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
         crossorigin="anonymous">
 
-  <style>
-    /* ─── Layout du player ───────────────────────────────────────────── */
-    html, body { height: 100%; }
-    body { overflow: hidden; }
-    .be-player-grid {
-      display: grid;
-      grid-template-rows: 1fr;
-      grid-template-columns: 1fr;
-      height: 100vh;
-      width: 100vw;
-    }
-    @media (min-width: 1024px) {
-      .be-player-grid { grid-template-columns: 320px 1fr; }
-    }
-
-    /* ─── Sidebar ─────────────────────────────────────────────────────── */
-    .be-sidebar {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      background: #fff;
-      border-right: 1px solid rgb(226 232 240);
-    }
-    @media (prefers-color-scheme: dark) {
-      .be-sidebar {
-        background: rgb(30 41 59);
-        border-right-color: rgb(255 255 255 / .08);
-      }
-    }
-    .be-outline-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
-
-    /* Mobile : sidebar coulissante */
-    @media (max-width: 1023px) {
-      .be-sidebar {
-        position: fixed;
-        inset: 0 auto 0 0;
-        width: min(320px, 88vw);
-        z-index: 60;
-        transform: translateX(-100%);
-        transition: transform .25s ease;
-        box-shadow: 0 0 40px rgb(0 0 0 / .25);
-      }
-      .be-sidebar[data-open="true"] { transform: translateX(0); }
-      .be-sidebar-backdrop {
-        display: none;
-        position: fixed; inset: 0; z-index: 55;
-        background: rgb(0 0 0 / .55);
-      }
-      .be-sidebar-backdrop[data-open="true"] { display: block; }
-    }
-
-    /* ─── Main ────────────────────────────────────────────────────────── */
-    .be-main {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      min-height: 0;
-      background: rgb(248 250 252);
-    }
-    @media (prefers-color-scheme: dark) {
-      .be-main { background: rgb(15 23 42); }
-    }
-    .be-main-scroll { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
-
-    /* ─── Player vidéo ────────────────────────────────────────────────── */
-    .be-video-host {
-      position: relative;
-      width: 100%;
-      max-width: 1000px;
-      margin: 0 auto;
-      background: #000;
-      border-radius: 14px;
-      overflow: hidden;
-      aspect-ratio: 16 / 9;
-    }
-    .be-video-host > video,
-    .be-video-host > iframe {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-      border: 0;
-    }
-
-    /* ─── Lesson rows (sidebar) ───────────────────────────────────────── */
-    .be-lesson-row[data-active="true"] {
-      background: rgb(12 135 214 / 0.10);
-      border-left: 3px solid rgb(12 135 214);
-      padding-left: 9px;
-    }
-    .be-lesson-row[data-completed="true"] .be-lesson-icon { color: rgb(5 150 105); }
-    .be-lesson-row[data-locked="true"]    { opacity: .55; cursor: not-allowed; }
-
-    /* ─── Toast ───────────────────────────────────────────────────────── */
-    #be-toast {
-      position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
-      z-index: 100; padding: 0.6rem 1rem;
-      border-radius: 12px; color: #fff;
-      font-size: 0.85rem; font-weight: 600;
-      box-shadow: 0 10px 30px rgb(0 0 0 / .25);
-      opacity: 0; pointer-events: none;
-      transition: opacity .2s ease;
-    }
-    #be-toast[data-show="true"] { opacity: 1; }
-
-    /* ─── Skeletons ───────────────────────────────────────────────────── */
-    .be-skeleton {
-      background: linear-gradient(90deg,
-        rgb(226 232 240) 0%, rgb(241 245 249) 50%, rgb(226 232 240) 100%);
-      background-size: 200% 100%;
-      animation: be-shimmer 1.4s ease infinite;
-      border-radius: 12px;
-    }
-    @keyframes be-shimmer {
-      0%   { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-  </style>
+  {# CSS spécifique au player — externalisé pour passer la CSP style-src 'self'.
+     Tout style inline (<style>) était bloqué et provoquait un layout cassé. #}
+  <link rel="stylesheet" href="{% static 'src/css/learner-course-player.css' %}">
 </head>
 
 <body class="text-be-ink-900 dark:text-be-ink-50 antialiased">
@@ -226,8 +110,7 @@
         </div>
         <div class="h-1 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
           <div id="be-overall-bar"
-               class="h-full bg-be-sky-500 transition-all duration-300"
-               style="width: 0%"></div>
+               class="h-full bg-be-sky-500 transition-all duration-300"></div>
         </div>
       </div>
 
@@ -358,8 +241,7 @@
               </div>
               <div class="h-1 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
                 <div id="be-lesson-bar"
-                     class="h-full bg-be-sky-500 transition-all duration-300"
-                     style="width: 0%"></div>
+                     class="h-full bg-be-sky-500 transition-all duration-300"></div>
               </div>
             </div>
           </div>
