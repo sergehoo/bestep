@@ -1,68 +1,85 @@
-{% extends "layout/app_shell.html" %}
-{% load static %}
-
+{% load static %}<!doctype html>
 {% comment %}
-  templates/learner/learner_course_player.html — REFONTE COMPLÈTE.
+  templates/learner/learner_course_player.html — Player apprenant STANDALONE.
 
-  Pourquoi cette refonte ?
-  Le composant Alpine précédent (≈900 lignes) cumulait :
-   - Cascade d'erreurs "Undefined variable" liées au timing d'enregistrement
-     dans @alpinejs/csp build (alpine:init fired avant exécution du script).
-   - Restrictions CSP-build : x-html interdit, expressions sur <iframe>
-     interdites, mots-clés JS interdits comme identifiants (delete, etc.).
-   - Difficultés de debug (couplage fort template/composant Alpine).
+  Pourquoi standalone (n'étend PAS app_shell.html) ?
+   - app_shell.html injecte sa propre sidebar workspace ET son topbar.
+     En les empilant avec la sidebar du player, on obtenait un décalage
+     visuel + un layout cassé.
+   - Le player est un mode "focused" full-screen, comme la page 2FA :
+     l'utilisateur regarde du contenu vidéo, pas besoin de la navigation
+     globale.
 
-  Cette refonte :
-   - Aucune dépendance Alpine sur cette page (vanilla JS pur).
-   - Structure HTML statique, le JS pilote tout (fetch, render, events).
-   - CSP-friendly : aucun script inline, aucune expression "exécutable".
-   - DOM API moderne : querySelector, classList, addEventListener, fetch.
+  Layout : 100vw × 100vh, grid 2 colonnes (sidebar 320px + main 1fr) sur
+  desktop, sidebar coulissante sur mobile.
+
+  CSS : Tailwind build (dist/app.min.css) + styles inline pour les
+  composants spécifiques au player (be-video-host aspect-ratio, etc.).
 {% endcomment %}
+<html lang="fr" class="h-full">
 
-{% block title %}{{ course_title|default:"Continuer le cours" }}{% endblock %}
-{% block topbar_subtitle %}Lecture du cours{% endblock %}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0C87D6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
 
-{% block extra_head %}
+  <title>{{ course_title|default:"Continuer le cours" }} — Best Épargne</title>
+
+  {# Theme init avant render (pas de flash) #}
+  <script src="{% static 'src/js/theme-init.js' %}"></script>
+
+  {# Tailwind build production #}
+  <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
+
+  {# Icônes #}
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        crossorigin="anonymous">
+
   <style>
-    /* Cosmétique spécifique au player */
+    /* ─── Layout du player ───────────────────────────────────────────── */
+    html, body { height: 100%; }
+    body { overflow: hidden; }
     .be-player-grid {
       display: grid;
+      grid-template-rows: 1fr;
       grid-template-columns: 1fr;
-      min-height: calc(100vh - 64px);
+      height: 100vh;
+      width: 100vw;
     }
     @media (min-width: 1024px) {
-      .be-player-grid { grid-template-columns: 360px 1fr; }
+      .be-player-grid { grid-template-columns: 320px 1fr; }
     }
-    .be-outline-list { max-height: calc(100vh - 200px); }
-    .be-video-host {
-      position: relative;
-      background: #0f172a;
-      border-radius: 1rem;
-      overflow: hidden;
-      aspect-ratio: 16 / 9;
+
+    /* ─── Sidebar ─────────────────────────────────────────────────────── */
+    .be-sidebar {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: #fff;
+      border-right: 1px solid rgb(226 232 240);
     }
-    .be-video-host > video,
-    .be-video-host > iframe {
-      width: 100%;
-      height: 100%;
-      display: block;
-      border: 0;
+    @media (prefers-color-scheme: dark) {
+      .be-sidebar {
+        background: rgb(30 41 59);
+        border-right-color: rgb(255 255 255 / .08);
+      }
     }
-    .be-lesson-row[data-active="true"] {
-      background: rgb(12 135 214 / 0.08);
-      border-left: 3px solid rgb(12 135 214);
-    }
-    .be-lesson-row[data-completed="true"] .be-lesson-icon {
-      color: rgb(5 150 105);
-    }
-    /* Sidebar mobile sliding */
+    .be-outline-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+
+    /* Mobile : sidebar coulissante */
     @media (max-width: 1023px) {
       .be-sidebar {
-        position: fixed; inset: 0 auto 0 0; z-index: 60;
-        width: min(360px, 88vw);
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: min(320px, 88vw);
+        z-index: 60;
         transform: translateX(-100%);
         transition: transform .25s ease;
-        box-shadow: 0 0 50px rgb(0 0 0 / .2);
+        box-shadow: 0 0 40px rgb(0 0 0 / .25);
       }
       .be-sidebar[data-open="true"] { transform: translateX(0); }
       .be-sidebar-backdrop {
@@ -72,270 +89,322 @@
       }
       .be-sidebar-backdrop[data-open="true"] { display: block; }
     }
+
+    /* ─── Main ────────────────────────────────────────────────────────── */
+    .be-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      background: rgb(248 250 252);
+    }
+    @media (prefers-color-scheme: dark) {
+      .be-main { background: rgb(15 23 42); }
+    }
+    .be-main-scroll { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+
+    /* ─── Player vidéo ────────────────────────────────────────────────── */
+    .be-video-host {
+      position: relative;
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+      background: #000;
+      border-radius: 14px;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+    }
+    .be-video-host > video,
+    .be-video-host > iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      border: 0;
+    }
+
+    /* ─── Lesson rows (sidebar) ───────────────────────────────────────── */
+    .be-lesson-row[data-active="true"] {
+      background: rgb(12 135 214 / 0.10);
+      border-left: 3px solid rgb(12 135 214);
+      padding-left: 9px;
+    }
+    .be-lesson-row[data-completed="true"] .be-lesson-icon { color: rgb(5 150 105); }
+    .be-lesson-row[data-locked="true"]    { opacity: .55; cursor: not-allowed; }
+
+    /* ─── Toast ───────────────────────────────────────────────────────── */
+    #be-toast {
+      position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
+      z-index: 100; padding: 0.6rem 1rem;
+      border-radius: 12px; color: #fff;
+      font-size: 0.85rem; font-weight: 600;
+      box-shadow: 0 10px 30px rgb(0 0 0 / .25);
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s ease;
+    }
+    #be-toast[data-show="true"] { opacity: 1; }
+
+    /* ─── Skeletons ───────────────────────────────────────────────────── */
+    .be-skeleton {
+      background: linear-gradient(90deg,
+        rgb(226 232 240) 0%, rgb(241 245 249) 50%, rgb(226 232 240) 100%);
+      background-size: 200% 100%;
+      animation: be-shimmer 1.4s ease infinite;
+      border-radius: 12px;
+    }
+    @keyframes be-shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
   </style>
-{% endblock %}
+</head>
 
-{% block content %}
-{# Config exposée au JS via data-* (no inline script). #}
-<div id="player-config"
-     hidden
-     data-course-id="{{ course_id|default:'' }}"
-     data-outline-url="/api/learner/courses/{{ course_id }}/outline/"
-     data-continue-url="/api/learner/courses/{{ course_id }}/continue/"
-     data-lesson-state-base="/api/learner/courses/{{ course_id }}/lessons/"
-     data-lesson-progress-base="/api/learner/courses/{{ course_id }}/lessons/"
-     data-set-current-url="/api/learner/courses/{{ course_id }}/set-current/"
-     data-back-url="{% url 'learner:dashboard' %}"></div>
+<body class="text-be-ink-900 dark:text-be-ink-50 antialiased">
 
-<div id="be-player-root" class="be-player-grid bg-be-ink-50 dark:bg-be-ink-900">
+  {# ────────── Config exposée au JS via data-* ────────── #}
+  <div id="player-config"
+       hidden
+       data-course-id="{{ course_id|default:'' }}"
+       data-outline-url="/api/learner/courses/{{ course_id }}/outline/"
+       data-continue-url="/api/learner/courses/{{ course_id }}/continue/"
+       data-lesson-state-base="/api/learner/courses/{{ course_id }}/lessons/"
+       data-lesson-progress-base="/api/learner/courses/{{ course_id }}/lessons/"
+       data-set-current-url="/api/learner/courses/{{ course_id }}/set-current/"
+       data-back-url="/dashboard/learner/"></div>
 
-  {# ── Backdrop mobile ──────────────────────────────────────────────────── #}
-  <div id="be-sidebar-backdrop" class="be-sidebar-backdrop" data-open="false"></div>
+  <div id="be-player-root" class="be-player-grid">
 
-  {# ── SIDEBAR : outline + recherche ────────────────────────────────────── #}
-  <aside id="be-sidebar"
-         class="be-sidebar bg-white dark:bg-be-ink-800/60
-                border-r border-be-ink-100 dark:border-white/10
-                flex flex-col"
-         data-open="false"
-         aria-label="Plan du cours">
+    {# ────────── Backdrop mobile ────────── #}
+    <div id="be-sidebar-backdrop" class="be-sidebar-backdrop" data-open="false"></div>
 
-    <div class="p-4 border-b border-be-ink-100 dark:border-white/10 space-y-3">
-      <div class="flex items-center justify-between gap-2">
-        <h2 class="text-sm font-bold text-be-ink-900 dark:text-white">
+    {# ────────── SIDEBAR ────────── #}
+    <aside id="be-sidebar"
+           class="be-sidebar"
+           data-open="false"
+           aria-label="Plan du cours">
+
+      <div class="px-4 py-3 border-b border-be-ink-100 dark:border-white/10 space-y-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <a href="/dashboard/learner/"
+             class="inline-flex items-center gap-1.5 text-[11px] font-semibold
+                    text-be-ink-500 hover:text-be-sky-600 transition">
+            <i class="fa-solid fa-arrow-left text-[10px]"></i>
+            Retour
+          </a>
+          <button type="button"
+                  id="be-sidebar-close"
+                  class="lg:hidden w-7 h-7 inline-flex items-center justify-center
+                         rounded-lg hover:bg-be-ink-50 text-be-ink-500"
+                  aria-label="Fermer le plan">
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+        </div>
+
+        <h1 class="text-sm font-bold text-be-ink-900 dark:text-white leading-snug">
           Plan du cours
-        </h2>
-        <button type="button"
-                id="be-sidebar-close"
-                class="lg:hidden w-8 h-8 inline-flex items-center justify-center
-                       rounded-xl hover:bg-be-ink-50 dark:hover:bg-white/10
-                       focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60"
-                aria-label="Fermer le plan">
-          <i class="fa-solid fa-xmark text-sm text-be-ink-500"></i>
-        </button>
+        </h1>
+
+        <div class="relative">
+          <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2
+                    text-be-ink-400 text-[10px]" aria-hidden="true"></i>
+          <input type="search"
+                 id="be-outline-search"
+                 placeholder="Rechercher…"
+                 class="w-full pl-7 pr-2.5 py-1.5 rounded-lg
+                        border border-be-ink-100 dark:border-white/10
+                        bg-white dark:bg-white/5 text-xs
+                        focus:outline-none focus:ring-2 focus:ring-be-sky-300">
+        </div>
+
+        <div class="flex items-center justify-between text-[10px] text-be-ink-500 dark:text-white/60">
+          <span>
+            <span id="be-completed-count" class="font-bold">0</span>
+            / <span id="be-total-count">0</span> leçons
+          </span>
+          <span id="be-overall-percent" class="font-bold text-be-sky-600">0%</span>
+        </div>
+        <div class="h-1 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+          <div id="be-overall-bar"
+               class="h-full bg-be-sky-500 transition-all duration-300"
+               style="width: 0%"></div>
+        </div>
       </div>
 
-      <div class="relative">
-        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 text-xs"
-           aria-hidden="true"></i>
-        <input type="text"
-               id="be-outline-search"
-               placeholder="Rechercher une leçon…"
-               class="w-full pl-9 pr-3 py-2 rounded-xl border border-be-ink-100 dark:border-white/10
-                      bg-white dark:bg-white/5 text-sm
-                      focus:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60">
+      <div id="be-outline-list"
+           class="be-outline-list px-1.5 py-2"
+           role="navigation"
+           aria-label="Liste des leçons">
+        <div class="space-y-2 px-2 pt-2">
+          <div class="h-10 be-skeleton"></div>
+          <div class="h-10 be-skeleton"></div>
+          <div class="h-10 be-skeleton"></div>
+          <div class="h-10 be-skeleton"></div>
+        </div>
       </div>
+    </aside>
 
-      <div class="text-[11px] text-be-ink-500 dark:text-white/60 flex items-center justify-between">
-        <span>
-          <span id="be-completed-count">0</span>
-          / <span id="be-total-count">0</span> leçons
-        </span>
-        <span id="be-overall-percent" class="font-semibold text-be-sky-600">0 %</span>
-      </div>
-      <div class="h-1.5 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
-        <div id="be-overall-bar"
-             class="h-full bg-be-sky-500 transition-all duration-300"
-             style="width: 0%"></div>
-      </div>
-    </div>
+    {# ────────── MAIN ────────── #}
+    <main class="be-main" role="main">
 
-    <div id="be-outline-list"
-         class="be-outline-list flex-1 overflow-y-auto px-2 py-3 space-y-1"
-         role="navigation"
-         aria-label="Liste des leçons">
-      {# Skeleton initial — remplacé après fetch outline #}
-      <div class="space-y-2 px-2">
-        <div class="h-12 rounded-xl bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
-        <div class="h-12 rounded-xl bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
-        <div class="h-12 rounded-xl bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
-      </div>
-    </div>
-  </aside>
-
-  {# ── MAIN : lecteur + navigation ──────────────────────────────────────── #}
-  <main class="flex flex-col min-w-0" role="main">
-
-    {# ── HEADER (sticky) ───────────────────────────────────────────────── #}
-    <header class="sticky top-0 z-30
-                   bg-white/90 dark:bg-be-ink-800/80 backdrop-blur-xl
-                   border-b border-be-ink-100 dark:border-white/10">
-      <div class="px-4 sm:px-6 py-3 flex items-center gap-3">
+      {# ─── Topbar player ─── #}
+      <header class="px-4 sm:px-6 py-3 border-b border-be-ink-100 dark:border-white/10
+                     bg-white/80 dark:bg-be-ink-800/60 backdrop-blur-xl
+                     flex items-center gap-3 shrink-0">
 
         <button type="button"
                 id="be-sidebar-toggle"
-                class="lg:hidden w-10 h-10 inline-flex items-center justify-center
-                       rounded-xl border border-be-ink-100 dark:border-white/10
-                       hover:bg-be-ink-50 dark:hover:bg-white/10
-                       focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60"
+                class="lg:hidden w-9 h-9 inline-flex items-center justify-center
+                       rounded-lg border border-be-ink-100 dark:border-white/10
+                       hover:bg-be-ink-50 dark:hover:bg-white/10"
                 aria-label="Ouvrir le plan">
-          <i class="fa-solid fa-bars"></i>
+          <i class="fa-solid fa-bars text-sm"></i>
         </button>
 
         <div class="flex-1 min-w-0">
           <div id="be-course-title"
-               class="text-sm font-bold text-be-ink-900 dark:text-white truncate">
+               class="text-[11px] font-semibold uppercase tracking-wide
+                      text-be-ink-500 dark:text-white/60 truncate">
             Chargement…
           </div>
-          <div class="flex items-center gap-2 text-[11px] text-be-ink-500 dark:text-white/60">
-            <span id="be-lesson-title" class="truncate max-w-[60vw]">—</span>
-            <span class="opacity-50">•</span>
-            <span id="be-saving-indicator" class="hidden text-be-sky-600 font-semibold">
-              <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Sync…
-            </span>
+          <div id="be-lesson-title"
+               class="text-sm font-bold text-be-ink-900 dark:text-white truncate">
+            —
           </div>
         </div>
 
-        <a href="{% url 'learner:dashboard' %}"
-           class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl
-                  border border-be-ink-100 dark:border-white/10
-                  hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold">
-          <i class="fa-solid fa-arrow-left text-xs"></i>
-          Tableau de bord
-        </a>
-      </div>
-    </header>
+        <span id="be-saving-indicator"
+              class="hidden inline-flex items-center gap-1.5 text-[11px] font-semibold
+                     text-be-sky-600 dark:text-be-sky-300">
+          <i class="fa-solid fa-cloud-arrow-up animate-pulse"></i>
+          <span>Sync…</span>
+        </span>
+      </header>
 
-    {# ── CONTENU LEÇON ──────────────────────────────────────────────────── #}
-    <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
-      <div class="mx-auto max-w-4xl space-y-5">
+      {# ─── Zone contenu scrollable ─── #}
+      <div class="be-main-scroll px-4 sm:px-6 py-6">
+        <div class="mx-auto max-w-[1000px] space-y-5">
 
-        {# Loader leçon — visible par défaut, masqué via JS #}
-        <div id="be-lesson-loader" class="space-y-3">
-          <div class="be-video-host bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
-          <div class="h-6 w-1/2 rounded bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
-          <div class="h-4 w-3/4 rounded bg-be-ink-100/60 dark:bg-white/5 animate-pulse"></div>
-        </div>
-
-        {# Container leçon — rempli dynamiquement #}
-        <div id="be-lesson-container" class="hidden space-y-5">
-
-          {# Type VIDEO — host pour <video> ou <iframe> #}
-          <div id="be-video-block" class="hidden">
-            <div id="be-video-host" class="be-video-host"></div>
+          {# Loader initial #}
+          <div id="be-lesson-loader" class="space-y-3">
+            <div class="be-video-host be-skeleton"></div>
+            <div class="h-5 w-2/3 be-skeleton"></div>
+            <div class="h-3 w-1/2 be-skeleton"></div>
           </div>
 
-          {# Type FILE — bouton de téléchargement #}
-          <div id="be-file-block"
-               class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
-                      bg-white dark:bg-be-ink-800/60 p-5
-                      flex items-start justify-between gap-4">
-            <div class="min-w-0">
-              <div class="text-sm font-bold text-be-ink-900 dark:text-white">
-                Ressource à consulter
-              </div>
-              <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">
-                Ouvre le document puis marque la leçon comme terminée.
-              </div>
+          {# Container leçon — rempli dynamiquement #}
+          <div id="be-lesson-container" class="hidden space-y-5">
+
+            {# VIDEO #}
+            <div id="be-video-block" class="hidden">
+              <div id="be-video-host" class="be-video-host"></div>
             </div>
-            <a id="be-file-link"
-               href="#"
-               target="_blank"
-               rel="noopener"
-               class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
-                      bg-be-sky-600 text-white font-semibold text-sm
-                      hover:bg-be-sky-700 active:scale-[.98] transition">
-              <i class="fa-solid fa-file-arrow-down"></i>
-              Ouvrir
-            </a>
-          </div>
 
-          {# Type TEXT — contenu HTML sanitized #}
-          <div id="be-text-block"
-               class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
-                      bg-white dark:bg-be-ink-800/60 p-6">
-            <div id="be-text-content"
-                 class="prose prose-sm max-w-none
-                        prose-headings:text-be-ink-900 dark:prose-headings:text-white
-                        prose-p:text-be-ink-700 dark:prose-p:text-white/70
-                        prose-a:text-be-sky-600 prose-strong:font-semibold"></div>
-            <div id="be-text-sentinel" class="h-1 w-full mt-8"
-                 aria-hidden="true"></div>
-          </div>
-
-          {# Type QUIZ/LIVE — placeholder informatif #}
-          <div id="be-other-block"
-               class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
-                      bg-white dark:bg-be-ink-800/60 p-6 text-center">
-            <i class="fa-solid fa-info-circle text-3xl text-be-sky-500 mb-3"></i>
-            <p id="be-other-message" class="text-be-ink-700 dark:text-white/70 text-sm">
-              Ce type de leçon n'est pas encore lisible ici.
-            </p>
-          </div>
-
-          {# Métadonnées + barre de progression de la leçon #}
-          <div class="rounded-2xl border border-be-ink-100 dark:border-white/10
-                      bg-white dark:bg-be-ink-800/60 p-4 space-y-2">
-            <div class="flex items-center justify-between gap-2 text-xs">
-              <span class="font-semibold text-be-ink-700 dark:text-white/70">
-                <span id="be-lesson-type-text">Leçon</span>
-                <span id="be-lesson-duration" class="text-be-ink-500 ml-2"></span>
-              </span>
-              <span class="font-semibold text-be-sky-600">
-                <span id="be-lesson-percent">0</span> %
-              </span>
+            {# FILE #}
+            <div id="be-file-block"
+                 class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
+                        bg-white dark:bg-be-ink-800/60 p-5
+                        flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="text-sm font-bold text-be-ink-900 dark:text-white">
+                  Ressource à consulter
+                </div>
+                <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">
+                  Ouvre le document puis marque la leçon comme terminée.
+                </div>
+              </div>
+              <a id="be-file-link" href="#" target="_blank" rel="noopener"
+                 class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+                        bg-be-sky-600 text-white font-semibold text-sm
+                        hover:bg-be-sky-700 transition active:scale-95">
+                <i class="fa-solid fa-file-arrow-down"></i> Ouvrir
+              </a>
             </div>
-            <div class="h-1.5 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
-              <div id="be-lesson-bar"
-                   class="h-full bg-be-sky-500 transition-all duration-300"
-                   style="width: 0%"></div>
+
+            {# TEXT #}
+            <div id="be-text-block"
+                 class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
+                        bg-white dark:bg-be-ink-800/60 p-6">
+              <div id="be-text-content"
+                   class="prose prose-sm max-w-none
+                          prose-headings:text-be-ink-900 dark:prose-headings:text-white
+                          prose-p:text-be-ink-700 dark:prose-p:text-white/70
+                          prose-a:text-be-sky-600"></div>
+              <div id="be-text-sentinel" class="h-1 mt-8" aria-hidden="true"></div>
+            </div>
+
+            {# Quiz/Live/Other #}
+            <div id="be-other-block"
+                 class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
+                        bg-white dark:bg-be-ink-800/60 p-8 text-center">
+              <i class="fa-solid fa-circle-info text-3xl text-be-sky-500 mb-3"></i>
+              <p id="be-other-message"
+                 class="text-be-ink-700 dark:text-white/70 text-sm">
+                Type de leçon non lisible ici.
+              </p>
+            </div>
+
+            {# Info leçon + progress bar #}
+            <div class="rounded-xl border border-be-ink-100 dark:border-white/10
+                        bg-white dark:bg-be-ink-800/60 px-4 py-3 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold text-be-ink-700 dark:text-white/70">
+                  <span id="be-lesson-type-text">Leçon</span>
+                  <span id="be-lesson-duration" class="text-be-ink-500 ml-2"></span>
+                </span>
+                <span class="font-bold text-be-sky-600">
+                  <span id="be-lesson-percent">0</span>%
+                </span>
+              </div>
+              <div class="h-1 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
+                <div id="be-lesson-bar"
+                     class="h-full bg-be-sky-500 transition-all duration-300"
+                     style="width: 0%"></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    {# ── NAVIGATION (footer sticky) ─────────────────────────────────────── #}
-    <footer class="sticky bottom-0 z-20
-                   border-t border-be-ink-100 dark:border-white/10
-                   bg-white/95 dark:bg-be-ink-800/90 backdrop-blur-xl">
-      <div class="px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+      {# ─── Navigation (footer sticky) ─── #}
+      <footer class="px-4 sm:px-6 py-3 border-t border-be-ink-100 dark:border-white/10
+                     bg-white/90 dark:bg-be-ink-800/80 backdrop-blur-xl
+                     flex items-center justify-between gap-3 shrink-0">
 
-        <button type="button"
-                id="be-prev-btn"
-                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+        <button type="button" id="be-prev-btn"
+                class="inline-flex items-center gap-2 px-3 py-2 rounded-lg
                        border border-be-ink-100 dark:border-white/10
                        hover:bg-be-ink-50 dark:hover:bg-white/10
                        text-sm font-semibold transition
-                       disabled:opacity-50 disabled:cursor-not-allowed">
+                       disabled:opacity-40 disabled:cursor-not-allowed">
           <i class="fa-solid fa-arrow-left text-xs"></i>
           <span class="hidden sm:inline">Précédent</span>
         </button>
 
-        <button type="button"
-                id="be-complete-btn"
-                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+        <button type="button" id="be-complete-btn"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg
                        bg-emerald-600 hover:bg-emerald-700 text-white
-                       text-sm font-semibold transition active:scale-[.98]
-                       disabled:opacity-50 disabled:cursor-not-allowed">
+                       text-sm font-bold transition active:scale-95
+                       disabled:opacity-50">
           <i class="fa-solid fa-check text-xs"></i>
           <span id="be-complete-btn-label">Marquer terminé</span>
         </button>
 
-        <button type="button"
-                id="be-next-btn"
-                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+        <button type="button" id="be-next-btn"
+                class="inline-flex items-center gap-2 px-3 py-2 rounded-lg
                        bg-be-ink-900 hover:opacity-90 text-white
-                       text-sm font-semibold transition active:scale-[.98]
-                       disabled:opacity-50 disabled:cursor-not-allowed">
+                       text-sm font-semibold transition active:scale-95
+                       disabled:opacity-40 disabled:cursor-not-allowed">
           <span class="hidden sm:inline">Suivant</span>
           <i class="fa-solid fa-arrow-right text-xs"></i>
         </button>
-      </div>
-    </footer>
-  </main>
-</div>
+      </footer>
+    </main>
+  </div>
 
-{# ── Toast notifications (zone aria-live, masquée par défaut) ──────────── #}
-<div id="be-toast"
-     class="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100]
-            px-4 py-2.5 rounded-xl shadow-lift text-sm font-semibold
-            bg-be-ink-900 text-white opacity-0 pointer-events-none
-            transition-opacity duration-200"
-     role="status"
-     aria-live="polite"></div>
-{% endblock %}
+  {# Toast notifications #}
+  <div id="be-toast" data-show="false" role="status" aria-live="polite"></div>
 
-{% block extra_js %}
   <script src="{% static 'src/js/learner-course-player.js' %}"></script>
-{% endblock %}
+</body>
+</html>

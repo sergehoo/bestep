@@ -661,21 +661,19 @@
     _toast(msg, kind) {
       if (!this.$toast) return;
       this.$toast.textContent = msg;
+      // Couleur de fond inline (les classes Tailwind ne sont pas garanties
+      // sur ce template standalone qui inclut seulement dist/app.min.css).
       const palette = {
-        success: 'bg-emerald-600',
-        error:   'bg-rose-600',
-        info:    'bg-be-sky-600',
+        success: 'rgb(5 150 105)',   // emerald-600
+        error:   'rgb(225 29 72)',   // rose-600
+        info:    'rgb(12 135 214)',  // be-sky-600
       };
-      // Reset classes de couleur
-      this.$toast.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-[100] ' +
-        'px-4 py-2.5 rounded-xl shadow-lift text-sm font-semibold text-white ' +
-        'opacity-100 transition-opacity duration-200 ' +
-        (palette[kind] || 'bg-be-ink-900');
+      this.$toast.style.background = palette[kind] || 'rgb(15 23 42)';
+      this.$toast.setAttribute('data-show', 'true');
       clearTimeout(this._toastTimer);
       this._toastTimer = setTimeout(() => {
-        this.$toast.style.opacity = '0';
+        this.$toast.setAttribute('data-show', 'false');
       }, 2400);
-      this.$toast.style.opacity = '1';
     }
   }
 
