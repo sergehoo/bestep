@@ -132,7 +132,6 @@
       this.$sidebarBackdrop = document.getElementById('be-sidebar-backdrop');
       this.$sidebarToggle  = document.getElementById('be-sidebar-toggle');
       this.$sidebarClose   = document.getElementById('be-sidebar-close');
-      this.$sidebarCollapse = document.getElementById('be-sidebar-collapse');
       this.$sidebarExpand  = document.getElementById('be-sidebar-expand');
       this.$outlineList    = document.getElementById('be-outline-list');
       this.$outlineSearch  = document.getElementById('be-outline-search');
@@ -177,14 +176,14 @@
     }
 
     _bindEvents() {
-      // ─── Sidebar mobile drawer ───
-      this.$sidebarToggle?.addEventListener('click', () => this._setSidebarOpen(true));
-      this.$sidebarClose?.addEventListener('click', () => this._setSidebarOpen(false));
-      this.$sidebarBackdrop?.addEventListener('click', () => this._setSidebarOpen(false));
-
-      // ─── Sidebar desktop collapse/expand ───
-      this.$sidebarCollapse?.addEventListener('click', () => this._setSidebarCollapsed(true));
-      this.$sidebarExpand?.addEventListener('click', () => this._setSidebarCollapsed(false));
+      // ─── Sidebar — un seul bouton toggle (mobile + desktop) ───
+      // Click sur "Plan du cours" → toggle l'état visible/masqué de la sidebar.
+      // Le même bouton sert pour le drawer mobile et le collapse desktop :
+      //   - si la sidebar est visible → la masquer
+      //   - si la sidebar est masquée → la réafficher
+      this.$sidebarToggle?.addEventListener('click', () => this._toggleSidebar());
+      this.$sidebarClose?.addEventListener('click', () => this._setSidebarVisible(false));
+      this.$sidebarBackdrop?.addEventListener('click', () => this._setSidebarVisible(false));
 
       // ─── Recherche outline ───
       this.$outlineSearch?.addEventListener('input', (e) => {
@@ -262,8 +261,8 @@
 
     // ─── Init ─────────────────────────────────────────────────────────
     async init() {
-      // Restaure la préférence sidebar collapsed dès le boot (avant le 1er render).
-      this._restoreSidebarCollapsed();
+      // Restaure la préférence sidebar visible/masquée dès le boot.
+      this._restoreSidebarVisible();
       try {
         await this._loadOutline();
         const continueLessonId = await this._resolveContinueLesson();
@@ -355,7 +354,16 @@
           { percent: 0, is_completed: false, last_position_seconds: 0 },
           data.progress || {}
         );
-        this.state.nav = data.nav || { prev_id: null, next_id: null };
+        // Navigation : on calcule prev/next À PARTIR de l'outline (source de
+        // vérité locale, indépendante du format API). Fallback : data.nav si l'API
+        // le fournit. Sans ça, les boutons prev/next ne faisaient rien quand
+        // l'API ne retournait pas le champ `nav` au format attendu.
+        const computedNav = this._computeNavFromOutline(lessonId);
+        this.state.nav = Object.assign(
+          { prev_id: null, next_id: null },
+          data.nav || {},
+          computedNav
+        );
 
         this._renderLesson();
         this._renderOutline();           // re-render pour highlight la leçon active
@@ -467,7 +475,7 @@
           if (id && id !== this.state.currentLessonId) {
             this._loadLesson(id);
             if (window.matchMedia('(max-width: 1023px)').matches) {
-              this._setSidebarOpen(false);
+              this._setSidebarVisible(false);
             }
           }
         });
@@ -719,7 +727,10 @@
     }
 
     _renderNavigation() {
-      const n = this.state.nav || {};
+      // Recompute systématique : couvre le cas où l'API ne fournit pas `nav`.
+      const computed = this._computeNavFromOutline(this.state.currentLessonId);
+      const n = Object.assign({}, this.state.nav || {}, computed);
+      this.state.nav = n;
       if (this.$prevBtn) this.$prevBtn.disabled = !n.prev_id;
       if (this.$nextBtn) this.$nextBtn.disabled = !n.next_id;
     }
@@ -755,14 +766,44 @@
     }
 
     // ─── Navigation ────────────────────────────────────────────────────
+    /**
+     * Calcule prev/next à partir de la liste à plat des leçons de l'outline.
+     * Plus robuste que de dépendre du champ `nav` de l'API : marche tant que
+     * l'outline est chargée.
+     */
+    _computeNavFromOutline(currentId) {
+      const flat = [];
+      for (const sec of (this.state.sections || [])) {
+        for (const lsn of (sec.lessons || [])) {
+          if (lsn && lsn.id != null) flat.push(Number(lsn.id));
+        }
+      }
+      const idx = flat.indexOf(Number(currentId));
+      return {
+        prev_id: idx > 0 ? flat[idx - 1] : null,
+        next_id: idx >= 0 && idx < flat.length - 1 ? flat[idx + 1] : null,
+      };
+    }
+
     _goPrev() {
-      const id = this.state.nav?.prev_id;
-      if (id) this._loadLesson(id);
+      // Recompute toujours depuis l'outline pour ne jamais avoir un id stale.
+      const nav = this._computeNavFromOutline(this.state.currentLessonId);
+      const id = nav.prev_id || this.state.nav?.prev_id;
+      if (id) {
+        this._loadLesson(id);
+      } else {
+        this._toast('Aucune leçon précédente', 'info');
+      }
     }
 
     _goNext() {
-      const id = this.state.nav?.next_id;
-      if (id) this._loadLesson(id);
+      const nav = this._computeNavFromOutline(this.state.currentLessonId);
+      const id = nav.next_id || this.state.nav?.next_id;
+      if (id) {
+        this._loadLesson(id);
+      } else {
+        this._toast('Vous êtes à la dernière leçon', 'info');
+      }
     }
 
     _toggleComplete() {
@@ -772,59 +813,60 @@
       this._saveProgress(!done);
     }
 
-    // ─── Sidebar mobile drawer ─────────────────────────────────────────
-    // Sur desktop (lg+), la sidebar est `lg:relative lg:translate-x-0`
-    // donc TOUJOURS visible — toggle a un effet seulement sur mobile.
-    _setSidebarOpen(open) {
-      if (this.$sidebar) {
-        this.$sidebar.setAttribute('data-open', open ? 'true' : 'false');
-        // Toggle Tailwind class pour drawer mobile (no-op desktop car lg: override).
-        this.$sidebar.classList.toggle('-translate-x-full', !open);
-        this.$sidebar.classList.toggle('translate-x-0', open);
-      }
-      if (this.$sidebarBackdrop) {
-        this.$sidebarBackdrop.setAttribute('data-open', open ? 'true' : 'false');
-        // Sur mobile uniquement (lg:hidden dans le HTML).
-        this.$sidebarBackdrop.classList.toggle('hidden', !open);
-      }
-    }
-
-    // ─── Sidebar desktop collapse/expand ───────────────────────────────
-    // Replie complètement la sidebar sur desktop (lg+). État persisté en
-    // localStorage pour que la préférence survive aux reloads.
-    _setSidebarCollapsed(collapsed) {
+    // ─── Sidebar unifiée — un seul état "visible" pour mobile et desktop ──
+    //
+    // Sur desktop (lg+), masquée = `lg:hidden` (la sidebar disparaît
+    // complètement du layout flex, le main reprend toute la largeur).
+    // Sur mobile, masquée = `-translate-x-full` (drawer fermé hors écran).
+    // Le backdrop n'apparaît qu'en mobile (`lg:hidden` natif dans le HTML).
+    //
+    // L'état est persisté en localStorage pour survivre aux reloads.
+    _setSidebarVisible(visible) {
       if (!this.$sidebar) return;
-      this.$sidebar.setAttribute('data-collapsed', collapsed ? 'true' : 'false');
-      // Sur desktop : si collapsed, on cache la sidebar via Tailwind class.
-      this.$sidebar.classList.toggle('lg:hidden', !!collapsed);
-      // Le bouton expand apparaît dans la topbar du main.
-      if (this.$sidebarExpand) {
-        this.$sidebarExpand.classList.toggle('hidden', !collapsed);
-        this.$sidebarExpand.classList.toggle('inline-flex', !!collapsed);
+      this.$sidebar.setAttribute('data-visible', visible ? 'true' : 'false');
+
+      // Desktop : on toggle `lg:hidden` pour masquer / réafficher dans le flex.
+      this.$sidebar.classList.toggle('lg:hidden', !visible);
+
+      // Mobile : on toggle les classes translate pour le drawer.
+      this.$sidebar.classList.toggle('-translate-x-full', !visible);
+      this.$sidebar.classList.toggle('translate-x-0', !!visible);
+
+      // Backdrop mobile (en mobile, le HTML a `lg:hidden` donc invisible desktop).
+      if (this.$sidebarBackdrop) {
+        this.$sidebarBackdrop.classList.toggle('hidden', !visible);
       }
-      // Persistance préférence utilisateur.
+
+      // Met à jour l'attribut visuel du bouton toggle (pour ajouter un état actif si voulu).
+      if (this.$sidebarToggle) {
+        this.$sidebarToggle.setAttribute('aria-expanded', visible ? 'true' : 'false');
+      }
+
+      // Persistance.
       try {
-        localStorage.setItem('be-player-sidebar-collapsed', collapsed ? '1' : '0');
-      } catch (_) { /* private mode / disabled */ }
+        localStorage.setItem('be-player-sidebar-visible', visible ? '1' : '0');
+      } catch (_) { /* mode privé */ }
     }
 
-    _restoreSidebarCollapsed() {
+    _toggleSidebar() {
+      // Lit l'état actuel via l'attribute (source de vérité), avec fallback true.
+      const current = this.$sidebar?.getAttribute('data-visible');
+      const visible = current === 'false' ? true : false;
+      this._setSidebarVisible(visible);
+    }
+
+    _restoreSidebarVisible() {
+      // Par défaut : sidebar VISIBLE (sauf si l'utilisateur a explicitement choisi
+      // de la masquer via localStorage '0').
+      let visible = true;
       try {
-        const v = localStorage.getItem('be-player-sidebar-collapsed');
-        // Restaure UNIQUEMENT l'état réduit. Si pas de valeur ou '0',
-        // on s'assure d'être en état expanded (defaults conservés).
-        if (v === '1') {
-          this._setSidebarCollapsed(true);
-        } else {
-          // Garantie défensive : si une ancienne version a laissé une
-          // classe lg:hidden sur la sidebar mais pas de localStorage,
-          // on la retire pour éviter une sidebar fantôme invisible.
-          this._setSidebarCollapsed(false);
-        }
-      } catch (_) {
-        // Mode privé / storage désactivé → s'assurer que la sidebar est visible.
-        this._setSidebarCollapsed(false);
-      }
+        const v = localStorage.getItem('be-player-sidebar-visible');
+        if (v === '0') visible = false;
+        // Migration : ancienne clé 'be-player-sidebar-collapsed' = '1' → masquer.
+        const legacy = localStorage.getItem('be-player-sidebar-collapsed');
+        if (legacy === '1') visible = false;
+      } catch (_) { /* mode privé : on garde visible */ }
+      this._setSidebarVisible(visible);
     }
 
     // ─── Contrôles vidéo custom (MP4 uniquement) ──────────────────────

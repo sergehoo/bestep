@@ -67,24 +67,15 @@
             <i class="fa-solid fa-arrow-left text-[10px]"></i>
             Retour
           </a>
-          <div class="flex items-center gap-1">
-            {# Bouton collapse desktop (réduire la sidebar) #}
-            <button type="button" id="be-sidebar-collapse"
-                    class="hidden lg:inline-flex w-7 h-7 items-center justify-center
-                           rounded-lg hover:bg-be-ink-50 dark:hover:bg-white/10
-                           text-be-ink-500"
-                    title="Réduire le plan"
-                    aria-label="Réduire le plan">
-              <i class="fa-solid fa-angles-left text-xs"></i>
-            </button>
-            {# Bouton fermer drawer mobile #}
-            <button type="button" id="be-sidebar-close"
-                    class="lg:hidden w-7 h-7 inline-flex items-center justify-center
-                           rounded-lg hover:bg-be-ink-50 text-be-ink-500"
-                    aria-label="Fermer">
-              <i class="fa-solid fa-xmark text-xs"></i>
-            </button>
-          </div>
+          {# Bouton fermer la sidebar — fonctionne mobile (drawer) ET desktop (collapse).
+             L'action 'fermer' est la même : masquer la sidebar via JS. #}
+          <button type="button" id="be-sidebar-close"
+                  class="w-7 h-7 inline-flex items-center justify-center
+                         rounded-lg hover:bg-be-ink-50 dark:hover:bg-white/10 text-be-ink-500"
+                  title="Masquer le plan"
+                  aria-label="Masquer le plan">
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
         </div>
 
         <h1 class="text-sm font-bold text-be-ink-900 dark:text-white mb-2.5">
@@ -136,27 +127,26 @@
                      bg-white/80 dark:bg-be-ink-800/80 backdrop-blur
                      flex items-center gap-3 shrink-0">
 
-        {# Bouton burger mobile : ouvre le drawer (mobile uniquement) #}
+        {# Bouton UNIQUE de toggle sidebar — visible MOBILE et DESKTOP.
+           Action :
+             - mobile : ouvre le drawer
+             - desktop : masque/affiche la sidebar (toggle)
+           Toujours rendu, jamais caché, label texte explicite. #}
         <button type="button" id="be-sidebar-toggle"
-                class="lg:hidden inline-flex items-center gap-2
+                class="inline-flex items-center gap-2 shrink-0
                        px-3 py-2 rounded-lg
                        bg-be-sky-600 text-white text-xs font-bold
                        hover:bg-be-sky-700 transition shadow-sm"
-                aria-label="Ouvrir le plan du cours">
-          <i class="fa-solid fa-bars text-sm"></i>
-          <span>Plan</span>
-        </button>
-          
-        <button type="button" id="be-sidebar-expand"
-                class=" items-center gap-2
-                       px-3 py-2 rounded-lg
-                       bg-be-sky-600 text-white text-xs font-bold
-                       hover:bg-be-sky-700 transition shadow-sm"
-                title="Afficher le plan du cours"
-                aria-label="Afficher le plan du cours">
-          <i class="fa-solid fa-angles-right text-sm"></i>
+                title="Afficher / masquer le plan du cours"
+                aria-label="Afficher / masquer le plan du cours">
+          <i class="fa-solid fa-list-ul text-sm"></i>
           <span>Plan du cours</span>
         </button>
+
+        {# Compatibilité ascendante : ancien id 'be-sidebar-expand' référencé
+           par d'anciennes versions du JS. On le garde caché en doublon
+           pour éviter une erreur si l'ancien JS est en cache. #}
+        <button type="button" id="be-sidebar-expand" class="hidden" hidden></button>
 
         <div class="flex-1 min-w-0">
           <div id="be-course-title"
