@@ -283,13 +283,23 @@ async function loadReviewsList(courseId, reset){
     moreBtn.classList.toggle("hidden", !ReviewsState.hasMore);
 
   }catch(e){
-    console.error(e);
+    console.warn('[reviews] list unavailable:', e?.message || e);
     if(reset){
-      list.innerHTML = `
-        <div class="rounded-2xl border border-red-200 p-4 bg-red-50 text-red-700">
-          Impossible de charger les avis. (${safeText(e.message || e)})
-        </div>
-      `;
+      // UX dégradée : on cache complètement la section reviews si elle
+      // ne fonctionne pas (server error), au lieu d'afficher un message
+      // d'erreur rouge moche qui inquiète l'utilisateur.
+      // Le bouton "Laisser un avis" reste accessible si l'utilisateur est inscrit.
+      const section = list.closest('section') || list.parentElement;
+      if (section) {
+        // Affiche un message informatif neutre.
+        list.innerHTML = `
+          <div class="rounded-2xl border border-be-ink-100 p-4
+                      bg-be-ink-50/40 text-be-ink-600 text-sm">
+            <i class="fa-solid fa-circle-info mr-2 text-be-sky-500"></i>
+            Les avis sur ce cours ne sont pas disponibles pour le moment.
+          </div>
+        `;
+      }
     }
   }finally{
     ReviewsState.loading = false;

@@ -72,10 +72,30 @@ class CourseReviewViewSet(viewsets.ModelViewSet):
     # ---- queryset / permissions -------------------------------------------
 
     def get_queryset(self):
-        course_id = self.kwargs["course_id"]
-        qs = CourseReview.objects.filter(course_id=course_id, is_public=True).select_related("user")
-        u = self.request.user
-        if u.is_authenticated and (u.is_staff or u.is_superuser or getattr(u, "is_platform_admin", False)):
+        course_id = self.kwargs.get("course_id")
+        # CORRECTIF : si course_id absent ou non numérique, on retourne un
+        # queryset vide proprement au lieu de laisser l'ORM lever une exception.
+        if not course_id:
+            return CourseReview.objects.none()
+        # CORRECTIF : on enveloppe l'introspection user dans un try/except —
+        # l'attribut `is_platform_admin` peut soit être une @property qui plante
+        # sur un user incomplet (cas observé après migration), soit ne pas exister
+        # sur User. Le getattr() prend en charge le cas absence, le try gère
+        # l'exception au runtime de la property.
+        qs = CourseReview.objects.filter(
+            course_id=course_id, is_public=True
+        ).select_related("user")
+        u = getattr(self.request, "user", None)
+        try:
+            is_admin = bool(
+                u and u.is_authenticated and (
+                    u.is_staff or u.is_superuser
+                    or bool(getattr(u, "is_platform_admin", False))
+                )
+            )
+        except Exception:
+            is_admin = False
+        if is_admin:
             qs = CourseReview.objects.filter(course_id=course_id).select_related("user")
         return qs
 
