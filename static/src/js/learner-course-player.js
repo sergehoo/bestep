@@ -509,13 +509,29 @@
         this.$videoHost.appendChild(v);
       } else {
         // ===== iframe YouTube / Vimeo / Dailymotion =====
+        //
+        // PAS de `sandbox` ici. Pourquoi ?
+        // YouTube/Vimeo ont besoin d'accéder à `caches`, `localStorage` et
+        // leur propre code interne (writeEmbed, etc.) pour fonctionner.
+        // Une iframe sandboxée sans `allow-same-origin` casse le player
+        // (erreurs `Cache storage is disabled` + `writeEmbed is not defined`).
+        // Une iframe sandboxée AVEC `allow-same-origin + allow-scripts` est
+        // dénoncée par la console car le sandbox est neutralisé.
+        //
+        // Le compromis pragmatique adopté par tous les acteurs majeurs
+        // (Stripe, Coursera, Udemy, LinkedIn Learning) : pas de sandbox
+        // pour les embeds officiels. Sécurité maintenue via :
+        //   - URL whitelist hostname via toEmbedUrl() (YouTube/Vimeo/Dailymotion only)
+        //   - CSP frame-src limitée aux mêmes hostnames
+        //   - allow attribute restrictif (pas de microphone/camera/usb)
+        //   - referrerpolicy strict (pas de fuite de URL parente)
         const f = document.createElement('iframe');
         f.loading = 'lazy';
         f.allowFullscreen = true;
         f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-        // allow-same-origin RETIRÉ → sandbox effectif (sinon warning navigateur).
-        f.setAttribute('sandbox',
-          'allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox');
+        f.setAttribute('allow',
+          'accelerometer; autoplay; clipboard-write; encrypted-media; ' +
+          'gyroscope; picture-in-picture; web-share');
         f.src = url;
         this._videoEl = f;
         this.$videoHost.appendChild(f);
