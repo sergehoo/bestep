@@ -66,9 +66,6 @@
            class="w-full h-full bg-black"></video>
   </template>
 
-  {# Fallback iframe (YouTube/Vimeo). NB : pas de signed URL possible.
-     On documente côté audit (UX-35) que le track de progression n'est
-     pas disponible pour ces sources. #}
   <template x-if="isExternalReady()">
     <iframe x-ref="iframe"
             :src="url"

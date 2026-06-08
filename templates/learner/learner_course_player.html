@@ -25,8 +25,7 @@
   <link rel="stylesheet" href="{% static 'src/css/learner-course-player.css' %}">
 </head>
 
-<body class="h-full bg-be-ink-50 dark:bg-be-ink-900
-             text-be-ink-900 dark:text-white antialiased overflow-hidden">
+<body class="h-full bg-be-ink-50 dark:bg-be-ink-900 text-be-ink-900 dark:text-white antialiased overflow-hidden">
 
   {# ────────── Config exposée au JS via data-* ────────── #}
   <div id="player-config"
@@ -67,8 +66,7 @@
             <i class="fa-solid fa-arrow-left text-[10px]"></i>
             Retour
           </a>
-          {# Bouton fermer la sidebar — fonctionne mobile (drawer) ET desktop (collapse).
-             L'action 'fermer' est la même : masquer la sidebar via JS. #}
+ 
           <button type="button" id="be-sidebar-close"
                   class="w-7 h-7 inline-flex items-center justify-center
                          rounded-lg hover:bg-be-ink-50 dark:hover:bg-white/10 text-be-ink-500"
