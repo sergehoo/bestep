@@ -67,12 +67,24 @@
             <i class="fa-solid fa-arrow-left text-[10px]"></i>
             Retour
           </a>
-          <button type="button" id="be-sidebar-close"
-                  class="lg:hidden w-7 h-7 inline-flex items-center justify-center
-                         rounded-lg hover:bg-be-ink-50 text-be-ink-500"
-                  aria-label="Fermer">
-            <i class="fa-solid fa-xmark text-xs"></i>
-          </button>
+          <div class="flex items-center gap-1">
+            {# Bouton collapse desktop (réduire la sidebar) #}
+            <button type="button" id="be-sidebar-collapse"
+                    class="hidden lg:inline-flex w-7 h-7 items-center justify-center
+                           rounded-lg hover:bg-be-ink-50 dark:hover:bg-white/10
+                           text-be-ink-500"
+                    title="Réduire le plan"
+                    aria-label="Réduire le plan">
+              <i class="fa-solid fa-angles-left text-xs"></i>
+            </button>
+            {# Bouton fermer drawer mobile #}
+            <button type="button" id="be-sidebar-close"
+                    class="lg:hidden w-7 h-7 inline-flex items-center justify-center
+                           rounded-lg hover:bg-be-ink-50 text-be-ink-500"
+                    aria-label="Fermer">
+              <i class="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
         </div>
 
         <h1 class="text-sm font-bold text-be-ink-900 dark:text-white mb-2.5">
@@ -124,12 +136,24 @@
                      bg-white/80 dark:bg-be-ink-800/80 backdrop-blur
                      flex items-center gap-3 shrink-0">
 
+        {# Bouton burger mobile : ouvre le drawer #}
         <button type="button" id="be-sidebar-toggle"
                 class="lg:hidden w-9 h-9 inline-flex items-center justify-center
                        rounded-lg border border-be-ink-100 dark:border-white/10
                        hover:bg-be-ink-50 dark:hover:bg-white/10"
                 aria-label="Ouvrir le plan">
           <i class="fa-solid fa-bars text-sm"></i>
+        </button>
+
+        {# Bouton expand desktop : réaffiche la sidebar quand elle est repliée
+           (caché par défaut, montré par JS quand collapsed=true) #}
+        <button type="button" id="be-sidebar-expand"
+                class="hidden w-9 h-9 items-center justify-center
+                       rounded-lg border border-be-ink-100 dark:border-white/10
+                       hover:bg-be-ink-50 dark:hover:bg-white/10"
+                title="Afficher le plan"
+                aria-label="Afficher le plan">
+          <i class="fa-solid fa-angles-right text-sm"></i>
         </button>
 
         <div class="flex-1 min-w-0">
@@ -167,11 +191,90 @@
           <div id="be-lesson-container" class="hidden space-y-5">
 
             {# VIDEO host : aspect-ratio 16/9 garantit la hauteur sans CSS externe #}
-            <div id="be-video-block" class="hidden">
+            <div id="be-video-block" class="hidden space-y-3">
               <div id="be-video-host"
                    class="be-video-host
                           relative w-full aspect-video bg-black
                           rounded-2xl overflow-hidden mx-auto"></div>
+
+              {# ─── Contrôles custom MP4 uniquement (YouTube a ses propres ctrl) ─── #}
+              <div id="be-video-controls"
+                   class="hidden flex-wrap items-center justify-center gap-2
+                          px-4 py-2 rounded-xl
+                          bg-white dark:bg-be-ink-800
+                          border border-be-ink-100 dark:border-white/10">
+
+                <button type="button" id="be-vc-rewind"
+                        title="Reculer de 10s (←)"
+                        class="w-9 h-9 inline-flex items-center justify-center
+                               rounded-lg hover:bg-be-ink-50 dark:hover:bg-white/10
+                               text-be-ink-700 dark:text-white/80 transition">
+                  <i class="fa-solid fa-rotate-left text-sm"></i>
+                </button>
+
+                <button type="button" id="be-vc-playpause"
+                        title="Lecture / Pause (espace)"
+                        class="w-11 h-11 inline-flex items-center justify-center
+                               rounded-full bg-be-sky-600 hover:bg-be-sky-700
+                               text-white shadow-md transition active:scale-95">
+                  <i id="be-vc-playpause-icon" class="fa-solid fa-play text-base"></i>
+                </button>
+
+                <button type="button" id="be-vc-forward"
+                        title="Avancer de 10s (→)"
+                        class="w-9 h-9 inline-flex items-center justify-center
+                               rounded-lg hover:bg-be-ink-50 dark:hover:bg-white/10
+                               text-be-ink-700 dark:text-white/80 transition">
+                  <i class="fa-solid fa-rotate-right text-sm"></i>
+                </button>
+
+                <span class="mx-2 h-6 w-px bg-be-ink-100 dark:bg-white/10"
+                      aria-hidden="true"></span>
+
+                {# Vitesse de lecture #}
+                <label class="inline-flex items-center gap-1.5">
+                  <span class="text-[11px] font-semibold text-be-ink-500 dark:text-white/60">
+                    Vitesse
+                  </span>
+                  <select id="be-vc-speed"
+                          class="px-2 py-1 rounded-lg text-xs font-semibold
+                                 border border-be-ink-100 dark:border-white/10
+                                 bg-white dark:bg-white/5
+                                 focus:outline-none focus:ring-2 focus:ring-be-sky-300">
+                    <option value="0.5">0.5×</option>
+                    <option value="0.75">0.75×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="1.25">1.25×</option>
+                    <option value="1.5">1.5×</option>
+                    <option value="1.75">1.75×</option>
+                    <option value="2">2×</option>
+                  </select>
+                </label>
+
+                <span class="mx-2 h-6 w-px bg-be-ink-100 dark:bg-white/10"
+                      aria-hidden="true"></span>
+
+                {# Temps écoulé / durée totale #}
+                <span class="text-xs font-mono text-be-ink-500 dark:text-white/60
+                             tabular-nums">
+                  <span id="be-vc-current">0:00</span>
+                  <span class="opacity-50">/</span>
+                  <span id="be-vc-duration">0:00</span>
+                </span>
+
+                <span class="mx-2 h-6 w-px bg-be-ink-100 dark:bg-white/10
+                             hidden sm:inline-block"
+                      aria-hidden="true"></span>
+
+                {# Plein écran #}
+                <button type="button" id="be-vc-fullscreen"
+                        title="Plein écran (F)"
+                        class="hidden sm:inline-flex w-9 h-9 items-center justify-center
+                               rounded-lg hover:bg-be-ink-50 dark:hover:bg-white/10
+                               text-be-ink-700 dark:text-white/80 transition">
+                  <i class="fa-solid fa-expand text-sm"></i>
+                </button>
+              </div>
             </div>
 
             {# FILE #}

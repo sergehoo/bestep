@@ -132,6 +132,8 @@
       this.$sidebarBackdrop = document.getElementById('be-sidebar-backdrop');
       this.$sidebarToggle  = document.getElementById('be-sidebar-toggle');
       this.$sidebarClose   = document.getElementById('be-sidebar-close');
+      this.$sidebarCollapse = document.getElementById('be-sidebar-collapse');
+      this.$sidebarExpand  = document.getElementById('be-sidebar-expand');
       this.$outlineList    = document.getElementById('be-outline-list');
       this.$outlineSearch  = document.getElementById('be-outline-search');
       this.$courseTitle    = document.getElementById('be-course-title');
@@ -161,21 +163,95 @@
       this.$completeLabel  = document.getElementById('be-complete-btn-label');
       this.$savingIndicator = document.getElementById('be-saving-indicator');
       this.$toast          = document.getElementById('be-toast');
+
+      // ─── Contrôles vidéo custom (MP4) ───
+      this.$videoControls   = document.getElementById('be-video-controls');
+      this.$vcRewind        = document.getElementById('be-vc-rewind');
+      this.$vcForward       = document.getElementById('be-vc-forward');
+      this.$vcPlayPause     = document.getElementById('be-vc-playpause');
+      this.$vcPlayPauseIcon = document.getElementById('be-vc-playpause-icon');
+      this.$vcSpeed         = document.getElementById('be-vc-speed');
+      this.$vcCurrent       = document.getElementById('be-vc-current');
+      this.$vcDuration      = document.getElementById('be-vc-duration');
+      this.$vcFullscreen    = document.getElementById('be-vc-fullscreen');
     }
 
     _bindEvents() {
+      // ─── Sidebar mobile drawer ───
       this.$sidebarToggle?.addEventListener('click', () => this._setSidebarOpen(true));
       this.$sidebarClose?.addEventListener('click', () => this._setSidebarOpen(false));
       this.$sidebarBackdrop?.addEventListener('click', () => this._setSidebarOpen(false));
+
+      // ─── Sidebar desktop collapse/expand ───
+      this.$sidebarCollapse?.addEventListener('click', () => this._setSidebarCollapsed(true));
+      this.$sidebarExpand?.addEventListener('click', () => this._setSidebarCollapsed(false));
+
+      // ─── Recherche outline ───
       this.$outlineSearch?.addEventListener('input', (e) => {
         this.state.searchFilter = String(e.target.value || '').toLowerCase().trim();
         this._renderOutline();
       });
+
+      // ─── Navigation leçon ───
       this.$prevBtn?.addEventListener('click', () => this._goPrev());
       this.$nextBtn?.addEventListener('click', () => this._goNext());
       this.$completeBtn?.addEventListener('click', () => this._toggleComplete());
 
-      // Scroll dans le contenu texte → marque complete à la fin
+      // ─── Contrôles vidéo custom (MP4 uniquement) ───
+      this.$vcRewind?.addEventListener('click', () => this._videoSeek(-10));
+      this.$vcForward?.addEventListener('click', () => this._videoSeek(+10));
+      this.$vcPlayPause?.addEventListener('click', () => this._videoTogglePlay());
+      this.$vcSpeed?.addEventListener('change', (e) => this._videoSetSpeed(parseFloat(e.target.value)));
+      this.$vcFullscreen?.addEventListener('click', () => this._videoFullscreen());
+
+      // ─── Raccourcis clavier ───
+      document.addEventListener('keydown', (e) => {
+        // Ne pas intercepter si l'utilisateur tape dans un input/textarea
+        const tag = (e.target?.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        if (e.target?.isContentEditable) return;
+
+        switch (e.key) {
+          case ' ':
+            if (this._videoEl && this._videoEl.tagName === 'VIDEO') {
+              e.preventDefault();
+              this._videoTogglePlay();
+            }
+            break;
+          case 'ArrowLeft':
+            if (this._videoEl && this._videoEl.tagName === 'VIDEO') {
+              e.preventDefault();
+              this._videoSeek(-10);
+            }
+            break;
+          case 'ArrowRight':
+            if (this._videoEl && this._videoEl.tagName === 'VIDEO') {
+              e.preventDefault();
+              this._videoSeek(+10);
+            }
+            break;
+          case 'f': case 'F':
+            if (this._videoEl && this._videoEl.tagName === 'VIDEO') {
+              e.preventDefault();
+              this._videoFullscreen();
+            }
+            break;
+          case 'n': case 'N':
+            if (!e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
+              this._goNext();
+            }
+            break;
+          case 'p': case 'P':
+            if (!e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
+              this._goPrev();
+            }
+            break;
+        }
+      });
+
+      // ─── Scroll dans le contenu texte → marque ~complete à la fin ───
       this.$textSentinel && new IntersectionObserver((entries) => {
         if (entries[0]?.isIntersecting && !this.state.lessonProgress.is_completed) {
           this._setLessonPercent(99);
@@ -186,6 +262,8 @@
 
     // ─── Init ─────────────────────────────────────────────────────────
     async init() {
+      // Restaure la préférence sidebar collapsed dès le boot (avant le 1er render).
+      this._restoreSidebarCollapsed();
       try {
         await this._loadOutline();
         const continueLessonId = await this._resolveContinueLesson();
@@ -467,6 +545,8 @@
     }
 
     _unmountAllBlocks() {
+      // Stoppe le timer texte s'il tourne.
+      this._clearTextTimer();
       // Détache l'élément vidéo précédent pour stopper la lecture/ressources.
       if (this._videoEl) {
         try { this._videoEl.pause && this._videoEl.pause(); } catch (_) {}
@@ -474,6 +554,10 @@
       }
       if (this.$videoHost) this.$videoHost.innerHTML = '';
       if (this.$videoBlock) this.$videoBlock.classList.add('hidden');
+      if (this.$videoControls) {
+        this.$videoControls.classList.add('hidden');
+        this.$videoControls.classList.remove('flex');
+      }
       if (this.$fileBlock) this.$fileBlock.classList.add('hidden');
       if (this.$textBlock) this.$textBlock.classList.add('hidden');
       if (this.$otherBlock) this.$otherBlock.classList.add('hidden');
@@ -497,16 +581,33 @@
         v.setAttribute('disablePictureInPicture', '');
         v.oncontextmenu = () => false;
         v.src = url;
-        v.addEventListener('timeupdate', () => this._onVideoTime(v));
-        v.addEventListener('ended', () => this._onVideoEnded(v));
+        v.addEventListener('timeupdate', () => {
+          this._onVideoTime(v);
+          this._updateTimeLabel(v.currentTime, v.duration);
+        });
+        v.addEventListener('ended', () => {
+          this._onVideoEnded(v);
+          this._updatePlayPauseIcon(false);
+        });
         v.addEventListener('loadedmetadata', () => {
+          this._updateTimeLabel(0, v.duration);
           const pos = Number(this.state.lessonProgress.last_position_seconds || 0);
           if (pos > 2 && isFinite(pos) && pos < (v.duration || Infinity)) {
             try { v.currentTime = pos; } catch (_) {}
           }
         });
+        v.addEventListener('play',  () => this._updatePlayPauseIcon(true));
+        v.addEventListener('pause', () => this._updatePlayPauseIcon(false));
         this._videoEl = v;
         this.$videoHost.appendChild(v);
+        // Affiche les contrôles custom et applique la vitesse sélectionnée.
+        if (this.$videoControls) {
+          this.$videoControls.classList.remove('hidden');
+          this.$videoControls.classList.add('flex');
+        }
+        if (this.$vcSpeed) {
+          this._videoSetSpeed(parseFloat(this.$vcSpeed.value || '1'));
+        }
       } else {
         // ===== iframe YouTube / Vimeo / Dailymotion =====
         //
@@ -555,6 +656,11 @@
       this.$textBlock.classList.remove('hidden');
       // Le HTML est déjà bleach-sanitized côté serveur (V1.D REV-02).
       this.$textContent.innerHTML = l.content || '<p>Contenu vide.</p>';
+      // Démarre le timer auto basé sur lesson.duration_sec.
+      // Si l'instructor a défini 5 min (300s), le percent augmente
+      // linéairement jusqu'à 99% sur 5 min. Le 100% vient via le
+      // bouton "Marquer terminé" ou l'IntersectionObserver du sentinel.
+      this._startTextTimer(l.duration_sec);
     }
 
     _mountOther(l) {
@@ -666,7 +772,7 @@
       this._saveProgress(!done);
     }
 
-    // ─── Sidebar UI ────────────────────────────────────────────────────
+    // ─── Sidebar mobile drawer ─────────────────────────────────────────
     // Sur desktop (lg+), la sidebar est `lg:relative lg:translate-x-0`
     // donc TOUJOURS visible — toggle a un effet seulement sur mobile.
     _setSidebarOpen(open) {
@@ -680,6 +786,122 @@
         this.$sidebarBackdrop.setAttribute('data-open', open ? 'true' : 'false');
         // Sur mobile uniquement (lg:hidden dans le HTML).
         this.$sidebarBackdrop.classList.toggle('hidden', !open);
+      }
+    }
+
+    // ─── Sidebar desktop collapse/expand ───────────────────────────────
+    // Replie complètement la sidebar sur desktop (lg+). État persisté en
+    // localStorage pour que la préférence survive aux reloads.
+    _setSidebarCollapsed(collapsed) {
+      if (!this.$sidebar) return;
+      this.$sidebar.setAttribute('data-collapsed', collapsed ? 'true' : 'false');
+      // Sur desktop : si collapsed, on cache la sidebar via Tailwind class.
+      this.$sidebar.classList.toggle('lg:hidden', !!collapsed);
+      // Le bouton expand apparaît dans la topbar du main.
+      if (this.$sidebarExpand) {
+        this.$sidebarExpand.classList.toggle('hidden', !collapsed);
+        this.$sidebarExpand.classList.toggle('inline-flex', !!collapsed);
+      }
+      // Persistance préférence utilisateur.
+      try {
+        localStorage.setItem('be-player-sidebar-collapsed', collapsed ? '1' : '0');
+      } catch (_) { /* private mode / disabled */ }
+    }
+
+    _restoreSidebarCollapsed() {
+      try {
+        const v = localStorage.getItem('be-player-sidebar-collapsed');
+        if (v === '1') this._setSidebarCollapsed(true);
+      } catch (_) { /* ignore */ }
+    }
+
+    // ─── Contrôles vidéo custom (MP4 uniquement) ──────────────────────
+    _isVideoActive() {
+      return this._videoEl && this._videoEl.tagName === 'VIDEO';
+    }
+
+    _videoSeek(deltaSeconds) {
+      if (!this._isVideoActive()) return;
+      try {
+        const v = this._videoEl;
+        const target = Math.max(0, Math.min((v.duration || 0), v.currentTime + deltaSeconds));
+        v.currentTime = target;
+      } catch (_) { /* ignore */ }
+    }
+
+    _videoTogglePlay() {
+      if (!this._isVideoActive()) return;
+      const v = this._videoEl;
+      if (v.paused || v.ended) {
+        v.play().catch(() => {});
+      } else {
+        v.pause();
+      }
+    }
+
+    _videoSetSpeed(rate) {
+      if (!this._isVideoActive()) return;
+      if (isFinite(rate) && rate > 0) this._videoEl.playbackRate = rate;
+    }
+
+    _videoFullscreen() {
+      if (!this._isVideoActive()) return;
+      const v = this._videoEl;
+      try {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else if (v.requestFullscreen) {
+          v.requestFullscreen();
+        } else if (v.webkitRequestFullscreen) {
+          v.webkitRequestFullscreen();  // Safari iOS
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    _updatePlayPauseIcon(playing) {
+      if (!this.$vcPlayPauseIcon) return;
+      this.$vcPlayPauseIcon.className = playing
+        ? 'fa-solid fa-pause text-base'
+        : 'fa-solid fa-play text-base';
+    }
+
+    _updateTimeLabel(current, duration) {
+      const fmt = (s) => {
+        s = Math.max(0, Math.floor(Number(s) || 0));
+        const m = Math.floor(s / 60);
+        const ss = String(s % 60).padStart(2, '0');
+        return `${m}:${ss}`;
+      };
+      if (this.$vcCurrent) this.$vcCurrent.textContent = fmt(current);
+      if (this.$vcDuration) this.$vcDuration.textContent = fmt(duration);
+    }
+
+    // ─── Timer pour leçons TEXT (progression auto sur duration_sec) ───
+    _startTextTimer(durationSec) {
+      this._clearTextTimer();
+      const dur = Number(durationSec || 0);
+      if (!dur || !isFinite(dur)) return;
+      // Tick toutes les secondes — increment percent linéairement jusqu'à 99.
+      this._textTimerStart = Date.now();
+      this._textTimerInitial = Number(this.state.lessonProgress.percent || 0);
+      this._textTimer = setInterval(() => {
+        const elapsed = (Date.now() - this._textTimerStart) / 1000;
+        const pct = Math.min(99, this._textTimerInitial + (elapsed / dur) * 100);
+        if (pct > Number(this.state.lessonProgress.percent || 0)) {
+          this.state.lessonProgress.percent = pct;
+          this.state.lessonProgress.last_position_seconds = Math.floor(elapsed);
+          this._renderLessonProgress();
+          this._saveDebounced();
+        }
+        // Auto-stop quand on atteint 99 (le 100 vient via mark-complete).
+        if (pct >= 99) this._clearTextTimer();
+      }, 1000);
+    }
+
+    _clearTextTimer() {
+      if (this._textTimer) {
+        clearInterval(this._textTimer);
+        this._textTimer = null;
       }
     }
 
