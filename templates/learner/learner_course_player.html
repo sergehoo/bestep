@@ -136,23 +136,28 @@
                      bg-white/80 dark:bg-be-ink-800/80 backdrop-blur
                      flex items-center gap-3 shrink-0">
 
-        {# Bouton burger mobile : ouvre le drawer #}
+        {# Bouton burger mobile : ouvre le drawer (mobile uniquement) #}
         <button type="button" id="be-sidebar-toggle"
-                class="lg:hidden w-9 h-9 inline-flex items-center justify-center
-                       rounded-lg border border-be-ink-100 dark:border-white/10
-                       hover:bg-be-ink-50 dark:hover:bg-white/10"
-                aria-label="Ouvrir le plan">
+                class="lg:hidden inline-flex items-center gap-2
+                       px-3 py-2 rounded-lg
+                       bg-be-sky-600 text-white text-xs font-bold
+                       hover:bg-be-sky-700 transition shadow-sm"
+                aria-label="Ouvrir le plan du cours">
           <i class="fa-solid fa-bars text-sm"></i>
+          <span>Plan</span>
         </button>
 
-      
+        {# Bouton expand desktop : réaffiche la sidebar quand elle est repliée.
+           Caché par défaut, JS le rend visible (inline-flex) quand collapsed=true. #}
         <button type="button" id="be-sidebar-expand"
-                class="hidden w-9 h-9 items-center justify-center
-                       rounded-lg border border-be-ink-100 dark:border-white/10
-                       hover:bg-be-ink-50 dark:hover:bg-white/10"
-                title="Afficher le plan"
-                aria-label="Afficher le plan">
+                class="hidden items-center gap-2
+                       px-3 py-2 rounded-lg
+                       bg-be-sky-600 text-white text-xs font-bold
+                       hover:bg-be-sky-700 transition shadow-sm"
+                title="Afficher le plan du cours"
+                aria-label="Afficher le plan du cours">
           <i class="fa-solid fa-angles-right text-sm"></i>
+          <span>Plan du cours</span>
         </button>
 
         <div class="flex-1 min-w-0">

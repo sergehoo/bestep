@@ -811,8 +811,20 @@
     _restoreSidebarCollapsed() {
       try {
         const v = localStorage.getItem('be-player-sidebar-collapsed');
-        if (v === '1') this._setSidebarCollapsed(true);
-      } catch (_) { /* ignore */ }
+        // Restaure UNIQUEMENT l'état réduit. Si pas de valeur ou '0',
+        // on s'assure d'être en état expanded (defaults conservés).
+        if (v === '1') {
+          this._setSidebarCollapsed(true);
+        } else {
+          // Garantie défensive : si une ancienne version a laissé une
+          // classe lg:hidden sur la sidebar mais pas de localStorage,
+          // on la retire pour éviter une sidebar fantôme invisible.
+          this._setSidebarCollapsed(false);
+        }
+      } catch (_) {
+        // Mode privé / storage désactivé → s'assurer que la sidebar est visible.
+        this._setSidebarCollapsed(false);
+      }
     }
 
     // ─── Contrôles vidéo custom (MP4 uniquement) ──────────────────────
