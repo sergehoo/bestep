@@ -1,21 +1,5 @@
 {% load static %}<!doctype html>
-{% comment %}
-  templates/learner/learner_course_player.html — Player apprenant STANDALONE.
 
-  Pourquoi standalone (n'étend PAS app_shell.html) ?
-   - app_shell.html injecte sa propre sidebar workspace ET son topbar.
-     En les empilant avec la sidebar du player, on obtenait un décalage
-     visuel + un layout cassé.
-   - Le player est un mode "focused" full-screen, comme la page 2FA :
-     l'utilisateur regarde du contenu vidéo, pas besoin de la navigation
-     globale.
-
-  Layout : 100vw × 100vh, grid 2 colonnes (sidebar 320px + main 1fr) sur
-  desktop, sidebar coulissante sur mobile.
-
-  CSS : Tailwind build (dist/app.min.css) + styles inline pour les
-  composants spécifiques au player (be-video-host aspect-ratio, etc.).
-{% endcomment %}
 <html lang="fr" class="h-full">
 
 <head>
@@ -23,15 +7,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="#0C87D6" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
 
   <title>{{ course_title|default:"Continuer le cours" }} — Best Épargne</title>
 
   {# Theme init avant render (pas de flash) #}
   <script src="{% static 'src/js/theme-init.js' %}"></script>
 
-  {# Tailwind build production #}
+  {# Tailwind build production — couvre 99 % des classes utilisées #}
   <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
 
   {# Icônes #}
@@ -39,12 +21,12 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
         crossorigin="anonymous">
 
-  {# CSS spécifique au player — externalisé pour passer la CSP style-src 'self'.
-     Tout style inline (<style>) était bloqué et provoquait un layout cassé. #}
+  {# CSS spécifique au player — optionnel, juste animations/skeleton. #}
   <link rel="stylesheet" href="{% static 'src/css/learner-course-player.css' %}">
 </head>
 
-<body class="text-be-ink-900 dark:text-be-ink-50 antialiased">
+<body class="h-full bg-be-ink-50 dark:bg-be-ink-900
+             text-be-ink-900 dark:text-white antialiased overflow-hidden">
 
   {# ────────── Config exposée au JS via data-* ────────── #}
   <div id="player-config"
@@ -57,43 +39,50 @@
        data-set-current-url="/api/learner/courses/{{ course_id }}/set-current/"
        data-back-url="/dashboard/learner/"></div>
 
-  <div id="be-player-root" class="be-player-grid">
+  {# ────────── Layout root : flex (pas de grid pour rester compatible Tailwind base) ────────── #}
+  <div id="be-player-root" class="flex h-full w-full">
 
-    {# ────────── Backdrop mobile ────────── #}
-    <div id="be-sidebar-backdrop" class="be-sidebar-backdrop" data-open="false"></div>
+    {# ────────── Backdrop mobile (visible quand sidebar drawer ouverte) ────────── #}
+    <div id="be-sidebar-backdrop"
+         data-open="false"
+         class="fixed inset-0 z-40 bg-black/55 hidden lg:hidden"></div>
 
-    {# ────────── SIDEBAR ────────── #}
+    {# ────────── SIDEBAR : 320px desktop / drawer mobile (vanilla Tailwind) ────────── #}
     <aside id="be-sidebar"
-           class="be-sidebar"
            data-open="false"
+           class="fixed inset-y-0 left-0 z-50 w-80 max-w-[88vw]
+                  -translate-x-full transition-transform duration-300
+                  lg:relative lg:translate-x-0 lg:z-auto lg:max-w-none
+                  flex flex-col shrink-0
+                  bg-white dark:bg-be-ink-800
+                  border-r border-be-ink-100 dark:border-white/10
+                  shadow-2xl lg:shadow-none"
            aria-label="Plan du cours">
 
-      <div class="px-4 py-3 border-b border-be-ink-100 dark:border-white/10 space-y-2.5">
-        <div class="flex items-center justify-between gap-2">
+      <div class="px-4 py-3 border-b border-be-ink-100 dark:border-white/10">
+        <div class="flex items-center justify-between gap-2 mb-2">
           <a href="/dashboard/learner/"
-             class="inline-flex items-center gap-1.5 text-[11px] font-semibold
+             class="inline-flex items-center gap-1.5 text-xs font-semibold
                     text-be-ink-500 hover:text-be-sky-600 transition">
             <i class="fa-solid fa-arrow-left text-[10px]"></i>
             Retour
           </a>
-          <button type="button"
-                  id="be-sidebar-close"
+          <button type="button" id="be-sidebar-close"
                   class="lg:hidden w-7 h-7 inline-flex items-center justify-center
                          rounded-lg hover:bg-be-ink-50 text-be-ink-500"
-                  aria-label="Fermer le plan">
+                  aria-label="Fermer">
             <i class="fa-solid fa-xmark text-xs"></i>
           </button>
         </div>
 
-        <h1 class="text-sm font-bold text-be-ink-900 dark:text-white leading-snug">
+        <h1 class="text-sm font-bold text-be-ink-900 dark:text-white mb-2.5">
           Plan du cours
         </h1>
 
-        <div class="relative">
+        <div class="relative mb-2">
           <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2
                     text-be-ink-400 text-[10px]" aria-hidden="true"></i>
-          <input type="search"
-                 id="be-outline-search"
+          <input type="search" id="be-outline-search"
                  placeholder="Rechercher…"
                  class="w-full pl-7 pr-2.5 py-1.5 rounded-lg
                         border border-be-ink-100 dark:border-white/10
@@ -101,7 +90,8 @@
                         focus:outline-none focus:ring-2 focus:ring-be-sky-300">
         </div>
 
-        <div class="flex items-center justify-between text-[10px] text-be-ink-500 dark:text-white/60">
+        <div class="flex items-center justify-between text-[10px]
+                    text-be-ink-500 dark:text-white/60 mb-1">
           <span>
             <span id="be-completed-count" class="font-bold">0</span>
             / <span id="be-total-count">0</span> leçons
@@ -110,33 +100,31 @@
         </div>
         <div class="h-1 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
           <div id="be-overall-bar"
-               class="h-full bg-be-sky-500 transition-all duration-300"></div>
+               class="h-full bg-be-sky-500 transition-all duration-300 w-0"></div>
         </div>
       </div>
 
       <div id="be-outline-list"
-           class="be-outline-list px-1.5 py-2"
-           role="navigation"
-           aria-label="Liste des leçons">
+           class="flex-1 overflow-y-auto px-1.5 py-2 min-h-0"
+           role="navigation" aria-label="Liste des leçons">
         <div class="space-y-2 px-2 pt-2">
-          <div class="h-10 be-skeleton"></div>
-          <div class="h-10 be-skeleton"></div>
-          <div class="h-10 be-skeleton"></div>
-          <div class="h-10 be-skeleton"></div>
+          <div class="h-10 rounded-lg be-skeleton bg-be-ink-100 dark:bg-white/5"></div>
+          <div class="h-10 rounded-lg be-skeleton bg-be-ink-100 dark:bg-white/5"></div>
+          <div class="h-10 rounded-lg be-skeleton bg-be-ink-100 dark:bg-white/5"></div>
+          <div class="h-10 rounded-lg be-skeleton bg-be-ink-100 dark:bg-white/5"></div>
         </div>
       </div>
     </aside>
 
     {# ────────── MAIN ────────── #}
-    <main class="be-main" role="main">
+    <main class="flex flex-col flex-1 min-w-0 min-h-0" role="main">
 
       {# ─── Topbar player ─── #}
       <header class="px-4 sm:px-6 py-3 border-b border-be-ink-100 dark:border-white/10
-                     bg-white/80 dark:bg-be-ink-800/60 backdrop-blur-xl
+                     bg-white/80 dark:bg-be-ink-800/80 backdrop-blur
                      flex items-center gap-3 shrink-0">
 
-        <button type="button"
-                id="be-sidebar-toggle"
+        <button type="button" id="be-sidebar-toggle"
                 class="lg:hidden w-9 h-9 inline-flex items-center justify-center
                        rounded-lg border border-be-ink-100 dark:border-white/10
                        hover:bg-be-ink-50 dark:hover:bg-white/10"
@@ -165,28 +153,31 @@
       </header>
 
       {# ─── Zone contenu scrollable ─── #}
-      <div class="be-main-scroll px-4 sm:px-6 py-6">
-        <div class="mx-auto max-w-[1000px] space-y-5">
+      <div class="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 py-6">
+        <div class="mx-auto w-full max-w-[1000px] space-y-5">
 
-          {# Loader initial #}
+          {# Loader initial — visible avant le chargement de la leçon #}
           <div id="be-lesson-loader" class="space-y-3">
-            <div class="be-video-host be-skeleton"></div>
-            <div class="h-5 w-2/3 be-skeleton"></div>
-            <div class="h-3 w-1/2 be-skeleton"></div>
+            <div class="w-full aspect-video rounded-2xl be-skeleton bg-be-ink-100 dark:bg-white/5"></div>
+            <div class="h-5 w-2/3 rounded be-skeleton bg-be-ink-100 dark:bg-white/5"></div>
+            <div class="h-3 w-1/2 rounded be-skeleton bg-be-ink-100 dark:bg-white/5"></div>
           </div>
 
-          {# Container leçon — rempli dynamiquement #}
+          {# Container leçon — rempli dynamiquement par le JS #}
           <div id="be-lesson-container" class="hidden space-y-5">
 
-            {# VIDEO #}
+            {# VIDEO host : aspect-ratio 16/9 garantit la hauteur sans CSS externe #}
             <div id="be-video-block" class="hidden">
-              <div id="be-video-host" class="be-video-host"></div>
+              <div id="be-video-host"
+                   class="be-video-host
+                          relative w-full aspect-video bg-black
+                          rounded-2xl overflow-hidden mx-auto"></div>
             </div>
 
             {# FILE #}
             <div id="be-file-block"
                  class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
-                        bg-white dark:bg-be-ink-800/60 p-5
+                        bg-white dark:bg-be-ink-800 p-5
                         flex items-start justify-between gap-4">
               <div class="min-w-0">
                 <div class="text-sm font-bold text-be-ink-900 dark:text-white">
@@ -199,7 +190,7 @@
               <a id="be-file-link" href="#" target="_blank" rel="noopener"
                  class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
                         bg-be-sky-600 text-white font-semibold text-sm
-                        hover:bg-be-sky-700 transition active:scale-95">
+                        hover:bg-be-sky-700 transition">
                 <i class="fa-solid fa-file-arrow-down"></i> Ouvrir
               </a>
             </div>
@@ -207,19 +198,15 @@
             {# TEXT #}
             <div id="be-text-block"
                  class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
-                        bg-white dark:bg-be-ink-800/60 p-6">
-              <div id="be-text-content"
-                   class="prose prose-sm max-w-none
-                          prose-headings:text-be-ink-900 dark:prose-headings:text-white
-                          prose-p:text-be-ink-700 dark:prose-p:text-white/70
-                          prose-a:text-be-sky-600"></div>
+                        bg-white dark:bg-be-ink-800 p-6">
+              <div id="be-text-content" class="be-prose max-w-none"></div>
               <div id="be-text-sentinel" class="h-1 mt-8" aria-hidden="true"></div>
             </div>
 
             {# Quiz/Live/Other #}
             <div id="be-other-block"
                  class="hidden rounded-2xl border border-be-ink-100 dark:border-white/10
-                        bg-white dark:bg-be-ink-800/60 p-8 text-center">
+                        bg-white dark:bg-be-ink-800 p-8 text-center">
               <i class="fa-solid fa-circle-info text-3xl text-be-sky-500 mb-3"></i>
               <p id="be-other-message"
                  class="text-be-ink-700 dark:text-white/70 text-sm">
@@ -227,10 +214,10 @@
               </p>
             </div>
 
-            {# Info leçon + progress bar #}
+            {# Info leçon + progress #}
             <div class="rounded-xl border border-be-ink-100 dark:border-white/10
-                        bg-white dark:bg-be-ink-800/60 px-4 py-3 space-y-2">
-              <div class="flex items-center justify-between text-xs">
+                        bg-white dark:bg-be-ink-800 px-4 py-3">
+              <div class="flex items-center justify-between text-xs mb-2">
                 <span class="font-semibold text-be-ink-700 dark:text-white/70">
                   <span id="be-lesson-type-text">Leçon</span>
                   <span id="be-lesson-duration" class="text-be-ink-500 ml-2"></span>
@@ -241,16 +228,16 @@
               </div>
               <div class="h-1 rounded-full bg-be-ink-100 dark:bg-white/10 overflow-hidden">
                 <div id="be-lesson-bar"
-                     class="h-full bg-be-sky-500 transition-all duration-300"></div>
+                     class="h-full bg-be-sky-500 transition-all duration-300 w-0"></div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {# ─── Navigation (footer sticky) ─── #}
+      {# ─── Navigation (footer) ─── #}
       <footer class="px-4 sm:px-6 py-3 border-t border-be-ink-100 dark:border-white/10
-                     bg-white/90 dark:bg-be-ink-800/80 backdrop-blur-xl
+                     bg-white dark:bg-be-ink-800
                      flex items-center justify-between gap-3 shrink-0">
 
         <button type="button" id="be-prev-btn"
@@ -266,7 +253,7 @@
         <button type="button" id="be-complete-btn"
                 class="inline-flex items-center gap-2 px-4 py-2 rounded-lg
                        bg-emerald-600 hover:bg-emerald-700 text-white
-                       text-sm font-bold transition active:scale-95
+                       text-sm font-bold transition
                        disabled:opacity-50">
           <i class="fa-solid fa-check text-xs"></i>
           <span id="be-complete-btn-label">Marquer terminé</span>
@@ -275,7 +262,7 @@
         <button type="button" id="be-next-btn"
                 class="inline-flex items-center gap-2 px-3 py-2 rounded-lg
                        bg-be-ink-900 hover:opacity-90 text-white
-                       text-sm font-semibold transition active:scale-95
+                       text-sm font-semibold transition
                        disabled:opacity-40 disabled:cursor-not-allowed">
           <span class="hidden sm:inline">Suivant</span>
           <i class="fa-solid fa-arrow-right text-xs"></i>
@@ -285,7 +272,11 @@
   </div>
 
   {# Toast notifications #}
-  <div id="be-toast" data-show="false" role="status" aria-live="polite"></div>
+  <div id="be-toast" data-show="false"
+       class="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100]
+              px-4 py-2.5 rounded-xl text-white text-sm font-semibold
+              shadow-lg opacity-0 pointer-events-none transition-opacity"
+       role="status" aria-live="polite"></div>
 
   <script src="{% static 'src/js/learner-course-player.js' %}"></script>
 </body>

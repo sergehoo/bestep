@@ -651,10 +651,20 @@
     }
 
     // ─── Sidebar UI ────────────────────────────────────────────────────
+    // Sur desktop (lg+), la sidebar est `lg:relative lg:translate-x-0`
+    // donc TOUJOURS visible — toggle a un effet seulement sur mobile.
     _setSidebarOpen(open) {
-      if (this.$sidebar) this.$sidebar.setAttribute('data-open', open ? 'true' : 'false');
-      if (this.$sidebarBackdrop)
+      if (this.$sidebar) {
+        this.$sidebar.setAttribute('data-open', open ? 'true' : 'false');
+        // Toggle Tailwind class pour drawer mobile (no-op desktop car lg: override).
+        this.$sidebar.classList.toggle('-translate-x-full', !open);
+        this.$sidebar.classList.toggle('translate-x-0', open);
+      }
+      if (this.$sidebarBackdrop) {
         this.$sidebarBackdrop.setAttribute('data-open', open ? 'true' : 'false');
+        // Sur mobile uniquement (lg:hidden dans le HTML).
+        this.$sidebarBackdrop.classList.toggle('hidden', !open);
+      }
     }
 
     // ─── Toast ─────────────────────────────────────────────────────────
