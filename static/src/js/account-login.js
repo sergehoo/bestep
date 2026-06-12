@@ -9,7 +9,10 @@
     button.addEventListener("click", () => {
       const isPassword = passwordInput.getAttribute("type") === "password";
       passwordInput.setAttribute("type", isPassword ? "text" : "password");
-      button.innerHTML = isPassword ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
+      const eyeIcon = button.querySelector(".icon-eye");
+      const eyeSlashIcon = button.querySelector(".icon-eye-slash");
+      if (eyeIcon) eyeIcon.classList.toggle("hidden", isPassword);
+      if (eyeSlashIcon) eyeSlashIcon.classList.toggle("hidden", !isPassword);
     });
   });
 }());

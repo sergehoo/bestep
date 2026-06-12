@@ -1,0 +1,47 @@
+{# Messages flash Django — partagé entre les layouts (icônes SVG inline). #}
+{% if messages %}
+  <div class="mx-auto max-w-[1600px] px-3 sm:px-6 mt-3 space-y-2"
+       role="status" aria-live="polite">
+    {% for message in messages %}
+      <div x-data="flashMessage" x-show="open" x-transition.opacity
+           class="flex items-start gap-3 rounded-xl border px-4 py-3 text-sm
+        {% if message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200
+        {% elif message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200
+        {% elif message.tags == 'warning' %}bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200
+        {% else %}bg-be-sky-50 border-be-sky-100 text-be-sky-900 dark:bg-be-sky-900/40 dark:border-be-sky-800 dark:text-be-sky-200{% endif %}">
+        <span class="mt-0.5 shrink-0" aria-hidden="true">
+          {% if message.tags == 'success' %}
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="2"/>
+              <path d="m8.5 12 2.5 2.5 4.5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          {% elif message.tags == 'error' %}
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="2"/>
+              <path d="m9 9 6 6M15 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          {% elif message.tags == 'warning' %}
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
+                    stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          {% else %}
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
+              <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          {% endif %}
+        </span>
+        <span class="flex-1">{{ message }}</span>
+        <button type="button" @click="close()"
+                class="shrink-0 -m-1 p-1 rounded-lg opacity-60 hover:opacity-100 transition"
+                aria-label="Fermer le message">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

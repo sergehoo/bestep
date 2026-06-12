@@ -50,7 +50,10 @@
         const isPassword = input.type === "password";
         input.type = isPassword ? "text" : "password";
         button.setAttribute("aria-pressed", isPassword ? "true" : "false");
-        button.innerHTML = isPassword ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
+        const eyeIcon = button.querySelector(".icon-eye");
+        const eyeSlashIcon = button.querySelector(".icon-eye-slash");
+        if (eyeIcon) eyeIcon.classList.toggle("hidden", isPassword);
+        if (eyeSlashIcon) eyeSlashIcon.classList.toggle("hidden", !isPassword);
       });
     });
 

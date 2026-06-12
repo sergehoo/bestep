@@ -6,7 +6,7 @@
 
 
 {% block sidebar %}
-    {% include "partials/instructor_side.html" with side_active="media" %}
+    {% include "partials/instructor_side.html" with mode="desktop" %}
 {% endblock %}
 
 {% block content %}
@@ -204,13 +204,13 @@
         <!-- GRID VIEW -->
         <section x-show="isGridView()" class="space-y-8">
             <template x-if="loading.media">
-                <div class="rounded-[28px] border p-10 text-center text-sm text-be-ink-500">
+                <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-10 text-center text-sm text-be-ink-500 dark:text-white/60">
                     Chargement des médias…
                 </div>
             </template>
 
             <template x-if="noMediaFound()">
-                <div class="rounded-[28px] border p-10 text-center text-sm text-be-ink-500">
+                <div class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 p-10 text-center text-sm text-be-ink-500 dark:text-white/60">
                     Aucun média trouvé avec ces filtres.
                 </div>
             </template>

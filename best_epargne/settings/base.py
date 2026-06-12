@@ -173,6 +173,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "compte.context_processors.workspaces",
+                "compte.context_processors.sidebar_badges",
             ],
         },
     },

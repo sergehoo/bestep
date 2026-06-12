@@ -10,7 +10,6 @@
     <meta name="theme-color" content="#F2FAFF" media="(prefers-color-scheme: light)"/>
     <meta name="theme-color" content="#121827" media="(prefers-color-scheme: dark)"/>
     <title>{% block title %}best-épargne — Apprenant{% endblock %}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script src="{% static 'src/js/theme-init.js' %}"></script>
     <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
     <script defer src="{% static 'src/js/learner-shell.js' %}"></script>
@@ -209,6 +208,8 @@
             </div>
         </div>
     </header>
+
+    {% include "partials/flash_messages.html" %}
 
     {# ---------- Main layout ---------- #}
     <div class="mx-auto max-w-[1600px] px-3 sm:px-6 pb-10">

@@ -9,8 +9,6 @@
   <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
   <link rel="stylesheet" href="{% static 'src/css/admin_base_template.css' %}">
   <script defer src="{% static 'vendor/alpinejs/alpine-csp.min.js' %}"></script>
-
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -33,7 +31,7 @@
   <aside class="hidden lg:flex lg:w-82 xl:w-80 sidebar-shell border-r border-slate-200/80 flex-col fixed inset-y-0 left-0 z-40">
     <div class="h-20 px-6 flex items-center border-b border-slate-100">
       <a href="/" class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm ring-1 ring-slate-100">
+        <div class="w-12 h-12 rounded-2xl bg-white dark:bg-white/10 flex items-center justify-center shadow-sm ring-1 ring-slate-100 dark:ring-white/10">
           <img src="{% static 'img/logo_img.png' %}" class="w-10 h-10 object-contain" alt="Best-Épargne">
         </div>
         <div>
@@ -54,7 +52,7 @@
           <div class="text-[11px] uppercase tracking-widest opacity-85 font-black">Organisation active</div>
           <div class="mt-2 text-lg font-black truncate">{{ organization.name|default:"Organisation" }}</div>
           <div class="mt-3 flex items-center gap-2 text-xs opacity-90">
-            <i class="fas fa-location-dot"></i>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span class="truncate">
               {{ organization.city|default:"Ville non renseignée" }}{% if organization.country %}, {{ organization.country }}{% endif %}
             </span>
@@ -74,12 +72,12 @@
 
       <a href="{% url 'org:dashboard' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:dashboard' %}sidebar-active{% endif %}">
-        <i class="fas fa-chart-pie"></i> Dashboard
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12A10 10 0 0 0 12 2v10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Dashboard
       </a>
 
       <a href="{% url 'org:media_library' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:media_library' %}sidebar-active{% endif %}">
-        <i class="fas fa-photo-film"></i> Bibliothèque média
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Bibliothèque média
       </a>
 
       {# ============== Membres ============== #}
@@ -87,22 +85,22 @@
 
       <a href="{% url 'org:members' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:members' or request.resolver_match.view_name == 'org:member_update' or request.resolver_match.view_name == 'org:member_detail' %}sidebar-active{% endif %}">
-        <i class="fas fa-users"></i> Tous les membres
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Tous les membres
       </a>
 
       <a href="{% url 'org:member_create' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:member_create' %}sidebar-active{% endif %}">
-        <i class="fas fa-user-plus"></i> Ajouter un membre
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 8v6M22 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Ajouter un membre
       </a>
 
       <a href="{% url 'org:instructor_create' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:instructor_create' %}sidebar-active{% endif %}">
-        <i class="fas fa-chalkboard-teacher"></i> Inviter formateur
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 3h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m7 21 5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Inviter formateur
       </a>
 
       <a href="{% url 'org:learner_create' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:learner_create' %}sidebar-active{% endif %}">
-        <i class="fas fa-user-graduate"></i> Inviter apprenant
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21.42 10.92a1 1 0 0 0-.02-1.84L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.83l8.57 3.91a2 2 0 0 0 1.66 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 10v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Inviter apprenant
       </a>
 
       {# ============== Catalogue ============== #}
@@ -110,12 +108,12 @@
 
       <a href="{% url 'org:courses' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:courses' or request.resolver_match.view_name == 'org:course_detail' or request.resolver_match.view_name == 'org:course_builder' or request.resolver_match.view_name == 'org:section_create' or request.resolver_match.view_name == 'org:lesson_create' %}sidebar-active{% endif %}">
-        <i class="fas fa-book-open"></i> Cours internes
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Cours internes
       </a>
 
       <a href="{% url 'org:course_create' organization.id %}"
          class="sidebar-link {% if request.resolver_match.view_name == 'org:course_create' %}sidebar-active{% endif %}">
-        <i class="fas fa-plus-circle"></i> Créer un cours
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Créer un cours
       </a>
 
       {# Le quiz et l'affectation formateur vivent dans un cours précis :
@@ -125,17 +123,17 @@
       {# ============== Mon espace ============== #}
       <div class="pt-5 mt-5 border-t border-slate-100">
         <a href="{% url 'learner:dashboard' %}" class="sidebar-link">
-          <i class="fas fa-user"></i> Mon espace personnel
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Mon espace personnel
         </a>
 
         <a href="/" class="sidebar-link">
-          <i class="fas fa-home"></i> Retour au site
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Retour au site
         </a>
       </div>
     </nav>
 
     <div class="p-4 border-t border-slate-100">
-      <div class="rounded-[22px] bg-white/90 border border-slate-200 p-3 flex items-center gap-3 shadow-sm">
+      <div class="rounded-[22px] bg-white/90 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-3 flex items-center gap-3 shadow-sm">
         <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 to-sky-400 flex items-center justify-center text-white font-black shadow">
           {{ request.user.full_name|default:request.user.email|first|upper }}
         </div>
@@ -146,7 +144,7 @@
       </div>
 
       <a href="{% url 'account_logout' %}" class="mt-4 btn-soft w-full">
-        <i class="fas fa-sign-out-alt"></i> Déconnexion
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m16 17 5-5-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Déconnexion
       </a>
     </div>
   </aside>
@@ -181,36 +179,36 @@
           {% endif %}
 
           <a href="{% url 'org:member_create' organization.id %}" class="btn-soft">
-            <i class="fas fa-user-plus"></i> Membre
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 8v6M22 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Membre
           </a>
 
           <a href="{% url 'org:course_create' organization.id %}" class="btn-primary">
-            <i class="fas fa-plus"></i> Cours
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Cours
           </a>
         </div>
 
-        <button id="mobile-menu-btn" class="lg:hidden w-11 h-11 rounded-2xl bg-white border border-slate-200 text-slate-700 shadow-sm">
-          <i class="fas fa-bars"></i>
+        <button id="mobile-menu-btn" class="lg:hidden w-11 h-11 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 shadow-sm">
+          <svg class="w-5 h-5 mx-auto" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
 
-      <div id="mobile-menu" class="hidden lg:hidden border-t border-slate-100 bg-white px-4 py-4 space-y-1">
+      <div id="mobile-menu" class="hidden lg:hidden border-t border-slate-100 dark:border-white/10 bg-white dark:bg-be-ink-900 px-4 py-4 space-y-1">
         <div class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-widest font-black text-slate-400">Pilotage</div>
-        <a href="{% url 'org:dashboard' organization.id %}" class="sidebar-link"><i class="fas fa-chart-pie"></i> Dashboard</a>
-        <a href="{% url 'org:media_library' organization.id %}" class="sidebar-link"><i class="fas fa-photo-film"></i> Médias</a>
+        <a href="{% url 'org:dashboard' organization.id %}" class="sidebar-link"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 12A10 10 0 0 0 12 2v10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Dashboard</a>
+        <a href="{% url 'org:media_library' organization.id %}" class="sidebar-link"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Médias</a>
 
         <div class="px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest font-black text-slate-400">Membres</div>
-        <a href="{% url 'org:members' organization.id %}" class="sidebar-link"><i class="fas fa-users"></i> Tous les membres</a>
-        <a href="{% url 'org:member_create' organization.id %}" class="sidebar-link"><i class="fas fa-user-plus"></i> Ajouter</a>
-        <a href="{% url 'org:instructor_create' organization.id %}" class="sidebar-link"><i class="fas fa-chalkboard-teacher"></i> Inviter formateur</a>
-        <a href="{% url 'org:learner_create' organization.id %}" class="sidebar-link"><i class="fas fa-user-graduate"></i> Inviter apprenant</a>
+        <a href="{% url 'org:members' organization.id %}" class="sidebar-link"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Tous les membres</a>
+        <a href="{% url 'org:member_create' organization.id %}" class="sidebar-link"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 8v6M22 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Ajouter</a>
+        <a href="{% url 'org:instructor_create' organization.id %}" class="sidebar-link"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 3h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m7 21 5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Inviter formateur</a>
+        <a href="{% url 'org:learner_create' organization.id %}" class="sidebar-link"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21.42 10.92a1 1 0 0 0-.02-1.84L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.83l8.57 3.91a2 2 0 0 0 1.66 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 10v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Inviter apprenant</a>
 
         <div class="px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest font-black text-slate-400">Catalogue</div>
-        <a href="{% url 'org:courses' organization.id %}" class="sidebar-link"><i class="fas fa-book-open"></i> Cours internes</a>
-        <a href="{% url 'org:course_create' organization.id %}" class="sidebar-link"><i class="fas fa-plus-circle"></i> Créer un cours</a>
+        <a href="{% url 'org:courses' organization.id %}" class="sidebar-link"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Cours internes</a>
+        <a href="{% url 'org:course_create' organization.id %}" class="sidebar-link"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Créer un cours</a>
 
         <div class="pt-3 mt-3 border-t border-slate-100">
-          <a href="{% url 'account_logout' %}" class="sidebar-link text-red-600"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
+          <a href="{% url 'account_logout' %}" class="sidebar-link text-red-600"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m16 17 5-5-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Déconnexion</a>
         </div>
       </div>
     </header>

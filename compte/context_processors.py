@@ -69,3 +69,72 @@ def workspaces(request):
     }
     setattr(request, _REQUEST_CACHE_ATTR, payload)
     return payload
+
+
+# ---------------------------------------------------------------------------
+# Badges sidebar (UX_IMPROVEMENTS §P3) — compteurs avec cache court.
+# ---------------------------------------------------------------------------
+
+_BADGES_CACHE_TTL = 60  # secondes — fraîcheur suffisante pour des badges.
+
+
+def sidebar_badges(request):
+    """Compteurs affichés en pastille dans les sidebars.
+
+    - ``unread_notification_count`` : notifications non lues (tous espaces).
+    - ``instructor_new_reviews_count`` : avis publics reçus ces 7 derniers
+      jours sur les cours du formateur (espace instructor uniquement).
+    - ``org_pending_invitations_count`` : invitations en attente de
+      l'organisation active (espace org uniquement).
+
+    Mis en cache 60 s par (user, workspace) pour ne pas requêter à chaque
+    rendu de page.
+    """
+    user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated:
+        return {}
+
+    ws_ctx = workspaces(request)
+    active = ws_ctx.get("active_workspace")
+    kind = getattr(active, "kind", "") or ""
+    org_id = getattr(active, "organization_id", None)
+
+    from django.core.cache import cache
+
+    cache_key = f"sidebar_badges:{user.pk}:{kind}:{org_id or ''}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    from django.utils import timezone
+
+    from notifications.models import Notification
+
+    badges = {
+        "unread_notification_count": Notification.objects.filter(
+            user=user, read_at__isnull=True
+        ).count(),
+        "instructor_new_reviews_count": 0,
+        "org_pending_invitations_count": 0,
+    }
+
+    if kind == "instructor":
+        from reviews.models import CourseReview
+
+        badges["instructor_new_reviews_count"] = CourseReview.objects.filter(
+            course__instructor=user,
+            is_public=True,
+            created_at__gte=timezone.now() - timezone.timedelta(days=7),
+        ).count()
+
+    if kind == "org" and org_id:
+        from organizations.models import OrganizationInvitation
+
+        badges["org_pending_invitations_count"] = OrganizationInvitation.objects.filter(
+            organization_id=org_id,
+            accepted_at__isnull=True,
+            expires_at__gt=timezone.now(),
+        ).count()
+
+    cache.set(cache_key, badges, _BADGES_CACHE_TTL)
+    return badges

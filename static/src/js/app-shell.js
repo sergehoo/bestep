@@ -294,4 +294,12 @@ document.addEventListener('alpine:init', () => {
       async loadEnrollments() { return undefined; },
     });
   } catch { /* déjà enregistré */ }
+
+  /* ============================================================
+     7. flashMessage — messages flash Django (partials/flash_messages.html)
+     ============================================================ */
+  Alpine.data('flashMessage', () => ({
+    open: true,
+    close() { this.open = false; },
+  }));
 });

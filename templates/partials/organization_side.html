@@ -150,6 +150,13 @@
             <div class="text-sm font-semibold">Membres</div>
             <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Apprenants & formateurs</div>
           </div>
+          {% if org_pending_invitations_count %}
+          <span x-show="isExpanded" x-cloak
+                class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-semibold"
+                title="{{ org_pending_invitations_count }} invitation{{ org_pending_invitations_count|pluralize }} en attente">
+            {{ org_pending_invitations_count }}
+          </span>
+          {% endif %}
         </a>
 
         {# Inviter un membre #}
@@ -369,6 +376,23 @@
         </button>
       </form>
     </div>
+    {% for ws in available_workspaces %}{% if ws.kind == 'learner' %}
+      <form method="post" action="{% url 'switch_workspace' %}" class="mt-2" x-show="isExpanded" x-cloak>
+        {% csrf_token %}
+        <input type="hidden" name="kind" value="learner">
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl
+                       text-xs font-semibold text-be-ink-500 dark:text-white/60
+                       hover:text-be-sky-700 hover:bg-be-sky-50 dark:hover:bg-white/10
+                       focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60 transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Retour à mon espace apprenant
+        </button>
+      </form>
+    {% endif %}{% endfor %}
   </div>
 
 </nav>

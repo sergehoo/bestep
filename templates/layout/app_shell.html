@@ -298,26 +298,7 @@
   </header>
 
   {# ── MESSAGES DJANGO ──────────────────────────────────────────────────────── #}
-  {% if messages %}
-    <div class="mx-auto max-w-[1600px] px-3 sm:px-6 mt-3 space-y-2"
-         role="status" aria-live="polite">
-      {% for message in messages %}
-        <div class="flex items-start gap-3 rounded-xl border px-4 py-3 text-sm
-          {% if message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200
-          {% elif message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200
-          {% elif message.tags == 'warning' %}bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200
-          {% else %}bg-be-sky-50 border-be-sky-100 text-be-sky-900 dark:bg-be-sky-950/40 dark:border-be-sky-800 dark:text-be-sky-200{% endif %}">
-          <i class="fas mt-0.5 shrink-0
-            {% if message.tags == 'success' %}fa-circle-check
-            {% elif message.tags == 'error' %}fa-circle-xmark
-            {% elif message.tags == 'warning' %}fa-triangle-exclamation
-            {% else %}fa-circle-info{% endif %}"
-             aria-hidden="true"></i>
-          <span>{{ message }}</span>
-        </div>
-      {% endfor %}
-    </div>
-  {% endif %}
+  {% include "partials/flash_messages.html" %}
 
   {# ── LAYOUT PRINCIPAL (sidebar + main) ───────────────────────────────────── #}
   <div class="mx-auto max-w-[1600px] px-3 sm:px-6 pb-12">

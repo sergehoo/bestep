@@ -108,16 +108,16 @@ document.addEventListener('alpine:init', () => {
     enrollDisabled(c)     { return this.loading.enrollId === c.id || c.is_enrolled; },
     enrollBtnClass(c)     {
       return c.is_enrolled
-        ? 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'
+        ? 'bg-be-ink-50 dark:bg-white/5 border border-be-ink-100 dark:border-white/10 text-be-ink-700 dark:text-white/80'
         : 'bg-be-sky-600 text-white hover:bg-be-sky-700 shadow-soft';
     },
     instructorInitials(c) {
       return c.instructor_initials || (c.instructor_name || 'F')[0] || 'F';
     },
     pricingChipClass(c) {
-      if (c.pricing_type === 'PAID') return 'bg-be-sun-50 border border-be-sun-200 text-be-sun-800';
-      if (c.pricing_type === 'FREE') return 'bg-emerald-50 border border-emerald-200 text-emerald-700';
-      return 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700';
+      if (c.pricing_type === 'PAID') return 'bg-be-sun-50 dark:bg-be-sun-900/30 border border-be-sun-200 dark:border-be-sun-800 text-be-sun-800 dark:text-be-sun-300';
+      if (c.pricing_type === 'FREE') return 'bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300';
+      return 'bg-be-ink-50 dark:bg-white/5 border border-be-ink-100 dark:border-white/10 text-be-ink-700 dark:text-white/80';
     },
     pricePeriod(c)  { return '/ ' + (c.price_period || 'cours'); },
     formatRating(c) { return Number(c.rating || 0).toFixed(1); },
@@ -150,14 +150,14 @@ document.addEventListener('alpine:init', () => {
     },
     detailEnrollBtnClass() {
       return (this.detail && this.detail.is_enrolled)
-        ? 'bg-be-ink-50 border border-be-ink-100 text-be-ink-700'
+        ? 'bg-be-ink-50 dark:bg-white/5 border border-be-ink-100 dark:border-white/10 text-be-ink-700 dark:text-white/80'
         : 'bg-be-sky-600 text-white hover:bg-be-sky-700 shadow-soft';
     },
     detailPricingChipClass() {
       if (!this.detail) return '';
-      if (this.detail.pricing_type === 'PAID') return 'bg-be-sun-50 border-be-sun-200 text-be-sun-800';
-      if (this.detail.pricing_type === 'FREE') return 'bg-emerald-50 border-emerald-200 text-emerald-700';
-      return 'bg-be-ink-50 border-be-ink-100 text-be-ink-700';
+      if (this.detail.pricing_type === 'PAID') return 'bg-be-sun-50 dark:bg-be-sun-900/30 border-be-sun-200 dark:border-be-sun-800 text-be-sun-800 dark:text-be-sun-300';
+      if (this.detail.pricing_type === 'FREE') return 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300';
+      return 'bg-be-ink-50 dark:bg-white/5 border-be-ink-100 dark:border-white/10 text-be-ink-700 dark:text-white/80';
     },
     enrollDetail() { if (this.detail) this.enroll(this.detail); },
 

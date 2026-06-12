@@ -222,9 +222,9 @@ document.addEventListener('alpine:init', () => {
     },
 
     kindPill(kind) {
-      if (kind === 'video') return 'bg-be-sky-50 border-be-sky-200 text-be-sky-700';
-      if (kind === 'audio') return 'bg-be-sun-50 border-be-sun-200 text-be-sun-800';
-      return 'bg-be-ink-50 border-be-ink-200 text-be-ink-700';
+      if (kind === 'video') return 'bg-be-sky-50 dark:bg-be-sky-900/40 border-be-sky-200 dark:border-be-sky-800 text-be-sky-700 dark:text-be-sky-300';
+      if (kind === 'audio') return 'bg-be-sun-50 dark:bg-be-sun-900/30 border-be-sun-200 dark:border-be-sun-800 text-be-sun-800 dark:text-be-sun-300';
+      return 'bg-be-ink-50 dark:bg-white/5 border-be-ink-200 dark:border-white/10 text-be-ink-700 dark:text-white/80';
     },
 
     personalMedia()     { return this.filteredMedia.filter(m => m.scope === 'personal'); },
@@ -268,10 +268,10 @@ document.addEventListener('alpine:init', () => {
     },
 
     processingPill(status) {
-      if (status === 'ready')      return 'bg-emerald-50 border-emerald-200 text-emerald-700';
-      if (status === 'processing') return 'bg-amber-50 border-amber-200 text-amber-700';
-      if (status === 'failed')     return 'bg-rose-50 border-rose-200 text-rose-700';
-      return 'bg-be-ink-50 border-be-ink-200 text-be-ink-700';
+      if (status === 'ready')      return 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300';
+      if (status === 'processing') return 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300';
+      if (status === 'failed')     return 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300';
+      return 'bg-be-ink-50 dark:bg-white/5 border-be-ink-200 dark:border-white/10 text-be-ink-700 dark:text-white/80';
     },
 
     humanBytes(bytes) {

@@ -15,13 +15,13 @@
 
     <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
       <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-50 text-sky-700 text-xs font-semibold border border-sky-100">
-        <i class="fas fa-rocket"></i> Démarrage rapide
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> Démarrage rapide
       </span>
       <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 text-yellow-800 text-xs font-semibold border border-yellow-100">
-        <i class="fas fa-award"></i> Parcours certifiants
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg> Parcours certifiants
       </span>
       <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold border border-green-100">
-        <i class="fas fa-shield-halved"></i> Données protégées
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 22V2"/></svg> Données protégées
       </span>
     </div>
   </div>
@@ -30,7 +30,7 @@
     <div class="mt-6 rounded-2xl border border-red-100 bg-red-50 p-4">
       <div class="flex gap-3">
         <div class="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center">
-          <i class="fas fa-triangle-exclamation text-red-600"></i>
+          <svg class="w-4 h-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
         </div>
         <div class="text-sm text-red-800">
           <div class="font-semibold">Inscription impossible</div>
@@ -98,7 +98,7 @@
 
                   {% if field.help_text %}
                     <div class="help-hint mt-2">
-                      <i class="fas fa-circle-info help-hint__icon"></i>
+                      <svg class="help-hint__icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/><path d="M12 16v-4M12 8h.01"/></svg>
                       <div class="help-hint__text">{{ field.help_text|safe }}</div>
                     </div>
                   {% endif %}
@@ -118,25 +118,25 @@
                 <!-- Left icon -->
                 <span class="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
                   {% if "email" in fname %}
-                    <i class="fas fa-envelope"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                   {% elif "password" in fname %}
-                    <i class="fas fa-key"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
                   {% elif "full_name" in fname or "first_name" in fname or "last_name" in fname or "name" in fname %}
-                    <i class="fas fa-user"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   {% elif "phone" in fname %}
-                    <i class="fas fa-phone"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                   {% elif fname == "education_level" %}
-                    <i class="fas fa-graduation-cap"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.42 10.92a2 2 0 0 0 0-3.84L12.83 3.5a2 2 0 0 0-1.66 0L2.58 7.08a2 2 0 0 0 0 3.84l8.59 3.58a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg>
                   {% elif fname == "goal" %}
-                    <i class="fas fa-bullseye"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
                   {% elif fname == "domain_interest" %}
-                    <i class="fas fa-compass"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36z"/></svg>
                   {% elif fname == "availability" %}
-                    <i class="fas fa-clock"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                   {% elif fname == "country" or fname == "city" %}
-                    <i class="fas fa-location-dot"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                   {% else %}
-                    <i class="fas fa-pen"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.17 6.83a2.83 2.83 0 0 0-4-4L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.31a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></svg>
                   {% endif %}
                 </span>
 
@@ -149,11 +149,12 @@
                           data-target-name="{{ fname }}"
                           aria-label="Afficher/Masquer le mot de passe"
                           aria-pressed="false">
-                    <i class="fas fa-eye"></i>
+                    <svg class="icon-eye w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="icon-eye-slash w-4 h-4 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.9 9.9a3 3 0 1 0 4.2 4.2"/><path d="M10.7 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.3 3.2"/><path d="M6.6 6.6A16 16 0 0 0 2 12s3.5 7 10 7c1.3 0 2.6-.3 3.8-.8"/><path d="m2 2 20 20"/></svg>
                   </button>
                 {% else %}
                   <span class="pointer-events-none absolute inset-y-0 right-0 pr-3 flex items-center text-gray-300">
-                    <i class="fas fa-circle-check"></i>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
                   </span>
                 {% endif %}
               </div>
@@ -161,7 +162,7 @@
               {# Help text : affiché partout SAUF password1 (car intégré dans le bloc force) #}
               {% if field.help_text and fname != "password1" %}
                 <div class="help-hint">
-                  <i class="fas fa-circle-info help-hint__icon"></i>
+                  <svg class="help-hint__icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/><path d="M12 16v-4M12 8h.01"/></svg>
                   <div class="help-hint__text">{{ field.help_text|safe }}</div>
                 </div>
               {% endif %}
@@ -174,7 +175,7 @@
                 <div class="mt-2 rounded-2xl border border-gray-100 bg-gray-50 p-4">
                   <div class="flex gap-3">
                     <div class="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center">
-                      <i class="fas fa-wand-magic-sparkles text-gray-700"></i>
+                      <svg class="w-4 h-4 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
                     </div>
                     <div class="flex-1">
                       <div class="text-xs font-semibold text-gray-800">Mot de passe recommandé</div>
@@ -203,7 +204,7 @@
 
                       {% if field.help_text %}
                         <div class="help-hint mt-2">
-                          <i class="fas fa-circle-info help-hint__icon"></i>
+                          <svg class="help-hint__icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/><path d="M12 16v-4M12 8h.01"/></svg>
                           <div class="help-hint__text">{{ field.help_text|safe }}</div>
                         </div>
                       {% endif %}
@@ -219,7 +220,7 @@
 
     <button
       class="group w-full mt-2 py-3 rounded-2xl bg-gradient-to-r from-sky-600 to-sky-500 text-white font-semibold shadow-lg shadow-sky-200 hover:shadow-sky-300 hover:brightness-[1.02] transition flex items-center justify-center gap-2">
-      <i class="fas fa-user-check"></i>
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>
       <span>Créer mon compte</span>
       <span class="ml-1 opacity-80 group-hover:translate-x-0.5 transition-transform">→</span>
     </button>

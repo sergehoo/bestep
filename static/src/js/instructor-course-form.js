@@ -90,9 +90,9 @@ document.addEventListener('alpine:init', () => {
     },
 
     pricingPill(type) {
-      if (type === 'PAID') return 'bg-be-sun-50 border-be-sun-200 text-be-sun-800';
-      if (type === 'HYBRID') return 'bg-be-sky-50 border-be-sky-200 text-be-sky-700';
-      return 'bg-be-ink-50 border-be-ink-200 text-be-ink-700';
+      if (type === 'PAID') return 'bg-be-sun-50 dark:bg-be-sun-900/30 border-be-sun-200 dark:border-be-sun-800 text-be-sun-800 dark:text-be-sun-300';
+      if (type === 'HYBRID') return 'bg-be-sky-50 dark:bg-be-sky-900/40 border-be-sky-200 dark:border-be-sky-800 text-be-sky-700 dark:text-be-sky-300';
+      return 'bg-be-ink-50 dark:bg-white/5 border-be-ink-200 dark:border-white/10 text-be-ink-700 dark:text-white/80';
     },
 
     courseTypeLabel(type) {
@@ -319,10 +319,10 @@ document.addEventListener('alpine:init', () => {
     },
 
     statusPill(status) {
-      if (status === 'PUBLISHED') return 'bg-emerald-50 border-emerald-200 text-emerald-700';
-      if (status === 'REVIEW')    return 'bg-amber-50 border-amber-200 text-amber-700';
-      if (status === 'ARCHIVED')  return 'bg-be-ink-50 border-be-ink-200 text-be-ink-700';
-      return 'bg-be-sky-50 border-be-sky-200 text-be-sky-700';
+      if (status === 'PUBLISHED') return 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300';
+      if (status === 'REVIEW')    return 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300';
+      if (status === 'ARCHIVED')  return 'bg-be-ink-50 dark:bg-white/5 border-be-ink-200 dark:border-white/10 text-be-ink-700 dark:text-white/80';
+      return 'bg-be-sky-50 dark:bg-be-sky-900/40 border-be-sky-200 dark:border-be-sky-800 text-be-sky-700 dark:text-be-sky-300';
     },
 
     pricingLabel(type, price, currency = 'XOF') {
@@ -332,9 +332,9 @@ document.addEventListener('alpine:init', () => {
     },
 
     pricingPill(type) {
-      if (type === 'PAID') return 'bg-be-sun-50 border-be-sun-200 text-be-sun-800';
-      if (type === 'HYBRID') return 'bg-be-sky-50 border-be-sky-200 text-be-sky-700';
-      return 'bg-be-ink-50 border-be-ink-200 text-be-ink-700';
+      if (type === 'PAID') return 'bg-be-sun-50 dark:bg-be-sun-900/30 border-be-sun-200 dark:border-be-sun-800 text-be-sun-800 dark:text-be-sun-300';
+      if (type === 'HYBRID') return 'bg-be-sky-50 dark:bg-be-sky-900/40 border-be-sky-200 dark:border-be-sky-800 text-be-sky-700 dark:text-be-sky-300';
+      return 'bg-be-ink-50 dark:bg-white/5 border-be-ink-200 dark:border-white/10 text-be-ink-700 dark:text-white/80';
     },
 
     courseTypeLabel(type) {

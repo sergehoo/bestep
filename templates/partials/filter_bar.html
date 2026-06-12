@@ -14,12 +14,15 @@
     - reset_url : URL pour réinitialiser les filtres
     - action : URL du form (défaut "" → page courante)
 {% endcomment %}
+{% load a11y %}
 <form method="get" action="{{ action|default:'' }}"
       class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center bg-white dark:bg-be-ink-900 border border-be-ink-100 dark:border-white/10 dark:border-white/10 rounded-2xl p-3"
       role="search">
   <label class="flex-1 relative">
     <span class="sr-only">{{ search_placeholder|default:"Rechercher" }}</span>
-    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/30 pointer-events-none" aria-hidden="true"></i>
+    <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 dark:text-white/30 pointer-events-none" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
     <input type="search"
            name="{{ search_param|default:'q' }}"
            value="{{ request.GET|default_if_none:''|getattribute:search_param }}"

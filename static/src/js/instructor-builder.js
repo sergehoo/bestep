@@ -166,8 +166,8 @@ document.addEventListener('alpine:init', () => {
     /* --- sections --- */
     activeSectionClass(s) {
       return (this.activeSection && this.activeSection.id === s.id)
-        ? 'bg-be-sky-50 border-be-sky-200 shadow-soft'
-        : 'bg-white border-be-ink-100 hover:bg-be-ink-50';
+        ? 'bg-be-sky-50 dark:bg-be-sky-900/40 border-be-sky-200 dark:border-be-sky-800 shadow-soft'
+        : 'bg-white dark:bg-white/5 border-be-ink-100 dark:border-white/10 hover:bg-be-ink-50 dark:hover:bg-white/10';
     },
     sectionTitle(s) {
       return s.order + '. ' + s.title;
@@ -277,8 +277,8 @@ document.addEventListener('alpine:init', () => {
     },
     correctChoiceClass(c) {
       return c.is_correct
-        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-        : 'bg-white border-be-ink-100 text-be-ink-700';
+        ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+        : 'bg-white dark:bg-white/5 border-be-ink-100 dark:border-white/10 text-be-ink-700 dark:text-white/80';
     },
 
     /* --- question modal --- */
@@ -287,8 +287,8 @@ document.addEventListener('alpine:init', () => {
     },
     correctChoiceButtonClass(choice) {
       return choice.is_correct
-        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-        : 'bg-white border border-be-ink-100 text-be-ink-700';
+        ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+        : 'bg-white dark:bg-white/5 border border-be-ink-100 dark:border-white/10 text-be-ink-700 dark:text-white/80';
     },
 
     /* --- upload drawer --- */

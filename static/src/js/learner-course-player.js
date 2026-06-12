@@ -99,6 +99,13 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // Icônes SVG inline (style lucide, stroke 2) — la page ne charge plus Font Awesome.
+  function svgIcon(paths, cls) {
+    return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" aria-hidden="true">` +
+      paths.map((d) => `<path d="${d}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`).join('') +
+      '</svg>';
+  }
+
   // ─────────────────────────────────────────────────────────────────────
   // Classe principale
   // ─────────────────────────────────────────────────────────────────────
@@ -461,7 +468,7 @@
       if (!html.length) {
         html.push(`
           <div class="text-center text-sm text-be-ink-500 dark:text-white/60 py-8">
-            <i class="fa-solid fa-folder-open text-2xl mb-2 opacity-50"></i>
+            ${svgIcon(['m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6A2 2 0 0 1 18.45 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2'], 'w-8 h-8 mx-auto mb-2 opacity-50')}
             <p>${q ? 'Aucune leçon trouvée.' : 'Aucune leçon disponible.'}</p>
           </div>
         `);
@@ -485,18 +492,19 @@
     _renderLessonRow(l) {
       const active = l.id === this.state.currentLessonId;
       const completed = !!l.is_completed;
+      const circle = 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z';
       const icon = completed
-        ? '<i class="fa-solid fa-circle-check text-emerald-500"></i>'
+        ? svgIcon([circle, 'm8.5 12 2.5 2.5 4.5-5'], 'w-4 h-4 mx-auto text-emerald-500')
         : (active
-            ? '<i class="fa-solid fa-circle-play text-be-sky-600"></i>'
-            : '<i class="fa-regular fa-circle text-be-ink-400"></i>');
-      const typeIcon = ({
-        VIDEO: 'fa-play',
-        TEXT:  'fa-align-left',
-        QUIZ:  'fa-clipboard-question',
-        FILE:  'fa-file-arrow-down',
-        LIVE:  'fa-video',
-      })[l.lesson_type] || 'fa-circle';
+            ? svgIcon([circle, 'm10 8.5 5 3.5-5 3.5v-7Z'], 'w-4 h-4 mx-auto text-be-sky-600')
+            : svgIcon([circle], 'w-4 h-4 mx-auto text-be-ink-400 dark:text-white/40'));
+      const typePaths = ({
+        VIDEO: ['m6 3 14 9-14 9V3Z'],
+        TEXT:  ['M15 12H3', 'M17 18H3', 'M21 6H3'],
+        QUIZ:  [circle, 'M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h.01'],
+        FILE:  ['M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z', 'M14 2v5h6', 'M12 18v-6', 'm9 15 3 3 3-3'],
+        LIVE:  ['m16 10 6-3.5v11L16 14', 'M2 7.5A1.5 1.5 0 0 1 3.5 6h11A1.5 1.5 0 0 1 16 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 2 16.5v-9Z'],
+      })[l.lesson_type] || [circle];
       const dur = fmtDuration(l.duration_sec);
       return `
         <li>
@@ -515,7 +523,7 @@
               </span>
               <span class="block text-[11px] text-be-ink-500 dark:text-white/50 mt-0.5
                            flex items-center gap-1.5">
-                <i class="fa-solid ${typeIcon} text-[10px]" aria-hidden="true"></i>
+                ${svgIcon(typePaths, 'w-2.5 h-2.5 shrink-0')}
                 <span>${l.lesson_type || ''}</span>
                 ${dur ? `<span class="opacity-50">•</span><span>${dur}</span>` : ''}
               </span>
@@ -914,9 +922,10 @@
 
     _updatePlayPauseIcon(playing) {
       if (!this.$vcPlayPauseIcon) return;
-      this.$vcPlayPauseIcon.className = playing
-        ? 'fa-solid fa-pause text-base'
-        : 'fa-solid fa-play text-base';
+      const play = this.$vcPlayPauseIcon.querySelector('.be-icon-play');
+      const pause = this.$vcPlayPauseIcon.querySelector('.be-icon-pause');
+      if (play) play.classList.toggle('hidden', playing);
+      if (pause) pause.classList.toggle('hidden', !playing);
     }
 
     _updateTimeLabel(current, duration) {

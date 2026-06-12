@@ -9,6 +9,12 @@
 (function () {
   document.addEventListener('alpine:init', () => {
 
+    /* ---- Messages flash Django (partials/flash_messages.html) ---- */
+    Alpine.data('flashMessage', () => ({
+      open: true,
+      close() { this.open = false; },
+    }));
+
     /* ---- Learner store ---- */
     const existing = Alpine.store('learner');
     if (!existing) {

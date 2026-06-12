@@ -4,6 +4,12 @@
  */
 
 document.addEventListener('alpine:init', () => {
+  /* Messages flash Django (partials/flash_messages.html) */
+  Alpine.data('flashMessage', () => ({
+    open: true,
+    close() { this.open = false; },
+  }));
+
   Alpine.data('appShell', () => ({
     theme: 'light',
     scrolled: false,
@@ -111,14 +117,14 @@ document.addEventListener('alpine:init', () => {
     /* ---- unused stub kept for compat ---- */
     linkClass(name) {
       return this._isActive(name)
-        ? 'bg-be-sky-50 text-be-sky-700 border border-be-sky-200 shadow-soft'
-        : 'text-be-ink-600 hover:bg-be-ink-50 hover:text-be-ink-900';
+        ? 'bg-be-sky-50 dark:bg-be-sky-900/40 text-be-sky-700 dark:text-be-sky-300 border border-be-sky-200 dark:border-be-sky-800 shadow-soft'
+        : 'text-be-ink-600 dark:text-white/70 hover:bg-be-ink-50 dark:hover:bg-white/10 hover:text-be-ink-900 dark:hover:text-white';
     },
 
     iconClass(name) {
       return this._isActive(name)
-        ? 'text-be-sky-600'
-        : 'text-be-ink-400 group-hover:text-be-ink-700';
+        ? 'text-be-sky-600 dark:text-be-sky-300'
+        : 'text-be-ink-400 dark:text-white/40 group-hover:text-be-ink-700 dark:group-hover:text-white/80';
     },
 
     _isActive(name) {

@@ -253,8 +253,8 @@ document.addEventListener('alpine:init', () => {
     },
     choiceClass(choice) {
       return choice.is_correct
-        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-        : 'bg-white border-be-ink-100 text-be-ink-700';
+        ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+        : 'bg-white dark:bg-white/5 border-be-ink-100 dark:border-white/10 text-be-ink-700 dark:text-white/80';
     },
     choicePlaceholder(idx) {
       return 'Choix ' + (idx + 1);

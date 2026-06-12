@@ -94,10 +94,10 @@ function instructorApp(cfg){
       return map[s] || s;
     },
     statusPill(s){
-      if (s==="PUBLISHED") return "bg-emerald-50 border-emerald-200 text-emerald-700";
-      if (s==="REVIEW") return "bg-be-sun-50 border-be-sun-200 text-be-sun-800";
-      if (s==="ARCHIVED") return "bg-be-ink-50 border-be-ink-100 text-be-ink-700";
-      return "bg-be-sky-50 border-be-sky-200 text-be-sky-700";
+      if (s==="PUBLISHED") return "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300";
+      if (s==="REVIEW") return "bg-be-sun-50 dark:bg-be-sun-900/30 border-be-sun-200 dark:border-be-sun-800 text-be-sun-800 dark:text-be-sun-300";
+      if (s==="ARCHIVED") return "bg-be-ink-50 dark:bg-white/5 border-be-ink-100 dark:border-white/10 text-be-ink-700 dark:text-white/80";
+      return "bg-be-sky-50 dark:bg-be-sky-900/40 border-be-sky-200 dark:border-be-sky-800 text-be-sky-700 dark:text-be-sky-300";
     },
     pricingLabel(p, price, cur){
       if (p==="FREE") return "Gratuit";
@@ -105,9 +105,9 @@ function instructorApp(cfg){
       return `Payant • ${Number(price||0).toLocaleString('fr-FR')} ${cur||'XOF'}`;
     },
     pricingPill(p){
-      if (p==="PAID") return "bg-be-sun-50 border-be-sun-200 text-be-sun-800";
-      if (p==="HYBRID") return "bg-be-sky-50 border-be-sky-200 text-be-sky-700";
-      return "bg-be-ink-50 border-be-ink-100 text-be-ink-700";
+      if (p==="PAID") return "bg-be-sun-50 dark:bg-be-sun-900/30 border-be-sun-200 dark:border-be-sun-800 text-be-sun-800 dark:text-be-sun-300";
+      if (p==="HYBRID") return "bg-be-sky-50 dark:bg-be-sky-900/40 border-be-sky-200 dark:border-be-sky-800 text-be-sky-700 dark:text-be-sky-300";
+      return "bg-be-ink-50 dark:bg-white/5 border-be-ink-100 dark:border-white/10 text-be-ink-700 dark:text-white/80";
     },
     formatDuration(sec){
       sec = Number(sec||0);
