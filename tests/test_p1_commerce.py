@@ -14,9 +14,10 @@ import pytest
 def test_payment_transaction_unique_provider_reference():
     """COM-02 : impossible d'avoir 2 PaymentTransaction (provider, reference)
     identiques quand reference est non-vide."""
+    from django.db.utils import IntegrityError
+
     from commerce.models import Order, PaymentTransaction
     from organizations.models import Organization
-    from django.db.utils import IntegrityError
 
     org = Organization.objects.create(name="TestOrg", slug="test-org")
     order = Order.objects.create(company=org)
@@ -52,9 +53,9 @@ def test_payment_transaction_blank_reference_allowed_multiple():
 def test_enroll_on_payment_success_is_idempotent(alice):
     """COM-01 : appeler enroll_on_payment_success deux fois ne crée pas
     deux enrollments."""
+    from catalog.models import Course
     from commerce.models import Order, OrderItem
     from commerce.services import enroll_on_payment_success
-    from catalog.models import Course
 
     course = Course.objects.create(
         title="Cours test",

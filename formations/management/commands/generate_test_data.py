@@ -2,14 +2,20 @@ import random
 import uuid
 from datetime import timedelta
 
-from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
 from catalog.models import (
-    Category, Course, CourseSection, Lesson, MediaAsset, Payment, Notification
+    Category,
+    Course,
+    CourseSection,
+    Lesson,
+    MediaAsset,
+    Notification,
+    Payment,
 )
 
 # Si tu as organizations.Company et que tu veux l'utiliser, décommente :
@@ -189,7 +195,7 @@ class Command(BaseCommand):
                 lt = random.choice(list(Lesson.LessonType.values))
                 is_preview = random.choice([True, False])
 
-                lesson = Lesson.objects.create(
+                Lesson.objects.create(
                     section=s,
                     title=f"Leçon {k+1} — {s.title}",
                     order=k + 1,
@@ -206,7 +212,7 @@ class Command(BaseCommand):
 
         # -------- Payments --------
         payments_count = 500
-        for i in range(payments_count):
+        for _i in range(payments_count):
             user = random.choice(users)
             course = random.choice(courses)
 

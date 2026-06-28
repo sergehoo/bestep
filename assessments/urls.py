@@ -1,4 +1,5 @@
-from django.urls import path, include
+from django.urls import path
+
 from assessments.views import onboarding_quiz, onboarding_result
 
 app_name = "assessments"

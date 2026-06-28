@@ -16,7 +16,6 @@ import boto3
 from botocore.config import Config
 from django.conf import settings
 
-
 _MAX_FILENAME_LEN = 120
 _BAD_FILENAMES = {".", "..", ".htaccess", ".env", ""}
 

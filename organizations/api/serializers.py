@@ -128,7 +128,9 @@ class CreateOrganizationMemberSerializer(serializers.Serializer):
             try:
                 validate_password(password)
             except DjangoValidationError as exc:
-                raise serializers.ValidationError({"password": list(exc.messages)})
+                raise serializers.ValidationError(
+                    {"password": list(exc.messages)}
+                ) from exc
         return attrs
 
     def create(self, validated_data):

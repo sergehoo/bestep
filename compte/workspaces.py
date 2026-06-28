@@ -25,13 +25,11 @@ des cas — sauf ``list_available_workspaces`` qui interroge les memberships).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 from django.core.exceptions import PermissionDenied
 from django.urls import NoReverseMatch, reverse
 
 from organizations.models import OrganizationMembership
-
 
 # --- Constantes -------------------------------------------------------------
 
@@ -79,9 +77,9 @@ class Workspace:
     kind: str
     label: str
     url_name: str
-    organization_id: Optional[int] = None
-    organization_name: Optional[str] = None
-    role: Optional[str] = None
+    organization_id: int | None = None
+    organization_name: str | None = None
+    role: str | None = None
 
     def to_session(self) -> dict:
         """Forme sérialisable stockée dans request.session."""
@@ -120,7 +118,7 @@ class Workspace:
 
 # --- Listing des espaces disponibles ---------------------------------------
 
-def list_available_workspaces(user) -> List[Workspace]:
+def list_available_workspaces(user) -> list[Workspace]:
     """Retourne la liste ordonnée des espaces accessibles à ``user``.
 
     Ordre de pertinence (du plus privilégié au plus large) :
@@ -134,7 +132,7 @@ def list_available_workspaces(user) -> List[Workspace]:
     if not user or not user.is_authenticated or not user.is_active:
         return []
 
-    spaces: List[Workspace] = []
+    spaces: list[Workspace] = []
 
     # 1. Plateforme — vue métier dédiée (PlatformAdminDashboard).
     #    On distingue deux cas :
@@ -196,7 +194,7 @@ def list_available_workspaces(user) -> List[Workspace]:
 
 # --- Lecture / écriture du workspace actif ---------------------------------
 
-def _safe_first_workspace(available: List[Workspace], user) -> Optional[Workspace]:
+def _safe_first_workspace(available: list[Workspace], user) -> Workspace | None:
     """Premier espace par défaut. On évite de balancer un user "purement
     learner" sur l'espace platform_admin si les flags is_staff sont posés
     par erreur — pour ça on ne préfère ``platform_admin`` que pour les vrais
@@ -207,7 +205,7 @@ def _safe_first_workspace(available: List[Workspace], user) -> Optional[Workspac
     return available[0]
 
 
-def get_active_workspace(request) -> Optional[Workspace]:
+def get_active_workspace(request) -> Workspace | None:
     """Workspace actif lu depuis ``request.session`` avec fallback.
 
     Si la session contient un workspace dont l'utilisateur n'a plus le
@@ -232,7 +230,7 @@ def get_active_workspace(request) -> Optional[Workspace]:
 def set_active_workspace(
     request,
     kind: str,
-    organization_id: Optional[int] = None,
+    organization_id: int | None = None,
 ) -> Workspace:
     """Bascule vers un espace précis et le persiste en session.
 
@@ -256,7 +254,7 @@ def set_active_workspace(
 
 # --- URL du dashboard d'un espace ------------------------------------------
 
-def resolve_workspace_url(workspace: Optional[Workspace], fallback: str = "/") -> str:
+def resolve_workspace_url(workspace: Workspace | None, fallback: str = "/") -> str:
     """URL canonique du dashboard d'un workspace, robuste si l'URL n'existe
     pas encore (cas des routes namespacées non déployées).
     """

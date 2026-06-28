@@ -23,7 +23,7 @@ import hmac
 import logging
 import os
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,7 @@ def verify_signature(provider: str, request) -> bool:
         return False
     try:
         return bool(verifier(request))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.error("commerce.webhook.verify_failed", extra={"provider": provider, "exc": str(exc)})
         return False
 

@@ -11,8 +11,6 @@ Couvre les correctifs CRITIQUES sur les sérializers :
 """
 from __future__ import annotations
 
-import uuid
-
 import pytest
 
 

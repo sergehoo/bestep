@@ -22,7 +22,7 @@ def _recompute_enrollment_progress(sender, instance: LessonProgress, **kwargs):
     try:
         from .services import recompute_enrollment_progress
         recompute_enrollment_progress(instance.enrollment_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(
             "enrollments.signal.recompute.failed",
             extra={"enrollment_id": instance.enrollment_id, "exc": str(exc)},
@@ -48,5 +48,5 @@ def _invalidate_dashboards_on_enrollment(sender, instance: Enrollment, **kwargs)
             if inst_id:
                 invalidate_instructor_dashboard(inst_id)
         invalidate_platform_dashboard()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("enrollments.dashboard.invalidate.failed", extra={"exc": str(exc)})

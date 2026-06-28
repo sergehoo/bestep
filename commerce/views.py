@@ -22,11 +22,9 @@ Après : structure exposée
 - ``GET /commerce/orders/<id>/`` : page de récap simple (template à
   personnaliser).
 
-> SÉCURITÉ : la validation de la signature de webhook (Stripe Signature,
-> Paydunya hash, etc.) est laissée volontairement à brancher par
-> ``provider`` dans ``_verify_webhook_signature``. NE PAS DÉPLOYER EN
-> PROD sans cette implémentation : sinon n'importe qui peut POSTer un
-> webhook frauduleux.
+La validation des signatures webhook est centralisée dans
+``commerce.webhook_signatures``. Le checkout refuse toute création de
+commande si aucun adaptateur PSP n'est configuré.
 """
 from __future__ import annotations
 
@@ -34,8 +32,8 @@ import json
 import logging
 from decimal import Decimal, InvalidOperation
 
-from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -47,8 +45,18 @@ from rest_framework import status
 
 from catalog.models import Course
 from core import policies
-from .models import Order, OrderItem
+from enrollments.models import Enrollment
+from organizations.models import Organization, OrganizationMembership
+
+from .models import Coupon, Order, OrderItem, PaymentTransaction
+from .providers import (
+    CheckoutProviderError,
+    CheckoutProviderUnavailable,
+    checkout_provider_is_configured,
+    create_checkout_session,
+)
 from .services import (
+    coupon_is_usable,
     enroll_on_payment_success,
     recalc_order_totals,
     record_transaction_outcome,
@@ -58,27 +66,20 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Checkout (squelette à enrichir selon PSP)
+# Checkout
 # ---------------------------------------------------------------------------
+
+
+class CheckoutValidationError(ValueError):
+    def __init__(self, detail: str, *, status_code: int = 400):
+        self.detail = detail
+        self.status_code = status_code
+        super().__init__(detail)
 
 
 @method_decorator(login_required, name="dispatch")
 class CheckoutView(View):
-    """POST /commerce/checkout/ — crée un Order PENDING.
-
-    Body JSON attendu :
-    {
-      "currency": "XOF",
-      "items": [
-        {"item_type": "COURSE", "course_id": 12, "unit_price": "100.00"},
-        {"item_type": "COMPANY_SEATS", "seats_qty": 10, "unit_price": "50.00"}
-      ],
-      "coupon_code": "WELCOME10"   // optionnel
-    }
-
-    Returns 201 + JSON avec ``order_id``, ``total``, ``checkout_url``
-    (à remplacer par l'URL réelle du PSP).
-    """
+    """Valide le panier puis crée une session auprès du PSP configuré."""
 
     def post(self, request):
         try:
@@ -90,60 +91,202 @@ class CheckoutView(View):
         items = payload.get("items") or []
         if not items:
             return JsonResponse({"detail": "items required"}, status=400)
+        if not checkout_provider_is_configured():
+            return JsonResponse(
+                {"detail": "payment provider is not configured"},
+                status=503,
+            )
 
-        with transaction.atomic():
-            order = Order.objects.create(user=request.user, currency=currency, status=Order.Status.PENDING)
-            for raw in items:
-                item_type = raw.get("item_type")
-                if item_type not in dict(OrderItem.ItemType.choices):
-                    return JsonResponse({"detail": f"unknown item_type {item_type}"}, status=400)
+        currency = str(currency).strip().upper()
+        if not currency.isalnum() or len(currency) > 8:
+            return JsonResponse({"detail": "invalid currency"}, status=400)
 
-                kwargs = {
-                    "order": order,
-                    "item_type": item_type,
-                }
-                if item_type == OrderItem.ItemType.COURSE:
-                    course_id = raw.get("course_id")
-                    if not course_id:
-                        return JsonResponse({"detail": "course_id required"}, status=400)
-                    course = get_object_or_404(
-                        Course.objects.select_for_update().select_related("company"),
-                        pk=int(course_id),
-                    )
-                    if not policies.can_view_course(request.user, course):
-                        return JsonResponse({"detail": "course not available"}, status=403)
-                    if course.pricing_type == Course.PricingType.FREE or not course.price:
-                        return JsonResponse({"detail": "free courses must use direct enrollment"}, status=400)
-                    kwargs["course"] = course
-                    kwargs["unit_price"] = course.price
-                elif item_type == OrderItem.ItemType.COMPANY_SEATS:
-                    seats_qty = raw.get("seats_qty")
-                    if not seats_qty or int(seats_qty) <= 0:
-                        return JsonResponse({"detail": "seats_qty > 0 required"}, status=400)
-                    seat_price = getattr(settings, "COMMERCE_COMPANY_SEAT_PRICE", None)
-                    if seat_price is None:
-                        return JsonResponse({"detail": "company seat pricing is not configured"}, status=501)
-                    kwargs["seats_qty"] = int(seats_qty)
-                    try:
-                        kwargs["unit_price"] = Decimal(str(seat_price))
-                    except InvalidOperation:
-                        return JsonResponse({"detail": "invalid company seat pricing"}, status=500)
-                OrderItem.objects.create(**kwargs)
+        try:
+            with transaction.atomic():
+                company = self._validate_company(request.user, payload, items)
+                coupon = self._validate_coupon(payload, currency)
+                validated_items = self._validate_items(request.user, items, currency)
+                order = Order.objects.create(
+                    user=request.user,
+                    company=company,
+                    coupon=coupon,
+                    currency=currency,
+                    status=Order.Status.PENDING,
+                )
+                OrderItem.objects.bulk_create(
+                    [OrderItem(order=order, **item) for item in validated_items]
+                )
+                recalc_order_totals(order)
+        except CheckoutValidationError as exc:
+            return JsonResponse({"detail": exc.detail}, status=exc.status_code)
 
-            recalc_order_totals(order)
+        try:
+            checkout_session = create_checkout_session(order=order, request=request)
+            PaymentTransaction.objects.create(
+                order=order,
+                provider=checkout_session.provider,
+                reference=checkout_session.reference,
+                status=PaymentTransaction.Status.INITIATED,
+                amount=order.total,
+                currency=order.currency,
+            )
+        except CheckoutProviderUnavailable as exc:
+            Order.objects.filter(pk=order.id).update(status=Order.Status.FAILED)
+            return JsonResponse({"detail": str(exc)}, status=503)
+        except CheckoutProviderError:
+            logger.exception(
+                "commerce.checkout.provider_error",
+                extra={"order_id": order.id},
+            )
+            Order.objects.filter(pk=order.id).update(status=Order.Status.FAILED)
+            return JsonResponse({"detail": "payment provider unavailable"}, status=502)
+        except Exception:
+            logger.exception(
+                "commerce.checkout.persistence_error",
+                extra={"order_id": order.id},
+            )
+            Order.objects.filter(pk=order.id).update(status=Order.Status.FAILED)
+            return JsonResponse({"detail": "payment initialization failed"}, status=502)
 
-        # TODO PSP : construire ici la session de paiement (Stripe Checkout,
-        # Paydunya CreateInvoice, CinetPay…) et retourner l'URL externe.
-        checkout_url = request.build_absolute_uri(f"/commerce/orders/{order.id}/pending/")
         return JsonResponse(
             {
                 "order_id": order.id,
                 "total": str(order.total),
                 "currency": order.currency,
-                "checkout_url": checkout_url,
+                "checkout_url": checkout_session.checkout_url,
             },
             status=status.HTTP_201_CREATED,
         )
+
+    @staticmethod
+    def _validate_company(user, payload, items):
+        has_seat_item = any(
+            isinstance(raw, dict)
+            and raw.get("item_type") == OrderItem.ItemType.COMPANY_SEATS
+            for raw in items
+        )
+        company_id = payload.get("company_id")
+        if not has_seat_item and not company_id:
+            return None
+        if not company_id:
+            raise CheckoutValidationError("company_id required for company seats")
+        try:
+            company = Organization.objects.select_for_update().get(
+                pk=int(company_id),
+                is_active=True,
+            )
+        except (Organization.DoesNotExist, TypeError, ValueError) as exc:
+            raise CheckoutValidationError(
+                "company not available",
+                status_code=404,
+            ) from exc
+        can_purchase = OrganizationMembership.objects.filter(
+            user=user,
+            organization=company,
+            is_active=True,
+            role__in=[
+                OrganizationMembership.Role.OWNER,
+                OrganizationMembership.Role.ADMIN,
+            ],
+        ).exists()
+        if not can_purchase:
+            raise CheckoutValidationError("company purchase forbidden", status_code=403)
+        return company
+
+    @staticmethod
+    def _validate_coupon(payload, currency):
+        coupon_code = str(payload.get("coupon_code") or "").strip()
+        if not coupon_code:
+            return None
+        coupon = Coupon.objects.select_for_update().filter(code__iexact=coupon_code).first()
+        if coupon is None or not coupon_is_usable(coupon, currency):
+            raise CheckoutValidationError("coupon not available")
+        return coupon
+
+    @staticmethod
+    def _validate_items(user, items, currency):
+        validated_items = []
+        course_ids = set()
+        for raw in items:
+            if not isinstance(raw, dict):
+                raise CheckoutValidationError("each item must be an object")
+            item_type = raw.get("item_type")
+            if item_type not in dict(OrderItem.ItemType.choices):
+                raise CheckoutValidationError(f"unknown item_type {item_type}")
+
+            if item_type == OrderItem.ItemType.COURSE:
+                try:
+                    course_id = int(raw.get("course_id"))
+                except (TypeError, ValueError) as exc:
+                    raise CheckoutValidationError("valid course_id required") from exc
+                if course_id in course_ids:
+                    raise CheckoutValidationError("duplicate course item")
+                course_ids.add(course_id)
+                try:
+                    course = (
+                        Course.objects.select_for_update(of=("self",))
+                        .select_related("company")
+                        .get(pk=course_id)
+                    )
+                except Course.DoesNotExist as exc:
+                    raise CheckoutValidationError(
+                        "course not available",
+                        status_code=404,
+                    ) from exc
+                if not policies.can_view_course(user, course):
+                    raise CheckoutValidationError("course not available", status_code=403)
+                if course.pricing_type == Course.PricingType.FREE or course.price <= 0:
+                    raise CheckoutValidationError(
+                        "free courses must use direct enrollment"
+                    )
+                if course.currency.upper() != currency:
+                    raise CheckoutValidationError("course currency mismatch")
+                if Enrollment.objects.filter(
+                    user=user,
+                    course=course,
+                    status__in=[
+                        Enrollment.Status.ACTIVE,
+                        Enrollment.Status.COMPLETED,
+                    ],
+                ).exists():
+                    raise CheckoutValidationError("course already enrolled")
+                validated_items.append({
+                    "item_type": item_type,
+                    "course": course,
+                    "unit_price": course.price,
+                })
+                continue
+
+            try:
+                seats_qty = int(raw.get("seats_qty"))
+            except (TypeError, ValueError) as exc:
+                raise CheckoutValidationError("seats_qty > 0 required") from exc
+            if seats_qty <= 0:
+                raise CheckoutValidationError("seats_qty > 0 required")
+            seat_price = getattr(settings, "COMMERCE_COMPANY_SEAT_PRICE", None)
+            if seat_price is None:
+                raise CheckoutValidationError(
+                    "company seat pricing is not configured",
+                    status_code=503,
+                )
+            try:
+                unit_price = Decimal(str(seat_price))
+            except InvalidOperation as exc:
+                raise CheckoutValidationError(
+                    "invalid company seat pricing",
+                    status_code=500,
+                ) from exc
+            if unit_price <= 0:
+                raise CheckoutValidationError(
+                    "invalid company seat pricing",
+                    status_code=500,
+                )
+            validated_items.append({
+                "item_type": item_type,
+                "seats_qty": seats_qty,
+                "unit_price": unit_price,
+            })
+        return validated_items
 
 
 @login_required

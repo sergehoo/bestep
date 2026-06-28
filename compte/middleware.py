@@ -4,7 +4,6 @@ from django.shortcuts import redirect
 from django.urls import NoReverseMatch, reverse
 from django.utils.deprecation import MiddlewareMixin
 
-
 # Durée de vie du flag en session (booléen). L'utilisateur ne refait pas de
 # requête SQL à chaque navigation ; si le flag disparaît de la session il
 # est recalculé automatiquement.

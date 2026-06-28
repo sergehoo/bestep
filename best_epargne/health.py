@@ -30,7 +30,7 @@ def healthz(_request):
             cur.execute("SELECT 1")
             cur.fetchone()
         payload["checks"]["database"] = "ok"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         payload["checks"]["database"] = f"error: {exc}"
         failures.append("database")
         logger.warning("healthz.db.failed", extra={"exc": str(exc)})
@@ -43,7 +43,7 @@ def healthz(_request):
             payload["checks"]["cache"] = "ok"
         else:
             payload["checks"]["cache"] = "degraded"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         payload["checks"]["cache"] = f"error: {exc}"
 
     if failures:

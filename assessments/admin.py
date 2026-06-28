@@ -1,9 +1,7 @@
 from django.contrib import admin
-
-from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Quiz, Question, Choice, Attempt, AttemptAnswer
+from .models import Attempt, AttemptAnswer, Choice, Question, Quiz
 
 
 class ChoiceInline(admin.TabularInline):

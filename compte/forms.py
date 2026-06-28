@@ -50,12 +50,12 @@ class CustomSignupForm(SignupForm):
     education_level = forms.ChoiceField(
         label="Niveau d'étude",
         required=False,
-        choices=[("", "— Sélectionner —")] + list(LearnerKYC.EducationLevel.choices),
+        choices=[("", "— Sélectionner —"), *list(LearnerKYC.EducationLevel.choices)],
     )
     goal = forms.ChoiceField(
         label="Objectif",
         required=False,
-        choices=[("", "— Sélectionner —")] + list(LearnerKYC.Goal.choices),
+        choices=[("", "— Sélectionner —"), *list(LearnerKYC.Goal.choices)],
     )
     domain_interest = forms.CharField(
         label="Domaine d'intérêt",
@@ -66,7 +66,7 @@ class CustomSignupForm(SignupForm):
     availability = forms.ChoiceField(
         label="Disponibilité",
         required=False,
-        choices=[("", "— Sélectionner —")] + list(LearnerKYC.Availability.choices),
+        choices=[("", "— Sélectionner —"), *list(LearnerKYC.Availability.choices)],
     )
     country = forms.CharField(label="Pays", required=False, initial=DEFAULT_COUNTRY, max_length=80)
     city = forms.CharField(label="Ville", required=False, max_length=80)
@@ -87,7 +87,7 @@ class CustomSignupForm(SignupForm):
             "text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 "
             "focus:ring-sky-100 focus:border-sky-400 transition"
         )
-        for name, field in self.fields.items():
+        for _name, field in self.fields.items():
             css = field.widget.attrs.get("class", "")
             field.widget.attrs["class"] = (css + " " + base).strip()
         # CORRECTIF A11Y-09 : autocomplete pour les gestionnaires de mots de passe.

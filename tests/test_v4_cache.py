@@ -14,8 +14,8 @@ def clear_cache():
 
 @pytest.mark.django_db
 def test_org_dashboard_kpis_returns_expected_shape(alice, clear_cache):
-    from organizations.models import Organization
     from core.dashboard_kpis import get_organization_dashboard_kpis
+    from organizations.models import Organization
 
     org = Organization.objects.create(name="DashOrg", slug="dash-org")
     payload = get_organization_dashboard_kpis(organization_id=org.id)
@@ -28,9 +28,9 @@ def test_org_dashboard_kpis_returns_expected_shape(alice, clear_cache):
 @pytest.mark.django_db
 def test_org_dashboard_cache_is_invalidated_on_course_change(alice, clear_cache):
     """V4.A : la création/modification d'un Course doit invalider le cache."""
-    from organizations.models import Organization
     from catalog.models import Course
     from core.dashboard_kpis import get_organization_dashboard_kpis
+    from organizations.models import Organization
 
     org = Organization.objects.create(name="CacheOrg", slug="cache-org")
 

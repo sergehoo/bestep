@@ -1,0 +1,87 @@
+{% with current=request.resolver_match.url_name|default:"" %}
+<a href="{{ href }}"
+   @click="closeMobile()"
+   :title="titleWhenCollapsed('{{ label|escapejs }}')"
+   data-sidebar-item="{{ label }}"
+   {% if current == match or current == match_alt or current == match_alt2 or current == match_alt3 or current == match_alt4 or current == match_alt5 or current == match_alt6 %}aria-current="page"{% endif %}
+   class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition-all duration-200
+          focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60
+          {% if current == match or current == match_alt or current == match_alt2 or current == match_alt3 or current == match_alt4 or current == match_alt5 or current == match_alt6 %}
+            accent-bg-soft accent-text accent-border shadow-soft
+          {% else %}
+            border-transparent text-be-ink-700 dark:text-white/80
+            hover:bg-be-ink-50/80 dark:hover:bg-white/10
+          {% endif %}">
+  <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors
+               {% if current == match or current == match_alt or current == match_alt2 or current == match_alt3 or current == match_alt4 or current == match_alt5 or current == match_alt6 %}
+                 accent-bg-soft accent-text
+               {% else %}
+                 bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60
+                 group-hover:bg-be-sky-50 group-hover:text-be-sky-600
+               {% endif %}">
+    {% if icon == "dashboard" %}
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 10.5 12 3l9 7.5V21a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 21v-10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M9 22v-7h6v7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    {% elif icon == "play" %}
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+        <path d="m10 8 6 4-6 4V8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    {% elif icon == "courses" %}
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M8 7h7M8 11h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    {% elif icon == "explore" %}
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+        <path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    {% elif icon == "media" %}
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+        <path d="m8 14 2.5-2.5 2 2L15 11l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+      </svg>
+    {% elif icon == "quiz" %}
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M9 4h6M9 2h6v4H9zM7 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="m8 13 2 2 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    {% elif icon == "users" %}
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    {% elif icon == "organizations" %}
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 10h.01M15 10h.01M9 14h.01M15 14h.01M10 21v-4h4v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    {% else %}
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
+        <path d="M4 21a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    {% endif %}
+  </span>
+
+  <span class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
+    <span class="block text-sm font-semibold truncate">{{ label }}</span>
+    {% if description %}
+      <span class="block text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5 truncate">{{ description }}</span>
+    {% endif %}
+  </span>
+
+  {% if badge %}
+    <span x-show="isExpanded" x-cloak
+          class="min-w-6 h-6 px-1.5 rounded-full accent-bg-strong text-[10px] font-bold
+                 inline-flex items-center justify-center tabular-nums"
+          aria-label="{{ badge }} élément{{ badge|pluralize }} à consulter">
+      {{ badge }}
+    </span>
+  {% endif %}
+</a>
+{% endwith %}

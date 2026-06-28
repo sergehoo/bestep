@@ -54,8 +54,8 @@ def test_platform_admin_required_blocks_is_staff_only(rf, make_user):
 @pytest.mark.django_db
 def test_org_admin_required_for_id_denies_outsider(rf, alice):
     """Un user non-membre de l'org doit être bloqué."""
-    from organizations.models import Organization
     from core.decorators import org_admin_required_for_id
+    from organizations.models import Organization
 
     org = Organization.objects.create(name="DecoOrg", slug="deco-org")
 
@@ -73,8 +73,8 @@ def test_org_admin_required_for_id_denies_outsider(rf, alice):
 @pytest.mark.django_db
 def test_org_admin_required_for_id_allows_admin(rf, alice):
     """Un OWNER de l'org passe."""
-    from organizations.models import Organization, OrganizationMembership
     from core.decorators import org_admin_required_for_id
+    from organizations.models import Organization, OrganizationMembership
 
     org = Organization.objects.create(name="DecoOrg2", slug="deco-org-2")
     OrganizationMembership.objects.create(

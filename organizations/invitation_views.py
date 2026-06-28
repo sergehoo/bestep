@@ -62,7 +62,7 @@ def accept_invitation(request, token):
         for m in msgs:
             messages.error(request, m)
         return redirect("home")
-    except Exception as exc:  # noqa: BLE001
+    except Exception:
         logger.exception("invitation.accept.unexpected", extra={"token": str(token)})
         messages.error(request, "Une erreur inattendue est survenue.")
         return redirect("home")

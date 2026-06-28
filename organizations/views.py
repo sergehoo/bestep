@@ -8,19 +8,18 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Avg, Count, DecimalField, IntegerField, Q, Sum, Value, FloatField
+from django.db.models import Avg, Count, DecimalField, FloatField, IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncDate
-from django.http import Http404
-from django.shortcuts import redirect, get_object_or_404
-from django.urls import NoReverseMatch, reverse
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.utils import timezone
-from django.views.generic import FormView, TemplateView, DetailView, ListView
+from django.views.generic import DetailView, FormView, ListView, TemplateView
+
 from assessments.models import Quiz
-from catalog.models import Category, Course, Lesson, MediaAsset, Payment, CourseSection
+from catalog.models import Category, Course, CourseSection, Lesson, MediaAsset, Payment
 from enrollments.models import Enrollment, LessonProgress
 from formations.Rolemixin import RoleRequiredMixin
-from formations.views import _redirect_by_role
-from organizations.models import OrganizationMembership, Organization
+from organizations.models import Organization, OrganizationMembership
 from organizations.organ_forms import (
     OrganizationCourseAssignInstructorForm,
     OrganizationCourseAssignLearnersForm,
@@ -32,7 +31,6 @@ from organizations.organ_forms import (
     OrganizationSectionCreateForm,
 )
 from organizations.services import OrganizationMemberManagementService
-from organizations.utils import get_current_organization_for_user, get_user_admin_organizations
 
 User = get_user_model()
 
@@ -157,8 +155,8 @@ class OrganizationScopedMixin(LoginRequiredMixin, RoleRequiredMixin):
             # que pour un non-admin qui taperait un mauvais id.
             try:
                 return Organization.objects.get(pk=organization_id, is_active=True)
-            except (Organization.DoesNotExist, ValueError, TypeError):
-                raise PermissionDenied("Organisation introuvable.")
+            except (Organization.DoesNotExist, ValueError, TypeError) as exc:
+                raise PermissionDenied("Organisation introuvable.") from exc
 
         try:
             membership = (
@@ -173,8 +171,8 @@ class OrganizationScopedMixin(LoginRequiredMixin, RoleRequiredMixin):
                 )
                 .first()
             )
-        except (ValueError, TypeError):
-            raise PermissionDenied("Organisation introuvable.")
+        except (ValueError, TypeError) as exc:
+            raise PermissionDenied("Organisation introuvable.") from exc
 
         if not membership:
             raise PermissionDenied(
@@ -563,6 +561,10 @@ class OrganisationDashboard(OrganizationScopedMixin, TemplateView):
 class OrganizationMemberCreateView(OrganizationScopedMixin, FormView):
     template_name = "organization/member_create.html"
     form_class = OrganizationMemberCreateForm
+    allowed_org_roles = (
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.ADMIN,
+    )
 
     def form_valid(self, form):
         result = OrganizationMemberManagementService.create_member(

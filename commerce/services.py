@@ -27,6 +27,7 @@ Changements clés :
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Mapping
 from decimal import Decimal
 
 from django.db import transaction
@@ -41,7 +42,7 @@ from .models import CompanyLicense, Coupon, Order, OrderItem, PaymentTransaction
 logger = logging.getLogger(__name__)
 
 
-def _coupon_is_usable(coupon: Coupon, order_currency: str) -> bool:
+def coupon_is_usable(coupon: Coupon, order_currency: str) -> bool:
     """Vrai si le coupon peut être appliqué à une order de devise ``order_currency``."""
     if not coupon or not coupon.is_active:
         return False
@@ -86,7 +87,7 @@ def recalc_order_totals(order: Order) -> Order:
         subtotal += it.line_total
 
     discount_total = Decimal("0")
-    if order.coupon and _coupon_is_usable(order.coupon, order.currency):
+    if order.coupon and coupon_is_usable(order.coupon, order.currency):
         c = order.coupon
         if c.percent_off:
             pct = max(0, min(100, c.percent_off))
@@ -142,6 +143,7 @@ def enroll_on_payment_success(order_id: int) -> dict:
                 continue
             CompanyLicense.objects.create(
                 company=order.company,
+                order=order,
                 seats_total=it.seats_qty,
                 seats_used=0,
                 valid_until=None,
@@ -227,63 +229,97 @@ def _sanitize_payload(payload: dict) -> dict:
     return {k: v for k, v in payload.items() if k in allowed}
 
 
-@transaction.atomic
-def refund_order(order_id: int, *, reason: str = "") -> dict:
-    """CORRECTIF COM-04 : workflow de remboursement.
+def refund_order(
+    order_id: int,
+    *,
+    reason: str = "",
+    provider_refund: Callable | None = None,
+) -> dict:
+    """Rembourse au PSP avant de révoquer les accès locaux.
 
-    1. Vérifie que l'order est PAID.
-    2. Marque les Enrollment créés en CANCELED.
-    3. Désactive les CompanyLicense créées via cette order.
-    4. Journalise une PaymentTransaction de refund.
-    5. Marque l'order REFUNDED.
-
-    NOTE : l'appel réel au provider de paiement (Stripe.Refund.create, etc.)
-    doit être branché ici selon le PSP utilisé. On lève NotImplementedError
-    pour forcer le call-site à le faire explicitement.
+    ``provider_refund`` doit accepter ``order``, ``reason`` et
+    ``idempotency_key``, puis retourner ``provider`` et ``reference``.
     """
-    order = (
-        Order.objects.select_for_update()
-        .select_related("company", "user")
-        .get(pk=order_id)
-    )
-    if order.status != Order.Status.PAID:
-        return {"ok": False, "reason": f"not_paid (status={order.status})"}
+    if provider_refund is None:
+        raise NotImplementedError("Un adaptateur de remboursement PSP est requis.")
 
-    canceled_enrollments = 0
-    for it in order.items.select_related("course"):
-        if it.item_type == OrderItem.ItemType.COURSE and it.course_id and order.user_id:
-            updated = Enrollment.objects.filter(
-                user_id=order.user_id, course_id=it.course_id
-            ).update(status=Enrollment.Status.CANCELED)
-            canceled_enrollments += updated
+    with transaction.atomic():
+        order = (
+            Order.objects.select_for_update(of=("self",))
+            .select_related("company", "user")
+            .get(pk=order_id)
+        )
+        if order.status == Order.Status.REFUNDED:
+            return {"ok": True, "already_refunded": True}
+        if order.status not in {Order.Status.PAID, Order.Status.REFUND_FAILED}:
+            return {"ok": False, "reason": f"not_paid (status={order.status})"}
+        order.status = Order.Status.REFUND_PENDING
+        order.save(update_fields=["status"])
 
-    # Désactivation des CompanyLicense rattachées (par convention : la dernière
-    # license créée correspond à cette order ; pour un audit plus précis,
-    # ajouter un champ FK ``order`` sur CompanyLicense).
-    licenses_deactivated = 0
-    if order.company_id:
-        # On pose valid_until=hier pour neutraliser.
+    try:
+        provider_result = provider_refund(
+            order=order,
+            reason=reason,
+            idempotency_key=f"best-epargne-refund-{order.id}",
+        )
+        if not isinstance(provider_result, Mapping):
+            raise ValueError("Réponse de remboursement PSP invalide.")
+        provider = str(provider_result.get("provider") or "").strip().lower()
+        reference = str(provider_result.get("reference") or "").strip()
+        if not provider or not reference:
+            raise ValueError("Référence de remboursement PSP manquante.")
+    except Exception:
+        Order.objects.filter(
+            pk=order_id,
+            status=Order.Status.REFUND_PENDING,
+        ).update(status=Order.Status.REFUND_FAILED)
+        raise
+
+    with transaction.atomic():
+        order = (
+            Order.objects.select_for_update(of=("self",))
+            .select_related("company", "user")
+            .get(pk=order_id)
+        )
+        if order.status == Order.Status.REFUNDED:
+            return {"ok": True, "already_refunded": True}
+        if order.status != Order.Status.REFUND_PENDING:
+            raise RuntimeError("État de remboursement incohérent.")
+
+        canceled_enrollments = 0
+        for item in order.items.select_related("course"):
+            if (
+                item.item_type == OrderItem.ItemType.COURSE
+                and item.course_id
+                and order.user_id
+            ):
+                canceled_enrollments += Enrollment.objects.filter(
+                    user_id=order.user_id,
+                    course_id=item.course_id,
+                ).update(status=Enrollment.Status.CANCELED)
+
         from datetime import timedelta
+
         licenses_deactivated = CompanyLicense.objects.filter(
-            company_id=order.company_id, valid_until__isnull=True
+            order=order,
+            valid_until__isnull=True,
         ).update(valid_until=(timezone.now() - timedelta(days=1)).date())
 
-    # Journalisation de la transaction de refund.
-    PaymentTransaction.objects.create(
-        order=order,
-        provider="manual_refund",
-        reference=f"refund:{order.id}",
-        status=PaymentTransaction.Status.SUCCESS,
-        amount=order.total,
-        currency=order.currency,
-        raw_payload={"reason": reason[:500]},
-    )
+        PaymentTransaction.objects.create(
+            order=order,
+            provider=f"{provider}_refund",
+            reference=reference,
+            status=PaymentTransaction.Status.SUCCESS,
+            amount=order.total,
+            currency=order.currency,
+            raw_payload={},
+        )
 
-    order.status = Order.Status.REFUNDED
-    order.save(update_fields=["status"])
+        order.status = Order.Status.REFUNDED
+        order.save(update_fields=["status"])
 
-    return {
-        "ok": True,
-        "canceled_enrollments": canceled_enrollments,
-        "licenses_deactivated": licenses_deactivated,
-    }
+        return {
+            "ok": True,
+            "canceled_enrollments": canceled_enrollments,
+            "licenses_deactivated": licenses_deactivated,
+        }

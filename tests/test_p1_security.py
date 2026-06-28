@@ -24,7 +24,6 @@ from rest_framework.test import APIClient
 
 from core.permissions import is_platform_admin
 
-
 # -- core.permissions ------------------------------------------------------
 
 @pytest.mark.django_db
@@ -106,8 +105,8 @@ def test_review_comment_strips_html():
 @pytest.mark.django_db
 def test_get_visible_courses_qs_excludes_draft(alice):
     """CAT-01 / ASS-01 : les cours DRAFT/ARCHIVED ne sont jamais retournés."""
-    from catalog.services import get_visible_courses_qs
     from catalog.models import Course
+    from catalog.services import get_visible_courses_qs
 
     # Crée un cours DRAFT.
     draft = Course.objects.create(
@@ -123,8 +122,8 @@ def test_get_visible_courses_qs_excludes_draft(alice):
 @pytest.mark.django_db
 def test_get_visible_courses_qs_excludes_company_only_for_outsider(alice, bob):
     """CAT-01 : un user non-membre d'une org ne voit pas ses cours company_only."""
-    from catalog.services import get_visible_courses_qs
     from catalog.models import Course
+    from catalog.services import get_visible_courses_qs
     from organizations.models import Organization
 
     org = Organization.objects.create(name="Acme", slug="acme")

@@ -1,9 +1,15 @@
 from django.contrib import admin
 
 # Register your models here.
-from django.contrib import admin
-from .models import Coupon, Order, OrderItem, PaymentTransaction, CompanyLicense, CompanyAssignment, \
-    CompanyAssignmentTarget
+from .models import (
+    CompanyAssignment,
+    CompanyAssignmentTarget,
+    CompanyLicense,
+    Coupon,
+    Order,
+    OrderItem,
+    PaymentTransaction,
+)
 
 
 class OrderItemInline(admin.TabularInline):

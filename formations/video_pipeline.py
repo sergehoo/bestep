@@ -26,8 +26,7 @@ def run_cmd(cmd: list[str], timeout: int = DEFAULT_FFMPEG_TIMEOUT) -> subprocess
     try:
         result = subprocess.run(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=True,
             text=True,
             timeout=timeout,

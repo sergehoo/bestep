@@ -2,12 +2,10 @@ from __future__ import annotations
 
 from functools import cached_property
 
+# Create your models here.
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.core.exceptions import ValidationError
 from django.db import models
-
-# Create your models here.
-from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.utils import timezone
 
 from organizations.models import OrganizationMembership

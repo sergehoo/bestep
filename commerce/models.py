@@ -46,6 +46,8 @@ class Order(models.Model):
         PAID = "PAID", "Payée"
         FAILED = "FAILED", "Échouée"
         CANCELED = "CANCELED", "Annulée"
+        REFUND_PENDING = "REFUND_PENDING", "Remboursement en cours"
+        REFUND_FAILED = "REFUND_FAILED", "Remboursement échoué"
         REFUNDED = "REFUNDED", "Remboursée"
 
     user = models.ForeignKey(
@@ -63,7 +65,7 @@ class Order(models.Model):
         related_name="orders",
     )
 
-    status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     currency = models.CharField(max_length=8, default="XOF")
 
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -148,6 +150,13 @@ class PaymentTransaction(models.Model):
 class CompanyLicense(models.Model):
     company = models.ForeignKey(
         "organizations.Organization", on_delete=models.CASCADE, related_name="licenses"
+    )
+    order = models.ForeignKey(
+        "commerce.Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="company_licenses",
     )
     seats_total = models.PositiveIntegerField(default=0)
     seats_used = models.PositiveIntegerField(default=0)

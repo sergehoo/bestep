@@ -42,6 +42,7 @@ static_collected/
 .vscode/
 *.swp
 *.swo
+~$*.docx
 *.bak
 *.tmp
 *.orig

@@ -1,7 +1,7 @@
 from django.contrib import admin
-from django.utils import timezone
 
 from organizations.models import (
+    BusinessInterestRequest,
     Organization,
     OrganizationInvitation,
     OrganizationMembership,
@@ -118,13 +118,6 @@ class OrganizationInvitationAdmin(admin.ModelAdmin):
         if obj.is_expired:
             return "Expirée"
         return "En attente"
-
-# admin.py
-
-from django.contrib import admin
-
-from .models import BusinessInterestRequest
-
 
 @admin.register(BusinessInterestRequest)
 class BusinessInterestRequestAdmin(admin.ModelAdmin):

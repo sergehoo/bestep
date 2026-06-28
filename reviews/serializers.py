@@ -19,7 +19,6 @@ from rest_framework import serializers
 
 from reviews.models import CourseReview
 
-
 _MAX_COMMENT_LEN = 2000
 
 
@@ -41,7 +40,7 @@ class CourseReviewSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "course", "user_name", "is_mine", "created_at", "updated_at"]
 
-    def get_user_name(self, obj):
+    def get_user_name(self, obj) -> str:
         u = obj.user
         # REV-09 : `compte.User` n'a pas de `username` → fallback sur la partie locale de l'email.
         full = (u.get_full_name() or "").strip()
@@ -50,7 +49,7 @@ class CourseReviewSerializer(serializers.ModelSerializer):
         email = getattr(u, "email", "") or ""
         return email.split("@")[0] if email else "Apprenant"
 
-    def get_is_mine(self, obj):
+    def get_is_mine(self, obj) -> bool:
         req = self.context.get("request")
         return bool(req and req.user.is_authenticated and obj.user_id == req.user.id)
 

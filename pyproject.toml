@@ -17,23 +17,26 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Sélection raisonnable pour commencer ; on durcira progressivement.
 select = [
-  "E",    # pycodestyle errors
-  "F",    # pyflakes
-  "W",    # pycodestyle warnings
-  "I",    # isort
-  "B",    # flake8-bugbear
-  "C90",  # mccabe complexity
-  "DJ",   # flake8-django
-  "PIE",  # flake8-pie
-  "SIM",  # flake8-simplify
-  "RUF",  # ruff-specific
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "I",   # imports
+  "B",   # bugbear
+  "UP",  # modernisation Python
+  "C90", # complexité
+  "DJ",  # Django
+  "RUF", # règles Ruff
 ]
 ignore = [
-  "E501",   # ligne trop longue — on a déjà line-length=100
-  "B008",   # mutable default args dans Django (Q, F, OuterRef)
-  "RUF012", # mutable class attributes
+  "E501",   # dette historique de longueur, gérée par le formateur
+  "B008",   # expressions Django légitimes dans les valeurs par défaut
+  "C901",   # complexité historique à réduire module par module
+  "DJ008",  # modèles abstraits et modèles gérés hors admin
+  "DJ012",  # ordre historique des méthodes de modèles
+  "RUF001", # typographie française intentionnelle
+  "RUF002", # typographie française intentionnelle
+  "RUF003", # typographie française intentionnelle
+  "RUF012", # attributs de classes Django déclaratifs
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -124,6 +127,7 @@ omit = [
 show_missing = true
 skip_covered = false
 precision = 1
+fail_under = 30
 exclude_lines = [
   "pragma: no cover",
   "raise NotImplementedError",

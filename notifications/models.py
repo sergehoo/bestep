@@ -16,6 +16,7 @@ Modèle minimaliste mais extensible :
 - ``url`` : lien profond (peut être généré à partir de payload côté template).
 - ``read_at`` : null = non-lu.
 """
+
 from __future__ import annotations
 
 from django.conf import settings
@@ -50,8 +51,8 @@ class Notification(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["user", "read_at"]),
-            models.Index(fields=["kind"]),
+            models.Index(fields=["user", "read_at"], name="notif_user_read_idx"),
+            models.Index(fields=["kind"], name="notif_kind_idx"),
         ]
 
     @property

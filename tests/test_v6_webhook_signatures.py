@@ -3,11 +3,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import time
 from unittest import mock
-
-import pytest
 
 
 def _make_request(body: bytes, headers: dict | None = None):

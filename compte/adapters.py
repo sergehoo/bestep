@@ -38,12 +38,12 @@ from django.urls import NoReverseMatch, reverse
 
 from compte.workspaces import (
     SESSION_KEY as WORKSPACE_SESSION_KEY,
+)
+from compte.workspaces import (
     get_active_workspace,
-    list_available_workspaces,
     resolve_workspace_url,
 )
 from organizations.models import OrganizationMembership
-
 
 # Rôles org considérés comme "admin" au sens métier (accès business dashboard).
 _ORG_ADMIN_ROLES = (
@@ -52,7 +52,7 @@ _ORG_ADMIN_ROLES = (
 )
 
 # Rôles org donnant accès à la gestion (dashboard business étendu).
-_ORG_MANAGER_ROLES = _ORG_ADMIN_ROLES + (OrganizationMembership.Role.MANAGER,)
+_ORG_MANAGER_ROLES = (*_ORG_ADMIN_ROLES, OrganizationMembership.Role.MANAGER)
 
 
 def _safe_reverse(url_name: str, fallback: str = "/") -> str:

@@ -13,9 +13,9 @@ Cette couche de permissions :
 
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from core.permissions import is_platform_admin
 from organizations.models import OrganizationMembership
@@ -65,7 +65,7 @@ class PermissionUtils:
         user,
         roles: Iterable[str],
         organization=None,
-        organization_id: Optional[int] = None,
+        organization_id: int | None = None,
     ) -> bool:
         if not PermissionUtils.is_authenticated_and_active(user):
             return False
@@ -113,16 +113,16 @@ class PermissionUtils:
             return None
 
         if hasattr(obj, "organization"):
-            return getattr(obj, "organization")
+            return obj.organization
 
         if hasattr(obj, "company"):
-            return getattr(obj, "company")
+            return obj.company
 
         if hasattr(obj, "org"):
-            return getattr(obj, "org")
+            return obj.org
 
         if hasattr(obj, "organization_id"):
-            org_id = getattr(obj, "organization_id")
+            org_id = obj.organization_id
             if org_id:
                 class _OrgStub:
                     def __init__(self, pk):
@@ -131,7 +131,7 @@ class PermissionUtils:
                 return _OrgStub(org_id)
 
         if hasattr(obj, "company_id"):
-            org_id = getattr(obj, "company_id")
+            org_id = obj.company_id
             if org_id:
                 class _OrgStub:
                     def __init__(self, pk):

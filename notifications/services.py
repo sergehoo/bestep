@@ -64,7 +64,7 @@ def notify(
                 recipient_list=[user.email],
                 fail_silently=True,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "notification.email.failed",
                 extra={"kind": kind, "user_id": user.id, "exc": str(exc)},

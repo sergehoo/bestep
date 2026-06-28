@@ -40,10 +40,10 @@ from __future__ import annotations
 # les imports descendants ne changent pas.
 #
 # Une fois la migration terminée, ce fichier deviendra un index propre :
-#   from .public import *  # noqa
-#   from .instructor import *  # noqa
+#   from .public import *
+#   from .instructor import *
 #   ...
 
 # Re-export du legacy (commenté tant que views.py existe — décommenter
 # au moment du renommage views.py → _legacy_views.py).
-# from ._legacy_views import *  # noqa: F401, F403
+# from ._legacy_views import *

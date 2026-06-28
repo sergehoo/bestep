@@ -27,7 +27,6 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import ScopedRateThrottle
 
-from catalog.models import Course, Lesson
 from enrollments.models import Enrollment, LessonProgress
 
 
@@ -107,6 +106,7 @@ class EnrollmentViewSet(
 ):
     """LECTURE SEULE — l'inscription se fait via paiement ou assignation org."""
 
+    queryset = Enrollment.objects.none()
     serializer_class = EnrollmentSerializer
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
@@ -128,6 +128,7 @@ class LessonProgressViewSet(
 ):
     """Progression : lecture + mise à jour partielle de soi-même."""
 
+    queryset = LessonProgress.objects.none()
     serializer_class = LessonProgressSerializer
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]

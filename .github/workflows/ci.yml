@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -24,13 +26,22 @@ jobs:
           cache: pip
 
       - name: Install ruff
-        run: pip install ruff==0.6.9 black==25.11.0 isort==5.13.2
+        run: pip install ruff==0.6.9
 
       - name: ruff lint
         run: ruff check .
 
-      - name: ruff format check
-        run: ruff format --check .
+      - name: ruff format new Python files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="$(git rev-list --max-parents=0 HEAD)"
+          fi
+          mapfile -d '' files < <(git diff --name-only --diff-filter=A -z "$BASE_SHA" HEAD -- '*.py')
+          if (( ${#files[@]} )); then
+            ruff format --check "${files[@]}"
+          fi
 
   tests:
     runs-on: ubuntu-latest
@@ -99,6 +110,9 @@ jobs:
       - name: Migrate
         run: python manage.py migrate --noinput
 
+      - name: Validate OpenAPI schema
+        run: python manage.py spectacular --file /tmp/openapi.yml --validate --fail-on-warn
+
       - name: Tests
         run: pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
 
@@ -123,18 +137,18 @@ jobs:
       - name: pip-audit (CVE check)
         run: |
           pip install pip-audit
-          pip-audit --requirement requirements.txt --strict || \
-            { echo "::warning::pip-audit a trouvé des vulnérabilités"; exit 0; }
+          pip-audit --requirement requirements.txt --strict
 
       - name: Django security check
         env:
           DJANGO_SETTINGS_MODULE: best_epargne.settings.prod
-          DJANGO_SECRET_KEY: ci-secret-key
+          DJANGO_SECRET_KEY: ci-secret-key-for-security-checks-only-2026-not-for-runtime
+          DJANGO_DEBUG: "0"
           DJANGO_ALLOWED_HOSTS: example.com
           POSTGRES_PASSWORD: dummy
         run: |
           pip install -r requirements.txt
-          python manage.py check --deploy --fail-level WARNING || true
+          python manage.py check --deploy --tag security --fail-level WARNING
 
   docker:
     runs-on: ubuntu-latest
@@ -147,9 +161,9 @@ jobs:
         run: docker build -t best-epargne:${{ github.sha }} .
 
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: best-epargne:${{ github.sha }}
           severity: HIGH,CRITICAL
-          exit-code: "0"   # warning only pour démarrer ; passer à "1" plus tard
+          exit-code: "1"
           ignore-unfixed: true

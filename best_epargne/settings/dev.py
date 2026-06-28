@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from .base import *  # noqa: F401,F403
+from .base import *  # noqa: F403
 
 # En dev on autorise tous les hôtes uniquement si DJANGO_ALLOWED_HOSTS
 # n'est pas défini.

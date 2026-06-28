@@ -23,8 +23,8 @@ from organizations.views import (
     OrganizationMemberDeactivateView,
     OrganizationMemberDetailView,
     OrganizationMemberReactivateView,
-    OrganizationMemberUpdateView,
     OrganizationMembersView,
+    OrganizationMemberUpdateView,
     OrganizationQuizCreateView,
     OrganizationQuizDetailView,
 )

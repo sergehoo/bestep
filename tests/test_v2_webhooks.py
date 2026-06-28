@@ -1,9 +1,9 @@
 """Tests V2.C — Webhooks commerce idempotents."""
 from __future__ import annotations
 
-import json
 import hashlib
 import hmac
+import json
 import time
 from decimal import Decimal
 

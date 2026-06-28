@@ -1,399 +1,89 @@
 {% load static %}
-
-{% with m=mode|default:"desktop" org_id=organization.id|default:active_workspace.organization_id cur=request.resolver_match.url_name|default:"" %}
-
+{% firstof user_org_role active_workspace.role as org_role %}
+{% with m=mode|default:"desktop" org_id=organization.id|default:active_workspace.organization_id %}
 <nav aria-label="Navigation organisation"
      x-data="sidebarNav"
      data-mode="{{ m }}"
      :class="navPadding()"
-     class="h-full rounded-[28px] border border-emerald-100/80 dark:border-white/10
-            bg-white/95 dark:bg-white/5 backdrop-blur-xl shadow-soft
-            overflow-hidden transition-all duration-300 flex flex-col">
+     class="h-full rounded-[28px] border accent-border bg-white/95 dark:bg-white/5
+            backdrop-blur-xl shadow-soft overflow-hidden transition-all duration-300 flex flex-col">
 
-  {# ══ HEADER — identité de l'organisation ════════════════════════════════ #}
-  <div class="border-b border-emerald-100/80 dark:border-white/10 pb-4">
-    {% if org_id %}
-    <a href="{% url 'org:dashboard' org_id %}"
-       @click="closeMobile()"
-       class="block rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60">
-    {% endif %}
-      <div :class="logoSizeFlex()"
-           class="rounded-2xl overflow-hidden transition-all duration-300">
-        <template x-if="isExpanded">
-          <div class="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white p-4 rounded-2xl shadow-soft">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-black text-lg shrink-0">
-                {{ organization.name|slice:":1"|default:active_workspace.organization_name|slice:":1"|default:"O"|upper }}
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="text-[10px] uppercase tracking-wide text-white/70">Espace organisation</div>
-                <div class="text-sm font-bold truncate">
-                  {{ organization.name|default:active_workspace.organization_name|default:"Organisation" }}
-                </div>
-              </div>
-            </div>
-            <div class="mt-2 flex items-center gap-2">
-              <span class="text-[11px] text-white/70">Votre rôle :</span>
-              <span class="text-[11px] font-semibold text-white/90 bg-white/15 px-2 py-0.5 rounded-full">
-                {% if active_workspace.role == 'OWNER' %}Propriétaire
-                {% elif active_workspace.role == 'ADMIN' %}Administrateur
-                {% elif active_workspace.role == 'MANAGER' %}Manager
-                {% else %}Membre{% endif %}
-              </span>
-            </div>
-          </div>
-        </template>
-        <template x-if="collapsed">
-          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700
-                      flex items-center justify-center text-white font-black text-lg shadow-soft">
-            {{ organization.name|slice:":1"|default:active_workspace.organization_name|slice:":1"|default:"O"|upper }}
-          </div>
-        </template>
+  <div class="border-b accent-border pb-4">
+    <a href="{% url 'org:dashboard' org_id %}" @click="closeMobile()"
+       class="block rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60">
+      <div :class="logoSize()"
+           class="rounded-2xl flex items-center justify-center overflow-hidden bg-white dark:bg-white/10
+                  border accent-border transition-all duration-300">
+        <img src="{% static 'img/logo-2.png' %}" alt="Best Épargne" class="w-full h-full object-contain p-1">
       </div>
-    {% if org_id %}</a>{% endif %}
+    </a>
+
+    <div class="mt-4" x-show="isExpanded" x-transition x-cloak>
+      <div class="rounded-2xl accent-grad-bg p-4 shadow-soft">
+        <p class="text-[10px] uppercase tracking-[0.14em] text-white/70">Organisation</p>
+        <h2 class="mt-1 text-sm font-bold truncate">{{ organization.name|default:active_workspace.organization_name }}</h2>
+        <p class="mt-1 text-xs text-white/75">
+          {% if org_role == 'OWNER' %}Propriétaire
+          {% elif org_role == 'ADMIN' %}Administrateur
+          {% elif org_role == 'MANAGER' %}Manager
+          {% else %}Pilotage de l'organisation{% endif %}
+        </p>
+        {% if org_pending_invitations_count %}
+          <p class="mt-2 text-[11px] font-semibold text-white/90">
+            {{ org_pending_invitations_count }} invitation{{ org_pending_invitations_count|pluralize }} en attente
+          </p>
+        {% endif %}
+        {% if org_role == 'MANAGER' %}
+          <a href="{% url 'org:course_create' org_id %}" @click="closeMobile()"
+             class="mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30
+                    text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
+            <span aria-hidden="true">＋</span> Créer un cours
+          </a>
+        {% else %}
+          <a href="{% url 'org:member_create' org_id %}" @click="closeMobile()"
+             class="mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30
+                    text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
+            <span aria-hidden="true">＋</span> Ajouter un membre
+          </a>
+        {% endif %}
+      </div>
+    </div>
   </div>
 
-  {# ══ NAVIGATION ══════════════════════════════════════════════════════════ #}
   <div class="py-4 space-y-5 flex-1 overflow-y-auto no-scrollbar max-h-[calc(100vh-260px)] pr-1">
-
-    {# — Pilotage — #}
     <div>
       <div x-show="isExpanded" x-transition x-cloak
-           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-400">
-        Pilotage
-      </div>
+           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] accent-text">Pilotage</div>
       <div class="space-y-1">
+        {% url 'org:dashboard' org_id as org_dashboard_url %}
+        {% include "partials/sidebar_item.html" with href=org_dashboard_url label="Vue d'ensemble" description="Activité de l'organisation" icon="dashboard" match="dashboard" %}
 
-        {# Dashboard #}
-        {% if org_id %}
-        <a href="{% url 'org:dashboard' org_id %}"
-           @click="closeMobile()"
-           :title="titleWhenCollapsed('Tableau de bord')"
-           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
-                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60
-                  {% if cur == 'dashboard' %}
-                  bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-white
-                  border border-emerald-100 dark:border-emerald-800/40 shadow-soft
-                  {% else %}
-                  text-be-ink-700 dark:text-white/80 hover:bg-emerald-50/60 dark:hover:bg-white/10
-                  {% endif %}">
-          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                       {% if cur == 'dashboard' %}bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700
-                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-emerald-50 group-hover:text-emerald-600{% endif %}">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M3 10.5 12 3l9 7.5V21a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 21v-10.5Z"
-                    stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M9 22v-7h6v7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
-            <div class="text-sm font-semibold">Tableau de bord</div>
-            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">KPIs & vue d'ensemble</div>
-          </div>
-        </a>
-        {% endif %}
-
-        {# Statistiques — lien vers dashboard tab=analytics #}
-        {% if org_id %}
-        <a href="{% url 'org:dashboard' org_id %}?tab=analytics"
-           @click="closeMobile()"
-           :title="titleWhenCollapsed('Statistiques')"
-           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
-                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60
-                  text-be-ink-700 dark:text-white/80 hover:bg-emerald-50/60 dark:hover:bg-white/10">
-          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                       bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-emerald-50 group-hover:text-emerald-600">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 18V9M9 18V5M14 18v-6M19 18V3"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
-            <div class="text-sm font-semibold">Statistiques</div>
-            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Activité & complétion</div>
-          </div>
-        </a>
-        {% endif %}
+        {% url 'org:members' org_id as org_members_url %}
+        {% include "partials/sidebar_item.html" with href=org_members_url label="Équipe & membres" description="Rôles et accès" icon="users" badge=org_pending_invitations_count match="members" match_alt="member_create" match_alt2="member_detail" match_alt3="member_update" match_alt4="instructor_create" match_alt5="learner_create" %}
       </div>
     </div>
 
-    {# — Membres — #}
     <div>
       <div x-show="isExpanded" x-transition x-cloak
-           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
-        Membres
-      </div>
+           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] accent-text">Formation</div>
       <div class="space-y-1">
+        {% url 'org:courses' org_id as org_courses_url %}
+        {% include "partials/sidebar_item.html" with href=org_courses_url label="Cours internes" description="Catalogue et affectations" icon="courses" match="courses" match_alt="course_create" match_alt2="course_detail" match_alt3="course_builder" match_alt4="section_create" match_alt5="lesson_create" match_alt6="quiz_list" %}
 
-        {% if org_id %}
-        {# Liste des membres #}
-        <a href="{% url 'org:members' org_id %}"
-           @click="closeMobile()"
-           :title="titleWhenCollapsed('Membres')"
-           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
-                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60
-                  {% if cur in 'members,member_detail,member_update' %}
-                  bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-white
-                  border border-emerald-100 dark:border-emerald-800/40 shadow-soft
-                  {% else %}
-                  text-be-ink-700 dark:text-white/80 hover:bg-emerald-50/60 dark:hover:bg-white/10
-                  {% endif %}">
-          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                       {% if cur in 'members,member_detail,member_update' %}bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700
-                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-emerald-50 group-hover:text-emerald-600{% endif %}">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M16 11a4 4 0 1 0-8 0M2 21v-2a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v2"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
-            <div class="text-sm font-semibold">Membres</div>
-            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Apprenants & formateurs</div>
-          </div>
-          {% if org_pending_invitations_count %}
-          <span x-show="isExpanded" x-cloak
-                class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-600 text-white font-semibold"
-                title="{{ org_pending_invitations_count }} invitation{{ org_pending_invitations_count|pluralize }} en attente">
-            {{ org_pending_invitations_count }}
-          </span>
-          {% endif %}
-        </a>
-
-        {# Inviter un membre #}
-        <a href="{% url 'org:member_create' org_id %}"
-           @click="closeMobile()"
-           :title="titleWhenCollapsed('Inviter')"
-           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
-                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60
-                  {% if cur == 'member_create' or cur == 'instructor_create' or cur == 'learner_create' %}
-                  bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-white
-                  border border-emerald-100 dark:border-emerald-800/40 shadow-soft
-                  {% else %}
-                  text-be-ink-700 dark:text-white/80 hover:bg-emerald-50/60 dark:hover:bg-white/10
-                  {% endif %}">
-          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                       {% if cur == 'member_create' or cur == 'instructor_create' or cur == 'learner_create' %}bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700
-                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-emerald-50 group-hover:text-emerald-600{% endif %}">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M16 11a4 4 0 1 0-8 0M12 15v6M9 18h6M20 8h-2M22 6v4"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
-            <div class="text-sm font-semibold">Inviter un membre</div>
-            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Formateur ou apprenant</div>
-          </div>
-        </a>
-        {% endif %}
+        {% url 'org:media_library' org_id as org_media_url %}
+        {% include "partials/sidebar_item.html" with href=org_media_url label="Médiathèque" description="Ressources partagées" icon="media" match="media_library" %}
       </div>
     </div>
-
-    {# — Catalogue de formation — #}
-    <div>
-      <div x-show="isExpanded" x-transition x-cloak
-           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
-        Catalogue interne
-      </div>
-      <div class="space-y-1">
-
-        {% if org_id %}
-        {# Cours #}
-        <a href="{% url 'org:courses' org_id %}"
-           @click="closeMobile()"
-           :title="titleWhenCollapsed('Cours')"
-           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
-                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60
-                  {% if cur in 'courses,course_detail,course_builder,section_create,lesson_create,course_assign_learners,course_assign_instructor' %}
-                  bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-white
-                  border border-emerald-100 dark:border-emerald-800/40 shadow-soft
-                  {% else %}
-                  text-be-ink-700 dark:text-white/80 hover:bg-emerald-50/60 dark:hover:bg-white/10
-                  {% endif %}">
-          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                       {% if cur in 'courses,course_detail,course_builder,section_create,lesson_create,course_assign_learners,course_assign_instructor' %}bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700
-                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-emerald-50 group-hover:text-emerald-600{% endif %}">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 19V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2Z"
-                    stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M8 7h8M8 11h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
-            <div class="text-sm font-semibold">Cours internes</div>
-            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Formations de l'organisation</div>
-          </div>
-        </a>
-
-        {# Créer un cours #}
-        <a href="{% url 'org:course_create' org_id %}"
-           @click="closeMobile()"
-           :title="titleWhenCollapsed('Créer un cours')"
-           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
-                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60
-                  {% if cur == 'course_create' %}
-                  bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-white
-                  border border-emerald-100 dark:border-emerald-800/40 shadow-soft
-                  {% else %}
-                  text-be-ink-700 dark:text-white/80 hover:bg-emerald-50/60 dark:hover:bg-white/10
-                  {% endif %}">
-          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                       {% if cur == 'course_create' %}bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700
-                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-emerald-50 group-hover:text-emerald-600{% endif %}">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
-            <div class="text-sm font-semibold">Créer un cours</div>
-            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Nouvelle formation interne</div>
-          </div>
-        </a>
-
-        {# Médiathèque #}
-        <a href="{% url 'org:media_library' org_id %}"
-           @click="closeMobile()"
-           :title="titleWhenCollapsed('Médiathèque')"
-           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
-                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60
-                  {% if cur == 'media_library' %}
-                  bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-white
-                  border border-emerald-100 dark:border-emerald-800/40 shadow-soft
-                  {% else %}
-                  text-be-ink-700 dark:text-white/80 hover:bg-emerald-50/60 dark:hover:bg-white/10
-                  {% endif %}">
-          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                       {% if cur == 'media_library' %}bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700
-                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-emerald-50 group-hover:text-emerald-600{% endif %}">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="2"/>
-              <path d="m10 8 6 4-6 4V8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
-            <div class="text-sm font-semibold">Médiathèque</div>
-            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Vidéos, docs & ressources</div>
-          </div>
-        </a>
-        {% endif %}
-      </div>
-    </div>
-
-    {# — Évaluations — #}
-    {% if org_id %}
-    <div>
-      <div x-show="isExpanded" x-transition x-cloak
-           class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-be-ink-400 dark:text-white/40">
-        Évaluations
-      </div>
-      <div class="space-y-1">
-        <a href="{% url 'org:courses' org_id %}?tab=quizzes"
-           @click="closeMobile()"
-           :title="titleWhenCollapsed('Quiz')"
-           class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200
-                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60
-                  {% if cur in 'quiz_list,quiz_detail,quiz_create' %}
-                  bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-white
-                  border border-emerald-100 dark:border-emerald-800/40 shadow-soft
-                  {% else %}
-                  text-be-ink-700 dark:text-white/80 hover:bg-emerald-50/60 dark:hover:bg-white/10
-                  {% endif %}">
-          <span class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
-                       {% if cur in 'quiz_list,quiz_detail,quiz_create' %}bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700
-                       {% else %}bg-be-ink-50 dark:bg-white/5 text-be-ink-500 dark:text-white/60 group-hover:bg-emerald-50 group-hover:text-emerald-600{% endif %}">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M9 11h6M9 15h3M7 3h10a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2h2Z"
-                    stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
-            <div class="text-sm font-semibold">Quiz & évaluations</div>
-            <div class="text-[11px] text-be-ink-500 dark:text-white/50 -mt-0.5">Résultats & suivi</div>
-          </div>
-        </a>
-      </div>
-    </div>
-    {% endif %}
-
-    {# — Actions rapides — #}
-    {% if org_id %}
-    <div x-show="isExpanded" x-transition x-cloak class="pt-1">
-      <div class="rounded-[20px] border border-emerald-100 dark:border-white/10
-                  bg-gradient-to-br from-emerald-50 via-white to-be-sky-50
-                  dark:from-white/5 dark:via-white/5 dark:to-white/5 p-4">
-        <div class="text-xs text-be-ink-500 dark:text-white/50">Accès rapide</div>
-        <div class="font-semibold mt-0.5 text-sm text-be-ink-900 dark:text-white">Inviter & créer</div>
-        <div class="mt-3 grid grid-cols-2 gap-2">
-          <a href="{% url 'org:member_create' org_id %}"
-             @click="closeMobile()"
-             class="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition text-center">
-            + Membre
-          </a>
-          <a href="{% url 'org:course_create' org_id %}"
-             @click="closeMobile()"
-             class="px-3 py-2 rounded-xl border border-emerald-200 dark:border-white/10 text-emerald-700 dark:text-white
-                    hover:bg-emerald-50 dark:hover:bg-white/10 text-xs font-semibold transition text-center">
-            + Cours
-          </a>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
   </div>
 
-  {# ══ FOOTER ══════════════════════════════════════════════════════════════ #}
-  <div class="pt-4 border-t border-emerald-100/80 dark:border-white/10">
-    <div class="flex items-center gap-3 px-2">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700
-                  flex items-center justify-center text-white font-bold text-sm shrink-0">
-        {{ request.user.full_name|slice:":1"|default:"O"|upper }}
-      </div>
-      <div class="min-w-0 flex-1" x-show="isExpanded" x-transition x-cloak>
-        <div class="text-sm font-semibold truncate">{{ request.user.full_name|default:"Utilisateur" }}</div>
-        <div class="text-[11px] text-be-ink-500 dark:text-white/50">
-          {% if active_workspace.role == 'OWNER' %}Propriétaire
-          {% elif active_workspace.role == 'ADMIN' %}Administrateur
-          {% elif active_workspace.role == 'MANAGER' %}Manager
-          {% else %}Membre{% endif %}
-        </div>
-      </div>
-    </div>
-    <div class="mt-3 grid grid-cols-2 gap-2" x-show="isExpanded" x-transition x-cloak>
-      <a href="{% url 'compte:profile' %}"
-         class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10
-                bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10
-                focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200/60
-                transition text-xs font-semibold text-center text-be-ink-700 dark:text-white/80">
-        Mon profil
-      </a>
-      <form method="post" action="{% url 'account_logout' %}" class="contents">
-        {% csrf_token %}
-        <button type="submit"
-                class="px-3 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white
-                       focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/60
-                       transition text-xs font-semibold">
-          Déconnexion
-        </button>
-      </form>
-    </div>
-    {% for ws in available_workspaces %}{% if ws.kind == 'learner' %}
-      <form method="post" action="{% url 'switch_workspace' %}" class="mt-2" x-show="isExpanded" x-cloak>
-        {% csrf_token %}
-        <input type="hidden" name="kind" value="learner">
-        <button type="submit"
-                class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl
-                       text-xs font-semibold text-be-ink-500 dark:text-white/60
-                       hover:text-be-sky-700 hover:bg-be-sky-50 dark:hover:bg-white/10
-                       focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200/60 transition">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M19 12H5M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2"
-                  stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Retour à mon espace apprenant
-        </button>
-      </form>
-    {% endif %}{% endfor %}
-  </div>
-
+  {% if org_role == 'OWNER' %}
+    {% include "partials/sidebar_footer.html" with role_label="Propriétaire" %}
+  {% elif org_role == 'ADMIN' %}
+    {% include "partials/sidebar_footer.html" with role_label="Administrateur d'organisation" %}
+  {% elif org_role == 'MANAGER' %}
+    {% include "partials/sidebar_footer.html" with role_label="Manager d'organisation" %}
+  {% else %}
+    {% include "partials/sidebar_footer.html" with role_label="Pilotage organisation" %}
+  {% endif %}
 </nav>
 {% endwith %}

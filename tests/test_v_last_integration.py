@@ -115,10 +115,9 @@ def test_invitation_to_membership_full_flow(alice, bob):
     """V_LAST.D : invitation → email envoyé (testé via core.mail.outbox)
     → bob accepte → membership créé.
     """
-    from datetime import timedelta
     from django.core import mail
-    from django.utils import timezone
-    from organizations.models import Organization, OrganizationInvitation, OrganizationMembership
+
+    from organizations.models import Organization, OrganizationMembership
     from organizations.services import OrganizationMemberManagementService
 
     org = Organization.objects.create(name="Invite Org", slug="invite-org")

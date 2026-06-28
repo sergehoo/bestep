@@ -3,9 +3,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
 from assessments.models import Quiz
-from catalog.models import Course, CourseSection, Lesson, MediaAsset, Category
-from compte.models import InstructorProfile, LearnerProfile
-from organizations.models import Organization, OrganizationMembership, BusinessInterestRequest
+from catalog.models import Category, Course, CourseSection, Lesson, MediaAsset
+from organizations.models import BusinessInterestRequest, OrganizationMembership
 
 User = get_user_model()
 

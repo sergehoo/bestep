@@ -1,8 +1,6 @@
 """Pytest fixtures partagées pour les tests Phase 1."""
 from __future__ import annotations
 
-from decimal import Decimal
-
 import pytest
 from django.contrib.auth import get_user_model
 

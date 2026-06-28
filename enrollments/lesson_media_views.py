@@ -22,13 +22,12 @@ Vérifications :
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import (
     api_view,
     permission_classes,
@@ -76,7 +75,7 @@ def _generate_signed_url(asset: MediaAsset, *, ttl: int = SIGNED_URL_TTL_SECONDS
     )
 
 
-def _resolve_lesson_for_user(user, lesson_id: int) -> tuple[Lesson, Course, Optional[Enrollment]]:
+def _resolve_lesson_for_user(user, lesson_id: int) -> tuple[Lesson, Course, Enrollment | None]:
     """Sécurité : retourne (lesson, course, enrollment_or_none) ou lève.
 
     Règles :
@@ -109,6 +108,7 @@ def _resolve_lesson_for_user(user, lesson_id: int) -> tuple[Lesson, Course, Opti
     return lesson, course, enrollment
 
 
+@extend_schema(responses={200: OpenApiTypes.OBJECT})
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 @throttle_classes([ScopedRateThrottle])
@@ -135,12 +135,12 @@ def lesson_signed_stream(request, lesson_id: int):
 
     try:
         url = _generate_signed_url(lesson.media_asset)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(
             "lesson.stream.signed_url_failed",
             extra={"lesson_id": lesson_id, "exc": str(exc)},
         )
-        raise NotFound("Lecture vidéo temporairement indisponible.")
+        raise NotFound("Lecture vidéo temporairement indisponible.") from exc
 
     return Response({
         "kind": "mp4",

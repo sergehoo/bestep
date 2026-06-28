@@ -28,20 +28,19 @@ et faire pointer ``apis/views.py → apis/views_package`` via un rename.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import timedelta
-from typing import Iterable
 
 from django.db.models import Q, QuerySet
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from catalog.models import Course
-from organizations.models import OrganizationMembership
 
 # Import direct (les apps sont chargées au démarrage Django, pas de risque
 # d'import circulaire ici car _shared ne dépend de personne en aval).
 from core.permissions import is_platform_admin
-
+from organizations.models import OrganizationMembership
 
 # ---------------------------------------------------------------------------
 # Helpers temps / range

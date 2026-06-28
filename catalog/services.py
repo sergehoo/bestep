@@ -16,14 +16,13 @@ déjà bien son travail.
 """
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 from django.db.models import Q, QuerySet
 
 from catalog.models import Course, MediaAsset
 from core.permissions import is_platform_admin
 from organizations.models import Organization, OrganizationMembership
-
 
 # --- Organisation par défaut ------------------------------------------------
 
@@ -35,7 +34,7 @@ _AUTO_ATTACH_ROLES = (
 )
 
 
-def resolve_default_organization_for_user(user) -> Optional[Organization]:
+def resolve_default_organization_for_user(user) -> Organization | None:
     if not user or not user.is_authenticated:
         return None
     memberships = (
@@ -69,7 +68,7 @@ def get_visible_courses_qs(
     user,
     *,
     public_only: bool = False,
-    base_qs: Optional[QuerySet] = None,
+    base_qs: QuerySet | None = None,
 ) -> QuerySet:
     """Cours qu'un utilisateur a le droit de voir/lister/consulter.
 
@@ -116,7 +115,7 @@ def get_visible_courses_qs(
 
 # --- Bibliothèque média : portée de visibilité ----------------------------
 
-def get_visible_media_qs(user, *, current_organization_id: Optional[int] = None) -> QuerySet:
+def get_visible_media_qs(user, *, current_organization_id: int | None = None) -> QuerySet:
     qs = MediaAsset.objects.select_related("owner", "organization")
     if not user or not user.is_authenticated:
         return qs.none()
@@ -166,8 +165,8 @@ def can_modify_media(user, asset: MediaAsset) -> bool:
 def get_instructor_courses_qs(
     user,
     *,
-    current_organization_id: Optional[int] = None,
-    organization_ids: Optional[Iterable[int]] = None,
+    current_organization_id: int | None = None,
+    organization_ids: Iterable[int] | None = None,
 ) -> QuerySet:
     qs = Course.objects.select_related("category", "instructor", "company")
     if not user or not user.is_authenticated:

@@ -121,7 +121,7 @@ def _send_invitation_email(invitation: OrganizationInvitation) -> None:
             recipient_list=[invitation.email],
             fail_silently=False,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("invitation.email.failed", extra={"exc": str(exc), "invitation_id": invitation.id})
 
 

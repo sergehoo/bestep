@@ -35,15 +35,7 @@ def annotate_course_kpis(qs: QuerySet, *, user=None) -> QuerySet:
     Évite les ``AttributeError`` / ``null`` côté sérialisation ET prévient
     les N+1 dans les listes paginées.
     """
-    from enrollments.models import Enrollment, LessonProgress
-
-    # Inscriptions actives (utilisé pour completion_rate aussi).
-    active_enrollments = Enrollment.objects.filter(
-        course=OuterRef("pk"), status=Enrollment.Status.ACTIVE,
-    )
-    completed_enrollments = Enrollment.objects.filter(
-        course=OuterRef("pk"), status=Enrollment.Status.COMPLETED,
-    )
+    from enrollments.models import Enrollment
 
     qs = qs.annotate(
         sections_count=Coalesce(

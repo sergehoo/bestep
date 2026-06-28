@@ -4,6 +4,7 @@ reviews/models.py — CORRECTIF P1.D (audit REV-03).
 Ajoute la validation rating au niveau MODÈLE (validators Django + CheckConstraint
 PostgreSQL), pour fermer la porte de derrière (admin Django, shell, fixtures).
 """
+
 from __future__ import annotations
 
 from django.conf import settings
@@ -41,8 +42,11 @@ class CourseReview(models.Model):
         ]
         indexes = [
             # Performance : la summary filtre toujours (course_id, is_public).
-            models.Index(fields=["course", "is_public"]),
-            models.Index(fields=["created_at"]),
+            models.Index(
+                fields=["course", "is_public"],
+                name="review_course_public_idx",
+            ),
+            models.Index(fields=["created_at"], name="review_created_at_idx"),
         ]
         ordering = ["-created_at"]
 

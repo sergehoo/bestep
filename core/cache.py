@@ -23,7 +23,7 @@ from __future__ import annotations
 import functools
 import hashlib
 import logging
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 from django.core.cache import cache
 
@@ -78,7 +78,7 @@ def cached_kpi(
             data = func(*args, **kwargs)
             try:
                 cache.set(key, data, timeout=ttl)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning("kpi.cache.set_failed", extra={"scope": scope, "exc": str(exc)})
             return data
         wrapper.__wrapped__ = func

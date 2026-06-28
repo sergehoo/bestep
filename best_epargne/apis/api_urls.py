@@ -1,23 +1,74 @@
 # config/api_urls.py
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from best_epargne.apis.views import CategoryViewSet, PublicCourseViewSet, InstructorCourseViewSet, OrganizationCourseViewSet, InstructorCourseDetailView, \
-    InstructorCoursePublishView, InstructorCourseArchiveView, InstructorSectionListView, InstructorSectionCreateView, \
-    InstructorSectionUpdateView, InstructorSectionDeleteView, InstructorLessonListView, InstructorLessonCreateView, \
-    InstructorLessonUpdateView, InstructorLessonDeleteView, MediaUploadFinalizeView, MediaUploadInitView, \
-    InstructorMeView, InstructorKpisView, InstructorReviewsView, InstructorPayoutsView, InstructorNotificationsView, \
-    MediaSignedGetView, InstructorMediaListView, LearnerMeView, LearnerKpisView, LearnerEnrollmentsView, \
-    LearnerCourseDetailView, LearnerCourseProgressView, LearnerNotificationsView, LearnerPaymentsView, \
-    LearnerProgressView, LearnerExploreCoursesView, LearnerEnrollView, LearnerCourseOutlineView, LearnerContinueView, \
-    LearnerLessonStateView, LearnerLessonProgressUpdateView, LearnerSetCurrentLessonView, LearnerCoursePlayerDataView, \
-    LearnerMediaSignedGetView, InstructorQuizDetailView, InstructorQuizQuestionCreateView, LearnerSectionQuizView, \
-    LearnerSectionQuizSubmitView, InstructorCourseQuizListView, InstructorSectionQuizCreateView, \
-    InstructorSectionQuizAssignView, InstructorSectionQuizUnassignView, \
-    InstructorQuizUpdateView, MediaThumbnailSignedGetView, InstructorMediaDetailView, InstructorMediaUpdateView, \
-    InstructorMediaDeleteView, InstructorQuizListApiView, InstructorQuizQuestionUpdateView, \
-    InstructorQuizQuestionDeleteView, LearnerOrganizationCoursesAPIView, InstructorQuizCreateView, MediaMultipartInitView, \
-    MediaMultipartPartUrlView, MediaMultipartCompleteView, MediaMultipartAbortView, MediaMultipartListPartsView
+from best_epargne.apis.views import (
+    CategoryViewSet,
+    InstructorCourseArchiveView,
+    InstructorCourseDetailView,
+    InstructorCoursePublishView,
+    InstructorCourseQuizListView,
+    InstructorCourseViewSet,
+    InstructorKpisView,
+    InstructorLessonCreateView,
+    InstructorLessonDeleteView,
+    InstructorLessonListView,
+    InstructorLessonUpdateView,
+    InstructorMediaDeleteView,
+    InstructorMediaDetailView,
+    InstructorMediaListView,
+    InstructorMediaUpdateView,
+    InstructorMeView,
+    InstructorNotificationsView,
+    InstructorPayoutsView,
+    InstructorQuizCreateView,
+    InstructorQuizDetailView,
+    InstructorQuizListApiView,
+    InstructorQuizQuestionCreateView,
+    InstructorQuizQuestionDeleteView,
+    InstructorQuizQuestionUpdateView,
+    InstructorQuizUpdateView,
+    InstructorReviewsView,
+    InstructorSectionCreateView,
+    InstructorSectionDeleteView,
+    InstructorSectionListView,
+    InstructorSectionQuizAssignView,
+    InstructorSectionQuizCreateView,
+    InstructorSectionQuizUnassignView,
+    InstructorSectionUpdateView,
+    LearnerContinueView,
+    LearnerCourseDetailView,
+    LearnerCourseOutlineView,
+    LearnerCoursePlayerDataView,
+    LearnerCourseProgressView,
+    LearnerEnrollmentsView,
+    LearnerEnrollView,
+    LearnerExploreCoursesView,
+    LearnerKpisView,
+    LearnerLessonProgressUpdateView,
+    LearnerLessonStateView,
+    LearnerMediaSignedGetView,
+    LearnerMeView,
+    LearnerNotificationsView,
+    LearnerOrganizationCoursesAPIView,
+    LearnerPaymentsView,
+    LearnerProgressView,
+    LearnerSectionQuizSubmitView,
+    LearnerSectionQuizView,
+    LearnerSetCurrentLessonView,
+    MediaMultipartAbortView,
+    MediaMultipartCompleteView,
+    MediaMultipartInitView,
+    MediaMultipartListPartsView,
+    MediaMultipartPartUrlView,
+    MediaSignedGetView,
+    MediaThumbnailSignedGetView,
+    MediaUploadFinalizeView,
+    MediaUploadInitView,
+    OrganizationCourseViewSet,
+    PublicCourseViewSet,
+)
+
 # from catalog.api.views import CourseViewSet, CategoryViewSet
 from enrollments.api import EnrollmentViewSet, LessonProgressViewSet
 
@@ -29,7 +80,11 @@ router.register("organization/courses-private", OrganizationCourseViewSet, basen
 router.register("enrollments", EnrollmentViewSet, basename="enrollments")
 router.register("progress", LessonProgressViewSet, basename="progress")
 
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView  # noqa: E402
+from drf_spectacular.views import (  # noqa: E402
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 
 urlpatterns = [
     # V_OBS.A : documentation OpenAPI auto-générée.

@@ -35,10 +35,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # `export` à chaque shell.
 # ------------------------------------------------------------
 _ENV_FILE = BASE_DIR / ".env"
-if _ENV_FILE.exists():
+_SETTINGS_MODULE = os.getenv("DJANGO_SETTINGS_MODULE", "")
+if _SETTINGS_MODULE.endswith(".dev") and _ENV_FILE.exists():
     try:
         # decouple est déjà dans requirements.txt, utiliser sa lecture .env.
-        from decouple import Config as _DecoupleConfig, RepositoryEnv as _RepoEnv
+        from decouple import Config as _DecoupleConfig
+        from decouple import RepositoryEnv as _RepoEnv
         _env_cfg = _DecoupleConfig(_RepoEnv(str(_ENV_FILE)))
         for _k, _v in _env_cfg.repository.data.items():
             # setdefault → un env var déjà posé (docker, shell) gagne sur .env.
@@ -512,6 +514,18 @@ CSP_FORM_ACTION = ("'self'",)
 
 
 # ------------------------------------------------------------
+# Commerce
+# ------------------------------------------------------------
+COMMERCE_CHECKOUT_PROVIDER = os.getenv("COMMERCE_CHECKOUT_PROVIDER", "").strip().lower()
+COMMERCE_CHECKOUT_SESSION_FACTORY = os.getenv(
+    "COMMERCE_CHECKOUT_SESSION_FACTORY",
+    "",
+).strip()
+_company_seat_price = os.getenv("COMMERCE_COMPANY_SEAT_PRICE", "").strip()
+COMMERCE_COMPANY_SEAT_PRICE = _company_seat_price or None
+
+
+# ------------------------------------------------------------
 # Logging
 # ------------------------------------------------------------
 LOGGING = {
@@ -575,7 +589,7 @@ if SENTRY_DSN:
                             "x-csrftoken", "csrf_token",
                         }:
                             req["data"][k] = "[Filtered]"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             return event
 

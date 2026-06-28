@@ -29,7 +29,7 @@ def _notify_on_b2b_enrollment(sender, instance, created, **kwargs):
             return
         from .services import notify_enrollment_assigned
         notify_enrollment_assigned(instance.user, instance.course)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("notif.b2b_enrollment.failed", extra={"exc": str(exc)})
 
 
@@ -43,5 +43,5 @@ def _notify_on_certificate(sender, instance, created, **kwargs):
     try:
         from .services import notify_certificate_issued
         notify_certificate_issued(instance.user, instance)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("notif.certificate.failed", extra={"exc": str(exc)})

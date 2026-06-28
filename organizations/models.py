@@ -154,6 +154,7 @@ class OrganizationInvitation(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["organization", "email", "role"],
+                condition=models.Q(accepted_at__isnull=True),
                 name="unique_pending_invitation_per_role",
             ),
         ]
@@ -204,10 +205,12 @@ class BusinessInterestRequest(models.Model):
     email = models.EmailField("Email professionnel")
     phone = models.CharField("Téléphone", max_length=40, blank=True)
     learners_count = models.PositiveIntegerField("Apprenants estimé", default=1)
-    categories = models.ManyToManyField("catalog.Category",
+    categories = models.ManyToManyField(
+        "catalog.Category",
         blank=True,
         related_name="business_interest_requests",
-        verbose_name="Catégories souhaitées",)
+        verbose_name="Catégories souhaitées",
+    )
     courses = models.ManyToManyField(
         "catalog.Course",
         blank=True,
@@ -217,9 +220,11 @@ class BusinessInterestRequest(models.Model):
     message = models.TextField("Besoin spécifique", blank=True)
     is_processed = models.BooleanField("Traité", default=False)
     created_at = models.DateTimeField(default=timezone.now)
+
     class Meta:
         verbose_name = "Manifestation d’intérêt entreprise"
         verbose_name_plural = "Manifestations d’intérêt entreprises"
         ordering = ["-created_at"]
+
     def __str__(self):
         return f"{self.organization_name} — {self.contact_name}"

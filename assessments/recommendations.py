@@ -21,15 +21,13 @@ from __future__ import annotations
 
 import operator
 from functools import reduce
-from typing import Dict, List
 
 from django.db.models import Q
 
 from catalog.models import Course
 from catalog.services import get_visible_courses_qs
 
-
-TOPIC_KEYWORDS: Dict[str, List[str]] = {
+TOPIC_KEYWORDS: dict[str, list[str]] = {
     "budget": ["budget", "dépense", "revenu", "planifier"],
     "epargne": ["épargne", "économiser", "mise de côté"],
     "epargne_securite": ["urgence", "fonds d'urgence", "sécurité"],
@@ -43,26 +41,26 @@ TOPIC_KEYWORDS: Dict[str, List[str]] = {
 }
 
 
-LEVEL_HINTS: Dict[str, List[str]] = {
+LEVEL_HINTS: dict[str, list[str]] = {
     "Débutant": ["débutant", "bases", "fondamentaux", "introduction"],
     "Intermédiaire": ["intermédiaire", "pratique", "stratégie"],
     "Avancé": ["avancé", "expert", "cas pratique", "analyse"],
 }
 
 
-def _build_keywords(profile: Dict) -> List[str]:
+def _build_keywords(profile: dict) -> list[str]:
     level = profile.get("level", "Débutant")
     focus = profile.get("focus", []) or []
     strengths = profile.get("strengths", []) or []
     topics = list(dict.fromkeys(focus + strengths))
-    keywords: List[str] = []
+    keywords: list[str] = []
     for t in topics:
         keywords += TOPIC_KEYWORDS.get(t, [])
     keywords += LEVEL_HINTS.get(level, [])
     return list(dict.fromkeys([k.lower() for k in keywords if k]))
 
 
-def recommend_courses(profile: Dict, limit: int = 4, user=None) -> List[Course]:
+def recommend_courses(profile: dict, limit: int = 4, user=None) -> list[Course]:
     """Suggère ``limit`` cours adaptés au profil d'onboarding ``profile``.
 
     Sécurité : ne retourne JAMAIS de cours non publiés ni de cours
@@ -72,7 +70,7 @@ def recommend_courses(profile: Dict, limit: int = 4, user=None) -> List[Course]:
     qs = get_visible_courses_qs(user)
 
     keywords = _build_keywords(profile)
-    matched_ids: List[int] = []
+    matched_ids: list[int] = []
 
     if keywords:
         # CORRECTIF ASS-02 : on agrège en UN seul filter au lieu de 25+ icontains.

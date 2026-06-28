@@ -8,8 +8,9 @@ import pytest
 def test_quiz_onboarding_with_course_raises(alice):
     """ASS-16 : un quiz d'onboarding ne peut pas être rattaché à un cours."""
     from django.core.exceptions import ValidationError
-    from catalog.models import Course
+
     from assessments.models import Quiz
+    from catalog.models import Course
 
     course = Course.objects.create(
         title="c", slug="c", status=Course.Status.PUBLISHED, instructor=alice,
@@ -23,8 +24,9 @@ def test_quiz_onboarding_with_course_raises(alice):
 def test_quiz_is_final_unique_per_course(alice):
     """CERT-05 : un seul Quiz is_final=True par cours (UniqueConstraint partielle)."""
     from django.db.utils import IntegrityError
-    from catalog.models import Course
+
     from assessments.models import Quiz
+    from catalog.models import Course
 
     course = Course.objects.create(
         title="d", slug="d", status=Course.Status.PUBLISHED, instructor=alice,
@@ -38,6 +40,7 @@ def test_quiz_is_final_unique_per_course(alice):
 def test_quiz_is_final_requires_course(alice):
     """clean() : is_final=True sans course doit lever ValidationError."""
     from django.core.exceptions import ValidationError
+
     from assessments.models import Quiz
 
     quiz = Quiz(title="Orphan final", is_final=True)
@@ -48,8 +51,8 @@ def test_quiz_is_final_requires_course(alice):
 @pytest.mark.django_db
 def test_attempt_answer_snapshot_preserves_text(alice):
     """ASS-11 : snapshot du choix au moment de la réponse, persiste si Choice supprimé."""
-    from catalog.models import Course
     from assessments.models import Attempt, AttemptAnswer, Choice, Question, Quiz
+    from catalog.models import Course
 
     course = Course.objects.create(title="e", slug="e", status=Course.Status.PUBLISHED, instructor=alice)
     quiz = Quiz.objects.create(title="Q", course=course)

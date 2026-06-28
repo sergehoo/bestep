@@ -31,5 +31,5 @@ def _invalidate_dashboards_on_course_change(sender, instance: Course, **kwargs):
         if instance.instructor_id:
             invalidate_instructor_dashboard(instance.instructor_id)
         invalidate_platform_dashboard()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("dashboards.invalidate.failed", extra={"exc": str(exc)})

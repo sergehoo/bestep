@@ -4,6 +4,7 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -53,11 +54,19 @@ class Course(models.Model):
     subtitle = models.CharField(max_length=220, blank=True)
     description = models.TextField(blank=True)
 
-    category = models.ForeignKey("catalog.Category", on_delete=models.SET_NULL, null=True, related_name="courses")
-    instructor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="courses_created")
+    category = models.ForeignKey(
+        "catalog.Category", on_delete=models.SET_NULL, null=True, related_name="courses"
+    )
+    instructor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="courses_created"
+    )
 
-    course_type = models.CharField(max_length=20, choices=CourseType.choices, default=CourseType.PROFESSIONNELLE)
-    pricing_type = models.CharField(max_length=10, choices=PricingType.choices, default=PricingType.PAID)
+    course_type = models.CharField(
+        max_length=20, choices=CourseType.choices, default=CourseType.PROFESSIONNELLE
+    )
+    pricing_type = models.CharField(
+        max_length=10, choices=PricingType.choices, default=PricingType.PAID
+    )
     price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     currency = models.CharField(max_length=8, default="XOF")
 
@@ -69,8 +78,9 @@ class Course(models.Model):
     company = models.ForeignKey(
         "organizations.Organization",
         on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name="internal_courses"
+        null=True,
+        blank=True,
+        related_name="internal_courses",
     )
 
     thumbnail = models.ImageField(upload_to="courses/thumbnails/", null=True, blank=True)
@@ -78,9 +88,10 @@ class Course(models.Model):
     preview_media_asset = models.ForeignKey(
         "catalog.MediaAsset",
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="course_previews",
-        help_text="Preview vidéo (MinIO) affichée en page cours."
+        help_text="Preview vidéo (MinIO) affichée en page cours.",
     )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -91,6 +102,19 @@ class Course(models.Model):
             models.Index(fields=["status", "pricing_type"]),
             models.Index(fields=["slug"]),
             models.Index(fields=["created_at"]),
+            GinIndex(
+                fields=["title"],
+                opclasses=["gin_trgm_ops"],
+                name="course_title_trgm_idx",
+            ),
+            models.Index(
+                fields=["-published_at", "-created_at"],
+                name="course_pub_created_idx",
+            ),
+            models.Index(
+                fields=["status", "company_only"],
+                name="course_status_company_idx",
+            ),
         ]
 
     def save(self, *args, **kwargs):
@@ -282,11 +306,15 @@ class Lesson(models.Model):
         QUIZ = "QUIZ", "Quiz"
         LIVE = "LIVE", "Live"
 
-    section = models.ForeignKey("catalog.CourseSection", on_delete=models.CASCADE, related_name="lessons")
+    section = models.ForeignKey(
+        "catalog.CourseSection", on_delete=models.CASCADE, related_name="lessons"
+    )
     title = models.CharField(max_length=200)
     order = models.PositiveIntegerField(default=1)
 
-    lesson_type = models.CharField(max_length=10, choices=LessonType.choices, default=LessonType.VIDEO)
+    lesson_type = models.CharField(
+        max_length=10, choices=LessonType.choices, default=LessonType.VIDEO
+    )
     is_preview = models.BooleanField(default=False)  # pour HYBRID / marketing
 
     duration_sec = models.PositiveIntegerField(default=0)
@@ -304,9 +332,10 @@ class Lesson(models.Model):
     media_asset = models.ForeignKey(
         "catalog.MediaAsset",
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="lessons",
-        help_text="Fichier MinIO lié (video/audio/doc)."
+        help_text="Fichier MinIO lié (video/audio/doc).",
     )
 
     class Meta:
@@ -344,7 +373,9 @@ class Payment(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
 
     reference = models.CharField(max_length=80, unique=True)  # ex: "PAY-2026-00001"
-    provider = models.CharField(max_length=40, blank=True, default="")  # ex: "CinetPay", "OrangeMoney", ...
+    provider = models.CharField(
+        max_length=40, blank=True, default=""
+    )  # ex: "CinetPay", "OrangeMoney", ...
     provider_ref = models.CharField(max_length=120, blank=True, default="")  # ref du PSP
 
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)

@@ -19,13 +19,12 @@ from __future__ import annotations
 import io
 import logging
 
+import qrcode
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
-
-import qrcode
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas

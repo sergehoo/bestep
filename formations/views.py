@@ -1,47 +1,65 @@
 from decimal import Decimal
 
-from django.utils.decorators import method_decorator
-
-from allauth.account.forms import LoginForm
 from django.contrib import messages
-from django.contrib.auth import login
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth.views import LoginView, redirect_to_login
-from django.core.exceptions import PermissionDenied
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import redirect_to_login
 from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import (
-    Avg, Count, Sum, Q,
-    IntegerField, DecimalField,
+    Avg,
+    Count,
+    DecimalField,
+    IntegerField,
+    Q,
+    Sum,
 )
 from django.db.models.functions import Coalesce
-from django.http import Http404, HttpResponsePermanentRedirect
-from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import NoReverseMatch, reverse, reverse_lazy
+from django.http import HttpResponsePermanentRedirect
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.utils.text import slugify
 from django.views import View
-from django.views.generic import TemplateView, DetailView
+from django.views.generic import DetailView, TemplateView
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework.views import APIView as DRFAPIView
 
 from assessments.models import Quiz
-from best_epargne.apis.serializers import PublicCourseSerializer
+from assessments.recommendations import recommend_courses
+from best_epargne.apis.serializers import OpenApiObjectSerializer, PublicCourseSerializer
 from best_epargne.apis.views import _course_to_dict
 from catalog.models import (
-    Course, CourseSection, Lesson, MediaAsset, Payment, Notification, Category, User,
+    Category,
+    Course,
+    CourseSection,
+    Lesson,
+    MediaAsset,
+    Notification,
+    Payment,
+    User,
 )
 from catalog.services import get_visible_courses_qs
+from certifications.models import IssuedCertificate
 from compte.models import InstructorProfile
-from enrollments.models import Enrollment, LessonProgress
-from formations.Rolemixin import RoleRequiredMixin, InstructorBaseMixin, LearnerRequiredMixin, _redirect_by_role, \
-    OrganizationAdminRequiredMixin
 from core.decorators import platform_admin_otp_required as _platform_admin_otp_required
+from enrollments.models import Enrollment, LessonProgress
+from formations.Rolemixin import (
+    InstructorBaseMixin,
+    LearnerRequiredMixin,
+)
 from organizations.models import OrganizationMembership
 from organizations.organ_forms import BusinessInterestRequestForm
 from reviews.models import CourseReview
+
+
+class APIView(DRFAPIView):
+    """Base OpenAPI pour les réponses JSON assemblées manuellement."""
+
+    serializer_class = OpenApiObjectSerializer
 
 
 # Create your views here.
@@ -342,7 +360,6 @@ class InstructorDashboard(InstructorBaseMixin, TemplateView):
         recent_payments = payments_qs.order_by("-paid_at", "-created_at")[:8]
 
         notifications = Notification.objects.filter(user=user).order_by("-created_at")[:10]
-        unread_notifications = Notification.objects.filter(user=user, is_read=False).count()
 
         courses_needing_work = []
         for c in courses_list:
@@ -366,8 +383,8 @@ class InstructorDashboard(InstructorBaseMixin, TemplateView):
 
         recent_media = MediaAsset.objects.filter(owner=user).order_by("-created_at")[:8]
 
-        # Projection plate des KPIs pour les gabarits existants qui y accèdent
-        # via des clés à plat (``kpis.total_courses`` …).
+        # Projection plate conservée pour les composants secondaires qui
+        # consomment encore les anciennes clés.
         flat_kpis = {
             "total_courses": kpis_data["courses"]["total"],
             "draft_courses": kpis_data["courses"]["draft"],
@@ -393,13 +410,15 @@ class InstructorDashboard(InstructorBaseMixin, TemplateView):
 
         context.update({
             "dashboard_now": now,
-            "kpis": flat_kpis,
-            "kpis_grouped": kpis_data,
+            "kpis": kpis_data,
+            "kpis_flat": flat_kpis,
             "courses": courses_list,
+            "recent_courses": courses[:6],
             "top_courses": top_courses,
             "recent_reviews": recent_reviews,
             "recent_payments": recent_payments,
             "notifications": notifications,
+            "recent_activity": notifications,
             "recent_media": recent_media,
             "courses_needing_work": courses_needing_work,
         })
@@ -934,6 +953,49 @@ class StudentDashboard(LoginRequiredMixin, LearnerRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        user = self.request.user
+        enrollments = (
+            Enrollment.objects.filter(user=user)
+            .exclude(status=Enrollment.Status.CANCELED)
+            .select_related("course", "current_lesson")
+            .order_by("-updated_at")
+        )
+        active_enrollments = enrollments.filter(status=Enrollment.Status.ACTIVE)
+        certificates = (
+            IssuedCertificate.objects.filter(user=user, revoked_at__isnull=True)
+            .select_related("course")
+            .order_by("-issued_at")
+        )
+        total_seconds = LessonProgress.objects.filter(
+            enrollment__user=user,
+            enrollment__status__in=[
+                Enrollment.Status.ACTIVE,
+                Enrollment.Status.COMPLETED,
+            ],
+        ).aggregate(
+            total=Coalesce(Sum("last_position_sec"), 0, output_field=IntegerField())
+        )["total"]
+        learner_kyc = getattr(user, "kyc", None)
+        onboarding_profile = getattr(learner_kyc, "onboarding_profile", {}) or {}
+
+        ctx.update({
+            "kpis": {
+                "in_progress": active_enrollments.count(),
+                "completed": enrollments.filter(
+                    status=Enrollment.Status.COMPLETED
+                ).count(),
+                "certificates": certificates.count(),
+                "total_hours": total_seconds / 3600,
+            },
+            "continue_enrollment": active_enrollments.first(),
+            "active_enrollments": active_enrollments,
+            "recommended_courses": recommend_courses(
+                onboarding_profile,
+                limit=4,
+                user=user,
+            ),
+            "recent_certificates": certificates[:4],
+        })
         # endpoints côté template (pratique pour Alpine)
         # /!\ Ces clés sont consommées par Alpine côté JS (cf. learner/
         # student_dash.html — ``loadOrganizationCourses`` lit
@@ -977,6 +1039,7 @@ class LearnerCoursePlayerView(LoginRequiredMixin, LearnerRequiredMixin, Template
         """
         from django.contrib import messages
         from django.shortcuts import get_object_or_404, redirect
+
         from catalog.models import Course
         from enrollments.models import Enrollment
 
@@ -1199,7 +1262,8 @@ class PlatformAdminDashboard(_PlatformAdminGateMixin, TemplateView):
 
         from django.db.models import FloatField, Value
         from django.db.models.functions import TruncDate
-        from organizations.models import Organization, OrganizationMembership
+
+        from organizations.models import Organization
 
         context = super().get_context_data(**kwargs)
 
@@ -1503,7 +1567,7 @@ class PlatformOrganizationsView(_PlatformAdminGateMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         from django.core.paginator import Paginator
-        from django.db.models import FloatField, Value
+
         from organizations.models import Organization
 
         context = super().get_context_data(**kwargs)
@@ -1589,7 +1653,8 @@ class PlatformUsersView(_PlatformAdminGateMixin, TemplateView):
     def get_context_data(self, **kwargs):
         from django.core.paginator import Paginator
         from django.db.models import Exists, OuterRef
-        from compte.models import InstructorProfile, LearnerProfile
+
+        from compte.models import LearnerProfile
         from organizations.models import OrganizationMembership
 
         context = super().get_context_data(**kwargs)
@@ -2019,7 +2084,8 @@ class CourseDetailPageView(TemplateView):
         # pour que la zone Programme/Curriculum se remplisse sans dépendre
         # exclusivement du fetch JS côté client (qui parfois échoue ou
         # ne consomme pas `sections`).
-        from django.db.models import Count, Prefetch
+        from django.db.models import Prefetch
+
         from catalog.models import Course, CourseSection, Lesson
 
         course_id = self.kwargs.get("course_id")
@@ -2230,6 +2296,7 @@ class LearnerCourseDetailView(APIView):
     """
     permission_classes = [AllowAny]
 
+    @extend_schema(operation_id="landing_learner_course_detail")
     def get(self, request, course_id: int):
         course = (
             Course.objects

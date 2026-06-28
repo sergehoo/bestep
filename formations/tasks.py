@@ -8,12 +8,16 @@ from django.db import transaction
 
 from best_epargne.celery import app
 from catalog.models import MediaAsset
+from formations.storage import (
+    build_optimized_object_key,
+    build_thumbnail_object_key,
+    s3_internal_client,
+)
 from formations.video_pipeline import (
     ffprobe_metadata,
-    transcode_to_web_mp4,
     generate_thumbnail,
+    transcode_to_web_mp4,
 )
-from formations.storage import s3_internal_client, build_thumbnail_object_key, build_optimized_object_key
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})

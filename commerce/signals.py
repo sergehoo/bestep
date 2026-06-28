@@ -52,7 +52,7 @@ def _on_target_created(sender, instance: CompanyAssignmentTarget, created: bool,
                         "company": assignment.company,
                     },
                 )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "commerce.assignment.enrollment.create_failed",
                 extra={"target_id": instance.id, "exc": str(exc)},
@@ -60,7 +60,7 @@ def _on_target_created(sender, instance: CompanyAssignmentTarget, created: bool,
 
     try:
         _sync_license_usage(instance.assignment.company_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("commerce.license.sync_failed", extra={"exc": str(exc)})
 
 
@@ -74,5 +74,5 @@ def _on_target_deleted(sender, instance: CompanyAssignmentTarget, **kwargs):
     """
     try:
         _sync_license_usage(instance.assignment.company_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("commerce.license.sync_failed", extra={"exc": str(exc)})

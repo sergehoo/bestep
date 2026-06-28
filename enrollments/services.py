@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils import timezone
 
 from .models import Enrollment, LessonProgress

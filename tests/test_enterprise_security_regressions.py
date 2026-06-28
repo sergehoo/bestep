@@ -186,6 +186,38 @@ def test_organization_assignment_sets_company_source(client, alice, bob):
 
 
 @pytest.mark.django_db
+def test_manager_cannot_open_or_submit_direct_member_creation(client, alice, bob):
+    from organizations.models import Organization, OrganizationMembership
+
+    organization = Organization.objects.create(name="Org manager limité")
+    OrganizationMembership.objects.create(
+        user=alice,
+        organization=organization,
+        role=OrganizationMembership.Role.MANAGER,
+        is_active=True,
+    )
+    client.force_login(alice)
+    url = f"/organisation/{organization.id}/members/create/"
+
+    get_response = client.get(url)
+    post_response = client.post(
+        url,
+        {
+            "email": bob.email,
+            "role": OrganizationMembership.Role.LEARNER,
+            "send_invitation_if_no_password": True,
+        },
+    )
+
+    assert get_response.status_code in {302, 403}
+    assert post_response.status_code in {302, 403}
+    assert not OrganizationMembership.objects.filter(
+        user=bob,
+        organization=organization,
+    ).exists()
+
+
+@pytest.mark.django_db
 def test_homepage_sets_strict_csp_header(client):
     response = client.get("/")
     csp = response.headers.get("Content-Security-Policy", "")

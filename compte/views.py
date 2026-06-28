@@ -10,13 +10,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
+from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from django.views.generic import UpdateView
-from django.urls import reverse_lazy
 
 from compte.forms import UserProfileForm
-
 from compte.workspaces import (
     WORKSPACE_INSTRUCTOR,
     WORKSPACE_LEARNER,
@@ -25,7 +24,6 @@ from compte.workspaces import (
     resolve_workspace_url,
     set_active_workspace,
 )
-
 
 _VALID_KINDS = {
     WORKSPACE_LEARNER,

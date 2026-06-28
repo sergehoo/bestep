@@ -32,6 +32,8 @@ Corrections principales (audit) :
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from django.urls import reverse
 from django.utils.text import slugify
 from django.utils.timesince import timesince
@@ -40,7 +42,6 @@ from rest_framework import serializers
 from catalog.models import Category, Course, CourseSection, Lesson, MediaAsset
 from commerce.models import OrderItem
 from organizations.models import OrganizationMembership
-
 
 # --- Whitelists upload média ----------------------------------------------
 
@@ -76,6 +77,10 @@ MAX_SIZE_BY_KIND = {
     MediaAsset.Kind.AUDIO: 250 * 1024 * 1024,        # 250 MiB
     MediaAsset.Kind.DOC: 100 * 1024 * 1024,          # 100 MiB
 }
+
+
+class OpenApiObjectSerializer(serializers.Serializer):
+    """Contrat générique pour les endpoints à réponse JSON libre."""
 
 
 # --- Catégorie -------------------------------------------------------------
@@ -121,7 +126,7 @@ class MediaAssetSerializer(serializers.ModelSerializer):
         self.context["_writable_org_ids_cache"] = ids
         return ids
 
-    def get_can_edit(self, obj):
+    def get_can_edit(self, obj) -> bool:
         request = self.context.get("request")
         user = getattr(request, "user", None)
         if user is None or not user.is_authenticated:
@@ -135,17 +140,17 @@ class MediaAssetSerializer(serializers.ModelSerializer):
             return False
         return organization_id in self._writable_org_ids()
 
-    def get_can_delete(self, obj):
+    def get_can_delete(self, obj) -> bool:
         return self.get_can_edit(obj)
 
-    def get_scope(self, obj):
+    def get_scope(self, obj) -> str:
         request = self.context.get("request")
         user = getattr(request, "user", None)
         if user and user.is_authenticated and obj.owner_id == user.id:
             return "personal"
         return "organization"
 
-    def get_owner_name(self, obj):
+    def get_owner_name(self, obj) -> str:
         owner = getattr(obj, "owner", None)
         if not owner:
             return "—"
@@ -313,11 +318,11 @@ class CourseSerializer(serializers.ModelSerializer):
             "company_only",
         ]
 
-    def get_updated_at_human(self, obj):
+    def get_updated_at_human(self, obj) -> Optional[str]:  # noqa: UP007
         dt = getattr(obj, "updated_at", None)
         return f"il y a {timesince(dt)}" if dt else None
 
-    def get_thumbnail_url(self, obj):
+    def get_thumbnail_url(self, obj) -> Optional[str]:  # noqa: UP007
         req = self.context.get("request")
         if obj.thumbnail and hasattr(obj.thumbnail, "url"):
             return req.build_absolute_uri(obj.thumbnail.url) if req else obj.thumbnail.url
@@ -345,7 +350,7 @@ class CourseSerializer(serializers.ModelSerializer):
         self.context["_course_writable_orgs_cache"] = ids
         return ids
 
-    def get_can_edit(self, obj):
+    def get_can_edit(self, obj) -> bool:
         request = self.context.get("request")
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
@@ -360,10 +365,10 @@ class CourseSerializer(serializers.ModelSerializer):
             return False
         return company_id in self._writable_org_ids()
 
-    def get_can_delete(self, obj):
+    def get_can_delete(self, obj) -> bool:
         return self.get_can_edit(obj)
 
-    def get_scope(self, obj):
+    def get_scope(self, obj) -> str:
         request = self.context.get("request")
         user = getattr(request, "user", None)
         if user and obj.instructor_id == user.id:

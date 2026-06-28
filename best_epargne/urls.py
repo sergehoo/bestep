@@ -26,7 +26,6 @@ from formations.views import (
     PlatformUsersView,
 )
 
-
 urlpatterns = [
     # CORRECTIF INFRA-03 : health/readiness endpoints (non-authentifiés).
     path("healthz/", healthz, name="healthz"),
@@ -86,7 +85,7 @@ urlpatterns = [
 ]
 
 # CORRECTIF V6.D (SEC-06) : brancher les URLs django-two-factor-auth.
-# from best_epargne.two_factor_urls import build_two_factor_patterns  # noqa: E402
+# from best_epargne.two_factor_urls import build_two_factor_patterns
 urlpatterns += build_two_factor_patterns()
 
 # CORRECTIF FORMATIONS-35 : static seulement en DEBUG (en prod WhiteNoise s'en charge).

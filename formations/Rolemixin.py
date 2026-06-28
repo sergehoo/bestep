@@ -1,20 +1,21 @@
 from decimal import Decimal
-from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
+
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.db.models import Avg, Q
 from django.db.models.functions import Coalesce
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
-from catalog.models import Course, CourseSection, Lesson
-from enrollments.models import LessonProgress
-from organizations.models import OrganizationMembership
 
+from catalog.models import Course, CourseSection, Lesson
 
 # CORRECTIF FORMATIONS-22 : centralisation dans compte.services (V3.A).
-from compte.services import resolve_user_dashboard_url as _redirect_by_role  # noqa: F401
+from compte.services import resolve_user_dashboard_url as _redirect_by_role
+from enrollments.models import LessonProgress
+from organizations.models import OrganizationMembership
 
 
 class RoleRequiredMixin(UserPassesTestMixin):

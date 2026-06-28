@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
@@ -156,8 +156,8 @@ def org_admin_required_for_id(kwarg_name: str = "organization_id") -> Callable:
             from organizations.models import Organization
             try:
                 org = Organization.objects.get(pk=org_id)
-            except Organization.DoesNotExist:
-                raise PermissionDenied("Organisation introuvable.")
+            except Organization.DoesNotExist as exc:
+                raise PermissionDenied("Organisation introuvable.") from exc
 
             if not can_manage_org(user, org):
                 logger.warning(

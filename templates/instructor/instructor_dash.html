@@ -74,7 +74,8 @@
           <li class="p-4 flex items-center gap-3">
             <i class="fas fa-circle-info text-violet-500 shrink-0" aria-hidden="true"></i>
             <div class="flex-1 min-w-0 text-sm text-be-ink-700 dark:text-white/80">
-              {{ item.message }}
+              <span class="font-medium">{{ item.title }}</span>
+              {% if item.body %}<span class="text-be-ink-500 dark:text-white/50"> — {{ item.body }}</span>{% endif %}
             </div>
             <span class="text-xs text-be-ink-400 dark:text-white/40 shrink-0">
               {{ item.created_at|naturaltime }}

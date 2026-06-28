@@ -4,8 +4,6 @@ from __future__ import annotations
 import re
 import uuid
 
-import pytest
-
 
 def test_request_id_middleware_generates_uuid_if_absent(client):
     """Si le client ne passe pas X-Request-ID, on en génère un."""

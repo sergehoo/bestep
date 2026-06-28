@@ -7,6 +7,7 @@
 - CERT-05 : ajout du champ ``is_final`` sur ``Quiz`` n'est PAS dans cet
   audit (côté assessments). On laisse cette refonte à V3.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -63,8 +64,8 @@ class IssuedCertificate(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["verification_hash"]),
-            models.Index(fields=["issued_at"]),
+            models.Index(fields=["verification_hash"], name="cert_verif_hash_idx"),
+            models.Index(fields=["issued_at"], name="cert_issued_at_idx"),
         ]
 
     @property

@@ -24,7 +24,7 @@ organization__is_active=True).
 """
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 from django.contrib.auth import get_user_model
 

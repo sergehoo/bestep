@@ -11,7 +11,7 @@ import sys
 def main():
     """Run administrative tasks."""
     # CORRECTIF SEC-02 : prod par défaut.
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "best_epargne.settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "best_epargne.settings.prod")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

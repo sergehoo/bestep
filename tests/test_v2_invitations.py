@@ -32,11 +32,13 @@ def test_invite_member_creates_invitation(alice):
 @pytest.mark.django_db
 def test_accept_invitation_idor(alice, bob):
     """Un user ne peut accepter une invitation adressée à un autre email."""
+    from datetime import timedelta
+
     from django.core.exceptions import PermissionDenied
+    from django.utils import timezone
+
     from organizations.models import Organization, OrganizationInvitation, OrganizationMembership
     from organizations.services import OrganizationMemberManagementService
-    from datetime import timedelta
-    from django.utils import timezone
 
     org = Organization.objects.create(name="Acme2", slug="acme-2")
     OrganizationMembership.objects.create(
@@ -58,10 +60,12 @@ def test_accept_invitation_idor(alice, bob):
 @pytest.mark.django_db
 def test_accept_invitation_creates_membership(alice):
     """L'utilisateur cible peut accepter et le membership est créé."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
     from organizations.models import Organization, OrganizationInvitation, OrganizationMembership
     from organizations.services import OrganizationMemberManagementService
-    from datetime import timedelta
-    from django.utils import timezone
 
     org = Organization.objects.create(name="Acme3", slug="acme-3")
     # Pas de membership owner pour Alice → on prend un autre user comme inviter.

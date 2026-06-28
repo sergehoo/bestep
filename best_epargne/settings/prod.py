@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import os
 
-from .base import *  # noqa: F401,F403
+from .base import *  # noqa: F403
 
-# DEBUG doit rester désactivé en production.
-DEBUG = env_bool("DJANGO_DEBUG", False)  # noqa: F405
+# DEBUG est inconditionnellement désactivé en production. Les diagnostics
+# locaux passent par ``best_epargne.settings.dev``.
+DEBUG = False
 
 _default_hosts = "ayo-group.com,www.ayo-group.com"
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", _default_hosts)  # noqa: F405

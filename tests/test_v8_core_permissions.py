@@ -20,6 +20,7 @@ def test_is_platform_admin_excludes_is_staff(make_user):
 def test_can_view_course_blocks_draft_for_anonymous():
     """CAT-01 : un cours DRAFT n'est jamais visible publiquement."""
     from django.contrib.auth.models import AnonymousUser
+
     from catalog.models import Course
     from core.permissions import can_view_course
 
@@ -31,8 +32,8 @@ def test_can_view_course_blocks_draft_for_anonymous():
 def test_can_view_course_company_only_blocks_outsider(alice, bob):
     """Un user non-membre d'une org ne peut pas voir un cours company_only."""
     from catalog.models import Course
-    from organizations.models import Organization
     from core.permissions import can_view_course
+    from organizations.models import Organization
 
     org = Organization.objects.create(name="ScopeOrg", slug="scope-org")
     course = Course.objects.create(
@@ -48,8 +49,8 @@ def test_can_view_course_company_only_blocks_outsider(alice, bob):
 def test_can_modify_progress_blocks_cross_user(alice, bob):
     """ENROLL-04 : un user ne peut pas modifier la progression d'autrui."""
     from catalog.models import Course
-    from enrollments.models import Enrollment, LessonProgress
     from core.permissions import can_modify_progress
+    from enrollments.models import Enrollment
 
     # Crée un cours + Lesson minimal (pas obligé de créer Section).
     course = Course.objects.create(title="c", slug="c", status=Course.Status.PUBLISHED, instructor=alice)
@@ -67,6 +68,7 @@ def test_can_modify_progress_blocks_cross_user(alice, bob):
 def test_resolve_user_dashboard_url_anonymous(client):
     """Anonyme → account_login."""
     from django.contrib.auth.models import AnonymousUser
+
     from compte.services import resolve_user_dashboard_url
 
     assert resolve_user_dashboard_url(AnonymousUser()) == "account_login"

@@ -56,7 +56,7 @@ Visitez :
 |---|---|
 | `DJANGO_SETTINGS_MODULE` | `best_epargne.settings.prod` ou `.dev` (défaut prod) |
 | `DJANGO_SECRET_KEY` | Requis ; fail-closed si absent en prod |
-| `DJANGO_DEBUG` | `1` ou `0` |
+| `DJANGO_DEBUG` | `1` ou `0` en dev ; ignoré par les settings de production |
 | `DJANGO_ALLOWED_HOSTS` | CSV |
 | `POSTGRES_*` | DB credentials (prod) |
 | `REDIS_URL` | Cache + sessions |
@@ -66,6 +66,9 @@ Visitez :
 | `MINIO_QUERYSTRING_AUTH` | `1` (par défaut V1) → URLs signées |
 | `MINIO_PRESIGN_EXPIRE` | TTL signed URL (3600 par défaut) |
 | `SITE_URL` | URL absolue (certificats, invitations) |
+| `COMMERCE_CHECKOUT_PROVIDER` | PSP actif : `stripe`, `paydunya` ou `cinetpay` |
+| `COMMERCE_CHECKOUT_SESSION_FACTORY` | Chemin Python de l'adaptateur créant une session PSP |
+| `COMMERCE_COMPANY_SEAT_PRICE` | Prix serveur d'un siège entreprise |
 | `STRIPE_WEBHOOK_SECRET` / `PAYDUNYA_MASTER_KEY` / `CINETPAY_WEBHOOK_SECRET` | Signatures webhook |
 | `FLOWER_BASIC_AUTH` | `user:password` pour Flower (V_OPS.B) |
 | `DR_S3_*` | Backup MinIO vers S3 externe (V_OPS.A) |

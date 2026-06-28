@@ -122,6 +122,7 @@ def get_platform_dashboard_kpis() -> dict[str, Any]:
     Aggrégations groupées : remplace ~30 COUNT séparés par 4-5 requêtes.
     """
     from django.contrib.auth import get_user_model
+
     from catalog.models import Course
     from commerce.models import Order
     from enrollments.models import Enrollment

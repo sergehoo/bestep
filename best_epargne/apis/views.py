@@ -1,29 +1,38 @@
+from __future__ import annotations
+
 import uuid
 from datetime import timedelta
-from decimal import Decimal
-from typing import Optional
 
 import boto3
+from botocore.client import Config
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db import transaction, IntegrityError
+from django.db import IntegrityError, transaction
+from django.db.models import Avg, Count, DecimalField, IntegerField, Max, Q, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
-from rest_framework.renderers import JSONRenderer
-from rest_framework.views import APIView
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
-from django.db.models import Q, Count, Max, Sum, Avg, DecimalField, IntegerField
-from botocore.client import Config
+from rest_framework.views import APIView as DRFAPIView
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
-from assessments.models import Quiz, Attempt, Question, Choice, AttemptAnswer
-from catalog.models import Course, Category, CourseSection, Lesson, MediaAsset, Payment, MediaUploadLog
+from assessments.models import Attempt, AttemptAnswer, Choice, Question, Quiz
+from catalog.models import (
+    Category,
+    Course,
+    CourseSection,
+    Lesson,
+    MediaAsset,
+    MediaUploadLog,
+    Payment,
+)
 from catalog.services import (
     can_modify_media,
     get_instructor_courses_qs,
@@ -33,16 +42,30 @@ from catalog.services import (
 )
 from compte.workspaces import get_active_workspace
 from core import policies
-from formations.Rolemixin import InstructorBaseMixin
-from organizations.models import OrganizationMembership
-from .permissions import IsInstructor
-from .serializers import CourseSerializer, CategorySerializer, CourseSectionSerializer, LessonSerializer, \
-    MediaUploadInitSerializer, MediaUploadFinalizeSerializer, MediaAssetListSerializer, MediaAssetUpdateSerializer, \
-    MediaAssetDetailSerializer, MediaAssetSerializer
 from formations.tasks import process_media_asset
+from organizations.models import OrganizationMembership
 
+from .permissions import IsInstructor
+from .serializers import (
+    CategorySerializer,
+    CourseSectionSerializer,
+    CourseSerializer,
+    LessonSerializer,
+    MediaAssetDetailSerializer,
+    MediaAssetSerializer,
+    MediaAssetUpdateSerializer,
+    MediaUploadFinalizeSerializer,
+    MediaUploadInitSerializer,
+    OpenApiObjectSerializer,
+)
 
 # from compte.api.permissions import IsInstructor
+
+
+class APIView(DRFAPIView):
+    """APIView documentable pour les réponses JSON construites à la main."""
+
+    serializer_class = OpenApiObjectSerializer
 
 
 class CategoryViewSet(ReadOnlyModelViewSet):
@@ -164,6 +187,7 @@ class InstructorCourseViewSet(ModelViewSet):
 
 class OrganizationCourseViewSet(ModelViewSet):
     """API privée organisation, scope strictement lié au workspace actif."""
+    queryset = Course.objects.none()
     serializer_class = CourseSerializer
     permission_classes = [IsAuthenticated]
 
@@ -313,7 +337,7 @@ except Exception:  # pragma: no cover
     Payout = None
 
 try:
-    from reviews.models import Review, CourseReview
+    from reviews.models import CourseReview, Review
 except Exception:
     Review = None
     CourseReview = None  # 🔥 IMPORTANT
@@ -366,8 +390,6 @@ class InstructorKpisView(InstructorBaseAPIView):
         since = timezone.now() - timedelta(days=days)
 
         courses_qs = Course.objects.filter(instructor=u)
-        course_ids = list(courses_qs.values_list("id", flat=True))
-
         # ------------------ COURSES ------------------
         total_courses = courses_qs.count()
         published_courses = courses_qs.filter(status=Course.Status.PUBLISHED).count()
@@ -375,8 +397,6 @@ class InstructorKpisView(InstructorBaseAPIView):
         draft_courses = courses_qs.filter(status=Course.Status.DRAFT).count()
         archived_courses = courses_qs.filter(status=Course.Status.ARCHIVED).count()
 
-        total_sections = CourseSection.objects.filter(course__instructor=u).count()
-        total_lessons = Lesson.objects.filter(section__course__instructor=u).count()
         total_media = MediaAsset.objects.filter(owner=u).count()
 
         # ------------------ ENROLLMENTS ------------------
@@ -585,6 +605,7 @@ class InstructorNotificationsView(APIView):
 class InstructorCourseDetailView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
 
+    @extend_schema(operation_id="instructor_course_detail", responses=CourseSerializer)
     def get(self, request, course_id):
         course = _course_owned(course_id, request.user)
         return Response(CourseSerializer(course, context={"request": request}).data)
@@ -618,7 +639,7 @@ class InstructorSectionListView(APIView):
         qs = CourseSection.objects.filter(course=course).order_by("order")
         data = CourseSectionSerializer(qs, many=True, context={"request": request}).data
         # include lessons_count
-        for item, obj in zip(data, qs):
+        for item, obj in zip(data, qs, strict=False):
             item["lessons_count"] = obj.lessons.count()
         return Response(data)
 
@@ -793,7 +814,7 @@ SIGNED_READ_TTL_SECONDS = 60
 MAX_MULTIPART_PARTS = 10_000
 
 
-def _get_started_upload_log(user, upload_id: str, object_key: Optional[str] = None, *, lock: bool = False):
+def _get_started_upload_log(user, upload_id: str, object_key: str | None = None, *, lock: bool = False):
     qs = MediaUploadLog.objects.filter(
         user=user,
         upload_id=upload_id,
@@ -891,10 +912,10 @@ class MediaUploadFinalizeView(APIView):
 
         try:
             head = client.head_object(Bucket=bucket, Key=data["object_key"])
-        except Exception:
+        except Exception as exc:
             raise ValidationError({
                 "object_key": "Object not found in MinIO (head_object failed). Upload may have failed."
-            })
+            }) from exc
 
         remote_size = int(head.get("ContentLength") or 0)
         remote_type = head.get("ContentType") or data["content_type"]
@@ -1292,6 +1313,10 @@ class InstructorMediaDetailView(APIView):
     """
     permission_classes = [IsAuthenticated, IsInstructor]
 
+    @extend_schema(
+        operation_id="instructor_media_detail",
+        responses=MediaAssetDetailSerializer,
+    )
     def get(self, request, asset_id):
         asset = _get_visible_media_or_404(request, asset_id)
         serializer = MediaAssetDetailSerializer(asset)
@@ -1903,6 +1928,7 @@ class InstructorQuizQuestionCreateView(APIView):
 class InstructorQuizDetailView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
 
+    @extend_schema(operation_id="instructor_quiz_detail")
     def get(self, request, quiz_id: int):
         quiz = _get_writable_quiz(
             quiz_id,
@@ -2666,6 +2692,7 @@ class LearnerOrganizationCoursesAPIView(APIView):
 class LearnerCourseDetailView(LearnerBaseAPIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(operation_id="learner_course_detail")
     def get(self, request, course_id: int):
         course = get_object_or_404(
             get_visible_courses_qs(
@@ -2757,11 +2784,11 @@ class LearnerCourseProgressView(LearnerBaseAPIView):
 
         lps = {p.lesson_id: p for p in lp_qs.select_related("lesson")}
         lessons_payload = []
-        for l in lessons_qs:
-            p = lps.get(l.id)
+        for lesson in lessons_qs:
+            p = lps.get(lesson.id)
             lessons_payload.append({
-                "lesson_id": l.id,
-                "lesson_title": l.title,
+                "lesson_id": lesson.id,
+                "lesson_title": lesson.title,
                 "percent": int(p.progress_percent or 0) if p else 0,
                 "is_completed": bool(p.completed) if p else False,
                 "updated_at": _iso(getattr(p, "updated_at", None)) if p else None,
@@ -2991,16 +3018,16 @@ class LearnerCourseOutlineView(LearnerBaseAPIView):
         out_sections = []
         for s in sections:
             out_lessons = []
-            for l in s.lessons.all().order_by("order", "id"):
-                p = progress_map.get(l.id)
+            for lesson in s.lessons.all().order_by("order", "id"):
+                p = progress_map.get(lesson.id)
                 out_lessons.append({
-                    "id": l.id,
-                    "title": l.title,
-                    "lesson_type": l.lesson_type,
-                    "type": l.lesson_type,
-                    "duration_sec": l.duration_sec,
-                    "duration_seconds": l.duration_sec,
-                    "is_preview": bool(l.is_preview),
+                    "id": lesson.id,
+                    "title": lesson.title,
+                    "lesson_type": lesson.lesson_type,
+                    "type": lesson.lesson_type,
+                    "duration_sec": lesson.duration_sec,
+                    "duration_seconds": lesson.duration_sec,
+                    "is_preview": bool(lesson.is_preview),
                     "progress_percent": int(float(p.progress_percent)) if p else 0,
                     "percent": int(float(p.progress_percent)) if p else 0,
                     "completed": bool(p.completed) if p else False,
@@ -3338,10 +3365,10 @@ class LearnerCoursePlayerDataView(LearnerBaseAPIView):
         }
 
         current_lesson = None
-        for l in lessons_qs:
-            p = prog.get(l.id)
+        for lesson in lessons_qs:
+            p = prog.get(lesson.id)
             if p and not p.completed:
-                current_lesson = l
+                current_lesson = lesson
                 break
         if current_lesson is None:
             current_lesson = lessons_qs.first()
@@ -3349,16 +3376,16 @@ class LearnerCoursePlayerDataView(LearnerBaseAPIView):
         payload_sections = []
         for s in sections:
             s_lessons = []
-            for l in s.lessons.all().order_by("order"):
-                p = prog.get(l.id)
+            for lesson in s.lessons.all().order_by("order"):
+                p = prog.get(lesson.id)
                 s_lessons.append({
-                    "id": l.id,
-                    "title": l.title,
-                    "lesson_type": l.lesson_type,
-                    "type": l.lesson_type,
-                    "duration_sec": l.duration_sec,
-                    "duration_seconds": l.duration_sec,
-                    "is_preview": bool(l.is_preview),
+                    "id": lesson.id,
+                    "title": lesson.title,
+                    "lesson_type": lesson.lesson_type,
+                    "type": lesson.lesson_type,
+                    "duration_sec": lesson.duration_sec,
+                    "duration_seconds": lesson.duration_sec,
+                    "is_preview": bool(lesson.is_preview),
                     "progress_percent": int((p.progress_percent if p else 0) or 0),
                     "percent": int((p.progress_percent if p else 0) or 0),
                     "completed": bool(p.completed) if p else False,

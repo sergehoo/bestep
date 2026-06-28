@@ -73,12 +73,12 @@
                             </svg>
                             Créer un cours
                         </a>
-                        <a href="{% url 'instructor:dashboard' %}?tab=builder"
+                        <a href="{% url 'instructor:course_create' %}"
                            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
                             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
                                 <path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
-                            Ouvrir le builder
+                            Créer puis ouvrir le builder
                         </a>
                     </div>
                 </div>
@@ -460,7 +460,7 @@
                                class="px-4 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold transition">
                                 Réinitialiser
                             </a>
-                            <a href="{% url 'instructor:dashboard' %}?tab=courses&action=create"
+                            <a href="{% url 'instructor:course_create' %}"
                                class="px-4 py-2.5 rounded-xl bg-be-sky-600 text-white hover:bg-be-sky-700 text-sm font-semibold shadow-soft transition">
                                 Créer un cours
                             </a>
@@ -482,7 +482,7 @@
                 <div class="p-5 space-y-3">
                     {% if featured_courses %}
                         {% for course in featured_courses %}
-                            <a href="{% url 'instructor:dashboard' %}?tab=builder&course={{ course.id }}"
+                            <a href="{% url 'instructor:course_builder' course.id %}"
                                class="block rounded-2xl border border-be-ink-100 dark:border-white/10 bg-be-ink-50/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 p-4 transition">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
@@ -512,7 +512,7 @@
                 <div class="p-5 space-y-3">
                     {% if recent_drafts %}
                         {% for course in recent_drafts %}
-                            <a href="{% url 'instructor:dashboard' %}?tab=courses&edit={{ course.id }}"
+                            <a href="{% url 'instructor:course_update' course.id %}"
                                class="block rounded-2xl border border-be-ink-100 dark:border-white/10 p-4 hover:bg-be-ink-50 dark:hover:bg-white/10 transition">
                                 <div class="text-sm font-semibold truncate">{{ course.title }}</div>
                                 <div class="mt-1 text-[12px] text-be-ink-500 dark:text-white/50">
@@ -535,7 +535,7 @@
                 <div class="p-5 space-y-3">
                     {% if courses_needing_work %}
                         {% for item in courses_needing_work %}
-                            <a href="{% url 'instructor:dashboard' %}?tab=courses&edit={{ item.id }}"
+                            <a href="{% url 'instructor:course_update' item.id %}"
                                class="block rounded-2xl border border-rose-100 bg-rose-50/60 hover:bg-rose-50 p-4 transition">
                                 <div class="text-sm font-semibold text-rose-800 truncate">{{ item.title }}</div>
                                 <div class="mt-2 flex flex-wrap gap-2">

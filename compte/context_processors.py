@@ -20,7 +20,6 @@ from compte.workspaces import (
     resolve_workspace_url,
 )
 
-
 _REQUEST_CACHE_ATTR = "_workspaces_ctx_cache"
 
 

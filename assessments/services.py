@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Tuple
 
 from assessments.models import AttemptAnswer
 
@@ -24,7 +23,7 @@ def bucket_topic(score_ratio: float) -> str:
     return "strong"
 
 
-def build_profile(answers: List[AttemptAnswer], score_percent: int) -> Dict:
+def build_profile(answers: list[AttemptAnswer], score_percent: int) -> dict:
     """
     Retourne un JSON "profil" stable, exploitable pour recommandations.
     """
@@ -68,7 +67,7 @@ def build_profile(answers: List[AttemptAnswer], score_percent: int) -> Dict:
     return profile
 
 
-def smart_advice(profile: Dict) -> str:
+def smart_advice(profile: dict) -> str:
     """
     Conseil court, actionnable.
     """
