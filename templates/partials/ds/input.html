@@ -1,0 +1,68 @@
+{% comment %}
+  partials/ds/input.html — Input form du design system (P2.3).
+
+  Usage :
+      {% include "partials/ds/input.html" with
+          name="email"
+          label="Adresse email"
+          type="email"
+          required="1"
+          help="Nous ne partagerons jamais cette adresse." %}
+
+  Variables :
+    - name (obligatoire) : attribut name + id (id="id_<name>")
+    - label : label visible au-dessus
+    - type : text (défaut) | email | password | url | tel | number | date | search
+    - value : valeur initiale
+    - placeholder
+    - required : "1" → required + label avec *
+    - autocomplete : attribut autocomplete HTML
+    - help : texte d'aide en dessous
+    - error : message d'erreur (override help)
+    - size : sm | (vide=md) | lg
+    - icon : si présent, affiche une icône FA dans le champ à gauche
+    - extra_attrs : attributs HTML bruts
+{% endcomment %}
+
+{% with _type=type|default:"text" _id=id|default:"" %}
+{% with _id=_id|default:name %}
+<div class="space-y-1.5{% if extra_class %} {{ extra_class }}{% endif %}">
+
+  {% if label %}
+    <label for="id_{{ _id }}"
+           class="be-label{% if required == '1' %} be-label-required{% endif %}">
+      {{ label }}
+    </label>
+  {% endif %}
+
+  <div class="relative">
+    {% if icon %}
+      <i class="fa-solid {% if icon|slice:':3' != 'fa-' %}fa-{% endif %}{{ icon }}
+                absolute left-3 top-1/2 -translate-y-1/2 text-be-ink-400 text-sm"
+         aria-hidden="true"></i>
+    {% endif %}
+    <input
+      type="{{ _type }}"
+      id="id_{{ _id }}"
+      name="{{ name }}"
+      class="be-input{% if size %} be-input-{{ size }}{% endif %}{% if icon %} pl-9{% endif %}{% if error %} border-rose-400 focus:ring-rose-200/60 focus:border-rose-500{% endif %}"
+      {% if value %}value="{{ value }}"{% endif %}
+      {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+      {% if required == "1" %}required{% endif %}
+      {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
+      {% if error %}aria-invalid="true" aria-describedby="err_{{ _id }}"{% elif help %}aria-describedby="help_{{ _id }}"{% endif %}
+      {% if extra_attrs %}{{ extra_attrs|safe }}{% endif %}
+    >
+  </div>
+
+  {% if error %}
+    <p id="err_{{ _id }}" class="be-error-text">
+      <i class="fa-solid fa-circle-exclamation text-[10px]" aria-hidden="true"></i>
+      <span>{{ error }}</span>
+    </p>
+  {% elif help %}
+    <p id="help_{{ _id }}" class="be-help-text">{{ help }}</p>
+  {% endif %}
+</div>
+{% endwith %}
+{% endwith %}

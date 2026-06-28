@@ -1,0 +1,67 @@
+{% comment %}
+  partials/ds/button.html — Bouton du design system (P2.3).
+
+  Usage minimal :
+      {% include "partials/ds/button.html" with label="Enregistrer" %}
+
+  Usage complet :
+      {% include "partials/ds/button.html" with
+          label="Publier"
+          variant="success"
+          size="lg"
+          icon="fa-rocket"
+          href="/some/url/"
+          extra_class="w-full" %}
+
+  Variables :
+    - label (obligatoire)
+    - variant : primary (défaut) | secondary | outline | ghost | danger | success
+    - size : sm (défaut md vide) | sm | lg | xs
+    - icon : nom Font Awesome sans le préfixe ('fa-' optionnel)
+              Ex : "rocket" ou "fa-rocket"
+    - icon_right : si "1", l'icône passe à droite du label
+    - href : si présent, rend un <a>, sinon un <button>
+    - type : pour <button>, défaut "button" (passer "submit" pour un form)
+    - disabled : "1" pour disabled
+    - aria_label : override de l'aria-label (défaut = label)
+    - extra_class : classes Tailwind additionnelles
+    - extra_attrs : attributs HTML bruts (data-*, etc.)
+{% endcomment %}
+
+{% spaceless %}
+{% with
+    _variant=variant|default:"primary"
+    _size=size|default:""
+    _type=type|default:"button"
+    _icon=icon|default:""
+%}
+{% if href %}
+<a href="{{ href }}"
+   class="be-btn-{{ _variant }}{% if _size %} be-btn-{{ _size }}{% endif %}{% if extra_class %} {{ extra_class }}{% endif %}"
+   aria-label="{{ aria_label|default:label }}"
+   {% if extra_attrs %}{{ extra_attrs|safe }}{% endif %}>
+  {% if _icon and icon_right != "1" %}
+    <i class="fa-solid {% if _icon|slice:':3' != 'fa-' %}fa-{% endif %}{{ _icon }} text-xs" aria-hidden="true"></i>
+  {% endif %}
+  <span>{{ label }}</span>
+  {% if _icon and icon_right == "1" %}
+    <i class="fa-solid {% if _icon|slice:':3' != 'fa-' %}fa-{% endif %}{{ _icon }} text-xs" aria-hidden="true"></i>
+  {% endif %}
+</a>
+{% else %}
+<button type="{{ _type }}"
+        class="be-btn-{{ _variant }}{% if _size %} be-btn-{{ _size }}{% endif %}{% if extra_class %} {{ extra_class }}{% endif %}"
+        aria-label="{{ aria_label|default:label }}"
+        {% if disabled == "1" %}disabled{% endif %}
+        {% if extra_attrs %}{{ extra_attrs|safe }}{% endif %}>
+  {% if _icon and icon_right != "1" %}
+    <i class="fa-solid {% if _icon|slice:':3' != 'fa-' %}fa-{% endif %}{{ _icon }} text-xs" aria-hidden="true"></i>
+  {% endif %}
+  <span>{{ label }}</span>
+  {% if _icon and icon_right == "1" %}
+    <i class="fa-solid {% if _icon|slice:':3' != 'fa-' %}fa-{% endif %}{{ _icon }} text-xs" aria-hidden="true"></i>
+  {% endif %}
+</button>
+{% endif %}
+{% endwith %}
+{% endspaceless %}

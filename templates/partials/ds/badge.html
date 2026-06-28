@@ -1,0 +1,24 @@
+{% comment %}
+  partials/ds/badge.html — Badge du design system (P2.3).
+
+  Usage :
+      {% include "partials/ds/badge.html" with label="Publié" variant="success" %}
+      {% include "partials/ds/badge.html" with label="Nouveau" variant="accent" size="lg" icon="star" %}
+
+  Variables :
+    - label (obligatoire)
+    - variant : primary | accent | success | warning | danger | info | neutral (défaut)
+    - size : xs | sm (vide=md) | lg
+    - icon : Font Awesome (sans préfixe ou avec fa-)
+{% endcomment %}
+
+{% spaceless %}
+{% with _variant=variant|default:"neutral" _size=size|default:"" _icon=icon|default:"" %}
+<span class="be-badge-{{ _variant }}{% if _size %} be-badge-{{ _size }}{% endif %}{% if extra_class %} {{ extra_class }}{% endif %}">
+  {% if _icon %}
+    <i class="fa-solid {% if _icon|slice:':3' != 'fa-' %}fa-{% endif %}{{ _icon }} text-[10px]" aria-hidden="true"></i>
+  {% endif %}
+  <span>{{ label }}</span>
+</span>
+{% endwith %}
+{% endspaceless %}

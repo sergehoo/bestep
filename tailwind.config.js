@@ -39,22 +39,56 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // ── Couleurs métier Best Épargne (legacy, conservées) ──
         be: {
+          // Bleu marque — palette primaire.
           sky: {
             50:  "#F2FAFF", 100: "#DEF3FF", 200: "#BEE8FF", 300: "#8AD7FF",
             400: "#4DBFFF", 500: "#1EA7FF", 600: "#0C87D6", 700: "#0B6FAE",
             800: "#0C5C8E", 900: "#0A466B",
           },
+          // Jaune marque — palette accent.
           sun: {
             50:  "#FFFBEA", 100: "#FFF3BF", 200: "#FFE58A", 300: "#FFD14D",
             400: "#FFBD1F", 500: "#F7A600", 600: "#D48300", 700: "#AD6400",
             800: "#8A4E00", 900: "#6A3B00",
           },
+          // Gris encre — texte / borders / fonds neutres.
           ink: {
             50:  "#F7FAFC", 100: "#EEF2F7", 200: "#D7DEE9", 300: "#B5C0D4",
             400: "#7E8AA6", 500: "#5B6783", 600: "#3F4A63", 700: "#2B3449",
             800: "#1E2536", 900: "#121827",
           },
+        },
+
+        // ── P2.1 — Alias SÉMANTIQUES (bleu primaire / jaune accent / neutral) ──
+        //
+        // Pourquoi des alias ?
+        //   - `be-sky-600` est implicite : qui sait que c'est la couleur primaire ?
+        //   - `primary-600` ou `be-primary-600` est lisible et fait fonction de
+        //     "contrat" du design system.
+        //   - Permet aussi de switcher la palette globale en 1 endroit si
+        //     rebranding (changer la définition primary, pas chaque template).
+        //
+        // CHAQUE alias pointe vers les mêmes hex que le token legacy.
+        // Coexistance sans casse : be-sky-600 et primary-600 sont équivalents.
+        primary: {
+          50:  "#F2FAFF", 100: "#DEF3FF", 200: "#BEE8FF", 300: "#8AD7FF",
+          400: "#4DBFFF", 500: "#1EA7FF", 600: "#0C87D6", 700: "#0B6FAE",
+          800: "#0C5C8E", 900: "#0A466B",
+          DEFAULT: "#0C87D6",
+        },
+        accent: {
+          50:  "#FFFBEA", 100: "#FFF3BF", 200: "#FFE58A", 300: "#FFD14D",
+          400: "#FFBD1F", 500: "#F7A600", 600: "#D48300", 700: "#AD6400",
+          800: "#8A4E00", 900: "#6A3B00",
+          DEFAULT: "#F7A600",
+        },
+        neutral: {
+          50:  "#F7FAFC", 100: "#EEF2F7", 200: "#D7DEE9", 300: "#B5C0D4",
+          400: "#7E8AA6", 500: "#5B6783", 600: "#3F4A63", 700: "#2B3449",
+          800: "#1E2536", 900: "#121827",
+          DEFAULT: "#5B6783",
         },
       },
       boxShadow: {
@@ -90,6 +124,11 @@ module.exports = {
     {
       pattern: /^(bg|text)-be-(sky|sun|ink)-(50|100|200|300|400|500|600|700|800|900)$/,
       variants: ["hover", "focus", "dark"],
+    },
+    // P2.1 — Alias sémantiques (primary/accent/neutral).
+    {
+      pattern: /^(bg|text|border|ring)-(primary|accent|neutral)-(50|100|200|300|400|500|600|700|800|900)$/,
+      variants: ["hover", "focus", "focus-visible", "active", "dark"],
     },
   ],
 };

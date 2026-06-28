@@ -1,0 +1,51 @@
+{% comment %}
+  partials/ds/empty_state.html — État vide du design system (P2.3).
+
+  Affiche un placeholder visuel + texte + CTA optionnel quand une
+  collection est vide. Cohérent avec la palette bleu/jaune.
+
+  Usage :
+      {% include "partials/ds/empty_state.html" with
+          icon="fa-graduation-cap"
+          title="Aucun cours pour le moment"
+          message="Commencez par créer votre premier cours."
+          cta_label="Créer un cours"
+          cta_url="/instructor/courses/create/"
+          cta_variant="primary" %}
+
+  Variables :
+    - icon : nom Font Awesome (avec ou sans préfixe fa-)
+    - title : titre principal (h3)
+    - message : description (p)
+    - cta_label : texte du bouton (optionnel)
+    - cta_url : URL du bouton (optionnel)
+    - cta_variant : primary (défaut) | secondary | outline
+    - tone : neutral (défaut) | warning | info
+{% endcomment %}
+
+{% with _tone=tone|default:"neutral" _icon=icon|default:"fa-folder-open" %}
+<div class="text-center py-12 px-6">
+  <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4
+    {% if _tone == 'warning' %}bg-be-sun-100 text-be-sun-700 dark:bg-be-sun-900/40 dark:text-be-sun-200
+    {% elif _tone == 'info' %}bg-be-sky-100 text-be-sky-700 dark:bg-be-sky-900/40 dark:text-be-sky-200
+    {% else %}bg-be-ink-100 text-be-ink-500 dark:bg-white/10 dark:text-white/60{% endif %}">
+    <i class="fa-solid {% if _icon|slice:':3' != 'fa-' %}fa-{% endif %}{{ _icon }} text-2xl"
+       aria-hidden="true"></i>
+  </div>
+  {% if title %}
+    <h3 class="text-base font-bold text-be-ink-900 dark:text-white">{{ title }}</h3>
+  {% endif %}
+  {% if message %}
+    <p class="mt-1.5 text-sm text-be-ink-500 dark:text-white/60 max-w-md mx-auto">{{ message }}</p>
+  {% endif %}
+  {% if cta_label and cta_url %}
+    <div class="mt-5">
+      {% include "partials/ds/button.html" with
+          label=cta_label
+          href=cta_url
+          variant=cta_variant|default:"primary"
+          icon=cta_icon|default:"" %}
+    </div>
+  {% endif %}
+</div>
+{% endwith %}

@@ -1,0 +1,49 @@
+{% comment %}
+  partials/ds/alert.html — Bannière d'alerte du design system (P2.3).
+
+  Usage :
+      {% include "partials/ds/alert.html" with
+          variant="success"
+          message="Le cours a été publié avec succès." %}
+
+      {% include "partials/ds/alert.html" with
+          variant="warning"
+          title="Attention"
+          message="Ce cours a des inscriptions actives."
+          dismissible="1" %}
+
+  Variables :
+    - variant : success | warning | danger | info (défaut)
+    - title : titre optionnel en gras
+    - message (obligatoire) : texte ou HTML safe
+    - dismissible : "1" → bouton de fermeture (data-be-modal-close ou JS custom)
+    - icon : override l'icône (par défaut auto selon variant)
+{% endcomment %}
+
+{% with _variant=variant|default:"info" %}
+{% with _icon=icon|default:"" %}
+<div class="be-alert-{{ _variant }}" role="status" aria-live="polite">
+  <i class="fa-solid mt-0.5 shrink-0
+    {% if _icon %}{% if _icon|slice:':3' != 'fa-' %}fa-{% endif %}{{ _icon }}
+    {% elif _variant == 'success' %}fa-circle-check
+    {% elif _variant == 'warning' %}fa-triangle-exclamation
+    {% elif _variant == 'danger' %}fa-circle-xmark
+    {% else %}fa-circle-info{% endif %}"
+     aria-hidden="true"></i>
+
+  <div class="flex-1 min-w-0">
+    {% if title %}<div class="font-bold">{{ title }}</div>{% endif %}
+    <div class="{% if title %}mt-0.5 {% endif %}text-sm">{{ message|safe }}</div>
+  </div>
+
+  {% if dismissible == "1" %}
+    <button type="button"
+            class="-mt-0.5 -mr-1 p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
+            data-be-alert-close
+            aria-label="Fermer l'alerte">
+      <i class="fa-solid fa-xmark text-xs" aria-hidden="true"></i>
+    </button>
+  {% endif %}
+</div>
+{% endwith %}
+{% endwith %}

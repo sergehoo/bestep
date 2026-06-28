@@ -1,0 +1,51 @@
+{% comment %}
+  partials/ds/card.html — Card paramétrable du design system (P2.3).
+
+  Usage simple (juste un body) :
+      {% include "partials/ds/card.html" with body="Contenu de la carte." %}
+
+  Usage avec header + footer :
+      {% include "partials/ds/card.html" with
+          title="Mon titre"
+          subtitle="Une description courte"
+          body=mon_html
+          footer_html=footer
+          elevated="1" %}
+
+  Variables :
+    - title : titre du header (optionnel)
+    - subtitle : sous-titre du header (optionnel)
+    - header_html : contenu HTML brut du header (override title/subtitle)
+    - body : texte ou HTML du body (sera marqué |safe)
+    - footer_html : contenu HTML du footer (optionnel)
+    - elevated : "1" pour shadow-soft, sinon flat
+    - extra_class : classes additionnelles sur la card
+{% endcomment %}
+
+<article class="{% if elevated == '1' %}be-card-elevated{% else %}be-card{% endif %}{% if extra_class %} {{ extra_class }}{% endif %}">
+
+  {% if header_html or title or subtitle %}
+  <header class="be-card-header">
+    {% if header_html %}
+      {{ header_html|safe }}
+    {% else %}
+      <div class="min-w-0">
+        {% if title %}<h3 class="be-card-title">{{ title }}</h3>{% endif %}
+        {% if subtitle %}<p class="be-card-subtitle">{{ subtitle }}</p>{% endif %}
+      </div>
+    {% endif %}
+  </header>
+  {% endif %}
+
+  {% if body %}
+  <div class="be-card-body">
+    {{ body|safe }}
+  </div>
+  {% endif %}
+
+  {% if footer_html %}
+  <footer class="be-card-footer">
+    {{ footer_html|safe }}
+  </footer>
+  {% endif %}
+</article>
