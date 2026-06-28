@@ -1,0 +1,178 @@
+{% comment %}
+  partials/course_lifecycle_actions.html — Actions de cycle de vie d'un cours.
+
+  Affiche les boutons d'action CONTEXTUELS selon Course.status :
+    - DRAFT     → Publier · Archiver
+    - REVIEW    → Publier · Archiver
+    - PUBLISHED → Dépublier · Archiver
+    - ARCHIVED  → Restaurer
+
+  Toutes les actions sont des formulaires POST avec CSRF qui pointent
+  vers les vues instructor (cf. formations/instructor_lifecycle_views.py).
+  Les actions destructrices (archive / unpublish) sont protégées par une
+  modale de confirmation (pas de submit direct sur clic).
+
+  Usage :
+      {% include "partials/course_lifecycle_actions.html" with course=course %}
+
+  Variables acceptées :
+    - course (obligatoire) : instance Course
+    - layout : "stack" (défaut, vertical) | "row" (horizontal compact)
+{% endcomment %}
+
+{% with _layout=layout|default:"stack" %}
+<div class="{% if _layout == 'row' %}flex flex-wrap items-center gap-2
+            {% else %}flex flex-col gap-2{% endif %}"
+     data-course-lifecycle="{{ course.status }}">
+
+  {# Action PUBLIER — visible si DRAFT ou REVIEW #}
+  {% if course.status == 'DRAFT' or course.status == 'REVIEW' %}
+    <form method="post"
+          action="{% url 'instructor:course_publish' course_id=course.id %}"
+          class="inline-flex">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-4 py-2 rounded-lg
+                     bg-emerald-600 hover:bg-emerald-700 text-white
+                     font-semibold text-sm shadow-sm transition active:scale-95
+                     focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200">
+        <i class="fa-solid fa-rocket text-xs" aria-hidden="true"></i>
+        <span>Publier</span>
+      </button>
+    </form>
+  {% endif %}
+
+  {# Action DÉPUBLIER — visible si PUBLISHED (confirmation modale) #}
+  {% if course.status == 'PUBLISHED' %}
+    <button type="button"
+            data-be-modal-open="unpublish-{{ course.id }}"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg
+                   bg-amber-500 hover:bg-amber-600 text-white
+                   font-semibold text-sm shadow-sm transition active:scale-95
+                   focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-200">
+      <i class="fa-solid fa-pause text-xs" aria-hidden="true"></i>
+      <span>Dépublier</span>
+    </button>
+
+    {# Modale confirmation dépublication #}
+    <div id="modal-unpublish-{{ course.id }}"
+         data-be-modal
+         class="hidden fixed inset-0 z-[100] items-center justify-center p-4">
+      <div data-be-modal-backdrop
+           class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+      <div class="relative w-full max-w-md bg-white dark:bg-be-ink-800
+                  rounded-2xl shadow-2xl p-6 space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40
+                      flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-300"
+               aria-hidden="true"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="font-bold text-be-ink-900 dark:text-white">
+              Dépublier ce cours ?
+            </h3>
+            <p class="text-sm text-be-ink-500 dark:text-white/60 mt-1">
+              Le cours sera retiré du catalogue public. Les apprenants
+              déjà inscrits conservent leur accès. Vous pourrez republier
+              le cours à tout moment depuis cette page.
+            </p>
+          </div>
+        </div>
+        <form method="post"
+              action="{% url 'instructor:course_unpublish' course_id=course.id %}"
+              class="flex justify-end gap-2">
+          {% csrf_token %}
+          <button type="button" data-be-modal-close
+                  class="px-4 py-2 rounded-lg border border-be-ink-100 dark:border-white/10
+                         text-be-ink-700 dark:text-white/80 text-sm font-semibold
+                         hover:bg-be-ink-50 dark:hover:bg-white/10 transition">
+            Annuler
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white
+                         text-sm font-bold transition active:scale-95">
+            Dépublier
+          </button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
+  {# Action ARCHIVER — visible si DRAFT/REVIEW/PUBLISHED (confirmation modale) #}
+  {% if course.status != 'ARCHIVED' %}
+    <button type="button"
+            data-be-modal-open="archive-{{ course.id }}"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg
+                   border border-be-ink-200 dark:border-white/10
+                   bg-white dark:bg-white/5
+                   text-be-ink-700 dark:text-white/80 hover:bg-be-ink-50 dark:hover:bg-white/10
+                   font-semibold text-sm transition active:scale-95
+                   focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-ink-100">
+      <i class="fa-solid fa-box-archive text-xs" aria-hidden="true"></i>
+      <span>Archiver</span>
+    </button>
+
+    {# Modale confirmation archivage #}
+    <div id="modal-archive-{{ course.id }}"
+         data-be-modal
+         class="hidden fixed inset-0 z-[100] items-center justify-center p-4">
+      <div data-be-modal-backdrop
+           class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+      <div class="relative w-full max-w-md bg-white dark:bg-be-ink-800
+                  rounded-2xl shadow-2xl p-6 space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full bg-be-ink-100 dark:bg-white/10
+                      flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-box-archive text-be-ink-600 dark:text-white/70"
+               aria-hidden="true"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="font-bold text-be-ink-900 dark:text-white">
+              Archiver ce cours ?
+            </h3>
+            <p class="text-sm text-be-ink-500 dark:text-white/60 mt-1">
+              Le cours sera retiré du catalogue. Les inscriptions et
+              paiements existants sont conservés. Vous pourrez restaurer
+              le cours plus tard (il repassera en brouillon).
+            </p>
+          </div>
+        </div>
+        <form method="post"
+              action="{% url 'instructor:course_archive' course_id=course.id %}"
+              class="flex justify-end gap-2">
+          {% csrf_token %}
+          <button type="button" data-be-modal-close
+                  class="px-4 py-2 rounded-lg border border-be-ink-100 dark:border-white/10
+                         text-be-ink-700 dark:text-white/80 text-sm font-semibold
+                         hover:bg-be-ink-50 dark:hover:bg-white/10 transition">
+            Annuler
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 rounded-lg bg-be-ink-700 hover:bg-be-ink-800 text-white
+                         text-sm font-bold transition active:scale-95">
+            Archiver
+          </button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
+  {# Action RESTAURER — visible si ARCHIVED #}
+  {% if course.status == 'ARCHIVED' %}
+    <form method="post"
+          action="{% url 'instructor:course_restore' course_id=course.id %}"
+          class="inline-flex">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-4 py-2 rounded-lg
+                     bg-be-sky-600 hover:bg-be-sky-700 text-white
+                     font-semibold text-sm shadow-sm transition active:scale-95
+                     focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200">
+        <i class="fa-solid fa-rotate-left text-xs" aria-hidden="true"></i>
+        <span>Restaurer en brouillon</span>
+      </button>
+    </form>
+  {% endif %}
+</div>
+{% endwith %}

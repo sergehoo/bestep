@@ -40,10 +40,11 @@
     </div>
 
     <div class="hidden md:flex space-x-8">
-      <a href="#" class="text-blue-600 font-semibold border-b-2 border-blue-600 pb-1">Accueil</a>
+      <a href="/" class="text-blue-600 font-semibold border-b-2 border-blue-600 pb-1">Accueil</a>
       <a href="#features" class="text-gray-600 hover:text-blue-600 transition">Fonctionnalités</a>
       <a href="#formateur" class="text-gray-600 hover:text-blue-600 transition">Bénéficiaires</a>
-      <a href="#cours" class="text-gray-600 hover:text-blue-600 transition">Cours</a>
+      {# P1.4 — Lien direct vers le catalogue server-rendered (SEO + fallback no-JS). #}
+      <a href="{% url 'public_catalog' %}" class="text-gray-600 hover:text-blue-600 transition">Cours</a>
       <a href="#faq" class="text-gray-600 hover:text-blue-600 transition">FAQ</a>
     </div>
 

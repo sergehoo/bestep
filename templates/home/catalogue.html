@@ -1,0 +1,314 @@
+{% load static humanize %}<!doctype html>
+{% comment %}
+  templates/home/catalogue.html — Page catalogue PUBLIC server-rendered (P1.4).
+
+  STANDALONE (pas d'extends) car base.html ne définit pas de {% block content %}.
+  Garde une nav minimale cohérente bleu/jaune, et délègue le hero+filtres+liste
+  à un layout compact.
+
+  Affiche get_visible_courses_qs(public_only=True) avec filtres + pagination.
+  Source unique de vérité pour la visibilité publique des cours PUBLISHED.
+{% endcomment %}
+<html lang="fr" class="h-full">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+
+  <title>Catalogue des cours — Best Épargne</title>
+  <meta name="description"
+        content="Découvrez tous les cours publiés sur Best Épargne. Finance, investissement, gestion de patrimoine, formations certifiantes.">
+
+  <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body class="bg-gray-50 text-slate-900 antialiased" style="font-family: 'Inter', sans-serif;">
+
+  {# ── NAV minimale ─────────────────────────────────────────────── #}
+  <nav class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
+    <div class="container mx-auto px-4 py-3 max-w-6xl flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-blue-500
+                    flex items-center justify-center text-white shadow-sm">
+          <img src="{% static 'img/Logo-2.png' %}" alt="" class="w-8 h-8 object-contain">
+        </div>
+        <div>
+          <div class="text-xl font-extrabold text-blue-600 leading-tight">
+            Best-<span class="text-yellow-500">Épargne</span>
+          </div>
+          <div class="text-[10px] text-gray-500 -mt-0.5">Apprentissage financier</div>
+        </div>
+      </a>
+
+      <div class="hidden sm:flex items-center gap-2">
+        <a href="/" class="px-3 py-2 text-sm font-semibold text-gray-700 hover:text-blue-600">
+          Accueil
+        </a>
+        <a href="{% url 'public_catalog' %}"
+           class="px-3 py-2 text-sm font-semibold text-blue-600 border-b-2 border-blue-600">
+          Catalogue
+        </a>
+        {% if user.is_authenticated %}
+          <a href="/dashboard/learner/"
+             class="ml-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white
+                    text-sm font-bold shadow-sm transition">
+            Mon espace
+          </a>
+        {% else %}
+          <a href="{% url 'account_login' %}"
+             class="px-3 py-2 text-sm font-semibold text-gray-700 hover:text-blue-600">
+            Connexion
+          </a>
+          <a href="{% url 'account_signup' %}"
+             class="ml-1 px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-500 text-blue-900
+                    text-sm font-bold shadow-sm transition">
+            S'inscrire
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  {# ── HERO ─────────────────────────────────────────────────────── #}
+  <section class="bg-gradient-to-br from-blue-600 to-blue-700 text-white py-10 sm:py-14">
+    <div class="container mx-auto px-4 max-w-6xl">
+      <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">
+            Catalogue des <span class="text-yellow-300">cours disponibles</span>
+          </h1>
+          <p class="mt-2 text-blue-100 text-base sm:text-lg">
+            Tous les cours publiés par les formateurs Best Épargne.
+          </p>
+        </div>
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+                    bg-white/10 backdrop-blur text-sm font-semibold whitespace-nowrap">
+          <i class="fa-solid fa-graduation-cap text-yellow-300" aria-hidden="true"></i>
+          <span>{{ courses_count|default:0|intcomma }} cours publié{{ courses_count|pluralize }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main class="container mx-auto px-4 max-w-6xl py-8 sm:py-10">
+
+    {# ── FILTRES (GET form) ───────────────────────────────────────── #}
+    <form method="get" action=""
+          class="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 shadow-sm mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+
+        <div class="lg:col-span-2">
+          <label for="q" class="text-xs font-semibold text-gray-600">Recherche</label>
+          <div class="mt-1 relative">
+            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"
+               aria-hidden="true"></i>
+            <input type="text" id="q" name="q"
+                   value="{{ active_filters.q }}"
+                   placeholder="Titre, sous-titre…"
+                   class="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200
+                          bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm">
+          </div>
+        </div>
+
+        <div>
+          <label for="category" class="text-xs font-semibold text-gray-600">Catégorie</label>
+          <select id="category" name="category"
+                  class="mt-1 w-full px-3 py-2 rounded-xl border border-gray-200
+                         bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm">
+            <option value="">Toutes</option>
+            {% for cat in categories %}
+              <option value="{{ cat.slug }}"
+                {% if active_filters.category == cat.slug %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label for="course_type" class="text-xs font-semibold text-gray-600">Type</label>
+          <select id="course_type" name="course_type"
+                  class="mt-1 w-full px-3 py-2 rounded-xl border border-gray-200
+                         bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm">
+            <option value="">Tous</option>
+            <option value="CERTIFIANTE" {% if active_filters.course_type == 'CERTIFIANTE' %}selected{% endif %}>Certifiante</option>
+            <option value="PROFESSIONNELLE" {% if active_filters.course_type == 'PROFESSIONNELLE' %}selected{% endif %}>Professionnelle</option>
+            <option value="ACADEMIQUE" {% if active_filters.course_type == 'ACADEMIQUE' %}selected{% endif %}>Académique</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="pricing" class="text-xs font-semibold text-gray-600">Tarif</label>
+          <select id="pricing" name="pricing"
+                  class="mt-1 w-full px-3 py-2 rounded-xl border border-gray-200
+                         bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm">
+            <option value="">Tous</option>
+            <option value="FREE" {% if active_filters.pricing == 'FREE' %}selected{% endif %}>Gratuit</option>
+            <option value="PAID" {% if active_filters.pricing == 'PAID' %}selected{% endif %}>Payant</option>
+            <option value="HYBRID" {% if active_filters.pricing == 'HYBRID' %}selected{% endif %}>Hybride</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="sort" class="text-xs font-semibold text-gray-600">Trier</label>
+          <select id="sort" name="sort"
+                  class="mt-1 w-full px-3 py-2 rounded-xl border border-gray-200
+                         bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm">
+            <option value="recent" {% if active_filters.sort == 'recent' %}selected{% endif %}>Plus récents</option>
+            <option value="popular" {% if active_filters.sort == 'popular' %}selected{% endif %}>Populaires</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-4 flex items-center justify-end gap-2">
+        <a href="{% url 'public_catalog' %}"
+           class="px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-700
+                  hover:bg-gray-100 text-sm font-semibold transition">
+          Réinitialiser
+        </a>
+        <button type="submit"
+                class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700
+                       text-white text-sm font-bold shadow-sm transition">
+          <i class="fa-solid fa-filter mr-1.5 text-xs" aria-hidden="true"></i>Filtrer
+        </button>
+      </div>
+    </form>
+
+    {# ── COURS DISPONIBLES (grid de cartes) ───────────────────────── #}
+    <section aria-labelledby="catalog-heading" class="space-y-6">
+      <h2 id="catalog-heading" class="sr-only">Cours disponibles</h2>
+
+      {% if page_obj and page_obj.object_list %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {% for course in page_obj.object_list %}
+            <article class="bg-white border border-gray-200 rounded-2xl overflow-hidden
+                            hover:shadow-lg transition-shadow flex flex-col">
+              <a href="{{ course.get_absolute_url }}"
+                 class="block aspect-[16/9] bg-gradient-to-br from-blue-100 to-yellow-100 relative">
+                {% if course.thumbnail %}
+                  <img src="{{ course.thumbnail.url }}"
+                       alt="Visuel du cours {{ course.title }}"
+                       loading="lazy"
+                       class="w-full h-full object-cover">
+                {% else %}
+                  <div class="w-full h-full flex items-center justify-center text-blue-300">
+                    <i class="fa-solid fa-graduation-cap text-5xl" aria-hidden="true"></i>
+                  </div>
+                {% endif %}
+                <span class="absolute top-3 right-3 px-2.5 py-1 rounded-full text-[11px] font-bold shadow
+                  {% if course.pricing_type == 'FREE' %}bg-emerald-500 text-white
+                  {% elif course.pricing_type == 'HYBRID' %}bg-blue-500 text-white
+                  {% else %}bg-yellow-400 text-blue-900{% endif %}">
+                  {% if course.pricing_type == 'FREE' %}Gratuit
+                  {% elif course.price %}{{ course.price|floatformat:0|intcomma }} {{ course.currency }}
+                  {% else %}{{ course.get_pricing_type_display }}{% endif %}
+                </span>
+              </a>
+
+              <div class="p-4 sm:p-5 flex flex-col flex-1">
+                {% if course.category %}
+                  <span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold
+                               bg-blue-100 text-blue-700 uppercase tracking-wide self-start mb-2">
+                    {{ course.category.name }}
+                  </span>
+                {% endif %}
+
+                <h3 class="text-base font-bold text-gray-900 line-clamp-2 mb-1">
+                  <a href="{{ course.get_absolute_url }}" class="hover:text-blue-600 transition">
+                    {{ course.title }}
+                  </a>
+                </h3>
+
+                {% if course.subtitle %}
+                  <p class="text-sm text-gray-600 line-clamp-2 mb-3">{{ course.subtitle }}</p>
+                {% endif %}
+
+                <div class="text-xs text-gray-500 flex items-center gap-1.5 mb-3">
+                  {% if course.instructor %}
+                    <i class="fa-solid fa-user-tie text-blue-500" aria-hidden="true"></i>
+                    <span class="truncate">
+                      {{ course.instructor.get_full_name|default:course.instructor.email }}
+                    </span>
+                  {% endif %}
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-gray-500 mb-4 pt-3
+                            border-t border-gray-100">
+                  <span class="inline-flex items-center gap-1">
+                    <i class="fa-solid fa-users text-yellow-500" aria-hidden="true"></i>
+                    {{ course.enrolled_count|default:0|intcomma }} inscrit{{ course.enrolled_count|pluralize }}
+                  </span>
+                  <span class="inline-flex items-center gap-1">
+                    <i class="fa-solid fa-clock" aria-hidden="true"></i>
+                    {{ course.get_course_type_display }}
+                  </span>
+                </div>
+
+                <a href="{{ course.get_absolute_url }}"
+                   class="mt-auto inline-flex items-center justify-center gap-2
+                          px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700
+                          text-white text-sm font-bold transition active:scale-95">
+                  Voir le cours
+                  <i class="fa-solid fa-arrow-right text-xs" aria-hidden="true"></i>
+                </a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+          {% with q=active_filters.q cat=active_filters.category pr=active_filters.pricing tp=active_filters.course_type so=active_filters.sort %}
+          <nav class="flex items-center justify-center gap-2 pt-6" aria-label="Pagination">
+            {% if page_obj.has_previous %}
+              <a href="?{% if q %}q={{ q }}&amp;{% endif %}{% if cat %}category={{ cat }}&amp;{% endif %}{% if pr %}pricing={{ pr }}&amp;{% endif %}{% if tp %}course_type={{ tp }}&amp;{% endif %}{% if so %}sort={{ so }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+                 class="px-3 py-2 rounded-lg border border-gray-200 bg-white
+                        hover:bg-gray-50 text-sm font-semibold text-gray-700">
+                ← Précédent
+              </a>
+            {% endif %}
+            <span class="px-3 py-2 text-sm text-gray-600">
+              Page <strong>{{ page_obj.number }}</strong> / <strong>{{ page_obj.paginator.num_pages }}</strong>
+            </span>
+            {% if page_obj.has_next %}
+              <a href="?{% if q %}q={{ q }}&amp;{% endif %}{% if cat %}category={{ cat }}&amp;{% endif %}{% if pr %}pricing={{ pr }}&amp;{% endif %}{% if tp %}course_type={{ tp }}&amp;{% endif %}{% if so %}sort={{ so }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+                 class="px-3 py-2 rounded-lg border border-gray-200 bg-white
+                        hover:bg-gray-50 text-sm font-semibold text-gray-700">
+                Suivant →
+              </a>
+            {% endif %}
+          </nav>
+          {% endwith %}
+        {% endif %}
+
+      {% else %}
+        <div class="bg-white border border-gray-200 rounded-2xl p-10 text-center">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-full
+                      bg-yellow-100 text-yellow-600 mb-4">
+            <i class="fa-solid fa-magnifying-glass text-2xl" aria-hidden="true"></i>
+          </div>
+          <h3 class="text-lg font-bold text-gray-900">Aucun cours ne correspond à vos critères</h3>
+          <p class="text-sm text-gray-600 mt-2 max-w-md mx-auto">
+            Essayez d'élargir vos filtres ou réinitialisez la recherche.
+          </p>
+          <a href="{% url 'public_catalog' %}"
+             class="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl
+                    bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition">
+            <i class="fa-solid fa-rotate-left text-xs" aria-hidden="true"></i>
+            Réinitialiser les filtres
+          </a>
+        </div>
+      {% endif %}
+    </section>
+  </main>
+
+  <footer class="mt-12 py-8 border-t border-gray-200 bg-white">
+    <div class="container mx-auto px-4 max-w-6xl text-center text-sm text-gray-500">
+      &copy; {% now "Y" %} Best Épargne — Apprentissage financier
+    </div>
+  </footer>
+</body>
+</html>

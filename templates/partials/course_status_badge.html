@@ -1,0 +1,54 @@
+{% comment %}
+  partials/course_status_badge.html — Badge de statut harmonisé pour un cours.
+
+  Usage :
+      {% include "partials/course_status_badge.html" with status=course.status %}
+      {% include "partials/course_status_badge.html" with status=course.status size="lg" %}
+
+  Variables acceptées :
+    - status (obligatoire) : code Course.Status (DRAFT, REVIEW, PUBLISHED, ARCHIVED)
+    - size : "xs" (défaut) | "sm" | "md" | "lg" — règle padding/font-size
+    - with_icon : "1" (défaut) | "0" — affiche l'icône fa-* devant
+
+  Palette (cohérente avec le design system bleu/jaune Best Épargne) :
+    - DRAFT     : jaune (en cours d'élaboration)
+    - REVIEW    : bleu (soumis à validation)
+    - PUBLISHED : vert (visible publiquement)
+    - ARCHIVED  : gris (retiré du catalogue)
+{% endcomment %}
+
+{% with _size=size|default:"xs" _icon=with_icon|default:"1" %}
+<span class="inline-flex items-center gap-1.5 rounded-full font-semibold whitespace-nowrap
+  {% if _size == 'lg' %}px-3 py-1 text-sm
+  {% elif _size == 'md' %}px-2.5 py-1 text-xs
+  {% elif _size == 'sm' %}px-2 py-0.5 text-[11px]
+  {% else %}px-2 py-0.5 text-[10px]{% endif %}
+  {% if status == 'PUBLISHED' %}
+    bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200
+    ring-1 ring-emerald-200/60 dark:ring-emerald-700/40
+  {% elif status == 'REVIEW' %}
+    bg-be-sky-100 text-be-sky-800 dark:bg-be-sky-900/40 dark:text-be-sky-200
+    ring-1 ring-be-sky-200/60 dark:ring-be-sky-700/40
+  {% elif status == 'ARCHIVED' %}
+    bg-be-ink-100 text-be-ink-700 dark:bg-white/10 dark:text-white/60
+    ring-1 ring-be-ink-200/60 dark:ring-white/10
+  {% else %}
+    bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200
+    ring-1 ring-amber-200/60 dark:ring-amber-700/40
+  {% endif %}"
+  title="{% if status == 'PUBLISHED' %}Visible publiquement{% elif status == 'REVIEW' %}En cours de validation{% elif status == 'ARCHIVED' %}Retiré du catalogue, données préservées{% else %}Brouillon — non publié{% endif %}"
+  aria-label="Statut du cours : {{ status|default:'Brouillon' }}">
+
+  {% if _icon == "1" %}
+    {% if status == 'PUBLISHED' %}<i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+    {% elif status == 'REVIEW' %}<i class="fa-solid fa-eye" aria-hidden="true"></i>
+    {% elif status == 'ARCHIVED' %}<i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+    {% else %}<i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>{% endif %}
+  {% endif %}
+
+  {% if status == 'PUBLISHED' %}Publié
+  {% elif status == 'REVIEW' %}En validation
+  {% elif status == 'ARCHIVED' %}Archivé
+  {% else %}Brouillon{% endif %}
+</span>
+{% endwith %}

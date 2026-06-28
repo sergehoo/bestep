@@ -96,6 +96,13 @@ class Course(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # P1.1 — Traçabilité du cycle de vie.
+    archived_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Renseigné lors du passage en ARCHIVED. Remis à NULL au restore.",
+    )
+
     class Meta:
         ordering = ["-created_at"]
         indexes = [
@@ -433,3 +440,67 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.user_id} • {self.title}"
+
+
+class CourseLifecycleEvent(models.Model):
+    """
+    Audit log des transitions de statut d'un Course (P1.1).
+
+    Une entrée est créée par les helpers de ``catalog.lifecycle`` à chaque
+    transition légitime (publish, unpublish, archive, restore). Permet :
+    - de tracer qui a fait quoi et quand (audit + compliance),
+    - de reconstituer l'historique d'un cours sans poller updated_at,
+    - d'alimenter un timeline UI côté instructor/admin si voulu plus tard.
+
+    Le modèle est volontairement minimal : pas de champ libre arbitraire,
+    pas de cascade depuis Course (on garde la trace même si le cours est
+    hard-deleted, ce qui est de toute façon refusé tant qu'il y a des
+    inscriptions actives — cf. lifecycle.delete_course).
+    """
+
+    class Action(models.TextChoices):
+        CREATED = "CREATED", "Création"
+        UPDATED = "UPDATED", "Modification métier"
+        SUBMITTED = "SUBMITTED", "Soumis en validation"
+        PUBLISHED = "PUBLISHED", "Publié"
+        UNPUBLISHED = "UNPUBLISHED", "Dépublié"
+        ARCHIVED = "ARCHIVED", "Archivé"
+        RESTORED = "RESTORED", "Restauré"
+        DELETED = "DELETED", "Supprimé"
+
+    course = models.ForeignKey(
+        "catalog.Course",
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="lifecycle_events",
+        help_text="Cours concerné (SET_NULL pour préserver l'historique).",
+    )
+    # Snapshot des infos cours au cas où le cours est supprimé.
+    course_title_snapshot = models.CharField(max_length=200, blank=True)
+    course_id_snapshot = models.PositiveIntegerField(null=True, blank=True)
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="course_lifecycle_events",
+        help_text="Utilisateur qui a déclenché la transition.",
+    )
+    action = models.CharField(max_length=20, choices=Action.choices)
+    from_status = models.CharField(max_length=12, blank=True)
+    to_status = models.CharField(max_length=12, blank=True)
+    note = models.CharField(max_length=500, blank=True, help_text="Justification optionnelle.")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["course", "-created_at"]),
+            models.Index(fields=["actor", "-created_at"]),
+            models.Index(fields=["action", "-created_at"]),
+        ]
+        verbose_name = "Événement de cycle de vie d'un cours"
+        verbose_name_plural = "Événements de cycle de vie des cours"
+
+    def __str__(self) -> str:
+        return f"{self.action} • course={self.course_id_snapshot} • actor={self.actor_id}"

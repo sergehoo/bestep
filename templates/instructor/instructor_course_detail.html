@@ -29,18 +29,8 @@
         <div class="p-6 lg:p-7 grid xl:grid-cols-12 gap-6">
             <div class="xl:col-span-8 min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
-                    <span class="px-3 py-1.5 rounded-full text-xs font-semibold border
-                        {% if course.status == 'PUBLISHED' %}
-                            bg-emerald-50 border-emerald-200 text-emerald-700
-                        {% elif course.status == 'REVIEW' %}
-                            bg-amber-50 border-amber-200 text-amber-700
-                        {% elif course.status == 'ARCHIVED' %}
-                            bg-be-ink-50 border-be-ink-200 text-be-ink-700
-                        {% else %}
-                            bg-be-sky-50 border-be-sky-200 text-be-sky-700
-                        {% endif %}">
-                        {{ course_obj.get_status_display }}
-                    </span>
+                    {# P1.3 — Badge de statut harmonisé (palette bleu/jaune Best Épargne). #}
+                    {% include "partials/course_status_badge.html" with status=course_obj.status size="md" %}
 
                     <span class="px-3 py-1.5 rounded-full text-xs font-semibold border
                         {% if course.pricing_type == 'PAID' %}
@@ -396,6 +386,41 @@
                        class="px-3 py-2.5 rounded-xl border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-be-ink-50 dark:hover:bg-white/10 text-sm font-semibold text-center transition">
                         Mes cours
                     </a>
+                </div>
+            </section>
+
+            <!-- P1.3 — CYCLE DE VIE -->
+            <section class="rounded-[28px] border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5 shadow-soft overflow-hidden">
+                <div class="px-5 py-4 border-b border-be-ink-100 dark:border-white/10
+                            flex items-center justify-between gap-2">
+                    <h3 class="text-sm font-semibold text-be-ink-900 dark:text-white">
+                        Cycle de vie
+                    </h3>
+                    {% include "partials/course_status_badge.html" with status=course_obj.status size="sm" %}
+                </div>
+
+                <div class="p-5 space-y-3">
+                    {# Indication contextuelle selon le statut #}
+                    <p class="text-xs text-be-ink-500 dark:text-white/60 leading-relaxed">
+                        {% if course_obj.status == 'DRAFT' %}
+                            Cours en cours d'élaboration. Une fois prêt, publiez-le
+                            pour le rendre accessible sur le catalogue public.
+                        {% elif course_obj.status == 'REVIEW' %}
+                            Cours soumis à validation. Une fois approuvé, il pourra
+                            être publié sur le catalogue.
+                        {% elif course_obj.status == 'PUBLISHED' %}
+                            Cours visible sur le catalogue public depuis le
+                            {{ course_obj.published_at|date:"d/m/Y" }}. Vous pouvez
+                            le dépublier temporairement pour effectuer des mises à jour.
+                        {% elif course_obj.status == 'ARCHIVED' %}
+                            Cours archivé le {{ course_obj.archived_at|date:"d/m/Y"|default:"—" }}.
+                            Les inscriptions et paiements sont préservés. Restaurez-le
+                            pour le repasser en brouillon.
+                        {% endif %}
+                    </p>
+
+                    {# Boutons d'action contextuels #}
+                    {% include "partials/course_lifecycle_actions.html" with course=course_obj layout="stack" %}
                 </div>
             </section>
 

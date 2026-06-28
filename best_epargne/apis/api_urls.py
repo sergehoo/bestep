@@ -7,6 +7,8 @@ from best_epargne.apis.views import (
     InstructorCourseArchiveView,
     InstructorCourseDetailView,
     InstructorCoursePublishView,
+    InstructorCourseRestoreView,
+    InstructorCourseUnpublishView,
     InstructorCourseQuizListView,
     InstructorCourseViewSet,
     InstructorKpisView,
@@ -115,8 +117,27 @@ urlpatterns = [
 
     # --- Instructor builder: course actions ---
     path("instructor/courses/<int:course_id>/", InstructorCourseDetailView.as_view()),
-    path("instructor/courses/<int:course_id>/publish/", InstructorCoursePublishView.as_view()),
-    path("instructor/courses/<int:course_id>/archive/", InstructorCourseArchiveView.as_view()),
+    # ── P1.2 — Cycle de vie cours (4 transitions via catalog.lifecycle) ──
+    path(
+        "instructor/courses/<int:course_id>/publish/",
+        InstructorCoursePublishView.as_view(),
+        name="api_instructor_course_publish",
+    ),
+    path(
+        "instructor/courses/<int:course_id>/unpublish/",
+        InstructorCourseUnpublishView.as_view(),
+        name="api_instructor_course_unpublish",
+    ),
+    path(
+        "instructor/courses/<int:course_id>/archive/",
+        InstructorCourseArchiveView.as_view(),
+        name="api_instructor_course_archive",
+    ),
+    path(
+        "instructor/courses/<int:course_id>/restore/",
+        InstructorCourseRestoreView.as_view(),
+        name="api_instructor_course_restore",
+    ),
 
     # --- Builder: sections ---
     path("instructor/courses/<int:course_id>/sections/", InstructorSectionListView.as_view()),

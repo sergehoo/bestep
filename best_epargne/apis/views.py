@@ -611,24 +611,89 @@ class InstructorCourseDetailView(APIView):
         return Response(CourseSerializer(course, context={"request": request}).data)
 
 
+# ── P1.2 — Transitions de cycle de vie via le service catalog.lifecycle ──
+#
+# Toutes les transitions PASSENT par catalog.lifecycle (source de vérité unique).
+# Cela garantit : permissions, validations métier, audit log, atomicité.
+# Voir catalog/lifecycle.py pour les règles précises.
+
+def _lifecycle_response(course, action_label: str):
+    """Sérialise une réponse de transition cohérente pour le front."""
+    return Response({
+        "status": course.status,
+        "published_at": course.published_at.isoformat() if course.published_at else None,
+        "archived_at": course.archived_at.isoformat() if course.archived_at else None,
+        "action": action_label,
+        "message": f"Cours {action_label.lower()} avec succès.",
+    })
+
+
+def _lifecycle_error(exc) -> Response:
+    """Convertit ValidationError/PermissionDenied en réponse DRF cohérente."""
+    from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+    from django.core.exceptions import ValidationError as DjangoValidationError
+    if isinstance(exc, DjangoPermissionDenied):
+        return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+    if isinstance(exc, DjangoValidationError):
+        msgs = exc.messages if hasattr(exc, "messages") else [str(exc)]
+        return Response({"detail": msgs}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"detail": "Erreur interne."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class InstructorCoursePublishView(APIView):
+    """POST /api/instructor/courses/<id>/publish/ — DRAFT/REVIEW → PUBLISHED."""
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, course_id):
+        from catalog.lifecycle import publish_course
         course = _course_owned(course_id, request.user)
-        course.status = Course.Status.PUBLISHED
-        course.save(update_fields=["status", "published_at", "updated_at"])
-        return Response({"status": course.status})
+        try:
+            course = publish_course(course, actor=request.user, note=request.data.get("note", ""))
+        except Exception as e:
+            return _lifecycle_error(e)
+        return _lifecycle_response(course, "Publié")
+
+
+class InstructorCourseUnpublishView(APIView):
+    """POST /api/instructor/courses/<id>/unpublish/ — PUBLISHED → DRAFT."""
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def post(self, request, course_id):
+        from catalog.lifecycle import unpublish_course
+        course = _course_owned(course_id, request.user)
+        try:
+            course = unpublish_course(course, actor=request.user, note=request.data.get("note", ""))
+        except Exception as e:
+            return _lifecycle_error(e)
+        return _lifecycle_response(course, "Dépublié")
 
 
 class InstructorCourseArchiveView(APIView):
+    """POST /api/instructor/courses/<id>/archive/ — any → ARCHIVED."""
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, course_id):
+        from catalog.lifecycle import archive_course
         course = _course_owned(course_id, request.user)
-        course.status = Course.Status.ARCHIVED
-        course.save(update_fields=["status", "updated_at"])
-        return Response({"status": course.status})
+        try:
+            course = archive_course(course, actor=request.user, note=request.data.get("note", ""))
+        except Exception as e:
+            return _lifecycle_error(e)
+        return _lifecycle_response(course, "Archivé")
+
+
+class InstructorCourseRestoreView(APIView):
+    """POST /api/instructor/courses/<id>/restore/ — ARCHIVED → DRAFT (désarchiver)."""
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def post(self, request, course_id):
+        from catalog.lifecycle import restore_course
+        course = _course_owned(course_id, request.user)
+        try:
+            course = restore_course(course, actor=request.user, note=request.data.get("note", ""))
+        except Exception as e:
+            return _lifecycle_error(e)
+        return _lifecycle_response(course, "Restauré")
 
 
 class InstructorSectionListView(APIView):

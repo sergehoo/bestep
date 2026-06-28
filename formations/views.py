@@ -1775,6 +1775,94 @@ class HomeView(TemplateView):
         return super().get(request, *args, **kwargs)
 
 
+class PublicCatalogPageView(TemplateView):
+    """
+    Page catalogue PUBLIQUE — rendu serveur-side (P1.4).
+
+    Affiche la liste des cours ``status=PUBLISHED`` (filtrée par
+    ``get_visible_courses_qs(public_only=True)``).
+
+    Pourquoi server-rendered ?
+      - SEO : les crawlers voient les cours sans exécuter le JS
+      - Fallback no-JS / connexion lente : la page est utilisable même
+        avant que le JS de la landing #cours ne prenne le relais
+      - Lien direct partageable : ``/catalogue/?category=finance&pricing=FREE``
+
+    Query params supportés :
+      - q          : recherche fulltext (icontains sur title + subtitle)
+      - category   : slug catégorie
+      - pricing    : FREE | PAID | HYBRID
+      - course_type: CERTIFIANTE | PROFESSIONNELLE | ACADEMIQUE | INTERNE
+      - sort       : recent | popular (défaut: recent)
+      - page       : pagination (défaut: 1, 12 cours/page)
+    """
+
+    template_name = "home/catalogue.html"
+    PAGE_SIZE = 12
+
+    def get_context_data(self, **kwargs):
+        from django.core.paginator import EmptyPage, Paginator
+        from django.db.models import Count, Q
+
+        ctx = super().get_context_data(**kwargs)
+        request = self.request
+
+        q = (request.GET.get("q") or "").strip()
+        category_slug = (request.GET.get("category") or "").strip()
+        pricing = (request.GET.get("pricing") or "").strip().upper()
+        course_type = (request.GET.get("course_type") or "").strip().upper()
+        sort = (request.GET.get("sort") or "recent").strip().lower()
+
+        qs = get_visible_courses_qs(
+            request.user,
+            public_only=True,
+            base_qs=Course.objects.select_related("category", "instructor"),
+        ).annotate(enrolled_count=Count("enrollments", distinct=True))
+
+        if q:
+            qs = qs.filter(Q(title__icontains=q) | Q(subtitle__icontains=q))
+        if category_slug:
+            qs = qs.filter(category__slug=category_slug)
+        if pricing in ("FREE", "PAID", "HYBRID"):
+            qs = qs.filter(pricing_type=pricing)
+        if course_type in ("CERTIFIANTE", "PROFESSIONNELLE", "ACADEMIQUE", "INTERNE"):
+            qs = qs.filter(course_type=course_type)
+
+        if sort == "popular":
+            qs = qs.order_by("-enrolled_count", "-published_at", "-id")
+        else:
+            qs = qs.order_by("-published_at", "-id")
+
+        paginator = Paginator(qs, self.PAGE_SIZE)
+        try:
+            page = paginator.page(int(request.GET.get("page") or 1))
+        except (EmptyPage, ValueError, TypeError):
+            page = paginator.page(1)
+
+        # Catégories disponibles pour le filtre (uniquement celles avec ≥1 cours publié visible).
+        from catalog.models import Category
+        categories = (
+            Category.objects.filter(courses__in=qs.values("id"))
+            .distinct()
+            .order_by("name")
+            .only("id", "name", "slug")
+        )
+
+        ctx.update({
+            "page_obj": page,
+            "courses_count": paginator.count,
+            "categories": categories,
+            "active_filters": {
+                "q": q,
+                "category": category_slug,
+                "pricing": pricing,
+                "course_type": course_type,
+                "sort": sort,
+            },
+        })
+        return ctx
+
+
 class BusinessLandingView(TemplateView):
     template_name = "business/landing.html"
 

@@ -324,23 +324,8 @@
                                                     <a href="{% url 'instructor:course_detail' course_id=course.id %}"> {{ course.title }}</a>
                                                 </h3>
 
-                                                {% if course.status == "PUBLISHED" %}
-                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-700">
-                                                        Publié
-                                                    </span>
-                                                {% elif course.status == "REVIEW" %}
-                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-amber-50 border-amber-200 text-amber-700">
-                                                        En validation
-                                                    </span>
-                                                {% elif course.status == "ARCHIVED" %}
-                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-be-ink-50 border-be-ink-200 text-be-ink-700">
-                                                        Archivé
-                                                    </span>
-                                                {% else %}
-                                                    <span class="text-[11px] px-2 py-1 rounded-full border bg-be-sky-50 border-be-sky-200 text-be-sky-700">
-                                                        Brouillon
-                                                    </span>
-                                                {% endif %}
+                                                {# P1.3 — Badge statut harmonisé (palette bleu/jaune) #}
+                                                {% include "partials/course_status_badge.html" with status=course.status size="sm" %}
 
                                                 {% if course.pricing_type == "FREE" %}
                                                     <span class="text-[11px] px-2 py-1 rounded-full border bg-be-ink-50 border-be-ink-200 text-be-ink-700">

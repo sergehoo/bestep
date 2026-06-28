@@ -13,6 +13,12 @@ from __future__ import annotations
 
 from django.urls import path
 
+from formations.instructor_lifecycle_views import (
+    course_archive_view,
+    course_publish_view,
+    course_restore_view,
+    course_unpublish_view,
+)
 from formations.views import (
     InstructorCourseBuilderView,
     InstructorCourseCreateView,
@@ -50,6 +56,28 @@ urlpatterns = [
         "courses/<int:course_id>/builder/",
         InstructorCourseBuilderView.as_view(),
         name="course_builder",
+    ),
+
+    # ── P1.3 — Cycle de vie cours (POST forms CSRF, redirect vers detail) ──
+    path(
+        "courses/<int:course_id>/publish/",
+        course_publish_view,
+        name="course_publish",
+    ),
+    path(
+        "courses/<int:course_id>/unpublish/",
+        course_unpublish_view,
+        name="course_unpublish",
+    ),
+    path(
+        "courses/<int:course_id>/archive/",
+        course_archive_view,
+        name="course_archive",
+    ),
+    path(
+        "courses/<int:course_id>/restore/",
+        course_restore_view,
+        name="course_restore",
     ),
 
     # Médias
