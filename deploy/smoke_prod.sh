@@ -48,10 +48,39 @@ check_header_not_contains() {
 
 echo "[INFO] Running smoke tests against $APP_URL"
 
+# ── Healthchecks ────────────────────────────────────────────────────
 check_http_200 "$APP_URL/healthz/"
 check_http_200 "$APP_URL/readyz/"
+
+# ── Pages publiques anonymes ────────────────────────────────────────
 check_http_200 "$APP_URL/"
 check_http_200 "$APP_URL/account/login/"
+check_http_200 "$APP_URL/account/signup/"
+
+# ── P1 — Catalogue public server-rendered ───────────────────────────
+check_http_200 "$APP_URL/landinghome/catalogue/"
+check_http_200 "$APP_URL/landinghome/catalogue/?sort=recent"
+
+# ── P3 — API docs (drf-spectacular) ─────────────────────────────────
+check_http_200 "$APP_URL/api/docs/"
+
+# ── Static files critiques ──────────────────────────────────────────
+echo "[INFO] Vérifie que les fichiers statiques principaux sont servis"
+for asset in \
+  "/static/dist/app.min.css" \
+  "/static/src/js/be-modals.js" \
+  "/static/src/js/be-flash.js" \
+  "/static/src/js/profile-tabs.js" \
+  "/static/src/js/learner-course-player.js"; do
+  code="$(curl -sS -o /dev/null -w "%{http_code}" "$APP_URL$asset")"
+  if [[ "$code" == "200" ]]; then
+    echo "[OK]   $asset (HTTP 200)"
+  elif [[ "$code" == "304" ]]; then
+    echo "[OK]   $asset (HTTP 304 cached)"
+  else
+    echo "[WARN] $asset (HTTP $code) — vérifie collectstatic"
+  fi
+done
 
 curl -sS -D "$TMP_HEADERS" -o /dev/null "$APP_URL/"
 
@@ -73,4 +102,13 @@ else
   echo "[WARN] X-Content-Type-Options nosniff missing"
 fi
 
-echo "[DONE] Smoke tests passed"
+echo ""
+echo "[INFO] === Optionnel : tests pytest workflows critiques ==="
+echo "Pour valider les workflows business (instructor publie → learner s'inscrit) :"
+echo "  pytest tests/test_p1_course_lifecycle.py \\"
+echo "         tests/test_p3_profiles_permissions.py \\"
+echo "         tests/test_p4_perf_n_plus_1.py \\"
+echo "         tests/test_p6_workflows_e2e.py -v --tb=short"
+echo ""
+echo "[DONE] Smoke tests HTTP passed ✓"
+echo "[DONE] $APP_URL semble en bonne santé."

@@ -1,0 +1,33 @@
+{% comment %}
+  partials/ds/loader_overlay.html — Overlay de chargement pleine zone (P5.1).
+
+  Affiche un overlay semi-transparent avec un spinner centré au-dessus
+  d'une zone (carte, modal, etc.). Le parent doit avoir position:relative.
+
+  Usage :
+      <div class="relative">
+        ...contenu...
+        {% include "partials/ds/loader_overlay.html" with
+            id="my-loader" label="Sauvegarde en cours…" %}
+      </div>
+
+  Variables :
+    - id : ID DOM pour le toggle JS (data-be-loader)
+    - label : texte sous le spinner
+    - blur : "1" pour appliquer backdrop-blur (défaut)
+    - default_hidden : "1" pour démarrer caché (défaut)
+{% endcomment %}
+
+<div {% if id %}id="{{ id }}"{% endif %}
+     data-be-loader
+     {% if default_hidden != "0" %}hidden{% endif %}
+     class="absolute inset-0 z-50
+            flex flex-col items-center justify-center gap-3
+            bg-white/80 dark:bg-be-ink-900/80
+            {% if blur != '0' %}backdrop-blur-sm{% endif %}
+            rounded-2xl">
+  {% include "partials/ds/spinner.html" with size="lg" variant="primary" %}
+  {% if label %}
+    <p class="text-sm font-semibold text-be-ink-700 dark:text-white/80">{{ label }}</p>
+  {% endif %}
+</div>

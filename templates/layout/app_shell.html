@@ -32,6 +32,9 @@
   {# P1.3 — Gestion des modales déclaratives data-be-modal-* (vanilla, CSP-safe) #}
   <script defer src="{% static 'src/js/be-modals.js' %}"></script>
 
+  {# P5.3 — Auto-dismiss des messages flash Django (data-be-flash) #}
+  <script defer src="{% static 'src/js/be-flash.js' %}"></script>
+
   {# Alpine.js — build CSP (@alpinejs/csp — sans eval()) + plugin focus, servis localement #}
   {# Sources : @alpinejs/csp@3.15.12 et @alpinejs/focus@3.15.12 #}
   <script defer src="{% static 'vendor/alpinejs/alpine-focus.min.js' %}"></script>

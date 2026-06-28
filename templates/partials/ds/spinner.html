@@ -1,0 +1,49 @@
+{% comment %}
+  partials/ds/spinner.html — Spinner / loader inline (P5.1).
+
+  Usage minimal :
+      {% include "partials/ds/spinner.html" %}
+
+  Usage paramétré :
+      {% include "partials/ds/spinner.html" with
+          size="lg"
+          label="Chargement des cours…"
+          variant="primary" %}
+
+  Variables :
+    - size : xs (16px) | sm (20px) | md (24px, défaut) | lg (32px) | xl (48px)
+    - label : texte à côté du spinner (sr-only si vide)
+    - variant : primary (bleu, défaut) | accent (jaune) | neutral (gris) | white
+    - inline : "1" si le spinner doit être inline-flex au lieu de flex
+{% endcomment %}
+
+{% spaceless %}
+{% with _size=size|default:"md" _variant=variant|default:"primary" %}
+<span class="{% if inline == '1' %}inline-flex{% else %}flex{% endif %} items-center gap-2
+             {% if extra_class %} {{ extra_class }}{% endif %}"
+      role="status"
+      aria-live="polite">
+  <svg class="animate-spin
+    {% if _size == 'xs' %}w-4 h-4
+    {% elif _size == 'sm' %}w-5 h-5
+    {% elif _size == 'lg' %}w-8 h-8
+    {% elif _size == 'xl' %}w-12 h-12
+    {% else %}w-6 h-6{% endif %}
+    {% if _variant == 'accent' %}text-be-sun-500
+    {% elif _variant == 'neutral' %}text-be-ink-400
+    {% elif _variant == 'white' %}text-white
+    {% else %}text-be-sky-600{% endif %}"
+       xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+       aria-hidden="true">
+    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+    <path class="opacity-75" fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
+  {% if label %}
+    <span class="text-sm text-be-ink-500 dark:text-white/60">{{ label }}</span>
+  {% else %}
+    <span class="sr-only">Chargement…</span>
+  {% endif %}
+</span>
+{% endwith %}
+{% endspaceless %}

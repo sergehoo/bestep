@@ -53,26 +53,139 @@ def _safe_next(request, raw_next: str) -> str | None:
 
 
 class UserProfileView(LoginRequiredMixin, UpdateView):
-    """Page de profil utilisateur — accessible depuis tous les espaces."""
+    """
+    Page profil utilisateur unifiée avec onglets (P3.4).
+
+    Sections (gérées via paramètre POST ``form_section`` ou URL distincts) :
+      - ``info``        : nom, téléphone, e-mail (UserProfileForm)
+      - ``avatar``      : upload photo de profil (AvatarUploadForm)
+      - ``preferences`` : thème, langue, notifications (UserPreferencesForm)
+      - ``password``    : redirection vers allauth /account/password/change/
+
+    UX :
+      - L'utilisateur reste sur la même page après chaque submit,
+        l'onglet actif est préservé via ?tab=<section>.
+      - Tous les messages flash apparaissent en haut de page.
+    """
+
     form_class    = UserProfileForm
     template_name = "compte/profile.html"
     success_url   = reverse_lazy("compte:profile")
 
+    # ─── Helpers ──────────────────────────────────────────────────
+
     def get_object(self, queryset=None):
         return self.request.user
 
-    def form_valid(self, form):
-        messages.success(self.request, "Votre profil a été mis à jour.")
-        return super().form_valid(form)
+    def _section(self) -> str:
+        """Section actuellement éditée (depuis POST ou query ?tab)."""
+        return (
+            self.request.POST.get("form_section")
+            or self.request.GET.get("tab")
+            or "info"
+        ).strip().lower()
 
-    def form_invalid(self, form):
-        messages.error(self.request, "Veuillez corriger les erreurs ci-dessous.")
-        return super().form_invalid(form)
+    def _redirect_to_tab(self, tab: str):
+        return HttpResponseRedirect(f"{self.success_url}?tab={tab}")
+
+    # ─── GET ──────────────────────────────────────────────────────
 
     def get_context_data(self, **kwargs):
+        from compte.forms import AvatarUploadForm, UserPreferencesForm
+        from compte.models import UserPreferences
+
         ctx = super().get_context_data(**kwargs)
-        ctx["password_change_url"] = "/account/password/change/"
+        user = self.request.user
+        prefs = UserPreferences.get_or_create_for(user)
+
+        # Onglet actif (depuis ?tab= ou défaut "info")
+        tab = (self.request.GET.get("tab") or "info").strip().lower()
+        if tab not in {"info", "avatar", "preferences", "security"}:
+            tab = "info"
+
+        ctx.update({
+            "active_tab": tab,
+            # Forms instanciés pour chaque onglet (sans bind si GET).
+            "info_form": ctx.get("form") or UserProfileForm(instance=user),
+            "avatar_form": AvatarUploadForm(instance=user),
+            "preferences_form": UserPreferencesForm(instance=prefs),
+            # URLs
+            "password_change_url": "/account/password/change/",
+            "two_factor_setup_url": "/account/two-factor/setup/",
+            # Données affichées (badges rôles, etc.)
+            "preferences": prefs,
+        })
         return ctx
+
+    # ─── POST dispatch par section ────────────────────────────────
+
+    def post(self, request, *args, **kwargs):
+        section = self._section()
+        if section == "avatar":
+            return self._post_avatar(request)
+        if section == "preferences":
+            return self._post_preferences(request)
+        # Défaut = info
+        return self._post_info(request)
+
+    # ─── Handlers section ─────────────────────────────────────────
+
+    def _post_info(self, request):
+        form = UserProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Informations personnelles mises à jour.")
+            return self._redirect_to_tab("info")
+        # Erreur : on re-render avec le form bound pour afficher les erreurs.
+        self.object = request.user
+        ctx = self.get_context_data(form=form)
+        ctx["active_tab"] = "info"
+        ctx["info_form"] = form
+        messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+        return self.render_to_response(ctx)
+
+    def _post_avatar(self, request):
+        from compte.forms import AvatarUploadForm
+        # Suppression explicite si la case "supprimer" est cochée.
+        if request.POST.get("avatar_clear") == "1":
+            user = request.user
+            if user.avatar:
+                user.avatar.delete(save=False)
+                user.avatar = None
+                user.save(update_fields=["avatar", "updated_at"])
+                messages.success(request, "Photo de profil supprimée.")
+            return self._redirect_to_tab("avatar")
+
+        form = AvatarUploadForm(request.POST, request.FILES, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Photo de profil mise à jour.")
+            return self._redirect_to_tab("avatar")
+
+        self.object = request.user
+        ctx = self.get_context_data()
+        ctx["active_tab"] = "avatar"
+        ctx["avatar_form"] = form
+        messages.error(request, "Le fichier n'a pas pu être uploadé.")
+        return self.render_to_response(ctx)
+
+    def _post_preferences(self, request):
+        from compte.forms import UserPreferencesForm
+        from compte.models import UserPreferences
+
+        prefs = UserPreferences.get_or_create_for(request.user)
+        form = UserPreferencesForm(request.POST, instance=prefs)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Préférences enregistrées.")
+            return self._redirect_to_tab("preferences")
+
+        self.object = request.user
+        ctx = self.get_context_data()
+        ctx["active_tab"] = "preferences"
+        ctx["preferences_form"] = form
+        messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+        return self.render_to_response(ctx)
 
 
 @login_required

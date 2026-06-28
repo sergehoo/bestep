@@ -168,3 +168,117 @@ def org_admin_required_for_id(kwarg_name: str = "organization_id") -> Callable:
             return view_func(request, *args, **kwargs)
         return _wrapped
     return decorator
+
+
+def instructor_required(view_func: Callable) -> Callable:
+    """
+    P3.2 — Exige que l'user soit formateur.
+
+    Acceptable comme formateur :
+      - User.is_instructor == True (a un InstructorProfile OU rôle INSTRUCTOR
+        dans au moins une org active)
+      - is_platform_admin (les admins ont accès à tout)
+
+    Refus :
+      - Anonymous → redirect login
+      - User authentifié sans profil instructor → 403
+    """
+    @functools.wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return _redirect_to_login(request)
+        if is_platform_admin(user):
+            return view_func(request, *args, **kwargs)
+        if not getattr(user, "is_instructor", False):
+            logger.warning(
+                "decorator.instructor_required.denied",
+                extra={"user_id": user.id, "path": request.path},
+            )
+            raise PermissionDenied("Réservé aux formateurs.")
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
+
+def learner_required(view_func: Callable) -> Callable:
+    """
+    P3.2 — Exige que l'user soit apprenant (ou rôle supérieur).
+
+    Acceptable comme apprenant :
+      - User.is_learner (a un LearnerProfile OU rôle LEARNER dans une org)
+      - User authentifié quelconque (par défaut tout user est implicitement
+        un apprenant — on ne bloque pas l'accès aux dashboards apprenant)
+      - is_platform_admin
+
+    Pourquoi si laxiste ? Le rôle apprenant est implicite à l'inscription —
+    un utilisateur qui veut s'inscrire à un cours n'a pas besoin d'avoir
+    un LearnerProfile explicite. Le décorateur sert surtout à exclure les
+    utilisateurs anonymes (et à logguer les accès).
+    """
+    @functools.wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return _redirect_to_login(request)
+        # Tout user authentifié actif peut accéder à l'espace apprenant.
+        if not getattr(user, "is_active", False):
+            logger.warning(
+                "decorator.learner_required.inactive",
+                extra={"user_id": user.id, "path": request.path},
+            )
+            raise PermissionDenied("Compte inactif.")
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
+
+def org_role_required(*roles: str) -> Callable:
+    """
+    P3.2 — Decorator factory : exige UN des rôles passés en argument
+    sur AU MOINS UNE organisation active.
+
+    Usage :
+
+        @org_role_required("OWNER", "ADMIN", "MANAGER")
+        def my_view(request):
+            ...
+
+        # Équivalent à @org_admin_required + MANAGER
+        @org_role_required("OWNER", "ADMIN")
+        def admin_only(request):
+            ...
+
+    Pour scoping par ID d'org, utiliser ``org_admin_required_for_id``.
+    Les admins plateforme passent toujours.
+    """
+    if not roles:
+        raise ValueError("org_role_required requiert au moins un rôle.")
+
+    def decorator(view_func: Callable) -> Callable:
+        @functools.wraps(view_func)
+        def _wrapped(request, *args, **kwargs):
+            user = getattr(request, "user", None)
+            if not user or not user.is_authenticated:
+                return _redirect_to_login(request)
+            if is_platform_admin(user):
+                return view_func(request, *args, **kwargs)
+            from organizations.models import OrganizationMembership
+            qs = user.organization_memberships.filter(
+                role__in=list(roles),
+                is_active=True,
+                organization__is_active=True,
+            )
+            if not qs.exists():
+                logger.warning(
+                    "decorator.org_role_required.denied",
+                    extra={
+                        "user_id": user.id,
+                        "required_roles": list(roles),
+                        "path": request.path,
+                    },
+                )
+                raise PermissionDenied(
+                    "Vous n'avez pas le rôle requis dans une organisation active."
+                )
+            return view_func(request, *args, **kwargs)
+        return _wrapped
+    return decorator

@@ -1,0 +1,117 @@
+{% comment %}
+  partials/ds/pagination.html — Pagination Django paginator harmonisée (P5.2).
+
+  Usage :
+      {% include "partials/ds/pagination.html" with
+          page_obj=page_obj
+          query_params=request.GET %}
+
+  Variables :
+    - page_obj (obligatoire) : Page Django (Paginator.get_page())
+    - query_params : QueryDict (request.GET) — pour PRÉSERVER les filtres
+                     entre les pages (ex : ?category=X&page=2 garde category=X)
+    - param_name : nom du paramètre URL (défaut "page")
+    - aria_label : aria-label de la nav (défaut "Pagination")
+    - compact : "1" → version condensée (← N/M →) sans numéros
+
+  Fonctionnalités :
+    - Préserve TOUS les autres query params dans les liens
+    - Affiche maximum 7 numéros (avec ellipsis si > 7 pages)
+    - Skip-links accessibilité
+{% endcomment %}
+
+{% spaceless %}
+{% if page_obj.has_other_pages %}
+{% with _param=param_name|default:"page" %}
+<nav aria-label="{{ aria_label|default:'Pagination' }}"
+     class="flex items-center justify-center gap-1 mt-6 select-none">
+
+  {# Helper : reconstruit la query string sans le param de page courant #}
+  {% with _qd=query_params %}
+
+  {# ── Bouton PRÉCÉDENT ────────────────────────────────────── #}
+  {% if page_obj.has_previous %}
+    <a href="?{% for k,v in _qd.items %}{% if k != _param %}{{ k }}={{ v }}&amp;{% endif %}{% endfor %}{{ _param }}={{ page_obj.previous_page_number }}"
+       class="inline-flex items-center justify-center w-9 h-9 rounded-lg
+              border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5
+              text-be-ink-700 dark:text-white/80
+              hover:bg-be-ink-50 dark:hover:bg-white/10
+              focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200
+              transition"
+       aria-label="Page précédente"
+       rel="prev">
+      <i class="fa-solid fa-chevron-left text-xs" aria-hidden="true"></i>
+    </a>
+  {% else %}
+    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg
+                 border border-be-ink-100/60 bg-be-ink-50/40
+                 text-be-ink-300 cursor-not-allowed"
+          aria-hidden="true">
+      <i class="fa-solid fa-chevron-left text-xs"></i>
+    </span>
+  {% endif %}
+
+  {% if compact == "1" %}
+    {# ── Compact : "Page N / M" ─────────────────────────────── #}
+    <span class="px-3 py-2 text-sm text-be-ink-700 dark:text-white/80">
+      Page <strong>{{ page_obj.number }}</strong>
+      <span class="text-be-ink-400 mx-1">/</span>
+      <strong>{{ page_obj.paginator.num_pages }}</strong>
+    </span>
+  {% else %}
+    {# ── Full : numéros avec ellipsis ───────────────────────── #}
+    {% for n in page_obj.paginator.page_range %}
+      {% if n == page_obj.number %}
+        {# Page courante — non cliquable, accentuée jaune #}
+        <span aria-current="page"
+              class="inline-flex items-center justify-center w-9 h-9 rounded-lg
+                     bg-be-sky-600 text-white font-bold text-sm shadow-sm">
+          {{ n }}
+        </span>
+      {% elif n == 1 or n == page_obj.paginator.num_pages or n|add:"-2" == page_obj.number or n|add:"-1" == page_obj.number or n|add:"1" == page_obj.number or n|add:"2" == page_obj.number %}
+        {# 1ère, dernière, ou voisines de la courante (-2 ... +2) #}
+        <a href="?{% for k,v in _qd.items %}{% if k != _param %}{{ k }}={{ v }}&amp;{% endif %}{% endfor %}{{ _param }}={{ n }}"
+           class="inline-flex items-center justify-center w-9 h-9 rounded-lg
+                  border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5
+                  text-be-ink-700 dark:text-white/80 font-semibold text-sm
+                  hover:bg-be-ink-50 dark:hover:bg-white/10
+                  focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200
+                  transition">
+          {{ n }}
+        </a>
+      {% elif n|add:"-3" == page_obj.number or n|add:"3" == page_obj.number %}
+        {# Ellipsis "…" pour les sauts > 2 #}
+        <span class="inline-flex items-center justify-center w-9 h-9
+                     text-be-ink-400 text-sm"
+              aria-hidden="true">…</span>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {# ── Bouton SUIVANT ───────────────────────────────────────── #}
+  {% if page_obj.has_next %}
+    <a href="?{% for k,v in _qd.items %}{% if k != _param %}{{ k }}={{ v }}&amp;{% endif %}{% endfor %}{{ _param }}={{ page_obj.next_page_number }}"
+       class="inline-flex items-center justify-center w-9 h-9 rounded-lg
+              border border-be-ink-100 dark:border-white/10 bg-white dark:bg-white/5
+              text-be-ink-700 dark:text-white/80
+              hover:bg-be-ink-50 dark:hover:bg-white/10
+              focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-be-sky-200
+              transition"
+       aria-label="Page suivante"
+       rel="next">
+      <i class="fa-solid fa-chevron-right text-xs" aria-hidden="true"></i>
+    </a>
+  {% else %}
+    <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg
+                 border border-be-ink-100/60 bg-be-ink-50/40
+                 text-be-ink-300 cursor-not-allowed"
+          aria-hidden="true">
+      <i class="fa-solid fa-chevron-right text-xs"></i>
+    </span>
+  {% endif %}
+
+  {% endwith %}
+</nav>
+{% endwith %}
+{% endif %}
+{% endspaceless %}

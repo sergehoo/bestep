@@ -1,0 +1,53 @@
+{% comment %}
+  partials/ds/flash_messages.html — Affichage des messages Django flash (P5.3).
+
+  Inclut les messages générés par ``messages.success/error/warning/info``
+  côté serveur, avec :
+    - styling cohérent (.be-alert-*)
+    - auto-dismiss après 5s (JS auto-load via data-be-flash)
+    - bouton de fermeture manuelle
+    - position fixed en haut à droite (desktop) / pleine largeur (mobile)
+    - role="status" + aria-live="polite"
+
+  Usage : à inclure UNE seule fois dans le layout (app_shell.html ou
+  catalogue.html). Auto-affiché si {% messages %} non-vide.
+{% endcomment %}
+
+{% if messages %}
+<div id="be-flash-container"
+     class="fixed top-4 right-4 z-[200] flex flex-col gap-2
+            max-w-md w-[calc(100%-2rem)] sm:w-auto
+            pointer-events-none"
+     role="status"
+     aria-live="polite"
+     aria-atomic="false">
+  {% for message in messages %}
+    {% with v=message.tags|default:"info" %}
+    <div data-be-flash
+         data-be-flash-timeout="5000"
+         class="pointer-events-auto
+                be-alert-{% if v == 'success' %}success{% elif v == 'error' %}danger{% elif v == 'warning' %}warning{% else %}info{% endif %}
+                shadow-lift
+                animate-in slide-in-from-top duration-200"
+         role="alert">
+      <i class="fa-solid mt-0.5 shrink-0
+        {% if v == 'success' %}fa-circle-check
+        {% elif v == 'error' %}fa-circle-xmark
+        {% elif v == 'warning' %}fa-triangle-exclamation
+        {% else %}fa-circle-info{% endif %}"
+         aria-hidden="true"></i>
+      <div class="flex-1 text-sm font-medium">{{ message }}</div>
+      <button type="button"
+              data-be-flash-close
+              class="-mt-0.5 -mr-1 p-1 rounded-lg
+                     hover:bg-black/5 dark:hover:bg-white/10
+                     focus-visible:outline-none focus-visible:ring-4
+                     focus-visible:ring-be-ink-100"
+              aria-label="Fermer la notification">
+        <i class="fa-solid fa-xmark text-xs" aria-hidden="true"></i>
+      </button>
+    </div>
+    {% endwith %}
+  {% endfor %}
+</div>
+{% endif %}

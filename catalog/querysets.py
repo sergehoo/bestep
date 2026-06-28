@@ -126,3 +126,81 @@ def models_safe_completion_rate():
         default=(F("completed_count") * 100) / F("total_enroll_count"),
         output_field=IntegerField(),
     )
+
+
+# ═════════════════════════════════════════════════════════════════════
+# P4.3 — Helpers QuerySet réutilisables (eager loading par défaut)
+# ═════════════════════════════════════════════════════════════════════
+
+def with_instructor(qs: QuerySet) -> QuerySet:
+    """
+    Pré-charge ``instructor`` (FK User) pour éviter N+1 dans les
+    sérializers / templates qui accèdent à ``course.instructor.email``
+    ou ``course.instructor.get_full_name``.
+    """
+    return qs.select_related("instructor")
+
+
+def with_category(qs: QuerySet) -> QuerySet:
+    """Pré-charge ``category`` (FK)."""
+    return qs.select_related("category")
+
+
+def with_company(qs: QuerySet) -> QuerySet:
+    """Pré-charge ``company`` (FK Organization, peut être NULL)."""
+    return qs.select_related("company")
+
+
+def with_sections_and_lessons(qs: QuerySet) -> QuerySet:
+    """
+    Pré-charge sections + leçons ordonnées en 1 + 1 requête (au lieu de
+    1 par section). Utile pour la page détail publique et le player
+    apprenant qui itèrent sur ``course.sections.all()`` puis
+    ``section.lessons.all()``.
+    """
+    from django.db.models import Prefetch
+    from catalog.models import CourseSection, Lesson
+    return qs.prefetch_related(
+        Prefetch(
+            "sections",
+            queryset=CourseSection.objects.order_by("order").prefetch_related(
+                Prefetch(
+                    "lessons",
+                    queryset=Lesson.objects.order_by("order").only(
+                        "id", "title", "order", "section_id",
+                        "lesson_type", "is_preview", "duration_sec",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def for_public_listing(qs: QuerySet) -> QuerySet:
+    """
+    Préset pour les listings publics (landing #cours, catalogue) :
+    instructor + category + KPIs annotés. Économise ~2× les queries
+    sur les pages qui affichent une liste de cours.
+    """
+    return annotate_course_kpis(with_category(with_instructor(qs)))
+
+
+def for_instructor_dashboard(qs: QuerySet) -> QuerySet:
+    """
+    Préset pour les dashboards instructor (liste cours, détail) :
+    instructor + category + company + KPIs.
+    """
+    return annotate_course_kpis(
+        with_company(with_category(with_instructor(qs)))
+    )
+
+
+def for_course_detail(qs: QuerySet, *, user=None) -> QuerySet:
+    """
+    Préset pour la page DÉTAIL d'un cours (publique ou apprenant) :
+    instructor + category + sections+lessons + KPIs annotés.
+    """
+    return annotate_course_kpis(
+        with_sections_and_lessons(with_category(with_instructor(qs))),
+        user=user,
+    )

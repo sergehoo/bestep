@@ -1,151 +1,391 @@
+{% extends "layout/app_shell.html" %}
 {% load static %}
-<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mon profil — best-épargne</title>
-  <link rel="stylesheet" href="{% static 'dist/app.min.css' %}">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-</head>
 
-<body class="min-h-screen bg-gradient-to-br from-be-sky-50 via-white to-be-sun-50 text-be-ink-900 antialiased">
+{% comment %}
+  templates/compte/profile.html — Page profil unifiée (P3.4).
 
-  {# ── Topbar minimal ──────────────────────────────────────────────────── #}
-  <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-be-ink-100/70 shadow-soft">
-    <div class="mx-auto max-w-3xl px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-      <a href="javascript:history.back()"
-         class="inline-flex items-center gap-2 text-sm font-semibold text-be-ink-700 hover:text-be-sky-700 transition">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M19 12H5M12 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        Retour
-      </a>
+  4 onglets : Informations / Photo / Préférences / Sécurité
 
-      <div class="flex items-center gap-2">
-        <img src="{% static 'img/Logo-2.png' %}" alt="best-épargne" class="h-8 object-contain">
-      </div>
+  Utilise le design system Phase 2 (.be-card, .be-input, .be-btn-primary,
+  .be-badge, etc.) et les partials ds/* pour les composants réutilisables.
 
-      <div class="text-xs text-be-ink-500">Mon profil</div>
+  Onglets côté client : vanilla JS (data-tab attrs), CSP-safe. Onglet
+  actif synchronisé avec ?tab=<section> côté URL.
+{% endcomment %}
+
+{% block title %}Mon profil — Best Épargne{% endblock %}
+
+{% block page_title %}
+  <div class="px-4 sm:px-6 pt-2 pb-1">
+    <h1 class="text-xl font-bold text-be-ink-900 dark:text-white">Mon profil</h1>
+    <p class="text-xs text-be-ink-500 dark:text-white/60 mt-0.5">
+      Gérez vos informations, votre photo, vos préférences et votre sécurité.
+    </p>
+  </div>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl px-4 sm:px-6 pb-12 space-y-6">
+
+  {# ── MESSAGES FLASH ────────────────────────────────────────── #}
+  {% if messages %}
+    <div class="space-y-2" role="status" aria-live="polite">
+      {% for message in messages %}
+        {% with v=message.tags|default:"info" %}
+        <div class="be-alert-{% if v == 'success' %}success{% elif v == 'error' %}danger{% elif v == 'warning' %}warning{% else %}info{% endif %}">
+          <i class="fa-solid mt-0.5 shrink-0
+            {% if v == 'success' %}fa-circle-check
+            {% elif v == 'error' %}fa-circle-xmark
+            {% elif v == 'warning' %}fa-triangle-exclamation
+            {% else %}fa-circle-info{% endif %}"
+             aria-hidden="true"></i>
+          <div class="flex-1">{{ message }}</div>
+        </div>
+        {% endwith %}
+      {% endfor %}
     </div>
-  </header>
+  {% endif %}
 
-  <main class="mx-auto max-w-3xl px-4 sm:px-6 py-10 space-y-6">
+  {# ── EN-TÊTE PROFIL (avatar + nom + badges rôles) ──────────── #}
+  <section class="be-card-elevated">
+    <div class="be-card-body flex flex-col sm:flex-row items-start sm:items-center gap-5">
 
-    {# ── Messages flash ──────────────────────────────────────────────── #}
-    {% if messages %}
-      <div class="space-y-2">
-        {% for message in messages %}
-          <div class="px-4 py-3 rounded-xl border text-sm
-            {% if message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-800
-            {% elif message.tags == 'error' %}bg-rose-50 border-rose-200 text-rose-800
-            {% else %}bg-be-sky-50 border-be-sky-200 text-be-sky-800{% endif %}">
-            {{ message }}
+      <div class="shrink-0">
+        {% if request.user.avatar %}
+          <img src="{{ request.user.avatar.url }}"
+               alt="Photo de profil de {{ request.user.display_name }}"
+               class="w-20 h-20 rounded-2xl object-cover ring-2 ring-be-sky-100 dark:ring-white/10">
+        {% else %}
+          <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-be-sky-500 to-be-sky-700
+                      flex items-center justify-center text-white font-extrabold text-2xl
+                      ring-2 ring-be-sky-100 dark:ring-white/10"
+               aria-hidden="true">
+            {{ request.user.display_name|slice:":1"|upper }}
           </div>
-        {% endfor %}
+        {% endif %}
       </div>
-    {% endif %}
 
-    {# ── Avatar + titre ──────────────────────────────────────────────── #}
-    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-      <div class="p-6 flex items-center gap-5">
-        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-be-sky-400 to-be-sky-600
-                    flex items-center justify-center text-white font-bold text-2xl shrink-0">
-          {{ request.user.full_name|slice:":1"|default:"U"|upper }}
+      <div class="flex-1 min-w-0">
+        <h2 class="text-lg font-bold text-be-ink-900 dark:text-white truncate">
+          {{ request.user.display_name }}
+        </h2>
+        <p class="text-sm text-be-ink-500 dark:text-white/60 truncate">
+          {{ request.user.email }}
+        </p>
+
+        <div class="flex flex-wrap items-center gap-1.5 mt-2.5">
+          {% if request.user.is_platform_admin %}
+            {% include "partials/ds/badge.html" with label="Admin plateforme" variant="primary" icon="shield" %}
+          {% endif %}
+          {% if request.user.is_instructor %}
+            {% include "partials/ds/badge.html" with label="Formateur" variant="accent" icon="chalkboard-user" %}
+          {% endif %}
+          {% if request.user.is_org_admin %}
+            {% include "partials/ds/badge.html" with label="Admin organisation" variant="info" icon="building" %}
+          {% endif %}
+          {% if request.user.is_learner %}
+            {% include "partials/ds/badge.html" with label="Apprenant" variant="success" icon="graduation-cap" %}
+          {% endif %}
+          {% if not request.user.is_platform_admin and not request.user.is_instructor and not request.user.is_org_admin and not request.user.is_learner %}
+            {% include "partials/ds/badge.html" with label="Utilisateur" variant="neutral" icon="user" %}
+          {% endif %}
         </div>
-        <div class="min-w-0">
-          <div class="text-xl font-bold truncate">{{ request.user.full_name|default:"Utilisateur" }}</div>
-          <div class="text-sm text-be-ink-500 mt-0.5">{{ request.user.email }}</div>
-          <div class="mt-1 flex flex-wrap gap-2 text-[11px]">
-            {% if request.user.is_instructor %}
-              <span class="px-2 py-0.5 rounded-full bg-be-sky-50 border border-be-sky-200 text-be-sky-700 font-semibold">Formateur</span>
-            {% endif %}
-            {% if request.user.is_learner %}
-              <span class="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">Apprenant</span>
-            {% endif %}
-            {% if request.user.is_platform_admin %}
-              <span class="px-2 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 font-semibold">Admin</span>
-            {% endif %}
+      </div>
+
+      <div class="hidden sm:block text-right">
+        <div class="text-[10px] uppercase tracking-wide text-be-ink-400 font-bold">Membre depuis</div>
+        <div class="text-sm font-semibold text-be-ink-700 dark:text-white/80">
+          {{ request.user.created_at|date:"d M Y" }}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# ── ONGLETS NAV ─────────────────────────────────────────── #}
+  <nav class="be-card-flat overflow-x-auto" aria-label="Sections du profil">
+    <div class="flex items-center gap-1 px-2 py-1.5" role="tablist">
+      {% with _t=active_tab|default:"info" %}
+      <button type="button" data-be-profile-tab="info" role="tab"
+              aria-selected="{% if _t == 'info' %}true{% else %}false{% endif %}"
+              class="be-profile-tab {% if _t == 'info' %}be-profile-tab-active{% endif %} inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap">
+        <i class="fa-solid fa-user text-xs" aria-hidden="true"></i>
+        Informations
+      </button>
+      <button type="button" data-be-profile-tab="avatar" role="tab"
+              aria-selected="{% if _t == 'avatar' %}true{% else %}false{% endif %}"
+              class="be-profile-tab {% if _t == 'avatar' %}be-profile-tab-active{% endif %} inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap">
+        <i class="fa-solid fa-image text-xs" aria-hidden="true"></i>
+        Photo
+      </button>
+      <button type="button" data-be-profile-tab="preferences" role="tab"
+              aria-selected="{% if _t == 'preferences' %}true{% else %}false{% endif %}"
+              class="be-profile-tab {% if _t == 'preferences' %}be-profile-tab-active{% endif %} inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap">
+        <i class="fa-solid fa-sliders text-xs" aria-hidden="true"></i>
+        Préférences
+      </button>
+      <button type="button" data-be-profile-tab="security" role="tab"
+              aria-selected="{% if _t == 'security' %}true{% else %}false{% endif %}"
+              class="be-profile-tab {% if _t == 'security' %}be-profile-tab-active{% endif %} inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap">
+        <i class="fa-solid fa-shield-halved text-xs" aria-hidden="true"></i>
+        Sécurité
+      </button>
+      {% endwith %}
+    </div>
+  </nav>
+
+  {# ── ONGLET 1 : INFORMATIONS ──────────────────────────────── #}
+  <section data-be-profile-panel="info"
+           {% if active_tab != "info" %}hidden{% endif %}
+           class="be-card-elevated">
+    <header class="be-card-header">
+      <div>
+        <h3 class="be-card-title">Informations personnelles</h3>
+        <p class="be-card-subtitle">Vos coordonnées affichées dans Best Épargne.</p>
+      </div>
+    </header>
+    <form method="post" action="" class="be-card-body space-y-4" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="form_section" value="info">
+
+      {% for field in info_form %}
+        <div>
+          <label for="{{ field.id_for_label }}" class="be-label{% if field.field.required %} be-label-required{% endif %}">
+            {{ field.label }}
+          </label>
+          {{ field }}
+          {% if field.help_text %}<p class="be-help-text">{{ field.help_text }}</p>{% endif %}
+          {% for error in field.errors %}
+            <p class="be-error-text">
+              <i class="fa-solid fa-circle-exclamation text-[10px]" aria-hidden="true"></i>
+              <span>{{ error }}</span>
+            </p>
+          {% endfor %}
+        </div>
+      {% endfor %}
+
+      <div class="flex justify-end pt-2">
+        <button type="submit" class="be-btn-primary">
+          <i class="fa-solid fa-floppy-disk text-xs" aria-hidden="true"></i>
+          <span>Enregistrer</span>
+        </button>
+      </div>
+    </form>
+  </section>
+
+  {# ── ONGLET 2 : PHOTO ────────────────────────────────────── #}
+  <section data-be-profile-panel="avatar"
+           {% if active_tab != "avatar" %}hidden{% endif %}
+           class="be-card-elevated">
+    <header class="be-card-header">
+      <div>
+        <h3 class="be-card-title">Photo de profil</h3>
+        <p class="be-card-subtitle">Carrée recommandée, JPEG / PNG / WebP, 5 Mo maximum.</p>
+      </div>
+    </header>
+    <div class="be-card-body space-y-5">
+
+      <div class="flex items-center gap-5">
+        {% if request.user.avatar %}
+          <img src="{{ request.user.avatar.url }}" alt="Photo actuelle"
+               class="w-24 h-24 rounded-2xl object-cover ring-2 ring-be-sky-100 dark:ring-white/10">
+        {% else %}
+          <div class="w-24 h-24 rounded-2xl bg-be-ink-100 dark:bg-white/5
+                      flex items-center justify-center text-be-ink-400">
+            <i class="fa-solid fa-user text-3xl" aria-hidden="true"></i>
           </div>
+        {% endif %}
+        <div class="text-sm text-be-ink-500 dark:text-white/60 leading-relaxed">
+          {% if request.user.avatar %}
+            Photo actuelle. Uploadez-en une nouvelle pour la remplacer, ou
+            supprimez-la pour revenir à l'initiale par défaut.
+          {% else %}
+            Aucune photo de profil. L'initiale de votre nom est affichée par défaut.
+          {% endif %}
         </div>
       </div>
-    </section>
 
-    {# ── Formulaire de profil ─────────────────────────────────────────── #}
-    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-      <div class="px-6 py-4 border-b border-be-ink-100">
-        <div class="font-semibold">Informations personnelles</div>
-        <div class="text-xs text-be-ink-500 mt-0.5">Modifiez votre nom, téléphone et adresse e-mail.</div>
-      </div>
-
-      <form method="post" class="p-6 space-y-5" novalidate>
+      <form method="post" action="" enctype="multipart/form-data" novalidate
+            class="space-y-3 pt-4 border-t border-be-ink-100 dark:border-white/10">
         {% csrf_token %}
+        <input type="hidden" name="form_section" value="avatar">
 
-        {# Nom complet #}
-        <div>
-          <label for="{{ form.full_name.id_for_label }}" class="block text-xs font-semibold text-be-ink-700 mb-1">
-            Nom complet
-          </label>
-          {{ form.full_name }}
-          {% if form.full_name.errors %}
-            <p class="mt-1 text-xs text-rose-600">{{ form.full_name.errors|join:", " }}</p>
+        <label for="id_avatar" class="be-label">Choisir un nouveau fichier</label>
+        <input type="file" name="avatar" id="id_avatar"
+               accept="image/jpeg,image/png,image/webp"
+               class="block w-full text-sm text-be-ink-700
+                      file:mr-3 file:py-2 file:px-4 file:rounded-lg
+                      file:border-0 file:bg-be-sky-600 file:text-white file:font-semibold
+                      hover:file:bg-be-sky-700 file:cursor-pointer">
+        {% for error in avatar_form.avatar.errors %}
+          <p class="be-error-text">
+            <i class="fa-solid fa-circle-exclamation text-[10px]" aria-hidden="true"></i>
+            <span>{{ error }}</span>
+          </p>
+        {% endfor %}
+
+        <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-2">
+          {% if request.user.avatar %}
+            <button type="submit" name="avatar_clear" value="1"
+                    class="be-btn-outline text-rose-600 hover:bg-rose-50">
+              <i class="fa-solid fa-trash text-xs" aria-hidden="true"></i>
+              <span>Supprimer la photo</span>
+            </button>
+          {% else %}
+            <span></span>
           {% endif %}
-        </div>
-
-        {# Téléphone #}
-        <div>
-          <label for="{{ form.phone.id_for_label }}" class="block text-xs font-semibold text-be-ink-700 mb-1">
-            Téléphone <span class="font-normal text-be-ink-400">(optionnel)</span>
-          </label>
-          {{ form.phone }}
-          {% if form.phone.errors %}
-            <p class="mt-1 text-xs text-rose-600">{{ form.phone.errors|join:", " }}</p>
-          {% endif %}
-        </div>
-
-        {# E-mail #}
-        <div>
-          <label for="{{ form.email.id_for_label }}" class="block text-xs font-semibold text-be-ink-700 mb-1">
-            Adresse e-mail
-          </label>
-          {{ form.email }}
-          {% if form.email.errors %}
-            <p class="mt-1 text-xs text-rose-600">{{ form.email.errors|join:", " }}</p>
-          {% endif %}
-        </div>
-
-        <div class="pt-2 flex flex-wrap items-center gap-3">
-          <button type="submit"
-                  class="px-5 py-2.5 rounded-xl bg-be-sky-600 hover:bg-be-sky-700 text-white font-semibold text-sm shadow-soft transition">
-            Enregistrer
+          <button type="submit" class="be-btn-primary">
+            <i class="fa-solid fa-upload text-xs" aria-hidden="true"></i>
+            <span>Uploader</span>
           </button>
-          <a href="javascript:history.back()"
-             class="px-5 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold transition">
-            Annuler
-          </a>
         </div>
       </form>
-    </section>
+    </div>
+  </section>
 
-    {# ── Sécurité ────────────────────────────────────────────────────── #}
-    <section class="rounded-[28px] border border-be-ink-100 bg-white shadow-soft overflow-hidden">
-      <div class="px-6 py-4 border-b border-be-ink-100">
-        <div class="font-semibold">Sécurité</div>
-        <div class="text-xs text-be-ink-500 mt-0.5">Gérez votre mot de passe et la sécurité du compte.</div>
+  {# ── ONGLET 3 : PRÉFÉRENCES ──────────────────────────────── #}
+  <section data-be-profile-panel="preferences"
+           {% if active_tab != "preferences" %}hidden{% endif %}
+           class="be-card-elevated">
+    <header class="be-card-header">
+      <div>
+        <h3 class="be-card-title">Préférences</h3>
+        <p class="be-card-subtitle">Affichage, langue et notifications.</p>
       </div>
-      <div class="p-6 flex items-center justify-between gap-4">
+    </header>
+    <form method="post" action="" class="be-card-body space-y-5" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="form_section" value="preferences">
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <div class="text-sm font-semibold">Mot de passe</div>
-          <div class="text-xs text-be-ink-500 mt-0.5">Modifiez votre mot de passe régulièrement.</div>
+          <label for="id_theme" class="be-label">Thème d'affichage</label>
+          {{ preferences_form.theme }}
+          <p class="be-help-text">Clair, sombre ou suivre les préférences système.</p>
         </div>
-        <a href="{{ password_change_url }}"
-           class="px-4 py-2.5 rounded-xl border border-be-ink-100 bg-white hover:bg-be-ink-50 text-sm font-semibold transition shrink-0">
-          Changer le mot de passe
+        <div>
+          <label for="id_language" class="be-label">Langue d'interface</label>
+          {{ preferences_form.language }}
+          <p class="be-help-text">L'interface sera affichée dans cette langue.</p>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-be-ink-100 dark:border-white/10">
+        <div class="be-section-title">Notifications</div>
+        <div class="space-y-3">
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-be-ink-100 dark:border-white/10 cursor-pointer hover:bg-be-ink-50/50 dark:hover:bg-white/[.03] transition">
+            {{ preferences_form.notifications_email }}
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-be-ink-900 dark:text-white">Notifications par e-mail</div>
+              <div class="text-xs text-be-ink-500 dark:text-white/60 mt-0.5">
+                Publications, inscriptions, paiements importants.
+              </div>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-be-ink-100 dark:border-white/10 cursor-pointer hover:bg-be-ink-50/50 dark:hover:bg-white/[.03] transition">
+            {{ preferences_form.notifications_course_reminders }}
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-be-ink-900 dark:text-white">Rappels de cours non terminés</div>
+              <div class="text-xs text-be-ink-500 dark:text-white/60 mt-0.5">
+                Rappels hebdomadaires de vos leçons en cours.
+              </div>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-be-ink-100 dark:border-white/10 cursor-pointer hover:bg-be-ink-50/50 dark:hover:bg-white/[.03] transition">
+            {{ preferences_form.notifications_marketing }}
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-be-ink-900 dark:text-white">E-mails marketing</div>
+              <div class="text-xs text-be-ink-500 dark:text-white/60 mt-0.5">
+                Nouveaux cours et offres promotionnelles. Optionnel.
+              </div>
+            </div>
+          </label>
+
+          {% if request.user.is_instructor %}
+            <label class="flex items-start gap-3 p-3 rounded-xl border border-be-ink-100 dark:border-white/10 cursor-pointer hover:bg-be-ink-50/50 dark:hover:bg-white/[.03] transition">
+              {{ preferences_form.public_profile }}
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-semibold text-be-ink-900 dark:text-white">Profil public (formateur)</div>
+                <div class="text-xs text-be-ink-500 dark:text-white/60 mt-0.5">
+                  Rendre votre profil visible aux apprenants.
+                </div>
+              </div>
+            </label>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button type="submit" class="be-btn-primary">
+          <i class="fa-solid fa-floppy-disk text-xs" aria-hidden="true"></i>
+          <span>Enregistrer les préférences</span>
+        </button>
+      </div>
+    </form>
+  </section>
+
+  {# ── ONGLET 4 : SÉCURITÉ ──────────────────────────────────── #}
+  <section data-be-profile-panel="security"
+           {% if active_tab != "security" %}hidden{% endif %}
+           class="be-card-elevated">
+    <header class="be-card-header">
+      <div>
+        <h3 class="be-card-title">Sécurité du compte</h3>
+        <p class="be-card-subtitle">Mot de passe et authentification à 2 facteurs.</p>
+      </div>
+    </header>
+    <div class="be-card-body space-y-4">
+
+      <div class="flex items-start justify-between gap-4 p-4 rounded-xl
+                  border border-be-ink-100 dark:border-white/10
+                  bg-be-ink-50/40 dark:bg-white/[.02]">
+        <div class="min-w-0">
+          <div class="text-sm font-bold text-be-ink-900 dark:text-white">Mot de passe</div>
+          <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">
+            Modifier votre mot de passe régulièrement pour sécuriser votre compte.
+          </div>
+        </div>
+        <a href="{{ password_change_url }}" class="be-btn-outline shrink-0">
+          <i class="fa-solid fa-key text-xs" aria-hidden="true"></i>
+          <span>Changer</span>
         </a>
       </div>
-    </section>
 
-  </main>
+      <div class="flex items-start justify-between gap-4 p-4 rounded-xl
+                  border border-be-ink-100 dark:border-white/10
+                  bg-be-ink-50/40 dark:bg-white/[.02]">
+        <div class="min-w-0">
+          <div class="text-sm font-bold text-be-ink-900 dark:text-white flex items-center gap-2">
+            Authentification à deux facteurs (2FA)
+            {% if request.user.is_platform_admin %}
+              {% include "partials/ds/badge.html" with label="Recommandé" variant="accent" size="xs" %}
+            {% endif %}
+          </div>
+          <div class="text-xs text-be-ink-500 dark:text-white/60 mt-1">
+            Ajoutez une couche de sécurité via code de validation à usage unique.
+          </div>
+        </div>
+        <a href="{{ two_factor_setup_url }}" class="be-btn-outline shrink-0">
+          <i class="fa-solid fa-shield-halved text-xs" aria-hidden="true"></i>
+          <span>Configurer</span>
+        </a>
+      </div>
 
-</body>
-</html>
+      <div class="be-alert-info">
+        <i class="fa-solid fa-circle-info mt-0.5 shrink-0" aria-hidden="true"></i>
+        <div class="flex-1 text-sm">
+          Conformément au RGPD, vous pouvez demander la suppression de votre compte
+          en contactant le support. L'archivage préserve vos cours et les inscriptions
+          des apprenants.
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'src/js/profile-tabs.js' %}" defer></script>
+{% endblock %}

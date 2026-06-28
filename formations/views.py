@@ -954,10 +954,14 @@ class StudentDashboard(LoginRequiredMixin, LearnerRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         user = self.request.user
+
+        # P4.6 — N+1 fix : eager loading + aggregate conditionnel
+        # AVANT : 4 queries (2× .count() sur enrollments, 1 certificates.count,
+        # 1 LessonProgress.aggregate). Refactor : 1 aggregate sur enrollments.
         enrollments = (
             Enrollment.objects.filter(user=user)
             .exclude(status=Enrollment.Status.CANCELED)
-            .select_related("course", "current_lesson")
+            .select_related("course", "course__category", "current_lesson")
             .order_by("-updated_at")
         )
         active_enrollments = enrollments.filter(status=Enrollment.Status.ACTIVE)
@@ -965,6 +969,12 @@ class StudentDashboard(LoginRequiredMixin, LearnerRequiredMixin, TemplateView):
             IssuedCertificate.objects.filter(user=user, revoked_at__isnull=True)
             .select_related("course")
             .order_by("-issued_at")
+        )
+
+        # KPIs : 1 seule query aggregée au lieu de 2× .count()
+        kpi_counts = enrollments.aggregate(
+            in_progress=Count("id", filter=Q(status=Enrollment.Status.ACTIVE)),
+            completed=Count("id", filter=Q(status=Enrollment.Status.COMPLETED)),
         )
         total_seconds = LessonProgress.objects.filter(
             enrollment__user=user,
@@ -980,10 +990,8 @@ class StudentDashboard(LoginRequiredMixin, LearnerRequiredMixin, TemplateView):
 
         ctx.update({
             "kpis": {
-                "in_progress": active_enrollments.count(),
-                "completed": enrollments.filter(
-                    status=Enrollment.Status.COMPLETED
-                ).count(),
+                "in_progress": kpi_counts["in_progress"],
+                "completed": kpi_counts["completed"],
                 "certificates": certificates.count(),
                 "total_hours": total_seconds / 3600,
             },

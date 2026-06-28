@@ -84,6 +84,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=30, blank=True)
     full_name = models.CharField(max_length=160, blank=True)
 
+    # P3.1 — Photo de profil. Stockée dans MEDIA_ROOT/avatars/<uuid>.<ext>
+    # via la stratégie storage par défaut (MinIO en prod, FileSystem en dev).
+    # Champ optionnel : le display_name affiche l'initiale en fallback si vide.
+    avatar = models.ImageField(
+        upload_to="avatars/",
+        null=True,
+        blank=True,
+        help_text="Photo de profil (carrée recommandée, JPEG/PNG, max 5 Mo).",
+    )
+
     platform_role = models.CharField(
         max_length=30,
         choices=PlatformRole.choices,
@@ -247,3 +257,90 @@ class InstructorProfile(models.Model):
 
     def __str__(self):
         return f"InstructorProfile({self.user.email})"
+
+
+class UserPreferences(models.Model):
+    """
+    Préférences utilisateur (P3.1).
+
+    OneToOne avec User. Créé automatiquement à l'inscription via un
+    signal post_save (cf. compte/signals.py). Stocke uniquement des
+    préférences NON-CRITIQUES (les paramètres sensibles auth/2FA/RGPD
+    sont sur User directement ou dans des modèles dédiés).
+
+    Pourquoi un modèle séparé plutôt que des champs sur User ?
+      - Sépare config technique (User) de la config UX (Preferences)
+      - Permet d'ajouter des préférences sans toucher au cœur Auth
+      - Pas de migration lourde sur la table users à chaque ajout
+    """
+
+    class Theme(models.TextChoices):
+        SYSTEM = "system", "Suivre le système"
+        LIGHT = "light", "Clair"
+        DARK = "dark", "Sombre"
+
+    class Language(models.TextChoices):
+        FR = "fr", "Français"
+        EN = "en", "English"
+
+    user = models.OneToOneField(
+        "compte.User",
+        on_delete=models.CASCADE,
+        related_name="preferences",
+        primary_key=True,
+    )
+
+    # ─── Affichage ─────────────────────────────────────────────────
+    theme = models.CharField(
+        max_length=10,
+        choices=Theme.choices,
+        default=Theme.SYSTEM,
+        help_text="Thème d'affichage (clair/sombre/auto).",
+    )
+    language = models.CharField(
+        max_length=5,
+        choices=Language.choices,
+        default=Language.FR,
+        help_text="Langue d'interface préférée.",
+    )
+
+    # ─── Notifications ─────────────────────────────────────────────
+    notifications_email = models.BooleanField(
+        default=True,
+        help_text="Recevoir les notifications par email (publications, inscriptions, paiements).",
+    )
+    notifications_marketing = models.BooleanField(
+        default=False,
+        help_text="Recevoir les emails marketing (nouveaux cours, offres).",
+    )
+    notifications_course_reminders = models.BooleanField(
+        default=True,
+        help_text="Recevoir des rappels de cours non terminés.",
+    )
+
+    # ─── Confidentialité ──────────────────────────────────────────
+    public_profile = models.BooleanField(
+        default=False,
+        help_text="Rendre le profil visible publiquement (formateurs uniquement).",
+    )
+
+    # ─── Méta ─────────────────────────────────────────────────────
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Préférences utilisateur"
+        verbose_name_plural = "Préférences utilisateurs"
+
+    def __str__(self) -> str:
+        return f"Preferences({self.user.email})"
+
+    @classmethod
+    def get_or_create_for(cls, user) -> "UserPreferences":
+        """
+        Helper safe : retourne les préférences de l'utilisateur,
+        les crée à la volée si elles n'existent pas encore (pour les
+        utilisateurs créés avant la migration P3.1).
+        """
+        obj, _ = cls.objects.get_or_create(user=user)
+        return obj

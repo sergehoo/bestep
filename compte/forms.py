@@ -218,3 +218,103 @@ class LessonForm(forms.ModelForm):
                 },
             ),
         }
+
+
+# ═════════════════════════════════════════════════════════════════════
+# P3 — Forms profil unifié (avatar + préférences)
+# ═════════════════════════════════════════════════════════════════════
+
+class AvatarUploadForm(forms.ModelForm):
+    """
+    Formulaire d'upload de la photo de profil (P3.4).
+
+    Validations métier :
+      - Taille max 5 Mo (bloquée côté serveur, pas seulement côté <input>).
+      - Format JPEG / PNG / WebP uniquement (refuse les SVG = XSS vector).
+      - Dimensions max raisonnables (4000×4000) pour éviter les bombes
+        de pixels.
+    """
+
+    _MAX_BYTES = 5 * 1024 * 1024  # 5 Mo
+    _ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+    _MAX_DIMENSION = 4000  # pixels
+
+    class Meta:
+        model = get_user_model()
+        fields = ["avatar"]
+
+    def clean_avatar(self):
+        avatar = self.cleaned_data.get("avatar")
+        if not avatar:
+            return avatar  # delete via clear=True OK
+
+        # 1. Taille
+        size = getattr(avatar, "size", 0)
+        if size and size > self._MAX_BYTES:
+            raise ValidationError(
+                "L'image dépasse 5 Mo. Compressez-la avant de l'uploader."
+            )
+
+        # 2. Content-type (anti-SVG / EXE renommé)
+        content_type = getattr(avatar, "content_type", "") or ""
+        if content_type and content_type.lower() not in self._ALLOWED_CONTENT_TYPES:
+            raise ValidationError(
+                "Format non supporté. Utilisez JPEG, PNG ou WebP."
+            )
+
+        # 3. Dimensions (anti-pixel bomb) via Pillow.
+        try:
+            from PIL import Image
+            avatar.seek(0)
+            with Image.open(avatar) as img:
+                if img.width > self._MAX_DIMENSION or img.height > self._MAX_DIMENSION:
+                    raise ValidationError(
+                        f"L'image dépasse {self._MAX_DIMENSION}×{self._MAX_DIMENSION} px. "
+                        "Redimensionnez-la avant l'upload."
+                    )
+            avatar.seek(0)
+        except ValidationError:
+            raise
+        except Exception as exc:
+            # Pillow ne peut pas ouvrir l'image → corruption ou format inattendu.
+            raise ValidationError(
+                "Le fichier n'est pas une image valide."
+            ) from exc
+
+        return avatar
+
+
+class UserPreferencesForm(forms.ModelForm):
+    """Formulaire d'édition des préférences utilisateur (P3.4)."""
+
+    class Meta:
+        # Import local pour éviter une dépendance circulaire au chargement
+        # du module (UserPreferences hérite de compte.models qui importe forms).
+        from compte.models import UserPreferences as _UP  # noqa: PLC0415
+        model = _UP
+        fields = [
+            "theme",
+            "language",
+            "notifications_email",
+            "notifications_marketing",
+            "notifications_course_reminders",
+            "public_profile",
+        ]
+        labels = {
+            "theme": "Thème d'affichage",
+            "language": "Langue",
+            "notifications_email": "Notifications par e-mail",
+            "notifications_marketing": "E-mails marketing",
+            "notifications_course_reminders": "Rappels de cours non terminés",
+            "public_profile": "Profil public",
+        }
+        help_texts = {
+            "notifications_email": "Publications, inscriptions, paiements importants.",
+            "notifications_marketing": "Nouveaux cours, offres promotionnelles.",
+            "notifications_course_reminders": "Rappels hebdomadaires des leçons non terminées.",
+            "public_profile": "Rendre votre profil visible aux autres utilisateurs (formateurs uniquement).",
+        }
+        widgets = {
+            "theme": forms.Select(attrs={"class": "be-select"}),
+            "language": forms.Select(attrs={"class": "be-select"}),
+        }

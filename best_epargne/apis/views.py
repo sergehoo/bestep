@@ -389,25 +389,38 @@ class InstructorKpisView(InstructorBaseAPIView):
         days = _range_to_days(request.query_params.get("range", "30d"))
         since = timezone.now() - timedelta(days=days)
 
+        # ─── COURSES — P4.2 : aggregate conditionnel → 1 seule query
+        # au lieu de 5 .count() séparés sur le même queryset.
+        from django.db.models import Count, Q
         courses_qs = Course.objects.filter(instructor=u)
-        # ------------------ COURSES ------------------
-        total_courses = courses_qs.count()
-        published_courses = courses_qs.filter(status=Course.Status.PUBLISHED).count()
-        review_courses = courses_qs.filter(status=Course.Status.REVIEW).count()
-        draft_courses = courses_qs.filter(status=Course.Status.DRAFT).count()
-        archived_courses = courses_qs.filter(status=Course.Status.ARCHIVED).count()
+        courses_kpi = courses_qs.aggregate(
+            total=Count("id"),
+            published=Count("id", filter=Q(status=Course.Status.PUBLISHED)),
+            review=Count("id", filter=Q(status=Course.Status.REVIEW)),
+            draft=Count("id", filter=Q(status=Course.Status.DRAFT)),
+            archived=Count("id", filter=Q(status=Course.Status.ARCHIVED)),
+        )
+        total_courses = courses_kpi["total"]
+        published_courses = courses_kpi["published"]
+        review_courses = courses_kpi["review"]
+        draft_courses = courses_kpi["draft"]
+        archived_courses = courses_kpi["archived"]
 
         total_media = MediaAsset.objects.filter(owner=u).count()
 
-        # ------------------ ENROLLMENTS ------------------
+        # ─── ENROLLMENTS — P4.2 : 4 .count() → 1 aggregate (4× moins de queries)
         if Enrollment:
             enrollments_qs = Enrollment.objects.filter(course__instructor=u)
-
-            enrolled_total = enrollments_qs.count()
-            enrolled_recent = enrollments_qs.filter(enrolled_at__gte=since).count()
-
-            active_enrollments = enrollments_qs.filter(status="ACTIVE").count()
-            completed_enrollments = enrollments_qs.filter(status="COMPLETED").count()
+            enrol_kpi = enrollments_qs.aggregate(
+                total=Count("id"),
+                recent=Count("id", filter=Q(enrolled_at__gte=since)),
+                active=Count("id", filter=Q(status="ACTIVE")),
+                completed=Count("id", filter=Q(status="COMPLETED")),
+            )
+            enrolled_total = enrol_kpi["total"]
+            enrolled_recent = enrol_kpi["recent"]
+            active_enrollments = enrol_kpi["active"]
+            completed_enrollments = enrol_kpi["completed"]
         else:
             enrolled_total = 0
             enrolled_recent = 0
@@ -431,27 +444,22 @@ class InstructorKpisView(InstructorBaseAPIView):
             rating_avg = 0
             rating_count = 0
 
-        # ------------------ REVENUE (PAYOUT) ------------------
+        # ─── REVENUE (PAYOUT) — P4.2 : 2 aggregates + 1 count → 1 aggregate
         if Payout:
             payouts_qs = Payout.objects.filter(user=u)
-
-            revenue_total = payouts_qs.aggregate(
-                v=Coalesce(
-                    Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
+            _dec = DecimalField(max_digits=12, decimal_places=2)
+            revenue_kpi = payouts_qs.aggregate(
+                total=Coalesce(Sum("amount", output_field=_dec), 0, output_field=_dec),
+                recent=Coalesce(
+                    Sum("amount", filter=Q(created_at__gte=since), output_field=_dec),
                     0,
-                    output_field=DecimalField(max_digits=12, decimal_places=2),
-                )
-            )["v"] or 0
-
-            revenue_recent = payouts_qs.filter(created_at__gte=since).aggregate(
-                v=Coalesce(
-                    Sum("amount", output_field=DecimalField(max_digits=12, decimal_places=2)),
-                    0,
-                    output_field=DecimalField(max_digits=12, decimal_places=2),
-                )
-            )["v"] or 0
-
-            payments_count = payouts_qs.count()
+                    output_field=_dec,
+                ),
+                count=Count("id"),
+            )
+            revenue_total = revenue_kpi["total"] or 0
+            revenue_recent = revenue_kpi["recent"] or 0
+            payments_count = revenue_kpi["count"]
         else:
             revenue_total = 0
             revenue_recent = 0
