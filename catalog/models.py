@@ -103,6 +103,53 @@ class Course(models.Model):
         help_text="Renseigné lors du passage en ARCHIVED. Remis à NULL au restore.",
     )
 
+    # ─────────────────────────────────────────────────────────────
+    # R10 — Champs enrichis (levée des dérivations client-side R9)
+    # ─────────────────────────────────────────────────────────────
+
+    class Level(models.TextChoices):
+        BEGINNER = "BEGINNER", "Débutant"
+        INTERMEDIATE = "INTERMEDIATE", "Intermédiaire"
+        ADVANCED = "ADVANCED", "Avancé"
+        ALL = "ALL", "Tous niveaux"
+
+    level = models.CharField(
+        max_length=15,
+        choices=Level.choices,
+        default=Level.ALL,
+        help_text="Niveau ciblé du cours. Affiché en badge sur les cartes.",
+    )
+    language = models.CharField(
+        max_length=8,
+        default="fr",
+        help_text="Code langue ISO 639-1 (ex. 'fr', 'en'). Affiché en clair côté UI.",
+    )
+    old_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Prix barré. Active le badge 'Promotion' si > price.",
+    )
+    promotion_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fin de la promotion. Après cette date, old_price doit être ignoré.",
+    )
+
+    # R20 — Template de certificat associé au cours (optionnel).
+    certificate_template = models.ForeignKey(
+        "certifications.CertificateTemplate",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="courses",
+        help_text=(
+            "Template appliqué aux certificats émis pour ce cours. Si NULL, "
+            "le certificat utilise le template par défaut de la plateforme."
+        ),
+    )
+
     class Meta:
         ordering = ["-created_at"]
         indexes = [

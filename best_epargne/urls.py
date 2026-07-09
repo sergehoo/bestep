@@ -1,15 +1,4 @@
-"""URL configuration for best_epargne project.
 
-Architecture des espaces (multi-rôles) :
-- ``instructor:*`` (préfixe ``/dashboard/instructor/``) — espace formateur.
-- ``learner:*``    (préfixe ``/dashboard/learner/``)   — espace apprenant.
-- ``org:*``        (préfixe ``/organisation/``)         — espace organisation.
-
-CORRECTIFS (audit) :
-- INFRA-03 : endpoint ``/healthz/`` et ``/readyz/`` pour Traefik/Kubernetes.
-- FORMATIONS-35 : ``static(STATIC_URL, ...)`` gardé SOUS ``settings.DEBUG``
-  (WhiteNoise s'en occupe en prod).
-"""
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin

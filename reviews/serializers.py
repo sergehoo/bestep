@@ -42,8 +42,16 @@ class CourseReviewSerializer(serializers.ModelSerializer):
 
     def get_user_name(self, obj) -> str:
         u = obj.user
-        # REV-09 : `compte.User` n'a pas de `username` → fallback sur la partie locale de l'email.
-        full = (u.get_full_name() or "").strip()
+        # REV-09 : `compte.User` hérite d'`AbstractBaseUser` → pas de
+        # méthode `get_full_name()`. On lit le champ `full_name` direct,
+        # puis on essaye la méthode standard Django si dispo, puis on
+        # tombe sur la partie locale de l'email.
+        full = (getattr(u, "full_name", "") or "").strip()
+        if not full and hasattr(u, "get_full_name"):
+            try:
+                full = (u.get_full_name() or "").strip()
+            except Exception:
+                full = ""
         if full:
             return full
         email = getattr(u, "email", "") or ""

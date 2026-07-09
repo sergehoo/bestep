@@ -1,322 +1,122 @@
-# Best Épargne — État global du projet
+# Best Épargne — Statut projet (juillet 2026)
 
-> Document de référence consolidé après la **refonte 6 phases** de
-> juin 2026.
-
----
-
-## Résumé exécutif
-
-Plateforme e-learning Django multi-rôles (Apprenant, Formateur,
-Organisation, Admin) refondue en 6 phases sur **juin 2026**, avec :
-
-- **0 casse** sur les données existantes
-- **48+ tests pytest** sur les workflows critiques
-- **10 documents techniques** consolidés
-- Architecture découplée (services applicatifs, querysets helpers,
-  design system unifié)
+> Snapshot état global de la refonte. Dernière mise à jour : **R8 clôture**.
 
 ---
 
-## Phases livrées (juin 2026)
+## Vue d'ensemble
 
-### Phase 1 — Cycle de vie cours + landing publique ✅
-
-**Objectif** : sécuriser et harmoniser le workflow métier critique du
-cours (publication, dépublication, archivage, restauration).
-
-**Livré** :
-- Service `catalog/lifecycle.py` (source unique des transitions)
-- Modèle `CourseLifecycleEvent` (audit log indexé)
-- Champ `Course.archived_at`
-- 4 endpoints API DRF (publish/unpublish/archive/restore)
-- 4 vues template POST avec CSRF
-- UI instructor : boutons contextuels + modales de confirmation +
-  badges harmonisés
-- Catalogue public server-rendered (`/landinghome/catalogue/`)
-- 17 tests pytest
-
-**Fichiers clés** :
-- `catalog/lifecycle.py` · `catalog/models.py` (`CourseLifecycleEvent`)
-- `templates/partials/course_status_badge.html` ·
-  `templates/partials/course_lifecycle_actions.html`
-- `templates/home/catalogue.html` · `formations/views.py`
-  (`PublicCatalogPageView`)
-
-### Phase 2 — Design system bleu/jaune ✅
-
-**Objectif** : identité visuelle unique et cohérente sur tous les écrans.
-
-**Livré** :
-- Tokens Tailwind : aliases sémantiques `primary` / `accent` / `neutral`
-- 61 classes `.be-*` via `@apply` : boutons (6 variants × 3 tailles),
-  cards, forms, badges (7 variants × 3 tailles), tables, alerts, helpers
-- 6 partials Django paramétrables (`partials/ds/*`)
-- Documentation `docs/DESIGN_SYSTEM.md`
-
-**Fichiers clés** :
-- `tailwind.config.js` · `static/src/app.css`
-- `templates/partials/ds/{button,badge,card,input,empty_state,alert}.html`
-
-### Phase 3 — Profils & permissions par rôle ✅
-
-**Objectif** : différencier l'expérience par rôle (6 rôles) et exposer
-une page profil unifiée.
-
-**Livré** :
-- 6 rôles documentés (public, apprenant, formateur, admin org, admin
-  plateforme, staff Django)
-- 7 décorateurs (`@platform_admin_required`,
-  `@platform_admin_otp_required`, `@org_admin_required`,
-  `@org_admin_required_for_id`, **`@instructor_required`** (nouveau),
-  **`@learner_required`** (nouveau), **`@org_role_required`** (nouveau))
-- 12 helpers permissions
-- Champ `User.avatar` + modèle `UserPreferences` (7 champs)
-- Signal `post_save` création auto préférences
-- Page profil unifiée 4 onglets (Infos / Photo / Préférences / Sécurité)
-- 20 tests pytest
-- Documentation `docs/PROFILES_PERMISSIONS.md`
-
-**Fichiers clés** :
-- `core/decorators.py` · `core/permissions.py`
-- `compte/models.py` (`UserPreferences`) · `compte/signals.py`
-- `compte/views.py` (`UserProfileView`) · `templates/compte/profile.html`
-
-### Phase 4 — Refactoring technique ✅
-
-**Objectif** : réduire la dette (god-modules, N+1, doublons).
-
-**Livré** :
-- `core/constants.py` : source unique des Status enums + 14 ensembles
-  dérivés (`COURSE_VISIBLE_TO_PUBLIC`, `ORG_ADMIN_ROLES`, etc.)
-- Helpers QuerySet réutilisables :
-  - `catalog/querysets.py` : `with_instructor`, `with_sections_and_lessons`,
-    `for_public_listing`, `for_course_detail`, `for_instructor_dashboard`
-  - `enrollments/querysets.py` (nouveau) : 6 helpers + 3 presets
-- Fix N+1 critiques :
-  - `InstructorKpisView` : 20 queries → 8 queries (×2.5)
-  - `StudentDashboard` : 4 .count() → 1 aggregate (×2)
-- 11 tests pytest `assertNumQueries`
-- Documentation `docs/REFACTORING_GUIDE.md` (conventions + plan migration
-  god-modules en stratégie strangler-fig)
-
-**Reporté en PR dédiées** :
-- Split `best_epargne/apis/views.py` (3507 LOC, 93 classes) → squelette
-  `views_package/` posé mais non activé
-- Split `formations/views.py` (2438 LOC) → idem
-
-### Phase 5 — UX globale polish ✅
-
-**Objectif** : compléter le design system avec les composants UX
-manquants pour les states transitoires.
-
-**Livré** :
-- 4 partials UX : `ds/spinner.html` · `ds/loader_overlay.html` ·
-  `ds/pagination.html` · `ds/flash_messages.html`
-- JS auto-dismiss flash (`static/src/js/be-flash.js`)
-- Documentation `docs/UX_GUIDELINES.md` (304 lignes)
-
-**Fichiers clés** :
-- `templates/partials/ds/{spinner,loader_overlay,pagination,flash_messages}.html`
-- `static/src/js/be-flash.js`
-
-### Phase 6 — Tests + docs + smoke prod ✅
-
-**Objectif** : valider l'ensemble + procédures opérationnelles.
-
-**Livré** :
-- 13 tests E2E `test_p6_workflows_e2e.py` (workflows business critiques)
-- `docs/RUNBOOK_PROD.md` : déploiement, smoke, monitoring, rollback,
-  incidents fréquents
-- `docs/PROJECT_STATUS.md` (ce document)
-- Script `deploy/smoke_prod.sh` (à venir)
-
----
-
-## Tests pytest globaux
-
-| Fichier | Tests | Phase | Couverture |
-|---|---|---|---|
-| `test_p1_course_lifecycle.py` | 17 | P1 | Lifecycle transitions + permissions + audit |
-| `test_p3_profiles_permissions.py` | 20 | P3 | Décorateurs + UserPreferences + signal |
-| `test_p4_perf_n_plus_1.py` | 11 | P4 | assertNumQueries + constants |
-| `test_p6_workflows_e2e.py` | 13 | P6 | Workflows business E2E |
-| **Total nouveau (P1+P3+P4+P6)** | **61** | | |
-| Autres tests existants (V1-V_FIN) | ~30 | Antérieur | Sécurité, webhooks, cache, certificats, etc. |
-| **TOTAL pytest** | **~91** | | |
-
-Lancement complet :
-```bash
-pytest tests/ -v --tb=short --reuse-db
-```
-
----
-
-## Documentation technique
-
-| Document | Sujet | Phase |
+| Macro-phase | Périmètre | Statut |
 |---|---|---|
-| `docs/DESIGN_SYSTEM.md` | Palette, classes `.be-*`, partials `ds/*` | P2 |
-| `docs/PROFILES_PERMISSIONS.md` | 6 rôles, 7 décorateurs, page profil | P3 |
-| `docs/REFACTORING_GUIDE.md` | Constants, querysets, conventions, plan split | P4 |
-| `docs/UX_GUIDELINES.md` | Composants UX, patterns, accessibilité, mobile | P5 |
-| `docs/RUNBOOK_PROD.md` | Deploy, smoke, monitoring, rollback | P6 |
-| `docs/PROJECT_STATUS.md` | Document de référence consolidé | P6 |
-| `MANIFEST_REMEDIATION.md` | Audit 350 findings + remédiation V1-V_FIN | V_FIN |
-| `CHANGELOG_2026_05_*.md` | Changelogs V1-V_FIN détaillés | V1-V_FIN |
-| `audit_best_epargne_2026.docx` | Rapport d'audit complet (Word) | V_FIN |
+| **P1–P6** | Backend Django : refactoring, design system, permissions, perf, UX, tests/docs | ✅ Livré |
+| **R1–R8** | Refonte React SPA + adaptation backend DRF/JWT | ✅ Livré |
+| **R9**    | Refonte UX/UI premium Catalogue + Détail cours (Framer Motion) | ✅ Livré |
+
+Stack finale :
+
+- **Backend** : Django 4.2 · DRF · PostgreSQL 16 · Redis 7 · Celery · MinIO · JWT (`simplejwt`) · drf-spectacular
+- **Frontend** : Vite 6 · React 18 · TypeScript 5.7 · Tailwind 3.4 · TanStack Query 5 · Zustand · React Hook Form + Zod · Recharts · Framer Motion 11 · Playwright · vite-plugin-pwa
 
 ---
 
-## Architecture résultante
+## Phase R (refonte React) — détail
 
-```
-best_epargne/
-├── catalog/                   # Domaine cours / leçons / médias
-│   ├── lifecycle.py           # P1 : service transitions cours
-│   ├── services.py            # get_visible_courses_qs
-│   ├── querysets.py           # P4 : helpers eager loading
-│   └── models.py              # Course, CourseLifecycleEvent, MediaAsset
-├── core/                      # ⭐ Transverse
-│   ├── permissions.py         # 13 helpers permissions
-│   ├── decorators.py          # 7 décorateurs
-│   ├── constants.py           # P4 : Status enums centralisés
-│   ├── cache.py               # KPIs cachés
-│   ├── dashboard_kpis.py      # Service KPIs
-│   └── logging.py             # JSON + RequestIdMiddleware
-├── compte/                    # Auth + profils + préférences
-│   ├── models.py              # User + UserPreferences (P3)
-│   ├── signals.py             # P3 : signal post_save
-│   ├── adapters.py            # Redirections post-login
-│   └── views.py               # UserProfileView 4 onglets
-├── enrollments/               # Inscriptions + progression
-│   └── querysets.py           # P4 : helpers eager loading
-├── formations/                # Vues template par rôle
-│   ├── views.py               # 2438 LOC (god-module — à splitter)
-│   ├── instructor_lifecycle_views.py  # P1 : POST forms transitions
-│   └── views_package/         # P4 : skeleton split (non activé)
-├── best_epargne/apis/         # API DRF
-│   ├── views.py               # 3507 LOC (god-module — à splitter)
-│   ├── api_urls.py            # Routes API
-│   └── views_package/         # P4 : skeleton split (non activé)
-├── templates/
-│   ├── layout/app_shell.html  # Layout principal P2
-│   ├── partials/ds/           # P2 + P5 : design system
-│   ├── partials/course_*.html # P1 : badges + actions cycle de vie
-│   ├── home/catalogue.html    # P1 : catalogue public SEO
-│   └── compte/profile.html    # P3 : profil 4 onglets
-├── static/src/
-│   ├── app.css                # P2 : 61 classes .be-*
-│   └── js/
-│       ├── be-modals.js       # P1 : modales
-│       ├── be-flash.js        # P5 : toast auto-dismiss
-│       ├── profile-tabs.js    # P3 : onglets profil
-│       └── learner-course-player.js  # Player vanilla
-├── docs/                      # 6 documents techniques
-└── tests/                     # 91 tests pytest
-```
+### R1 — JWT auth backend
 
----
+- `simplejwt` : access 15 min, refresh 7 j, rotation + blacklist
+- 8 endpoints `/api/auth/*` (register / login / refresh / logout / me / password change / reset / reset-confirm)
+- Tests pytest 18 cas → ✅
 
-## Conventions standardisées
+### R2 — Endpoints DRF frontend-ready
 
-| Concept | Convention | Phase |
-|---|---|---|
-| Status enums | `core.constants.{CourseStatus, EnrollmentStatus, ...}` | P4 |
-| Rôles org | `core.constants.OrgRole` + ensembles | P4 |
-| Service transitions | `catalog.lifecycle.{publish,unpublish,...}_course()` | P1 |
-| Helpers eager loading | `with_instructor()`, `for_public_listing()` | P4 |
-| Aggregates KPIs | `aggregate(filter=Q(...))` au lieu de N `.count()` | P4 |
-| Décorateurs sécurité | `core.decorators.@*_required` | P3 |
-| Composants UI | `partials/ds/{button,card,badge,...}.html` | P2 |
-| Classes CSS custom | Préfixe `.be-*` (be-btn, be-card, be-badge) | P2 |
-| Tests pytest | `test_<phase>_<sujet>.py` | Convention |
+- **Public** : `/api/public/{courses,courses/:slug,categories,courses/:slug/lessons/:id/preview}/`
+- **Dashboards** : `/api/dashboard/{student,instructor,admin}/` avec KPIs agrégés
+- **Enrollments** : `/api/enrollments/`
+- Contract exhaustif documenté dans `docs/API_FRONTEND_CONTRACT.md`
 
----
+### R3 — Bootstrap frontend
 
-## Dette restante / Roadmap futur
+- 31 fichiers, ~2200 LOC
+- Vite + TS + Tailwind + Router + Zustand + TanStack + Axios refresh race-safe
+- Design system : Button / Card / Badge / Input / Spinner (miroir des classes `.be-*` Django)
+- Pages livrées : Home, Catalog, CourseDetail, Login, Register, Dashboard placeholder, 404
 
-### À court terme (1-2 sprints)
+### R4 — Enrichissement pages publiques
 
-1. **Split god-modules** (P4 reporté) :
-   - PR 1 : Extraction `views_package/public.py` (faible risque, 3 classes)
-   - PR 2 : Extraction `views_package/learner.py` (~15 classes)
-   - PR 3 : Extraction `views_package/instructor.py` en sous-PRs
+- 3 endpoints reviews + related
+- Composants `CourseCard`, `ReviewsList`, `ReviewsSummaryCard`, `RelatedCourses`, `LessonPreviewModal`
+- `CourseDetailPage` refondu en tabs (Programme / Avis / Similaires) + modal preview leçon YouTube-nocookie
 
-2. **Cleanup hardcoded statuses** :
-   - Remplacer les `"PUBLISHED"` magic strings restantes par
-     `CourseStatus.PUBLISHED` (core/constants.py)
+### R5 — Dashboards enrichis
 
-3. **Tests intégration HTTP** :
-   - Compléter `test_p6_workflows_e2e.py` avec Django test Client
-     (GET /catalogue/, POST /instructor/courses/<id>/publish/)
+- Backend : query param `?period=7d|30d|90d`, séries temporelles (activity, enrollments, revenue, new_users)
+- Frontend : `KpiCard`, `PeriodSelector`, `TrendLineChart`, `BarSeriesChart`, `DashboardShell`
+- 3 pages dédiées : StudentDashboardPage, InstructorDashboardPage, AdminDashboardPage
+- Recharts palette be-sky / be-sun / emerald
 
-### À moyen terme (1 trimestre)
+### R6 — Gestion cours instructor
 
-4. **Signed URLs vidéos** (V5.D — partiellement câblé) :
-   - Câbler le JS player pour consommer l'endpoint `lesson_signed_stream`
-     (refresh signed URL toutes les 55s)
+- Backend : `category_id` write en serializer + `order` swap sur sections/lessons update
+- 12 hooks TanStack (`hooks/instructor.ts`) : CRUD courses + lifecycle + sections + lessons
+- Pages : liste filtrable, wizard création 3 étapes (Zod), éditeur tabs (métadonnées / programme / actions)
+- Guard `InstructorOnlyRoute` (bypass admin)
 
-5. **Dark mode toggle** :
-   - Wire le `UserPreferences.theme` (P3) avec `theme-init.js` qui set
-     la classe `dark` sur `<html>`
+### R7 — Admin plateforme
 
-6. **Toast queue** :
-   - Limiter à 3 toasts max simultanés (P5)
+- Backend : `apis/api_admin.py` — users list/detail/PATCH + reset-password + config runtime
+- Anti-lockout : refus auto-désactivation / auto-rétrogradation admin
+- Pages : `/admin/users`, `/admin/users/:id`, `/admin/config`
+- Guard `AdminOnlyRoute`, shortcuts dashboard
 
-### À long terme
+### R9 — Refonte UX/UI premium Catalogue + Détail cours
 
-7. **Migration `apis/views.py`** complète vers `views_package/`
-8. **i18n** : `UserPreferences.language` câblé (`LocaleMiddleware` +
-   traductions `gettext_lazy`)
-9. **PWA** : manifest + service worker pour l'espace apprenant offline
+- **Catalogue** : hero avec search + 4 stats animées, sidebar sticky (filtres catégorie/niveau/prix/durée/note/certification), drawer mobile Framer Motion, grid responsive skeleton, tri riche (6 options), pagination
+- **Détail cours** : hero premium (breadcrumb + meta enrichis + instructor + rating), sticky nav 6 sections, sticky pricing card (thumbnail play, ancien prix, promo %, garantie, inclusions), programme accordéon avec preview per-lesson
+- **6 sections** : Présentation (LearnGrid dérivé), Programme (accordéon durée/type), Formateur (avatar + stats), Avis (distribution + liste paginée), FAQ (accordéon), Similaires (carrousel horizontal)
+- **Design system** : 15 composants premium (`RatingStars`, `StatsCounter`, `ProgressBar`, `CoursePremiumCard`, `CourseCardSkeleton`, `CatalogHero`, `SidebarFilters`, `CourseHero`, `StickyPricingCard`, `StickySectionsNav`, `LearnGrid`, `CurriculumAccordion`, `InstructorCard`, `FAQSection`, `RelatedCarousel`)
+- **A11y** : `:focus-visible`, `prefers-reduced-motion`, ARIA sur nav/carousels, contrastes WCAG AA
+- **Helpers** : `lib/course-meta.ts` dérive badges / niveau / langue / prix / promo côté client, en attendant les champs backend R10
+
+### R8 — Tests + PWA + CI/CD
+
+- **Playwright** : suite smoke + auth ; config CI-friendly ; fixtures `createUser` + `seedAuth`
+- **PWA** : `vite-plugin-pwa` autoUpdate, offline shell, runtime cache API/images, prompt update in-app
+- **CI** : workflow `.github/workflows/frontend.yml` (typecheck + build + Playwright smoke) en plus du `ci.yml` backend existant
+- **@types/node** installé → typecheck 100% propre (0 erreur)
 
 ---
 
-## Métriques avant / après refonte
+## Métriques finales
 
-| Indicateur | Avant | Après | Évolution |
-|---|---|---|---|
-| Tests pytest | ~30 | 91 | **×3** |
-| Documents techniques | 4 (V_FIN) | 10 | **×2.5** |
-| Classes CSS unifiées | 0 | 61 `.be-*` | **+∞** |
-| Décorateurs sécurité | 4 | 7 | +3 |
-| Helpers querysets | 0 | 14 (catalog + enrollments) | **+∞** |
-| Audit log Course | 0 | 1 modèle `CourseLifecycleEvent` | Nouveau |
-| `InstructorKpisView` queries | ~20 | ~8 | **×2.5 perf** |
-| `StudentDashboard` KPIs queries | 4 | 1 aggregate | **×4 perf** |
-| Page profil champs | 3 | 8+ (avec onglets + avatar + prefs) | **×2.5 UX** |
-| Régressions découvertes/corrigées | — | 17 incidents prod résolus | — |
+| Indicateur | Valeur |
+|---|---|
+| Fichiers frontend R3→R8 | ~55 |
+| LOC frontend (src/) | ~5 000 |
+| Endpoints API `/api/*` | ~60 |
+| Tests pytest backend | 48+ |
+| Tests Playwright (smoke + auth) | 8 |
+| Chunks JS après build | ~7 (react-vendor, query, forms, charts, per-page lazy) |
+| Typecheck TS | 0 erreur ✅ |
+| Syntaxe Python (fichiers modifiés) | 100% OK ✅ |
 
 ---
 
-## Smoke test global
+## Dette technique connue (à traiter en R9+)
 
-Voir `deploy/smoke_prod.sh` pour le script automatisé. Manuel :
-
-```bash
-# Healthchecks
-curl -sf https://ayo-group.com/healthz/ && echo ✓
-curl -sf https://ayo-group.com/readyz/  && echo ✓
-
-# Pages publiques
-curl -sI https://ayo-group.com/landinghome/catalogue/ | head -3
-curl -sI https://ayo-group.com/account/login/ | head -3
-
-# Tests pytest
-pytest tests/test_p1_course_lifecycle.py \
-       tests/test_p3_profiles_permissions.py \
-       tests/test_p4_perf_n_plus_1.py \
-       tests/test_p6_workflows_e2e.py -v
-```
-
-Sur 61 tests phases 1-6, on attend **61 passed**.
+- **P4.5** — split de `apis/views.py` (3500 LOC) en sous-modules — reporté (strangler-fig prévu)
+- **Upload thumbnail** dans l'éditeur instructor — reporté R9 (nécessite flow MinIO présigné)
+- **Audit log admin** — modèle `AdminAction` non créé (traçabilité GDPR)
+- **Playwright** — élargir la suite (enroll, curriculum edit, admin actions) une fois la CI stable
+- **Legacy Django templates** — coexistent encore ; à démonter après validation SPA en prod
+- **openapi-typescript** — génération auto des types depuis le schéma OpenAPI (aujourd'hui écrits à la main)
 
 ---
 
-## Crédits
+## Références documents
 
-- **Maintainer** : Serge Ogah (serge.ogah@kaydangroupe.com)
-- **Refonte 6 phases** : juin 2026
-- **Branche** : `chore/audit-remediation-2026-05`
-- **Domaine prod** : https://ayo-group.com
+- `docs/API_FRONTEND_CONTRACT.md` — contrat REST exhaustif (auth, public, dashboards, admin, instructor, enrollments)
+- `docs/FRONTEND_SETUP.md` — setup local, architecture, pages, hooks, guards, nav
+- `docs/RELEASE_NOTES.md` — journal des livraisons R1→R8
+- `frontend/e2e/README.md` — lancer les tests Playwright
+- `.github/workflows/ci.yml` — CI backend (lint + pytest + security)
+- `.github/workflows/frontend.yml` — CI frontend (typecheck + build + Playwright)

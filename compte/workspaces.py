@@ -1,27 +1,4 @@
-"""Notion d'« espace actif » (active workspace) pour les utilisateurs multi-rôles.
 
-Un même utilisateur peut être à la fois ``LEARNER`` (par défaut, tout user
-authentifié), ``INSTRUCTOR`` (via ``InstructorProfile`` ou via un membership
-``INSTRUCTOR`` dans une org), et ``ORG_ADMIN`` / ``ORG_MANAGER`` dans une ou
-plusieurs organisations. Sans contexte, l'UI ne sait pas quelle interface
-afficher.
-
-Ce module fournit :
-- ``Workspace`` : dataclass décrivant un espace accessible.
-- ``list_available_workspaces(user)`` : liste, dans l'ordre de pertinence,
-  les espaces auxquels ``user`` a droit.
-- ``get_active_workspace(request)`` : lit l'espace actif depuis la session
-  (avec fallback sur le 1er espace disponible).
-- ``set_active_workspace(request, kind, organization_id)`` : bascule, en
-  vérifiant que l'espace est accessible.
-- ``resolve_workspace_url(workspace)`` : URL canonique du dashboard d'un
-  espace.
-
-Ce module est volontairement sans effet de bord (pas d'écriture en base,
-pas de signaux). La session est la seule mémoire mutable. Tester
-unitairement est trivial (un User suffit, pas besoin de DB pour la plupart
-des cas — sauf ``list_available_workspaces`` qui interroge les memberships).
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -119,16 +96,7 @@ class Workspace:
 # --- Listing des espaces disponibles ---------------------------------------
 
 def list_available_workspaces(user) -> list[Workspace]:
-    """Retourne la liste ordonnée des espaces accessibles à ``user``.
 
-    Ordre de pertinence (du plus privilégié au plus large) :
-    1. ``platform_admin`` si is_platform_admin/is_staff/is_superuser ;
-    2. une entrée par organisation où l'user est OWNER/ADMIN/MANAGER ;
-    3. ``instructor`` si l'user est instructeur (profil ou membership) ;
-    4. ``learner`` (toujours, pour tout user authentifié).
-
-    Cette fonction n'écrit rien. Une seule requête SQL pour les memberships.
-    """
     if not user or not user.is_authenticated or not user.is_active:
         return []
 
@@ -195,24 +163,14 @@ def list_available_workspaces(user) -> list[Workspace]:
 # --- Lecture / écriture du workspace actif ---------------------------------
 
 def _safe_first_workspace(available: list[Workspace], user) -> Workspace | None:
-    """Premier espace par défaut. On évite de balancer un user "purement
-    learner" sur l'espace platform_admin si les flags is_staff sont posés
-    par erreur — pour ça on ne préfère ``platform_admin`` que pour les vrais
-    admins (déjà filtré dans ``list_available_workspaces``).
-    """
+
     if not available:
         return None
     return available[0]
 
 
 def get_active_workspace(request) -> Workspace | None:
-    """Workspace actif lu depuis ``request.session`` avec fallback.
 
-    Si la session contient un workspace dont l'utilisateur n'a plus le
-    droit (ex. un membership a été désactivé entre-temps), on retombe sur
-    le 1er espace disponible. Pas de PermissionDenied : la lecture doit
-    être tolérante.
-    """
     user = getattr(request, "user", None)
     available = list_available_workspaces(user)
     if not available:
@@ -232,12 +190,7 @@ def set_active_workspace(
     kind: str,
     organization_id: int | None = None,
 ) -> Workspace:
-    """Bascule vers un espace précis et le persiste en session.
 
-    Lève ``PermissionDenied`` si l'espace n'est pas dans
-    ``list_available_workspaces(user)`` — protection contre la falsification
-    de paramètres.
-    """
     user = getattr(request, "user", None)
     available = list_available_workspaces(user)
 
@@ -255,9 +208,7 @@ def set_active_workspace(
 # --- URL du dashboard d'un espace ------------------------------------------
 
 def resolve_workspace_url(workspace: Workspace | None, fallback: str = "/") -> str:
-    """URL canonique du dashboard d'un workspace, robuste si l'URL n'existe
-    pas encore (cas des routes namespacées non déployées).
-    """
+ 
     if workspace is None:
         return fallback
 
@@ -273,10 +224,7 @@ def resolve_workspace_url(workspace: Workspace | None, fallback: str = "/") -> s
 
 
 def resolve_default_workspace_url(user, fallback: str = "/") -> str:
-    """URL du dashboard par défaut pour un utilisateur (le 1er espace
-    disponible). Utilisé par l'adapter allauth quand la session ne contient
-    pas encore de workspace.
-    """
+
     available = list_available_workspaces(user)
     if not available:
         return fallback

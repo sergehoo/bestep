@@ -18,10 +18,129 @@ from django.utils import timezone
 
 
 class CertificateTemplate(models.Model):
-    name = models.CharField(max_length=160, unique=True)
-    background = models.ImageField(upload_to="certificates/templates/", null=True, blank=True)
+    """
+    Template de certificat R20 — bibliothèque de modèles personnalisables.
+
+    Un template peut être :
+    - Global (owner=NULL, is_public=True) — presets fournis par la plateforme
+    - Personnel (owner=<user>) — créé par un instructeur pour ses cours
+    - Organisationnel (organization=<org>) — partagé entre membres d'une org
+
+    L'éditeur DnD complet (Canva-like) est prévu R21. Pour l'instant, la
+    personnalisation se fait via des champs typés (couleurs, polices,
+    orientation, textes avec variables).
+    """
+
+    class Style(models.TextChoices):
+        CLASSIC = "classic", "Classique"
+        MODERN = "modern", "Moderne"
+        PREMIUM = "premium", "Premium"
+        ACADEMIC = "academic", "Académique"
+        ENTERPRISE = "enterprise", "Entreprise"
+        MINIMAL = "minimal", "Minimaliste"
+        LUXURY = "luxury", "Luxe"
+
+    class Orientation(models.TextChoices):
+        LANDSCAPE = "landscape", "Paysage"
+        PORTRAIT = "portrait", "Portrait"
+
+    name = models.CharField(max_length=160)
+    style = models.CharField(max_length=20, choices=Style.choices, default=Style.CLASSIC)
+    orientation = models.CharField(
+        max_length=15, choices=Orientation.choices, default=Orientation.LANDSCAPE
+    )
+
+    # Legacy R2.A — conservé pour compat
+    background = models.ImageField(
+        upload_to="certificates/templates/", null=True, blank=True
+    )
     signature_name = models.CharField(max_length=160, blank=True)
     signature_title = models.CharField(max_length=160, blank=True)
+
+    # R20 — Personnalisation visuelle
+    primary_color = models.CharField(
+        max_length=9,
+        default="#0284c7",
+        help_text="Couleur principale (hex #rrggbb).",
+    )
+    accent_color = models.CharField(
+        max_length=9,
+        default="#eab308",
+        help_text="Couleur d'accent / dorée.",
+    )
+    text_color = models.CharField(
+        max_length=9,
+        default="#0f172a",
+        help_text="Couleur du texte principal.",
+    )
+    font_family = models.CharField(
+        max_length=80,
+        default="Inter, system-ui, sans-serif",
+        help_text="CSS font-family.",
+    )
+
+    # R20 — Contenu / identité
+    organization_name = models.CharField(max_length=160, blank=True, default="")
+    logo_url = models.URLField(blank=True, default="")
+    signature_image_url = models.URLField(blank=True, default="")
+    watermark_url = models.URLField(blank=True, default="")
+
+    # R20 — Texte principal, supporte les variables {{student_name}} etc.
+    heading_text = models.CharField(
+        max_length=200,
+        default="Certificat d'accomplissement",
+    )
+    body_text = models.TextField(
+        blank=True,
+        default=(
+            "Ce certificat est décerné à {{student_name}} pour avoir "
+            "complété avec succès la formation « {{course_title}} »."
+        ),
+        help_text=(
+            "Variables supportées : {{student_name}}, {{course_title}}, "
+            "{{instructor_name}}, {{organization_name}}, {{completion_date}}, "
+            "{{certificate_number}}, {{hours}}, {{score}}, {{verification_url}}"
+        ),
+    )
+    footer_text = models.CharField(
+        max_length=200, blank=True, default="", help_text="Ex : mention légale, devise."
+    )
+
+    # R20 — Options de sécurité / affichage
+    show_qr_code = models.BooleanField(default=True)
+    show_serial = models.BooleanField(default=True)
+    show_completion_date = models.BooleanField(default=True)
+
+    # R20 — Portée / permissions
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="certificate_templates",
+        null=True,
+        blank=True,
+        help_text="Propriétaire (NULL = preset global de la plateforme).",
+    )
+    is_public = models.BooleanField(
+        default=False,
+        help_text="Visible et utilisable par tous les instructeurs.",
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Preset appliqué par défaut aux nouveaux cours certifiants.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+
+    class Meta:
+        ordering = ["-is_public", "name"]
+        indexes = [
+            models.Index(fields=["owner", "is_public"]),
+            models.Index(fields=["style"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.style})"
 
 
 class IssuedCertificate(models.Model):

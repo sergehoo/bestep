@@ -1,18 +1,26 @@
-"""Production settings — secure defaults, everything secret via env.
 
-CORRECTIFS (audit SEC-09, SEC-22, INFRA-18) :
-- DB_SSLMODE par défaut "require" (au lieu de "prefer") (SEC-09)
-- En-tête X-Forwarded-Proto déjà configuré (rappel sécu : Traefik le nettoie).
-"""
 from __future__ import annotations
 
 import os
 
 from .base import *  # noqa: F403
 
-# DEBUG est inconditionnellement désactivé en production. Les diagnostics
-# locaux passent par ``best_epargne.settings.dev``.
+
 DEBUG = False
+# R25 — Ne jamais propager les exceptions en prod (fail-safe même si un
+# middleware ou une vue oublie le try/except).
+DEBUG_PROPAGATE_EXCEPTIONS = False
+
+# R25 — Limites d'upload par requête (10 Mo par défaut, override via env).
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(
+    os.getenv("DJANGO_DATA_UPLOAD_MAX_MEMORY_SIZE", str(10 * 1024 * 1024))
+)
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(
+    os.getenv("DJANGO_FILE_UPLOAD_MAX_MEMORY_SIZE", str(10 * 1024 * 1024))
+)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(
+    os.getenv("DJANGO_DATA_UPLOAD_MAX_NUMBER_FIELDS", "2000")
+)
 
 _default_hosts = "ayo-group.com,www.ayo-group.com"
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", _default_hosts)  # noqa: F405
@@ -65,6 +73,8 @@ DATABASES = {
         "HOST": os.getenv("DB_HOST", "bestDB"),
         "PORT": os.getenv("DB_PORT", "5432"),
         "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
+        # R25 — Django 4.1+ : détecte les connexions mortes avant réutilisation.
+        "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {
             # CORRECTIF SEC-09 : require par défaut.
             "sslmode": os.getenv("DB_SSLMODE", "require"),
@@ -100,3 +110,38 @@ ACCOUNT_EMAIL_VERIFICATION = os.getenv("ACCOUNT_EMAIL_VERIFICATION", "mandatory"
 # V_OBS.B : on force le format JSON en prod pour Loki/ELK/Datadog
 # (surchargeable via env DJANGO_LOG_FORMAT=verbose pour debug ponctuel).
 LOGGING["handlers"]["console"]["formatter"] = os.getenv("DJANGO_LOG_FORMAT", "json")  # noqa: F405
+
+
+# ------------------------------------------------------------
+# R25 — Sentry (optionnel, activé si SENTRY_DSN défini)
+# ------------------------------------------------------------
+SENTRY_DSN = os.getenv("SENTRY_DSN", "").strip()
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.redis import RedisIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+            release=os.getenv("SENTRY_RELEASE", ""),
+            integrations=[
+                DjangoIntegration(),
+                CeleryIntegration(),
+                RedisIntegration(),
+            ],
+            traces_sample_rate=float(
+                os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")
+            ),
+            profiles_sample_rate=float(
+                os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.0")
+            ),
+            send_default_pii=False,  # RGPD
+        )
+    except ImportError:
+        # sentry-sdk n'est pas installé — on ignore silencieusement pour
+        # ne pas bloquer le boot. Ajoutez `sentry-sdk` à requirements.txt
+        # pour activer.
+        pass

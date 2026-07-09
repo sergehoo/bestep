@@ -249,6 +249,15 @@ class CourseSectionSerializer(serializers.ModelSerializer):
 
 class CourseSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
+    # R6 : permettre à la SPA React d'associer/modifier la catégorie via
+    # son id (le nested ``category`` reste read-only pour la sortie propre).
+    category_id = serializers.PrimaryKeyRelatedField(
+        source="category",
+        queryset=Category.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
     thumbnail_url = serializers.SerializerMethodField()
     preview_media_asset = MediaAssetSerializer(read_only=True)
     preview_media_asset_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
@@ -290,6 +299,7 @@ class CourseSerializer(serializers.ModelSerializer):
             "company_only",
             "company",
             "category",
+            "category_id",
             "instructor",
             "instructor_name",
             "sections_count",
@@ -302,6 +312,8 @@ class CourseSerializer(serializers.ModelSerializer):
             "can_edit",
             "can_delete",
             "scope",
+            # R20 — Certificate Template Builder
+            "certificate_template",
         ]
         # CORRECTIF API-28 : ``company``, ``company_only`` deviennent
         # read_only sur ce sérializer générique. Un instructeur ne peut
@@ -374,6 +386,27 @@ class CourseSerializer(serializers.ModelSerializer):
         if user and obj.instructor_id == user.id:
             return "personal"
         return "organization"
+
+    def validate_certificate_template(self, value):
+        """R20 — un cours ne peut référencer qu'un template visible.
+
+        Templates visibles = owner par l'user connecté OU publics
+        (``is_public=True``) OU presets globaux (``owner IS NULL``).
+        ``None`` désassigne le template.
+        """
+        if value is None:
+            return value
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            raise serializers.ValidationError("Authentification requise.")
+        if getattr(user, "is_platform_admin", False):
+            return value
+        if value.owner_id and value.owner_id != user.id and not value.is_public:
+            raise serializers.ValidationError(
+                "Ce template n'est pas accessible."
+            )
+        return value
 
     def validate_preview_media_asset_id(self, value):
         """CORRECTIF API-32 : preview ne peut référencer qu'un média visible."""

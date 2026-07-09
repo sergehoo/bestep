@@ -1,0 +1,404 @@
+/**
+ * InstructorLessonEditorPage.tsx — Éditeur de leçon riche (R16.5).
+ *
+ * Route : /instructor/courses/:cid/lessons/:lid/edit
+ *
+ * Features :
+ *  - Titre inline éditable
+ *  - Toggle preview
+ *  - Éditeur Tiptap avec media picker
+ *  - Autosave 3s après dernière frappe (sauf si aucune modif)
+ *  - Bouton "Preview apprenant" → ouvre la fiche cours en nouvel onglet
+ */
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Save,
+  Eye,
+  Lock,
+  Clock,
+  Loader2,
+  CheckCircle2,
+  Film,
+  ExternalLink,
+} from 'lucide-react';
+import { InstructorShell } from '@/components/instructor/InstructorShell';
+import { Card, CardBody } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Spinner } from '@/components/ui/Spinner';
+import { Badge } from '@/components/ui/Badge';
+import { RichTextEditor } from '@/components/editor/RichTextEditor';
+import { MediaPickerDialog } from '@/components/media/MediaPickerDialog';
+import {
+  useInstructorLessons,
+  useUpdateLesson,
+  useInstructorSections,
+  useInstructorCourseDetail,
+} from '@/hooks/instructor';
+import { extractApiError, formatDuration } from '@/lib/utils';
+import type { MediaAsset } from '@/lib/types';
+
+const AUTOSAVE_DELAY_MS = 3000;
+
+export default function InstructorLessonEditorPage() {
+  const { cid, lid } = useParams<{ cid: string; lid: string }>();
+  const courseId = cid ? Number(cid) : undefined;
+  const lessonId = lid ? Number(lid) : undefined;
+
+  const { data: course } = useInstructorCourseDetail(courseId);
+  const { data: sections } = useInstructorSections(courseId);
+  const update = useUpdateLesson(courseId ?? 0);
+
+  // Trouve la leçon dans le arbre sections → lessons
+  const { section, lesson } = useMemo(() => {
+    if (!sections || !lessonId) return { section: null, lesson: null };
+    for (const s of sections) {
+      const l = (s.lessons ?? []).find((x) => x.id === lessonId);
+      if (l) return { section: s, lesson: l };
+    }
+    return { section: null, lesson: null };
+  }, [sections, lessonId]);
+
+  // Charge aussi via /lessons/ pour s'assurer d'avoir le content complet
+  const { data: sectionLessons } = useInstructorLessons(
+    courseId ?? 0,
+    section?.id,
+  );
+  const fullLesson = useMemo(
+    () => (sectionLessons ?? []).find((l) => l.id === lessonId) || lesson,
+    [sectionLessons, lessonId, lesson],
+  );
+
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [durationSec, setDurationSec] = useState(0);
+  const [isPreview, setIsPreview] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [flash, setFlash] = useState<
+    { kind: 'ok' | 'err'; msg: string } | null
+  >(null);
+  const [dirty, setDirty] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hydratation initiale
+  useEffect(() => {
+    if (fullLesson) {
+      setTitle(fullLesson.title);
+      setContent(fullLesson.content || '');
+      setVideoUrl(fullLesson.video_url || '');
+      setDurationSec(fullLesson.duration_sec || 0);
+      setIsPreview(fullLesson.is_preview);
+      setDirty(false);
+    }
+  }, [fullLesson?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Autosave
+  useEffect(() => {
+    if (!dirty || !section?.id || !lessonId || !courseId) return;
+    if (autosaveRef.current) clearTimeout(autosaveRef.current);
+    autosaveRef.current = setTimeout(() => {
+      save().catch(() => {
+        /* handled */
+      });
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (autosaveRef.current) clearTimeout(autosaveRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, content, videoUrl, durationSec, isPreview, dirty]);
+
+  async function save() {
+    if (!section?.id || !lessonId || !courseId) return;
+    setFlash(null);
+    try {
+      await update.mutateAsync({
+        sectionId: section.id,
+        lessonId,
+        payload: {
+          title,
+          content,
+          video_url: videoUrl,
+          duration_sec: durationSec,
+          is_preview: isPreview,
+        },
+      });
+      setDirty(false);
+      setLastSavedAt(new Date());
+      setFlash({ kind: 'ok', msg: 'Enregistré' });
+      // Auto-clear le flash après 2 s
+      setTimeout(() => setFlash(null), 2000);
+    } catch (e) {
+      setFlash({ kind: 'err', msg: extractApiError(e) });
+    }
+  }
+
+  function handlePick(asset: MediaAsset) {
+    setDirty(true);
+    if (asset.kind === 'video') {
+      // Rattache la vidéo à la leçon (media_asset_id serait meilleur mais
+      // nécessite passage de l'UUID) — MVP : on met l'ID dans video_url
+      setVideoUrl(`media://${asset.id}`);
+      if (asset.duration_seconds) setDurationSec(asset.duration_seconds);
+      setFlash({
+        kind: 'ok',
+        msg: `Vidéo « ${asset.title} » associée à la leçon.`,
+      });
+    } else if (asset.kind === 'audio') {
+      setVideoUrl(`media://${asset.id}`);
+      if (asset.duration_seconds) setDurationSec(asset.duration_seconds);
+    } else {
+      // Doc : on ajoute un lien dans le contenu
+      setContent(
+        (prev) =>
+          prev +
+          `\n\n<p><a href="media://${asset.id}" target="_blank" rel="noopener">📎 ${asset.title}</a></p>`,
+      );
+    }
+  }
+
+  return (
+    <InstructorShell
+      title={fullLesson?.title || 'Éditeur de leçon'}
+      subtitle={
+        section
+          ? `${course?.title ?? 'Cours'} · Section ${section.order} — ${section.title}`
+          : undefined
+      }
+      actions={
+        <div className="flex items-center gap-2">
+          <AutosaveIndicator
+            dirty={dirty}
+            saving={update.isPending}
+            lastSavedAt={lastSavedAt}
+            flash={flash}
+          />
+          <Link
+            to={`/instructor/courses/${courseId}/edit`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-neutral-200 hover:bg-neutral-50"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Programme
+          </Link>
+          {course && (
+            <a
+              href={`/courses/${course.slug}`}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-neutral-200 hover:bg-neutral-50"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Aperçu apprenant
+            </a>
+          )}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={save}
+            loading={update.isPending}
+            disabled={!dirty}
+          >
+            <Save className="w-4 h-4" />
+            Enregistrer
+          </Button>
+        </div>
+      }
+    >
+      {!fullLesson ? (
+        <div className="py-20 flex justify-center">
+          <Spinner size="xl" label="Chargement…" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          {/* Éditeur central */}
+          <div className="space-y-4 min-w-0">
+            <Card>
+              <CardBody className="space-y-3">
+                <Input
+                  label="Titre de la leçon"
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setDirty(true);
+                  }}
+                  required
+                />
+                {videoUrl && (
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-primary-50 border border-primary-100">
+                    <Film className="w-4 h-4 text-primary-600" />
+                    <p className="text-xs text-primary-800 font-mono truncate flex-1">
+                      {videoUrl}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setVideoUrl('');
+                        setDurationSec(0);
+                        setDirty(true);
+                      }}
+                      className="text-xs font-semibold text-rose-600 hover:text-rose-700 shrink-0"
+                    >
+                      Retirer
+                    </button>
+                  </div>
+                )}
+                <RichTextEditor
+                  value={content}
+                  onChange={(html) => {
+                    setContent(html);
+                    setDirty(true);
+                  }}
+                  placeholder="Rédigez le contenu de votre leçon… (titres, listes, tableaux, images, code…)"
+                  onOpenMediaPicker={() => setPickerOpen(true)}
+                  minHeight="400px"
+                />
+              </CardBody>
+            </Card>
+          </div>
+
+          {/* Sidebar métadonnées */}
+          <aside className="space-y-3 lg:sticky lg:top-24 self-start">
+            <Card>
+              <CardBody className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5 block">
+                    Type
+                  </label>
+                  <p className="text-sm font-semibold">
+                    {fullLesson.lesson_type}
+                  </p>
+                </div>
+                <Input
+                  type="number"
+                  label="Durée (secondes)"
+                  value={durationSec}
+                  onChange={(e) => {
+                    setDurationSec(Number(e.target.value) || 0);
+                    setDirty(true);
+                  }}
+                  min={0}
+                  helper={
+                    durationSec > 0
+                      ? `Soit ${formatDuration(durationSec)}`
+                      : 'Aucune durée'
+                  }
+                />
+                <label className="flex items-start gap-2 p-3 rounded-xl border border-neutral-100 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPreview}
+                    onChange={(e) => {
+                      setIsPreview(e.target.checked);
+                      setDirty(true);
+                    }}
+                    className="mt-0.5 accent-primary-600"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold flex items-center gap-1.5">
+                      {isPreview ? (
+                        <Eye className="w-4 h-4 text-accent-600" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-neutral-400" />
+                      )}
+                      {isPreview ? 'Leçon Preview' : 'Leçon privée'}
+                    </p>
+                    <p className="text-[11px] text-neutral-500">
+                      Une leçon preview est visible en démo sur la fiche cours,
+                      sans inscription.
+                    </p>
+                  </div>
+                </label>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardBody>
+                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500 mb-2">
+                  Statut
+                </p>
+                <div className="space-y-1.5 text-xs text-neutral-600">
+                  <p className="inline-flex items-center gap-1.5">
+                    <Clock className="w-3 h-3" />
+                    Autosave toutes les {AUTOSAVE_DELAY_MS / 1000}s
+                  </p>
+                  {lastSavedAt && (
+                    <p className="inline-flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                      Dernier enregistrement : {lastSavedAt.toLocaleTimeString('fr-FR')}
+                    </p>
+                  )}
+                  {dirty && (
+                    <p className="inline-flex items-center gap-1.5 text-amber-600">
+                      <Loader2 className="w-3 h-3" />
+                      Modifications non sauvegardées
+                    </p>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+
+            <p className="text-xs text-neutral-400 text-center">
+              💡 Le versioning historisé arrivera avec l'API dédiée en R17.
+            </p>
+          </aside>
+        </div>
+      )}
+
+      <MediaPickerDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={handlePick}
+        title="Insérer un média"
+      />
+    </InstructorShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+
+function AutosaveIndicator({
+  dirty,
+  saving,
+  lastSavedAt,
+  flash,
+}: {
+  dirty: boolean;
+  saving: boolean;
+  lastSavedAt: Date | null;
+  flash: { kind: 'ok' | 'err'; msg: string } | null;
+}) {
+  if (flash?.kind === 'err') {
+    return (
+      <Badge variant="danger" size="sm">
+        {flash.msg}
+      </Badge>
+    );
+  }
+  if (saving) {
+    return (
+      <span className="text-xs text-neutral-500 inline-flex items-center gap-1">
+        <Loader2 className="w-3 h-3 animate-spin" />
+        Enregistrement…
+      </span>
+    );
+  }
+  if (dirty) {
+    return (
+      <span className="text-xs text-amber-600 inline-flex items-center gap-1">
+        <Clock className="w-3 h-3" />
+        En attente
+      </span>
+    );
+  }
+  if (lastSavedAt) {
+    return (
+      <span className="text-xs text-emerald-600 inline-flex items-center gap-1">
+        <CheckCircle2 className="w-3 h-3" />
+        Enregistré
+      </span>
+    );
+  }
+  return null;
+}

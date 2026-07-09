@@ -1,8 +1,4 @@
-"""Vues compte (HTTP).
 
-CORRECTIFS P1.I (audit COMPTE-17) :
-- ``next`` validé via ``url_has_allowed_host_and_scheme`` (anti open-redirect).
-"""
 from __future__ import annotations
 
 from django.contrib import messages
@@ -34,13 +30,7 @@ _VALID_KINDS = {
 
 
 def _safe_next(request, raw_next: str) -> str | None:
-    """CORRECTIF COMPTE-17 : valide une URL ``next`` contre l'host courant.
 
-    Refuse :
-    - URLs absolues vers un autre domaine,
-    - URLs schemaless `//evil.com`,
-    - chemins encodés malicieusement (`/\evil.com`, `/%2F%2Fevil`).
-    """
     if not raw_next:
         return None
     if url_has_allowed_host_and_scheme(
@@ -53,20 +43,6 @@ def _safe_next(request, raw_next: str) -> str | None:
 
 
 class UserProfileView(LoginRequiredMixin, UpdateView):
-    """
-    Page profil utilisateur unifiée avec onglets (P3.4).
-
-    Sections (gérées via paramètre POST ``form_section`` ou URL distincts) :
-      - ``info``        : nom, téléphone, e-mail (UserProfileForm)
-      - ``avatar``      : upload photo de profil (AvatarUploadForm)
-      - ``preferences`` : thème, langue, notifications (UserPreferencesForm)
-      - ``password``    : redirection vers allauth /account/password/change/
-
-    UX :
-      - L'utilisateur reste sur la même page après chaque submit,
-        l'onglet actif est préservé via ?tab=<section>.
-      - Tous les messages flash apparaissent en haut de page.
-    """
 
     form_class    = UserProfileForm
     template_name = "compte/profile.html"

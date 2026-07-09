@@ -226,7 +226,19 @@ CourseViewSet = PublicCourseViewSet
 
 
 def _course_owned(course_id, user):
-    return get_object_or_404(Course, id=course_id, instructor=user)
+    """
+    Retourne le cours ``course_id`` si ``user`` peut écrire dessus (owner
+    direct, admin plateforme, ou owner/admin/manager d'une organisation
+    propriétaire). Sinon 404.
+
+    Note : le nom historique de l'helper suggère "owner uniquement", mais
+    la règle pratique est "peut écrire". La logique est déportée dans
+    ``_get_writable_course`` (défini plus bas). L'ordre d'apparition de
+    ces deux helpers dans le fichier importe : ``_get_writable_course``
+    est déclaré après, mais son exécution ne se fait qu'au moment de
+    l'appel de ``_course_owned``, donc pas de problème de forward-ref.
+    """
+    return _get_writable_course(course_id, user)
 
 
 # ----------------------------------------------------------------------
@@ -712,7 +724,9 @@ class InstructorSectionListView(APIView):
         qs = CourseSection.objects.filter(course=course).order_by("order")
         data = CourseSectionSerializer(qs, many=True, context={"request": request}).data
         # include lessons_count
-        for item, obj in zip(data, qs, strict=False):
+        # Note : ne pas utiliser strict=False (Python 3.10+). data et qs
+        # ont toujours la même longueur ici (issue du même queryset).
+        for item, obj in zip(data, qs):
             item["lessons_count"] = obj.lessons.count()
         return Response(data)
 
@@ -736,10 +750,30 @@ class InstructorSectionUpdateView(APIView):
     def post(self, request, course_id, section_id):
         course = _course_owned(course_id, request.user)
         section = get_object_or_404(CourseSection, id=section_id, course=course)
-        title = request.data.get("title", "").strip()
+        updates: list[str] = []
+        title = (request.data.get("title") or "").strip()
         if title:
             section.title = title
-        section.save(update_fields=["title"])
+            updates.append("title")
+        # R6 : réordonnancement — on swap avec la section qui a l'ordre demandé
+        if "order" in request.data:
+            try:
+                new_order = int(request.data["order"])
+            except (TypeError, ValueError):
+                return Response({"detail": "order must be int"}, status=400)
+            neighbor = (
+                CourseSection.objects.filter(course=course, order=new_order)
+                .exclude(id=section.id)
+                .first()
+            )
+            if neighbor:
+                neighbor.order, section.order = section.order, new_order
+                neighbor.save(update_fields=["order"])
+            else:
+                section.order = new_order
+            updates.append("order")
+        if updates:
+            section.save(update_fields=updates)
         return Response(CourseSectionSerializer(section).data)
 
 
@@ -809,6 +843,23 @@ class InstructorLessonUpdateView(APIView):
         for f in ["title", "lesson_type", "is_preview", "duration_sec", "video_url", "content"]:
             if f in request.data:
                 setattr(lesson, f, request.data.get(f))
+
+        # R6 : réordonnancement lesson dans sa section (swap avec voisin)
+        if "order" in request.data:
+            try:
+                new_order = int(request.data["order"])
+            except (TypeError, ValueError):
+                return Response({"detail": "order must be int"}, status=400)
+            neighbor = (
+                Lesson.objects.filter(section=section, order=new_order)
+                .exclude(id=lesson.id)
+                .first()
+            )
+            if neighbor:
+                neighbor.order, lesson.order = lesson.order, new_order
+                neighbor.save(update_fields=["order"])
+            else:
+                lesson.order = new_order
 
         if "media_asset_id" in request.data:
             media_asset_id = request.data.get("media_asset_id")
@@ -3338,31 +3389,8 @@ class LearnerLessonProgressUpdateView(LearnerBaseAPIView):
 
         lp.save()
 
-        lessons_ids = list(
-            Lesson.objects.filter(section__course=course).values_list("id", flat=True)
-        )
-        lp_qs = LessonProgress.objects.filter(enrollment=enrollment, lesson_id__in=lessons_ids)
-
-        completed_lessons = lp_qs.filter(completed=True).count()
-        total_lessons = len(lessons_ids)
-        avg_percent = lp_qs.aggregate(a=Avg("progress_percent"))["a"] or 0
-        course_percent = int(round(avg_percent))
-
-        if total_lessons > 0 and completed_lessons >= total_lessons:
-            if hasattr(Enrollment, "Status"):
-                enrollment.status = Enrollment.Status.COMPLETED
-            elif hasattr(enrollment, "status"):
-                enrollment.status = "COMPLETED"
-
-            if hasattr(enrollment, "completed_at"):
-                enrollment.completed_at = timezone.now()
-
-            fields = []
-            for f in ["status", "completed_at", "updated_at"]:
-                if hasattr(enrollment, f):
-                    fields.append(f)
-            if fields:
-                enrollment.save(update_fields=fields)
+        # R14 : recompute course progress (completion ratio, pas moyenne)
+        summary = _recompute_course_progress(enrollment, course)
 
         return Response({
             "ok": True,
@@ -3377,10 +3405,135 @@ class LearnerLessonProgressUpdateView(LearnerBaseAPIView):
             },
             "course_progress": {
                 "course_id": course.id,
-                "progress_percent": course_percent,
-                "completed_lessons": completed_lessons,
-                "total_lessons": total_lessons
-            }
+                "progress_percent": summary["progress_percent"],
+                "completed_lessons": summary["completed_lessons"],
+                "total_lessons": summary["total_lessons"],
+                "status": summary["status"],
+                "completed_at": summary["completed_at"],
+            },
+        })
+
+
+# --------------------------------------------
+# R14 — Helper recompute course progress
+# --------------------------------------------
+def _recompute_course_progress(enrollment, course) -> dict:
+    """
+    Recalcule le pourcentage du cours à partir des LessonProgress
+    (ratio completed_lessons / total_lessons) puis persiste sur Enrollment.
+
+    Retour : dict avec progress_percent (int), completed_lessons, total_lessons,
+    status, completed_at (ISO ou None).
+    """
+    lesson_ids = list(
+        Lesson.objects.filter(section__course=course).values_list("id", flat=True)
+    )
+    total_lessons = len(lesson_ids)
+    completed_lessons = 0
+    if total_lessons > 0:
+        completed_lessons = LessonProgress.objects.filter(
+            enrollment=enrollment,
+            lesson_id__in=lesson_ids,
+            completed=True,
+        ).count()
+
+    course_percent = (
+        int(round((completed_lessons / total_lessons) * 100)) if total_lessons else 0
+    )
+
+    fields_to_update = []
+    if hasattr(enrollment, "progress_percent") and enrollment.progress_percent != course_percent:
+        enrollment.progress_percent = course_percent
+        fields_to_update.append("progress_percent")
+
+    if total_lessons > 0 and completed_lessons >= total_lessons:
+        # Cours 100% : marque COMPLETED (idempotent)
+        target_status = getattr(Enrollment.Status, "COMPLETED", "COMPLETED")
+        if getattr(enrollment, "status", None) != target_status:
+            enrollment.status = target_status
+            fields_to_update.append("status")
+        if hasattr(enrollment, "completed_at") and not enrollment.completed_at:
+            enrollment.completed_at = timezone.now()
+            fields_to_update.append("completed_at")
+
+    if fields_to_update:
+        fields_to_update.append("updated_at")
+        enrollment.save(update_fields=fields_to_update)
+
+    return {
+        "progress_percent": course_percent,
+        "completed_lessons": completed_lessons,
+        "total_lessons": total_lessons,
+        "status": getattr(enrollment, "status", "ACTIVE"),
+        "completed_at": (
+            enrollment.completed_at.isoformat()
+            if getattr(enrollment, "completed_at", None)
+            else None
+        ),
+    }
+
+
+# --------------------------------------------
+# R14 — /api/learner/courses/<id>/lessons/<lesson_id>/complete/
+# Marquage manuel (doc, article, audio, quiz). Bypass la logique
+# vidéo 90 % : réservée aux types non-vidéo.
+# --------------------------------------------
+class LearnerLessonCompleteView(LearnerBaseAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, course_id: int, lesson_id: int):
+        course = get_object_or_404(Course, id=course_id)
+        lesson = get_object_or_404(Lesson, id=lesson_id, section__course=course)
+
+        enrollment = _get_enrollment(request.user, course)
+        if not enrollment:
+            return Response(
+                {"detail": "Inscription requise."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Vidéo : refuser le marquage manuel — passer par progress avec 90 %
+        if (
+            lesson.lesson_type == Lesson.LessonType.VIDEO
+            and int(getattr(lesson, "duration_sec", 0) or 0) > 0
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "Une leçon vidéo doit être visionnée à 90% pour être "
+                        "considérée comme terminée. Utilisez l'endpoint "
+                        "/progress/ à la place."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        lp, _ = LessonProgress.objects.get_or_create(
+            enrollment=enrollment, lesson=lesson
+        )
+        lp.mark_completed()  # completed=True, progress_percent=100
+
+        summary = _recompute_course_progress(enrollment, course)
+
+        return Response({
+            "ok": True,
+            "lesson_id": lesson.id,
+            "progress": {
+                "percent": 100,
+                "progress_percent": 100,
+                "completed": True,
+                "is_completed": True,
+                "last_position_seconds": int(lp.last_position_sec or 0),
+                "last_position_sec": int(lp.last_position_sec or 0),
+            },
+            "course_progress": {
+                "course_id": course.id,
+                "progress_percent": summary["progress_percent"],
+                "completed_lessons": summary["completed_lessons"],
+                "total_lessons": summary["total_lessons"],
+                "status": summary["status"],
+                "completed_at": summary["completed_at"],
+            },
         })
 
 
@@ -3446,6 +3599,37 @@ class LearnerCoursePlayerDataView(LearnerBaseAPIView):
         if current_lesson is None:
             current_lesson = lessons_qs.first()
 
+        # R19.6 — préchargement des quiz de section + tentatives réussies user
+        try:
+            from assessments.models import Quiz as _Quiz, Attempt as _Attempt
+            from django.db.models import Count as _Count
+            section_ids = list(sections.values_list("id", flat=True))
+            quizzes_by_section = {
+                q.section_id: q
+                for q in _Quiz.objects.filter(
+                    course=course,
+                    section_id__in=section_ids,
+                    is_active=True,
+                ).annotate(_qcount=_Count("questions"))
+            }
+            # Meilleure tentative par quiz pour le user courant
+            best_attempts = {}
+            if quizzes_by_section:
+                for a in (
+                    _Attempt.objects
+                    .filter(
+                        user=request.user,
+                        quiz_id__in=[q.id for q in quizzes_by_section.values()],
+                        submitted_at__isnull=False,
+                    )
+                    .order_by("quiz_id", "-score_percent")
+                ):
+                    if a.quiz_id not in best_attempts:
+                        best_attempts[a.quiz_id] = a
+        except Exception:
+            quizzes_by_section = {}
+            best_attempts = {}
+
         payload_sections = []
         for s in sections:
             s_lessons = []
@@ -3465,11 +3649,32 @@ class LearnerCoursePlayerDataView(LearnerBaseAPIView):
                     "is_completed": bool(p.completed) if p else False,
                 })
 
+            # R19.6 — payload quiz de la section (ou null si aucun)
+            quiz_payload = None
+            q = quizzes_by_section.get(s.id)
+            if q:
+                total_attempts = _Attempt.objects.filter(
+                    user=request.user, quiz=q, submitted_at__isnull=False,
+                ).count()
+                best = best_attempts.get(q.id)
+                quiz_payload = {
+                    "id": q.id,
+                    "title": q.title,
+                    "passing_score": q.passing_score,
+                    "max_attempts": q.max_attempts,
+                    "questions_count": getattr(q, "_qcount", 0),
+                    "attempts_count": total_attempts,
+                    "attempts_remaining": max(0, q.max_attempts - total_attempts),
+                    "best_score": int(best.score_percent) if best else 0,
+                    "passed": bool(best.passed) if best else False,
+                }
+
             payload_sections.append({
                 "id": s.id,
                 "title": s.title,
                 "order": s.order,
-                "lessons": s_lessons
+                "lessons": s_lessons,
+                "quiz": quiz_payload,  # R19.6
             })
 
         return Response({

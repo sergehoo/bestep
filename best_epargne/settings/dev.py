@@ -1,17 +1,11 @@
-"""Settings de développement.
 
-CORRECTIFS :
-- SEC-18 : en dev on tolère ACCOUNT_EMAIL_VERIFICATION='none' explicitement.
-- SEC-26 : suppression des GDAL/GEOS qui ne sont liés à rien.
-"""
 from __future__ import annotations
 
 import os
 
 from .base import *  # noqa: F403
 
-# En dev on autorise tous les hôtes uniquement si DJANGO_ALLOWED_HOSTS
-# n'est pas défini.
+
 if not os.getenv("DJANGO_ALLOWED_HOSTS"):
     ALLOWED_HOSTS = ["*"]
 
@@ -52,3 +46,19 @@ EMAIL_BACKEND = os.getenv(
 # CSP dev : migration cdn.csp.min.js terminée — 'unsafe-eval' retiré.
 CSP_SCRIPT_SRC = ("'self'", "https://cdn.tiny.cloud", "https://cdn.jsdelivr.net")
 CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com")
+
+# R8 fix — CORS dev pour Vite (5173, 5174 fallback, etc.)
+# En dev on autorise tout http://localhost:<port> et http://127.0.0.1:<port>.
+# En prod : DJANGO_CORS_ALLOWED_ORIGINS reste la source unique (strict).
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost:\d+$",
+    r"^http://127\.0\.0\.1:\d+$",
+]
+# Optionnel : autoriser les cookies cross-site (utile si tu passes en cookie auth).
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+]

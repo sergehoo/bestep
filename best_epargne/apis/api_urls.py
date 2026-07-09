@@ -47,6 +47,7 @@ from best_epargne.apis.views import (
     LearnerEnrollView,
     LearnerExploreCoursesView,
     LearnerKpisView,
+    LearnerLessonCompleteView,
     LearnerLessonProgressUpdateView,
     LearnerLessonStateView,
     LearnerMediaSignedGetView,
@@ -93,6 +94,118 @@ urlpatterns = [
     path("schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-docs"),
     path("redoc/", SpectacularRedocView.as_view(url_name="api-schema"), name="api-redoc"),
+
+    # R1 — Auth JWT pour SPA React (register/login/refresh/logout/me + password)
+    path("auth/", include(("compte.urls_api", "compte_api"), namespace="compte_api")),
+
+    # R2.1 — Endpoints publics unifiés pour SPA (cours, catégories, previews)
+    path(
+        "public/courses/",
+        __import__(
+            "best_epargne.apis.api_public", fromlist=["PublicCourseListView"]
+        ).PublicCourseListView.as_view(),
+        name="api_public_courses_list",
+    ),
+    path(
+        "public/courses/<slug:slug>/",
+        __import__(
+            "best_epargne.apis.api_public", fromlist=["PublicCourseDetailView"]
+        ).PublicCourseDetailView.as_view(),
+        name="api_public_course_detail",
+    ),
+    path(
+        "public/courses/<slug:slug>/lessons/<int:lesson_id>/preview/",
+        __import__(
+            "best_epargne.apis.api_public",
+            fromlist=["PublicCoursePreviewLessonView"],
+        ).PublicCoursePreviewLessonView.as_view(),
+        name="api_public_lesson_preview",
+    ),
+    path(
+        "public/categories/",
+        __import__(
+            "best_epargne.apis.api_public", fromlist=["PublicCategoryListView"]
+        ).PublicCategoryListView.as_view(),
+        name="api_public_categories",
+    ),
+
+    # R4 — Reviews publics + related courses
+    path(
+        "public/courses/<slug:slug>/reviews/",
+        __import__(
+            "best_epargne.apis.api_public", fromlist=["PublicCourseReviewsView"]
+        ).PublicCourseReviewsView.as_view(),
+        name="api_public_course_reviews",
+    ),
+    path(
+        "public/courses/<slug:slug>/reviews/summary/",
+        __import__(
+            "best_epargne.apis.api_public",
+            fromlist=["PublicCourseReviewsSummaryView"],
+        ).PublicCourseReviewsSummaryView.as_view(),
+        name="api_public_course_reviews_summary",
+    ),
+    path(
+        "public/courses/<slug:slug>/related/",
+        __import__(
+            "best_epargne.apis.api_public", fromlist=["PublicRelatedCoursesView"]
+        ).PublicRelatedCoursesView.as_view(),
+        name="api_public_course_related",
+    ),
+
+    # R7 — Admin plateforme (users + config, restreint platform_admin)
+    path(
+        "admin/users/",
+        __import__(
+            "best_epargne.apis.api_admin", fromlist=["AdminUserListView"]
+        ).AdminUserListView.as_view(),
+        name="api_admin_users_list",
+    ),
+    path(
+        "admin/users/<int:user_id>/",
+        __import__(
+            "best_epargne.apis.api_admin", fromlist=["AdminUserDetailView"]
+        ).AdminUserDetailView.as_view(),
+        name="api_admin_user_detail",
+    ),
+    path(
+        "admin/users/<int:user_id>/reset-password/",
+        __import__(
+            "best_epargne.apis.api_admin",
+            fromlist=["AdminUserResetPasswordView"],
+        ).AdminUserResetPasswordView.as_view(),
+        name="api_admin_user_reset_password",
+    ),
+    path(
+        "admin/config/",
+        __import__(
+            "best_epargne.apis.api_admin", fromlist=["AdminConfigView"]
+        ).AdminConfigView.as_view(),
+        name="api_admin_config",
+    ),
+
+    # R2.2 — Dashboards par rôle (hydratation SPA en 1 call)
+    path(
+        "dashboard/student/",
+        __import__(
+            "best_epargne.apis.api_dashboards", fromlist=["StudentDashboardView"]
+        ).StudentDashboardView.as_view(),
+        name="api_dashboard_student",
+    ),
+    path(
+        "dashboard/instructor/",
+        __import__(
+            "best_epargne.apis.api_dashboards", fromlist=["InstructorDashboardView"]
+        ).InstructorDashboardView.as_view(),
+        name="api_dashboard_instructor",
+    ),
+    path(
+        "dashboard/admin/",
+        __import__(
+            "best_epargne.apis.api_dashboards", fromlist=["AdminDashboardView"]
+        ).AdminDashboardView.as_view(),
+        name="api_dashboard_admin",
+    ),
 
     path("apis/", include(router.urls)),
 
@@ -189,6 +302,10 @@ urlpatterns = [
          name="api_learner_lesson_state"),
     path("learner/courses/<int:course_id>/lessons/<int:lesson_id>/progress/", LearnerLessonProgressUpdateView.as_view(),
          name="api_learner_lesson_progress_update"),
+    # R14 : marquage manuel (docs / articles / audios / quiz)
+    path("learner/courses/<int:course_id>/lessons/<int:lesson_id>/complete/",
+         LearnerLessonCompleteView.as_view(),
+         name="api_learner_lesson_complete"),
     path("learner/courses/<int:course_id>/set-current/", LearnerSetCurrentLessonView.as_view(),
          name="api_learner_set_current"),
 
@@ -265,6 +382,32 @@ urlpatterns = [
         InstructorQuizUpdateView.as_view(),
         name="api_instructor_quiz_update"
     ),
+    # --- R20 — Certificate Template Builder ---
+    path(
+        "instructor/certificate-templates/",
+        __import__(
+            "best_epargne.apis.api_certificate_templates",
+            fromlist=["CertificateTemplateListCreateView"],
+        ).CertificateTemplateListCreateView.as_view(),
+        name="api_instructor_certificate_templates",
+    ),
+    path(
+        "instructor/certificate-templates/<int:template_id>/",
+        __import__(
+            "best_epargne.apis.api_certificate_templates",
+            fromlist=["CertificateTemplateDetailView"],
+        ).CertificateTemplateDetailView.as_view(),
+        name="api_instructor_certificate_template_detail",
+    ),
+    path(
+        "instructor/certificate-templates/<int:template_id>/duplicate/",
+        __import__(
+            "best_epargne.apis.api_certificate_templates",
+            fromlist=["CertificateTemplateDuplicateView"],
+        ).CertificateTemplateDuplicateView.as_view(),
+        name="api_instructor_certificate_template_duplicate",
+    ),
+
     # --- Media / MinIO upload ---
     path("media/upload/init/", MediaUploadInitView.as_view(), name="api_media_upload_init"),
     path("media/upload/finalize/", MediaUploadFinalizeView.as_view(), name="api_media_upload_finalize"),

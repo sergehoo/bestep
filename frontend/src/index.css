@@ -1,0 +1,51 @@
+/**
+ * src/index.css — Feuille de style principale.
+ * Tailwind directives + variables globales.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    background: rgb(248 250 252); /* neutral-50 */
+    color: rgb(15 23 42); /* neutral-900 */
+  }
+  /* R9.6 — a11y : focus visible clair (WCAG AA) */
+  :focus-visible {
+    outline: 2px solid rgb(2 132 199); /* primary-600 */
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  /* R9.6 — a11y : respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  /* R9.6 — helpers scroll offset pour sticky nav */
+  .scroll-mt-24 {
+    scroll-margin-top: 6rem;
+  }
+}

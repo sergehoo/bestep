@@ -41,6 +41,9 @@ oauthlib==3.3.1
 PyJWT==2.10.1
 qrcode==8.2  # CORRECTIF V2.A : QR code dans le PDF certificat.
 
+# --- R1 : JWT pour SPA React (frontend-ready) ---
+djangorestframework-simplejwt==5.3.1  # Access 15min + Refresh 7j + blacklist
+
 # --- DB ---
 psycopg[binary]==3.2.3  # V6.E (SEC-29) — remplace psycopg2.
 

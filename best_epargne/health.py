@@ -1,14 +1,4 @@
-"""best_epargne/health.py — Endpoint de santé applicative.
 
-CORRECTIF P2/P3 (audit INFRA-02, INFRA-03).
-
-GET /healthz/ : vérifie que :
-- Django démarre,
-- la connexion DB est ouvrable,
-- (optionnel) Redis répond.
-
-Retourne 200 si tout est OK, 503 sinon. Conçu pour Traefik / Kubernetes liveness.
-"""
 from __future__ import annotations
 
 import logging

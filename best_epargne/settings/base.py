@@ -1,22 +1,4 @@
-"""
-Django settings for best_epargne project — base settings.
 
-CORRECTIFS P1.G (audit SEC-04..SEC-08, SEC-17..SEC-22, SEC-31, COMPTE-08) :
-
-1. **django-axes** branché : protection brute-force (SEC-05).
-2. **django-celery-beat** branché : tâches planifiées DB (SEC-07).
-3. **django-csp** branché : Content Security Policy (SEC-08).
-4. **Argon2 + min_length=12** : politique de mots de passe renforcée (SEC-19).
-5. **AWS_QUERYSTRING_AUTH=True par défaut** : médias privés MinIO accessibles
-   via URLs signées (SEC-04).
-6. **AWS_S3_VERIFY séparé de MINIO_SECURE** : cohérence TLS (SEC-15).
-7. **Allauth** : ACCOUNT_CONFIRM_EMAIL_ON_GET=False (SEC-17),
-   ACCOUNT_EMAIL_VERIFICATION="mandatory" par défaut (SEC-18).
-8. **DRF throttle** : scopes dédiés (login, signup, media-upload, quiz-submit,
-   reviews_write, etc.) (SEC-31, API-51).
-9. **2FA OTP** : packages branchés dans INSTALLED_APPS + MIDDLEWARE (SEC-06).
-10. **decouple → os.getenv** : standardisation source de vérité (SEC-38).
-"""
 import os
 from pathlib import Path
 
@@ -24,16 +6,6 @@ from pathlib import Path
 # Helpers
 # ------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-
-# ------------------------------------------------------------
-# Auto-load .env (DEV convenience).
-#
-# En PROD, les env vars viennent de docker-compose / Vault / K8s secrets
-# et ce bloc ne fait rien (pas de fichier .env dans l'image grâce à .dockerignore).
-# En DEV, on lit le .env à la racine du projet pour éviter de devoir
-# `export` à chaque shell.
-# ------------------------------------------------------------
 _ENV_FILE = BASE_DIR / ".env"
 _SETTINGS_MODULE = os.getenv("DJANGO_SETTINGS_MODULE", "")
 if _SETTINGS_MODULE.endswith(".dev") and _ENV_FILE.exists():
@@ -71,7 +43,7 @@ def env_list(name: str, default: str = "") -> list[str]:
 # Sécurité — SECRET_KEY / DEBUG / ALLOWED_HOSTS (env-driven)
 # ------------------------------------------------------------
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
-DEBUG = env_bool("DJANGO_DEBUG", False)
+DEBUG = env_bool("DJANGO_DEBUG", True)
 
 if not SECRET_KEY:
     if DEBUG:
@@ -190,7 +162,10 @@ AUTH_USER_MODEL = "compte.User"
 # DRF
 # ------------------------------------------------------------
 REST_FRAMEWORK = {
+    # R1 — Ajout JWT en 1re place pour le SPA React (access + refresh tokens).
+    # Session et Token conservés pour compat allauth + accès Swagger UI.
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
@@ -224,6 +199,48 @@ REST_FRAMEWORK = {
     # V_OBS.A : génération auto du schéma OpenAPI.
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# R1 — SimpleJWT (SPA React)
+# ─────────────────────────────────────────────────────────────────────
+# Access token : durée courte (15min) pour limiter l'impact d'un vol.
+# Refresh token : 7 jours, avec rotation à chaque refresh + blacklist du
+# précédent. L'utilisateur reste connecté tant qu'il visite l'app dans
+# l'intervalle du refresh.
+#
+# ROTATE_REFRESH_TOKENS=True + BLACKLIST_AFTER_ROTATION=True implémentent
+# la détection de vol de token (si le vieux refresh est réutilisé après
+# rotation, il est blacklisté → attaquant expulsé).
+#
+# Le blacklist nécessite ``rest_framework_simplejwt.token_blacklist`` dans
+# INSTALLED_APPS + migration ``python manage.py migrate token_blacklist``.
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.getenv("JWT_ACCESS_MINUTES", "15"))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=int(os.getenv("JWT_REFRESH_DAYS", "7"))
+    ),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY", SECRET_KEY),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    # Claims ajoutés au payload (utile côté React pour ne pas re-fetcher /me/
+    # à chaque page). Attention : le token n'est PAS chiffré, ne pas y mettre
+    # d'infos sensibles (email OK, rôle OK, adresse NON).
+    "TOKEN_OBTAIN_SERIALIZER": "compte.api_auth.TokenObtainWithClaimsSerializer",
+}
+
+# Ajouter l'app blacklist (nécessaire pour ROTATE + BLACKLIST_AFTER_ROTATION)
+if "rest_framework_simplejwt.token_blacklist" not in INSTALLED_APPS:
+    INSTALLED_APPS = INSTALLED_APPS + ["rest_framework_simplejwt.token_blacklist"]
 
 
 # ------------------------------------------------------------
@@ -477,9 +494,7 @@ TINYMCE_DEFAULT_CONFIG = {
 # ------------------------------------------------------------
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
-# CORRECTIF SEC-16 : CSRF cookie peut rester accessible JS via <meta>,
-# mais en pratique il est plus sûr de lire via {% csrf_token %} dans le template.
-# On garde False par compat existante ; cf. roadmap pour passer à True.
+
 CSRF_COOKIE_HTTPONLY = env_bool("CSRF_COOKIE_HTTPONLY", False)
 CSRF_COOKIE_SAMESITE = "Lax"
 

@@ -1,11 +1,4 @@
-"""Celery app — CORRECTIF SEC-03.
 
-Avant : DJANGO_SETTINGS_MODULE par défaut sur best_epargne.settings.dev,
-ce qui pouvait charger DEBUG/DB dev sur un worker exécuté hors compose.
-
-Après : on FORCE settings.prod en défaut. La variable d'env continue de
-surcharger pour le dev local (où le développeur la pose explicitement).
-"""
 from __future__ import annotations
 
 import os
