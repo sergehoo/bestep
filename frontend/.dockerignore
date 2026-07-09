@@ -1,0 +1,48 @@
+# ─────────────────────────────────────────────────────────────
+# Best-Épargne — Frontend Docker build context (R26)
+# ─────────────────────────────────────────────────────────────
+# Exclusions pour accélérer le build et éviter de leaker des
+# fichiers locaux (secrets, node_modules, cache).
+
+# Dépendances (réinstallées via npm ci dans le stage 1)
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist
+dist-ssr
+
+# Env / secrets
+.env
+.env.local
+.env.development
+.env.*.local
+
+# Éditeurs
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Tests E2E (pas nécessaires au build de prod)
+e2e
+playwright-report
+test-results
+
+# Logs
+*.log
+
+# Cache Vite / TypeScript
+.vite
+*.tsbuildinfo
+
+# Git (le build lit `package.json`, pas l'historique)
+.git
+.gitignore
+
+# Config d'exemple (les vraies valeurs sont passées en build-args)
+.env.example
+.env.production.example
