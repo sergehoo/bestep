@@ -11,7 +11,7 @@ import {
   Users,
   RefreshCw,
 } from 'lucide-react';
-import { PublicHeader } from '@/components/layout/PublicHeader';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -23,41 +23,59 @@ export default function AdminConfigPage() {
   const { data: cfg, isLoading, isFetching } = useAdminConfig();
   const qc = useQueryClient();
 
-  return (
-    <div className="min-h-screen bg-neutral-50">
-      <PublicHeader />
-      <section className="border-b border-neutral-200 bg-white">
-        <div className="container mx-auto px-4 max-w-5xl py-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <Link
-              to="/dashboard/admin"
-              className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 mb-2"
-            >
-              <ArrowLeft className="w-4 h-4" /> Retour dashboard admin
-            </Link>
-            <h1 className="text-2xl font-extrabold text-neutral-900">
-              Configuration plateforme
-            </h1>
-            <p className="text-sm text-neutral-500 mt-1">
-              Snapshot lecture-seule. Toute modification passe par les fichiers
-              settings / .env.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            loading={isFetching}
-            onClick={() =>
-              qc.invalidateQueries({ queryKey: ['admin-config'] })
-            }
-          >
-            <RefreshCw className="w-4 h-4" />
-            Rafraîchir
-          </Button>
-        </div>
-      </section>
+  // R27 — Accès défensif : le backend peut renvoyer un payload incomplet
+  // (env de démo, config partielle, migration en cours). On fournit des
+  // valeurs par défaut pour ne jamais planter le rendu.
+  const app = cfg?.app ?? {
+    name: '—',
+    environment: 'unknown',
+    debug: false,
+    timezone: '—',
+    language: '—',
+  };
+  const features = cfg?.features ?? {
+    jwt_enabled: false,
+    cors_enabled: false,
+    email_reset: false,
+    media_backend: '—',
+  };
+  const limits = cfg?.limits ?? {
+    jwt_access_lifetime_minutes: 0,
+    review_page_size_max: 0,
+    user_page_size_max: 0,
+  };
+  const counts = cfg?.counts ?? {
+    users_total: 0,
+    users_active: 0,
+    users_admin: 0,
+  };
 
-      <main className="container mx-auto px-4 max-w-5xl py-6 space-y-4">
+  return (
+    <AdminShell
+      title="Configuration plateforme"
+      subtitle="Snapshot lecture-seule. Toute modification passe par les fichiers settings / .env."
+      actions={
+        <Button
+          variant="outline"
+          size="sm"
+          loading={isFetching}
+          onClick={() => qc.invalidateQueries({ queryKey: ['admin-config'] })}
+        >
+          <RefreshCw className="w-4 h-4" />
+          Rafraîchir
+        </Button>
+      }
+    >
+      <div className="mb-3">
+        <Link
+          to="/dashboard/admin"
+          className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900"
+        >
+          <ArrowLeft className="w-4 h-4" /> Retour dashboard admin
+        </Link>
+      </div>
+
+      <div className="space-y-4">
         {isLoading && !cfg ? (
           <div className="py-20 flex justify-center">
             <Spinner size="xl" label="Chargement config…" />
@@ -72,17 +90,17 @@ export default function AdminConfigPage() {
               />
               <CardBody>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <Row label="Nom" value={cfg.app.name} />
+                  <Row label="Nom" value={app.name} />
                   <Row
                     label="Environnement"
                     value={
                       <Badge
                         variant={
-                          cfg.app.environment === 'prod' ? 'success' : 'warning'
+                          app.environment === 'prod' ? 'success' : 'warning'
                         }
                         size="sm"
                       >
-                        {cfg.app.environment}
+                        {app.environment}
                       </Badge>
                     }
                   />
@@ -90,15 +108,15 @@ export default function AdminConfigPage() {
                     label="Debug"
                     value={
                       <Badge
-                        variant={cfg.app.debug ? 'warning' : 'success'}
+                        variant={app.debug ? 'warning' : 'success'}
                         size="sm"
                       >
-                        {cfg.app.debug ? 'ON' : 'OFF'}
+                        {app.debug ? 'ON' : 'OFF'}
                       </Badge>
                     }
                   />
-                  <Row label="Timezone" value={cfg.app.timezone} />
-                  <Row label="Langue" value={cfg.app.language} />
+                  <Row label="Timezone" value={app.timezone} />
+                  <Row label="Langue" value={app.language} />
                 </dl>
               </CardBody>
             </Card>
@@ -116,21 +134,21 @@ export default function AdminConfigPage() {
               />
               <CardBody>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <FeatureFlag label="JWT" enabled={cfg.features.jwt_enabled} />
+                  <FeatureFlag label="JWT" enabled={features.jwt_enabled} />
                   <FeatureFlag
                     label="CORS"
-                    enabled={cfg.features.cors_enabled}
+                    enabled={features.cors_enabled}
                   />
                   <FeatureFlag
                     label="Email reset"
-                    enabled={cfg.features.email_reset}
+                    enabled={features.email_reset}
                   />
                   <div className="rounded-xl border border-neutral-100 p-3">
                     <p className="text-xs text-neutral-500 uppercase tracking-wide">
                       Storage
                     </p>
                     <p className="text-xs font-mono mt-1 break-all">
-                      {cfg.features.media_backend.split('.').pop()}
+                      {features.media_backend.split('.').pop()}
                     </p>
                   </div>
                 </div>
@@ -147,15 +165,15 @@ export default function AdminConfigPage() {
                 <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                   <Row
                     label="Access token"
-                    value={`${cfg.limits.jwt_access_lifetime_minutes} min`}
+                    value={`${limits.jwt_access_lifetime_minutes} min`}
                   />
                   <Row
                     label="Page reviews"
-                    value={`${cfg.limits.review_page_size_max} max`}
+                    value={`${limits.review_page_size_max} max`}
                   />
                   <Row
                     label="Page users"
-                    value={`${cfg.limits.user_page_size_max} max`}
+                    value={`${limits.user_page_size_max} max`}
                   />
                 </dl>
               </CardBody>
@@ -171,19 +189,19 @@ export default function AdminConfigPage() {
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
                     <p className="text-3xl font-extrabold text-primary-600">
-                      {cfg.counts.users_total}
+                      {counts.users_total}
                     </p>
                     <p className="text-xs text-neutral-500">Utilisateurs</p>
                   </div>
                   <div>
                     <p className="text-3xl font-extrabold text-emerald-600">
-                      {cfg.counts.users_active}
+                      {counts.users_active}
                     </p>
                     <p className="text-xs text-neutral-500">Actifs</p>
                   </div>
                   <div>
                     <p className="text-3xl font-extrabold text-accent-600">
-                      {cfg.counts.users_admin}
+                      {counts.users_admin}
                     </p>
                     <p className="text-xs text-neutral-500">Admins</p>
                   </div>
@@ -192,7 +210,10 @@ export default function AdminConfigPage() {
             </Card>
 
             <p className="text-xs text-neutral-400 text-right">
-              Généré le {new Date(cfg.generated_at).toLocaleString('fr-FR')}
+              Généré le{' '}
+              {cfg?.generated_at
+                ? new Date(cfg.generated_at).toLocaleString('fr-FR')
+                : '—'}
             </p>
           </>
         ) : (
@@ -200,8 +221,8 @@ export default function AdminConfigPage() {
             Impossible de charger la config.
           </p>
         )}
-      </main>
-    </div>
+      </div>
+    </AdminShell>
   );
 }
 

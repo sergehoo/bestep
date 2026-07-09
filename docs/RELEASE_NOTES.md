@@ -208,6 +208,40 @@ Roadmap R27+ : nettoyage des vues HTML Django (`formations.HomeView`,
 des dépendances `tinymce` / template-forms uniquement utilisées par le
 front legacy.
 
+## R27 — Espace admin premium
+
+Publié : refonte visuelle et fonctionnelle de l'espace administrateur
+plateforme. Les pages existaient déjà (R7) mais utilisaient `PublicHeader`
+ou `DashboardShell` sans vraie navigation dédiée. On aligne enfin l'admin
+sur les shells apprenant/instructeur.
+
+**Nouveau composant `components/admin/AdminShell.tsx`** — cohérent avec
+`LearnerShell` (R12) et `InstructorShell` (R13) : sidebar sticky desktop
+(w-64), drawer motion mobile, header sticky avec titre/sous-titre/actions,
+badge « Admin plateforme » en rose (`ShieldCheck`), lien Django admin
+externe dans les raccourcis. Dark mode compatible.
+
+**Pages migrées vers `AdminShell`** :
+- `pages/AdminDashboardPage.tsx` — `PeriodSelector` déplacé dans slot `actions`
+- `pages/admin/AdminUsersPage.tsx`
+- `pages/admin/AdminUserDetailPage.tsx`
+- `pages/admin/AdminConfigPage.tsx`
+
+**Nouvelle page `pages/admin/AdminCoursesPage.tsx`** — supervision cours
+plateforme sur route `/admin/courses`. 4 KPI (publiés / certifiants /
+gratuits / inscrits agrégés), filtres (recherche + catégorie + type + prix),
+table avec formateur/note/inscrits/prix, actions rapides (fiche publique +
+éditeur bypass admin).
+
+**Router** — nouvelle route `/admin/courses` protégée par `AdminOnlyRoute`.
+Le lien « Admin plateforme » du `UserMenu` (topbar) reste pointé sur
+`/dashboard/admin` qui bénéficie du nouveau shell.
+
+Roadmap R28+ : endpoints backend `/api/admin/courses/…` pour la vraie
+modération (unpublish massif, alertes qualité, warnings), page
+`/admin/organizations`, audit log, monitoring runtime (Redis / Postgres /
+MinIO health).
+
 ---
 
 ## Compatibilité rétroactive

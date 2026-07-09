@@ -11,7 +11,7 @@ import {
   UserX,
   UserCheck,
 } from 'lucide-react';
-import { PublicHeader } from '@/components/layout/PublicHeader';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -64,23 +64,11 @@ export default function AdminUsersPage() {
   const totalPages = data ? Math.ceil(data.count / 20) : 1;
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <PublicHeader />
-      <section className="border-b border-neutral-200 bg-white">
-        <div className="container mx-auto px-4 max-w-7xl py-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-extrabold text-neutral-900">
-              Utilisateurs
-            </h1>
-            <p className="text-sm text-neutral-500 mt-1">
-              {data?.count ?? '—'} utilisateurs au total. Édition rapide,
-              gestion des rôles, désactivation.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <main className="container mx-auto px-4 max-w-7xl py-6 space-y-4">
+    <AdminShell
+      title="Utilisateurs"
+      subtitle={`${data?.count ?? '—'} utilisateurs au total. Édition rapide, gestion des rôles, désactivation.`}
+    >
+      <div className="space-y-4">
         {/* Filtres */}
         <form
           onSubmit={submitSearch}
@@ -268,7 +256,7 @@ export default function AdminUsersPage() {
             )}
           </Card>
         )}
-      </main>
-    </div>
+      </div>
+    </AdminShell>
   );
 }

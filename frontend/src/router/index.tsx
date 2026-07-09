@@ -46,6 +46,8 @@ const InstructorCertificateTemplatesPage = lazy(
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage'));
 const AdminUserDetailPage = lazy(() => import('@/pages/admin/AdminUserDetailPage'));
 const AdminConfigPage = lazy(() => import('@/pages/admin/AdminConfigPage'));
+// R27 : supervision des cours plateforme
+const AdminCoursesPage = lazy(() => import('@/pages/admin/AdminCoursesPage'));
 // R12 : espace apprenant premium
 const LearnerDashboardPage = lazy(() => import('@/pages/learner/LearnerDashboardPage'));
 const LearnerCoursesPage = lazy(() => import('@/pages/learner/LearnerCoursesPage'));
@@ -525,6 +527,19 @@ const router = createBrowserRouter([
         <AdminOnlyRoute>
           <Suspense fallback={<PageSpinner />}>
             <AdminUsersPage />
+          </Suspense>
+        </AdminOnlyRoute>
+      </ProtectedRoute>
+    ),
+  },
+  // R27 : supervision cours plateforme
+  {
+    path: '/admin/courses',
+    element: (
+      <ProtectedRoute>
+        <AdminOnlyRoute>
+          <Suspense fallback={<PageSpinner />}>
+            <AdminCoursesPage />
           </Suspense>
         </AdminOnlyRoute>
       </ProtectedRoute>

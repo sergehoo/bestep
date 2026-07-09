@@ -16,7 +16,8 @@ import {
   Wallet,
   CheckCircle,
 } from 'lucide-react';
-import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { AdminShell } from '@/components/admin/AdminShell';
+import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { TrendLineChart } from '@/components/dashboard/TrendLineChart';
 import { BarSeriesChart } from '@/components/dashboard/BarSeriesChart';
@@ -36,14 +37,34 @@ export default function AdminDashboardPage() {
       value: c.enrolled_count,
     })) ?? [];
 
+  // R27 — Accès défensif : le backend peut renvoyer un payload
+  // incomplet (erreur transitoire, migration en cours, config partielle).
+  // On fournit des valeurs par défaut à 0 pour ne jamais planter.
+  const kpis = data?.kpis ?? {
+    users_total: 0,
+    users_active: 0,
+    courses_published: 0,
+    courses_total: 0,
+    enrollments_total: 0,
+    enrollments_active: 0,
+    enrollments_completed: 0,
+    revenue_total: 0,
+    payments_count: 0,
+  };
+  const series = data?.series ?? {
+    new_users_per_day: [],
+    enrollments_per_day: [],
+    revenue_per_day: [],
+  };
+  const topCourses = data?.top_courses ?? [];
+
   return (
-    <DashboardShell
-      title="Admin plateforme"
+    <AdminShell
+      title="Cockpit administrateur"
       subtitle="Vue d'ensemble Best Épargne."
-      period={period}
-      onPeriodChange={setPeriod}
-      headerRight={
-        <div className="flex items-center gap-2">
+      actions={
+        <div className="flex items-center gap-2 flex-wrap">
+          <PeriodSelector value={period} onChange={setPeriod} />
           <Link
             to="/admin/users"
             className="text-xs font-semibold text-primary-600 hover:text-primary-700 px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-50"
@@ -71,41 +92,41 @@ export default function AdminDashboardPage() {
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             <KpiCard
               label="Utilisateurs"
-              value={data.kpis.users_total}
-              hint={`${data.kpis.users_active} actifs`}
+              value={kpis.users_total}
+              hint={`${kpis.users_active} actifs`}
               Icon={Users}
               accent="primary"
             />
             <KpiCard
               label="Actifs"
-              value={data.kpis.users_active}
+              value={kpis.users_active}
               Icon={UserCheck}
               accent="success"
             />
             <KpiCard
               label="Cours publiés"
-              value={data.kpis.courses_published}
-              hint={`${data.kpis.courses_total} au total`}
+              value={kpis.courses_published}
+              hint={`${kpis.courses_total} au total`}
               Icon={BookOpen}
               accent="primary"
             />
             <KpiCard
               label="Inscriptions"
-              value={data.kpis.enrollments_total}
-              hint={`${data.kpis.enrollments_active} actives`}
+              value={kpis.enrollments_total}
+              hint={`${kpis.enrollments_active} actives`}
               Icon={GraduationCap}
               accent="accent"
             />
             <KpiCard
               label="Complétions"
-              value={data.kpis.enrollments_completed}
+              value={kpis.enrollments_completed}
               Icon={CheckCircle}
               accent="success"
             />
             <KpiCard
               label="Revenus"
-              value={formatPrice(data.kpis.revenue_total, 'XOF')}
-              hint={`${data.kpis.payments_count} paiements`}
+              value={formatPrice(kpis.revenue_total, 'XOF')}
+              hint={`${kpis.payments_count} paiements`}
               Icon={Wallet}
               accent="accent"
             />
@@ -120,7 +141,7 @@ export default function AdminDashboardPage() {
               />
               <CardBody>
                 <TrendLineChart
-                  data={data.series?.new_users_per_day ?? []}
+                  data={series.new_users_per_day ?? []}
                   color="primary"
                   yLabel="Users"
                   ariaLabel="Nouveaux utilisateurs par jour"
@@ -134,7 +155,7 @@ export default function AdminDashboardPage() {
               />
               <CardBody>
                 <TrendLineChart
-                  data={data.series?.enrollments_per_day ?? []}
+                  data={series.enrollments_per_day ?? []}
                   color="success"
                   yLabel="Insc."
                   ariaLabel="Nouvelles inscriptions par jour"
@@ -148,7 +169,7 @@ export default function AdminDashboardPage() {
               />
               <CardBody>
                 <TrendLineChart
-                  data={data.series?.revenue_per_day ?? []}
+                  data={series.revenue_per_day ?? []}
                   color="accent"
                   yLabel="XOF"
                   valueFormatter={(v) => formatPrice(v, 'XOF')}
@@ -176,7 +197,7 @@ export default function AdminDashboardPage() {
                     ariaLabel="Top cours par inscriptions"
                   />
                   <ul className="divide-y divide-neutral-100">
-                    {(data.top_courses ?? []).map((c, idx) => (
+                    {topCourses.map((c, idx) => (
                       <li
                         key={c.id}
                         className="py-3 first:pt-0 last:pb-0 flex items-center gap-3"
@@ -208,12 +229,12 @@ export default function AdminDashboardPage() {
 
           <p className="text-xs text-neutral-400 text-right">
             Généré à{' '}
-            {data.generated_at
+            {data?.generated_at
               ? new Date(data.generated_at).toLocaleTimeString('fr-FR')
               : '—'}
           </p>
         </>
       )}
-    </DashboardShell>
+    </AdminShell>
   );
 }

@@ -15,7 +15,7 @@ import {
   Phone,
   Copy,
 } from 'lucide-react';
-import { PublicHeader } from '@/components/layout/PublicHeader';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -114,71 +114,58 @@ export default function AdminUserDetailPage() {
 
   if (isLoading && !user) {
     return (
-      <div className="min-h-screen bg-neutral-50">
-        <PublicHeader />
+      <AdminShell title="Utilisateur">
         <div className="py-20 flex justify-center">
           <Spinner size="xl" label="Chargement…" />
         </div>
-      </div>
+      </AdminShell>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-neutral-50">
-        <PublicHeader />
-        <div className="container mx-auto px-4 max-w-4xl py-16 text-center">
+      <AdminShell title="Utilisateur">
+        <div className="py-16 text-center">
           <h1 className="text-2xl font-bold">Utilisateur introuvable</h1>
           <Link to="/admin/users" className="text-primary-600 mt-4 inline-block">
             ← Retour à la liste
           </Link>
         </div>
-      </div>
+      </AdminShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <PublicHeader />
-      <section className="border-b border-neutral-200 bg-white">
-        <div className="container mx-auto px-4 max-w-5xl py-6">
-          <Link
-            to="/admin/users"
-            className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 mb-3"
-          >
-            <ArrowLeft className="w-4 h-4" /> Utilisateurs
-          </Link>
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-2xl">
-              {(user.full_name || user.email).charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h1 className="text-2xl font-extrabold">
-                {user.full_name || user.email}
-              </h1>
-              <div className="mt-1 flex items-center gap-2 text-sm text-neutral-500 flex-wrap">
-                <span className="inline-flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5" />
-                  {user.email}
-                </span>
-                {user.phone && (
-                  <span className="inline-flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5" />
-                    {user.phone}
-                  </span>
-                )}
-                {isSelf && (
-                  <Badge variant="warning" size="xs">
-                    Vous
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
+    <AdminShell
+      title={user.full_name || user.email}
+      subtitle={user.email + (user.phone ? ` · ${user.phone}` : '')}
+      actions={
+        <Link
+          to="/admin/users"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-neutral-200 hover:bg-neutral-50 text-neutral-700"
+        >
+          <ArrowLeft className="w-4 h-4" /> Retour
+        </Link>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 -mt-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 text-sm text-neutral-500">
+            <Mail className="w-3.5 h-3.5" />
+            {user.email}
+          </span>
+          {user.phone && (
+            <span className="inline-flex items-center gap-1 text-sm text-neutral-500">
+              <Phone className="w-3.5 h-3.5" />
+              {user.phone}
+            </span>
+          )}
+          {isSelf && (
+            <Badge variant="warning" size="xs">
+              Vous
+            </Badge>
+          )}
         </div>
-      </section>
-
-      <main className="container mx-auto px-4 max-w-5xl py-6 space-y-4">
         {flash && (
           <div
             className={
@@ -364,7 +351,7 @@ export default function AdminUserDetailPage() {
             )}
           </CardBody>
         </Card>
-      </main>
-    </div>
+      </div>
+    </AdminShell>
   );
 }
