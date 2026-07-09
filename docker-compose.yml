@@ -164,8 +164,50 @@ services:
 
     networks:
       - internal
-      - proxy
+      # R26 — plus besoin du network `proxy` : bestweb est joignable
+      # uniquement par bestfront via le network `internal`. Décommentez si
+      # vous avez besoin d'exposer directement l'admin Django pour debug.
+      # - proxy
 
+    # R26 — Traefik ne route plus directement vers Django. `bestfront`
+    # (nginx) devient le point d'entrée public et reverse-proxie les
+    # requêtes API/admin/media vers `bestweb` via le network `internal`.
+    labels:
+      - "traefik.enable=false"
+
+    command:
+      [
+        "sh","-c",
+        "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn best_epargne.wsgi:application --bind 0.0.0.0:${APP_PORT:-8000} --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120}"
+      ]
+
+  # ────────────────────────────────────────────────────────────
+  # R26 — Frontend SPA (React + nginx). Remplace le HTML Django.
+  # Traefik route Host(APP_HOST) vers ce service. Le nginx interne
+  # reverse-proxie /api/, /admin/, /media/, /static/ vers bestweb.
+  # ────────────────────────────────────────────────────────────
+  bestfront:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://${APP_HOST}}
+        VITE_API_BASE: ${VITE_API_BASE:-/api}
+        VITE_APP_NAME: ${VITE_APP_NAME:-Best-Épargne}
+        VITE_ENV: production
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_OAUTH_GOOGLE_CLIENT_ID: ${VITE_OAUTH_GOOGLE_CLIENT_ID:-}
+        VITE_OAUTH_LINKEDIN_CLIENT_ID: ${VITE_OAUTH_LINKEDIN_CLIENT_ID:-}
+        VITE_OAUTH_MICROSOFT_CLIENT_ID: ${VITE_OAUTH_MICROSOFT_CLIENT_ID:-}
+        VITE_BUILD_SOURCEMAP: hidden
+    container_name: bestfront
+    restart: unless-stopped
+    depends_on:
+      bestweb:
+        condition: service_started
+    networks:
+      - internal
+      - proxy
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
@@ -173,14 +215,16 @@ services:
       - "traefik.http.routers.best-epargne.entrypoints=websecure"
       - "traefik.http.routers.best-epargne.tls=true"
       - "traefik.http.routers.best-epargne.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
-      - "traefik.http.services.best-epargne.loadbalancer.server.port=${APP_PORT:-8000}"
-
-
-    command:
-      [
-        "sh","-c",
-        "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn best_epargne.wsgi:application --bind 0.0.0.0:${APP_PORT:-8000} --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120}"
-      ]
+      - "traefik.http.services.best-epargne.loadbalancer.server.port=80"
+      # Sécurité — HSTS + compression
+      - "traefik.http.routers.best-epargne.middlewares=best-front-sec-headers,best-front-compress"
+      - "traefik.http.middlewares.best-front-sec-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.best-front-sec-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.best-front-sec-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.best-front-sec-headers.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.best-front-sec-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.best-front-sec-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.best-front-compress.compress=true"
 
   celery:
     build:

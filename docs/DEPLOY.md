@@ -5,6 +5,44 @@ Complémentaire à [`PRODUCTION_CHECKLIST.md`](PRODUCTION_CHECKLIST.md)
 (checklist go-live) et à [`../deploy/GO_LIVE_RUNBOOK.md`](../deploy/GO_LIVE_RUNBOOK.md)
 (première mise en prod).
 
+## Architecture (R26+)
+
+Depuis R26, la SPA React remplace le frontend HTML Django. L'infra prod :
+
+```
+                Internet
+                    │
+                    ▼
+             ┌─────────────┐
+             │   Traefik   │  (HTTPS + Let's Encrypt)
+             └──────┬──────┘
+                    │ Host(ayo-group.com)
+                    ▼
+             ┌─────────────┐
+             │  bestfront  │  nginx alpine
+             │  (SPA + RP) │  /assets/*.html  → dist/
+             └──────┬──────┘  /api/, /admin/  → bestweb
+                    │
+                    ▼  (network internal, non exposé)
+             ┌─────────────┐
+             │   bestweb   │  gunicorn + Django
+             │   (API)     │
+             └─────────────┘
+                    │
+        ┌───────────┼──────────┐
+        ▼           ▼          ▼
+      bestDB      redis     bestminio
+```
+
+- **`bestfront`** (nouveau) : image nginx multi-stage qui build le bundle
+  React (`frontend/Dockerfile`) et sert `dist/`. Fait aussi le reverse-proxy
+  vers `bestweb` pour les préfixes `/api/`, `/admin/`, `/media/`, `/static/`.
+- **`bestweb`** : Django + gunicorn, network `internal` uniquement (plus de
+  label Traefik). Reste joignable via `bestfront` sur le network interne.
+- Les URLs HTML historiques de Django (HomeView, `/catalog/`, `/dashboard/…`)
+  restent définies dans `urls.py` mais ne sont plus atteignables du public
+  puisque nginx ne les proxifie pas. Cf. commentaire au haut de `urls.py`.
+
 ## Vue d'ensemble
 
 ```

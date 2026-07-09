@@ -162,6 +162,52 @@ Roadmap R26+ non couvert : rate-limiting sur endpoints auth
 métriques Prometheus, OAuth Google/LinkedIn/Microsoft (variables d'env
 déjà prêtes côté front R23).
 
+## R26 — Bascule SPA React remplace HTML Django
+
+Publié : le frontend historique Django (`HomeView`, `/catalog/`,
+`/dashboard/…`) est remplacé en production par la SPA React. L'exposition
+Traefik du container Django (`bestweb`) est retirée au profit d'un
+nouveau container **`bestfront`** (nginx-alpine multi-stage) qui devient
+le point d'entrée public.
+
+**Nouveaux fichiers**
+- `frontend/Dockerfile` — build multi-stage `node:20-alpine` (typecheck +
+  `npm run build`) puis `nginx:1.27-alpine` avec le bundle.
+- `frontend/nginx.conf` — SPA fallback (`try_files … /index.html`), reverse
+  proxy `/api/`, `/admin/`, `/media/`, `/static/` vers `upstream django_backend`
+  (bestweb:8000), cache long pour `/assets/*` (hashés Vite immutables),
+  no-cache pour `sw.js`/`index.html`, `client_max_body_size 12M` cohérent
+  avec les upload limits Django, endpoint `/healthz` interne.
+
+**`docker-compose.yml`**
+- Nouveau service `bestfront` avec labels Traefik host `${APP_HOST}`,
+  middlewares HSTS + compression, healthcheck HTTP.
+- `bestweb` perd ses labels Traefik (`traefik.enable=false`) et son
+  network `proxy` (network `internal` uniquement).
+- Toutes les variables `VITE_*` sont passées en build-args au container
+  frontend (VITE_API_URL, VITE_SENTRY_DSN, VITE_OAUTH_*).
+
+**Django `urls.py`** — commentaire de contrat clarifie que les vues HTML
+sont conservées pour ne pas casser les `reverse()` internes (emails,
+redirections) mais ne sont plus atteignables du public. Le vrai cleanup
+est planifié R27+ après validation prod.
+
+**Procédure de bascule**
+1. `git pull` sur le serveur → nouvelles définitions.
+2. `cp .env.example .env` et remplir `APP_HOST`, `VITE_API_URL=https://${APP_HOST}`.
+3. `docker compose build bestfront` (build image ~ 60-90 s).
+4. `docker compose up -d bestfront` → Traefik prend le nouveau routeur.
+5. Vérifier `docker compose logs bestfront` puis `curl -I https://${APP_HOST}` (200 OK, `Server: nginx`).
+6. Test manuel : landing SPA + login + une page authentifiée.
+
+**Rollback** : `docker compose stop bestfront` et remettre les labels
+Traefik sur `bestweb` (voir git blame `docker-compose.yml` R25).
+
+Roadmap R27+ : nettoyage des vues HTML Django (`formations.HomeView`,
+`catalog.urls`, etc.), retrait des templates Django statiques, suppression
+des dépendances `tinymce` / template-forms uniquement utilisées par le
+front legacy.
+
 ---
 
 ## Compatibilité rétroactive

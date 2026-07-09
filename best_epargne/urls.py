@@ -1,4 +1,30 @@
+"""
+best_epargne/urls.py — URL configuration Django.
 
+R26 — Bascule SPA React
+──────────────────────────────────────────────────────────────
+Le frontend HTML historique est remplacé par la SPA React
+(`frontend/dist/` servie par le container `bestfront` derrière
+Traefik). Le container `bestweb` n'est PLUS exposé au public :
+seuls les préfixes suivants sont reverse-proxyés par nginx :
+
+    /api/…             ← SPA React (JWT)
+    /admin/…           ← admin Django
+    /media/…           ← uploads utilisateur
+    /static/…          ← assets admin/backend
+    /healthz/, /readyz/ ← probes
+
+Les autres URL déclarées ci-dessous (HomeView, `/catalog/`,
+`/dashboard/…`, `/landinghome/`, etc.) restent définies POUR :
+  1. Ne pas casser les `reverse()` utilisés dans les emails ou
+     les redirections internes ;
+  2. Servir de repli si l'admin frappe directement bestweb sur
+     le network interne (debug).
+
+Elles ne doivent plus être linkées depuis la SPA. Le grand ménage
+de ces vues legacy est planifié en R27+ (une fois la SPA validée
+en prod).
+"""
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
