@@ -382,6 +382,92 @@ urlpatterns = [
         InstructorQuizUpdateView.as_view(),
         name="api_instructor_quiz_update"
     ),
+    # --- R35 — Admin content lessons ---
+    path(
+        "admin/content/lessons/",
+        __import__(
+            "best_epargne.apis.api_admin_content",
+            fromlist=["AdminContentLessonsView"],
+        ).AdminContentLessonsView.as_view(),
+        name="api_admin_content_lessons",
+    ),
+
+    # --- R33 — Admin quizzes ---
+    path(
+        "admin/quizzes/",
+        __import__(
+            "best_epargne.apis.api_admin_quizzes",
+            fromlist=["AdminQuizzesListView"],
+        ).AdminQuizzesListView.as_view(),
+        name="api_admin_quizzes",
+    ),
+
+    # --- R32 — Admin moderation reviews ---
+    path(
+        "admin/reviews/",
+        __import__(
+            "best_epargne.apis.api_admin_moderation",
+            fromlist=["AdminReviewsListView"],
+        ).AdminReviewsListView.as_view(),
+        name="api_admin_reviews",
+    ),
+    path(
+        "admin/reviews/<int:review_id>/",
+        __import__(
+            "best_epargne.apis.api_admin_moderation",
+            fromlist=["AdminReviewDetailView"],
+        ).AdminReviewDetailView.as_view(),
+        name="api_admin_review_detail",
+    ),
+
+    # --- R31 — Admin organizations ---
+    path(
+        "admin/organizations/",
+        __import__(
+            "best_epargne.apis.api_admin_organizations",
+            fromlist=["AdminOrganizationsListView"],
+        ).AdminOrganizationsListView.as_view(),
+        name="api_admin_organizations",
+    ),
+    path(
+        "admin/organizations/<int:org_id>/",
+        __import__(
+            "best_epargne.apis.api_admin_organizations",
+            fromlist=["AdminOrganizationDetailView"],
+        ).AdminOrganizationDetailView.as_view(),
+        name="api_admin_organization_detail",
+    ),
+
+    # --- R30 — Admin instructors ---
+    path(
+        "admin/instructors/",
+        __import__(
+            "best_epargne.apis.api_admin_instructors",
+            fromlist=["AdminInstructorsListView"],
+        ).AdminInstructorsListView.as_view(),
+        name="api_admin_instructors",
+    ),
+
+    # --- R28 — Admin enrollments ---
+    path(
+        "admin/enrollments/",
+        __import__(
+            "best_epargne.apis.api_admin_enrollments",
+            fromlist=["AdminEnrollmentsListView"],
+        ).AdminEnrollmentsListView.as_view(),
+        name="api_admin_enrollments",
+    ),
+
+    # --- R28 — Admin audit log (lifecycle cours) ---
+    path(
+        "admin/audit/course-lifecycle/",
+        __import__(
+            "best_epargne.apis.api_admin_audit",
+            fromlist=["AdminAuditCourseLifecycleView"],
+        ).AdminAuditCourseLifecycleView.as_view(),
+        name="api_admin_audit_course_lifecycle",
+    ),
+
     # --- R20 — Certificate Template Builder ---
     path(
         "instructor/certificate-templates/",

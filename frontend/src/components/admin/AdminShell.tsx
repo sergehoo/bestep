@@ -24,6 +24,20 @@ import {
   X,
   LogOut,
   Bell,
+  GraduationCap,
+  Library,
+  Award,
+  Wallet,
+  Tag,
+  MessageSquareWarning,
+  LifeBuoy,
+  BarChart3,
+  ScrollText,
+  UserCog,
+  ClipboardList,
+  Coins,
+  Shield,
+  LucideIcon,
 } from 'lucide-react';
 
 import { useAuthStore, useAuthUser } from '@/stores/auth';
@@ -36,12 +50,86 @@ interface Props {
   children: ReactNode;
 }
 
-const MAIN_NAV = [
-  { to: '/dashboard/admin', label: 'Cockpit', Icon: LayoutDashboard },
-  { to: '/admin/users', label: 'Utilisateurs', Icon: Users },
-  { to: '/admin/courses', label: 'Cours', Icon: BookOpen },
-  { to: '/admin/organizations', label: 'Organisations', Icon: Building2 },
-  { to: '/admin/config', label: 'Configuration', Icon: Settings },
+interface NavItem {
+  to: string;
+  label: string;
+  Icon: LucideIcon;
+  /** Placeholder visuel (backend endpoints à venir R29+). */
+  wip?: boolean;
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+/**
+ * Navigation admin structurée en 6 sections (R28) :
+ *   1. Vue d'ensemble  — Cockpit + Journal + Notifications
+ *   2. Communauté      — Users + Formateurs + Organisations + Rôles
+ *   3. Catalogue       — Cours + Inscriptions + Contenu + Bibliothèque
+ *   4. Certifications  — Certificats + Quiz
+ *   5. Finance         — Paiements + Commissions + Reversements + Marketing
+ *   6. Plateforme      — Modération + Support + Rapports + Paramètres
+ *
+ * Chaque item marqué `wip: true` renvoie sur AdminPlaceholderPage tant que
+ * le backend n'expose pas les endpoints requis (roadmap R29+).
+ */
+export const ADMIN_NAV_SECTIONS: NavSection[] = [
+  {
+    label: 'Vue d\'ensemble',
+    items: [
+      { to: '/dashboard/admin', label: 'Cockpit', Icon: LayoutDashboard },
+      { to: '/admin/audit', label: 'Journal système', Icon: ScrollText },
+    ],
+  },
+  {
+    label: 'Communauté',
+    items: [
+      { to: '/admin/users', label: 'Utilisateurs', Icon: Users },
+      { to: '/admin/instructors', label: 'Formateurs', Icon: GraduationCap },
+      { to: '/admin/organizations', label: 'Organisations', Icon: Building2 },
+      { to: '/admin/roles', label: 'Rôles & permissions', Icon: Shield, wip: true },
+    ],
+  },
+  {
+    label: 'Catalogue',
+    items: [
+      { to: '/admin/courses', label: 'Cours', Icon: BookOpen },
+      { to: '/admin/enrollments', label: 'Inscriptions', Icon: ClipboardList },
+      { to: '/admin/content', label: 'Contenu pédagogique', Icon: Library },
+    ],
+  },
+  {
+    label: 'Certifications',
+    items: [
+      {
+        to: '/instructor/certificate-templates',
+        label: 'Modèles certif.',
+        Icon: Award,
+      },
+      { to: '/admin/quiz', label: 'Quiz plateforme', Icon: MessageSquareWarning },
+    ],
+  },
+  {
+    label: 'Finance',
+    items: [
+      { to: '/admin/payments', label: 'Paiements', Icon: Wallet, wip: true },
+      { to: '/admin/commissions', label: 'Commissions', Icon: Coins, wip: true },
+      { to: '/admin/payouts', label: 'Reversements', Icon: Wallet, wip: true },
+      { to: '/admin/marketing', label: 'Marketing', Icon: Tag, wip: true },
+    ],
+  },
+  {
+    label: 'Plateforme',
+    items: [
+      { to: '/admin/moderation', label: 'Modération', Icon: MessageSquareWarning },
+      { to: '/admin/support', label: 'Support', Icon: LifeBuoy, wip: true },
+      { to: '/admin/reports', label: 'Rapports', Icon: BarChart3, wip: true },
+      { to: '/admin/config', label: 'Configuration', Icon: Settings },
+      { to: '/admin/settings', label: 'Paramètres avancés', Icon: UserCog, wip: true },
+    ],
+  },
 ];
 
 export function AdminShell({ title, subtitle, actions, children }: Props) {
@@ -239,34 +327,44 @@ function SidebarContent({
         </div>
       )}
 
-      <nav className="flex-1 overflow-y-auto p-4 space-y-6">
-        <div>
-          <p className="px-3 mb-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
-            Administration
-          </p>
-          <ul className="space-y-0.5">
-            {MAIN_NAV.map((it) => (
-              <li key={it.to}>
-                <NavLink
-                  to={it.to}
-                  end={it.to === '/dashboard/admin'}
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition',
-                      isActive
-                        ? 'bg-primary-600 text-white shadow-sm'
-                        : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700',
-                    )
-                  }
-                >
-                  <it.Icon className="w-4 h-4 shrink-0" />
-                  <span className="flex-1">{it.label}</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <nav className="flex-1 overflow-y-auto p-4 space-y-5">
+        {ADMIN_NAV_SECTIONS.map((section) => (
+          <div key={section.label}>
+            <p className="px-3 mb-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+              {section.label}
+            </p>
+            <ul className="space-y-0.5">
+              {section.items.map((it) => (
+                <li key={it.to}>
+                  <NavLink
+                    to={it.to}
+                    end={it.to === '/dashboard/admin'}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition group',
+                        isActive
+                          ? 'bg-primary-600 text-white shadow-sm'
+                          : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700',
+                      )
+                    }
+                  >
+                    <it.Icon className="w-4 h-4 shrink-0" />
+                    <span className="flex-1 truncate">{it.label}</span>
+                    {it.wip && (
+                      <span
+                        className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 group-[.text-white]:bg-white/25 group-[.text-white]:text-white"
+                        title="Backend endpoints en cours de livraison (R29+)"
+                      >
+                        WIP
+                      </span>
+                    )}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
 
         <div>
           <p className="px-3 mb-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
@@ -278,7 +376,7 @@ function SidebarContent({
                 href="/admin/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition"
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition"
                 onClick={onNavigate}
               >
                 <Settings className="w-4 h-4 shrink-0" />

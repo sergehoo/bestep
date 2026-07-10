@@ -19,11 +19,13 @@ import {
   BookOpen,
   Star,
   Users,
-  ArrowRight,
   Filter,
   ExternalLink,
   PenSquare,
   Award,
+  EyeOff,
+  Archive,
+  Loader2,
 } from 'lucide-react';
 
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -31,8 +33,11 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
+import { ConfirmDialog } from '@/components/admin/primitives';
 import { usePublicCourses, usePublicCategories } from '@/hooks/queries';
-import type { CourseType } from '@/lib/types';
+import { useCourseLifecycle } from '@/hooks/instructor';
+import { extractApiError } from '@/lib/utils';
+import type { CourseType, PublicCourseListItem } from '@/lib/types';
 
 const TYPE_LABELS: Record<CourseType, string> = {
   CERTIFIANTE: 'Certifiante',
@@ -236,24 +241,7 @@ export default function AdminCoursesPage() {
                         : `${Number(c.price).toLocaleString('fr-FR')} ${c.currency}`}
                     </td>
                     <td className="p-3">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Link
-                          to={`/courses/${c.slug}`}
-                          target="_blank"
-                          className="p-1.5 rounded-lg text-neutral-500 hover:text-primary-700 hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                          title="Voir la fiche publique"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </Link>
-                        <Link
-                          to={`/instructor/courses/${c.id}/edit`}
-                          className="p-1.5 rounded-lg text-neutral-500 hover:text-emerald-700 hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                          title="Ouvrir l'éditeur (admin bypass)"
-                        >
-                          <PenSquare className="w-4 h-4" />
-                        </Link>
-                        <ArrowRight className="w-4 h-4 text-neutral-300" />
-                      </div>
+                      <CourseRowActions course={c} />
                     </td>
                   </tr>
                 ))}
@@ -308,5 +296,119 @@ function KpiCard({ Icon, label, value, color }: KpiCardProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// CourseRowActions — Actions admin lifecycle sur une ligne (R29.3)
+// ─────────────────────────────────────────────────────────────
+
+interface CourseRowActionsProps {
+  course: PublicCourseListItem;
+}
+
+function CourseRowActions({ course }: CourseRowActionsProps) {
+  const lifecycle = useCourseLifecycle(course.id);
+  const [confirm, setConfirm] = useState<
+    null | { transition: 'unpublish' | 'archive'; label: string }
+  >(null);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  const runTransition = async () => {
+    if (!confirm) return;
+    try {
+      await lifecycle.mutateAsync(confirm.transition);
+      setFlash(`✓ Cours ${confirm.label}`);
+      setConfirm(null);
+      setTimeout(() => setFlash(null), 3000);
+    } catch (err) {
+      setFlash(`✗ ${extractApiError(err, 'Action échouée')}`);
+      setConfirm(null);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex items-center justify-end gap-1.5">
+        <Link
+          to={`/courses/${course.slug}`}
+          target="_blank"
+          className="p-1.5 rounded-lg text-neutral-500 hover:text-primary-700 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+          title="Voir la fiche publique"
+        >
+          <ExternalLink className="w-4 h-4" />
+        </Link>
+        <Link
+          to={`/instructor/courses/${course.id}/edit`}
+          className="p-1.5 rounded-lg text-neutral-500 hover:text-emerald-700 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+          title="Ouvrir l'éditeur (admin bypass)"
+        >
+          <PenSquare className="w-4 h-4" />
+        </Link>
+        <button
+          type="button"
+          onClick={() =>
+            setConfirm({ transition: 'unpublish', label: 'dépublié' })
+          }
+          disabled={lifecycle.isPending}
+          className="p-1.5 rounded-lg text-neutral-500 hover:text-amber-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-40"
+          title="Dépublier"
+        >
+          {lifecycle.isPending && lifecycle.variables === 'unpublish' ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <EyeOff className="w-4 h-4" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            setConfirm({ transition: 'archive', label: 'archivé' })
+          }
+          disabled={lifecycle.isPending}
+          className="p-1.5 rounded-lg text-neutral-500 hover:text-rose-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-40"
+          title="Archiver"
+        >
+          {lifecycle.isPending && lifecycle.variables === 'archive' ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Archive className="w-4 h-4" />
+          )}
+        </button>
+      </div>
+      {flash && (
+        <p
+          className={
+            'mt-1 text-[10px] text-right ' +
+            (flash.startsWith('✓')
+              ? 'text-emerald-600'
+              : 'text-rose-600')
+          }
+        >
+          {flash}
+        </p>
+      )}
+
+      <ConfirmDialog
+        open={!!confirm}
+        onClose={() => setConfirm(null)}
+        onConfirm={runTransition}
+        title={
+          confirm?.transition === 'unpublish'
+            ? 'Dépublier ce cours ?'
+            : 'Archiver ce cours ?'
+        }
+        description={
+          confirm?.transition === 'unpublish'
+            ? `Le cours "${course.title}" ne sera plus visible dans le catalogue. Les inscriptions existantes restent actives. Vous pourrez le republier plus tard.`
+            : `Le cours "${course.title}" sera archivé. Il disparaît complètement du catalogue et bloque les nouvelles inscriptions. Restaurable depuis l'éditeur instructor.`
+        }
+        confirmLabel={
+          confirm?.transition === 'unpublish' ? 'Dépublier' : 'Archiver'
+        }
+        destructive={confirm?.transition === 'archive'}
+        loading={lifecycle.isPending}
+      />
+    </>
   );
 }

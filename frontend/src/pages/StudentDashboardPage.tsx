@@ -32,6 +32,20 @@ export default function StudentDashboardPage() {
   const { data, isLoading } = useStudentDashboard(period);
   const user = useAuthUser();
 
+  // R29 — Accès défensif : évite tout crash React si le backend renvoie
+  // un payload incomplet (compte tout neuf, erreur transitoire, config
+  // partielle).
+  const kpis = data?.kpis ?? {
+    in_progress: 0,
+    completed: 0,
+    certificates: 0,
+    total_hours: 0,
+  };
+  const series = data?.series ?? {
+    activity_minutes_per_day: [],
+    completions_per_day: [],
+  };
+
   return (
     <DashboardShell
       title="Mon espace apprenant"
@@ -55,25 +69,25 @@ export default function StudentDashboardPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
               label="En cours"
-              value={data.kpis.in_progress}
+              value={kpis.in_progress}
               Icon={BookOpen}
               accent="primary"
             />
             <KpiCard
               label="Terminés"
-              value={data.kpis.completed}
+              value={kpis.completed}
               Icon={CheckCircle}
               accent="success"
             />
             <KpiCard
               label="Certificats"
-              value={data.kpis.certificates}
+              value={kpis.certificates}
               Icon={Award}
               accent="accent"
             />
             <KpiCard
               label="Heures apprises"
-              value={`${data.kpis.total_hours}h`}
+              value={`${kpis.total_hours}h`}
               Icon={Clock}
               accent="primary"
             />
@@ -129,7 +143,7 @@ export default function StudentDashboardPage() {
             />
             <CardBody>
               <TrendLineChart
-                data={data.series?.activity_minutes_per_day ?? []}
+                data={series.activity_minutes_per_day ?? []}
                 color="primary"
                 yLabel="min"
                 ariaLabel="Minutes d'apprentissage par jour"

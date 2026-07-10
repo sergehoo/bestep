@@ -5,10 +5,16 @@
  * Lazy loading via React.lazy pour code splitting.
  */
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+  type RouteObject,
+} from 'react-router-dom';
 import { useIsAuthenticated, useIsPlatformAdmin, useAuthUser } from '@/stores/auth';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { resolvePostLoginTarget } from '@/lib/auth-redirect';
+import { RouteErrorElement } from '@/components/RouteErrorElement';
 
 // Lazy pages (code-split)
 const HomePage = lazy(() => import('@/pages/HomePage'));
@@ -48,6 +54,63 @@ const AdminUserDetailPage = lazy(() => import('@/pages/admin/AdminUserDetailPage
 const AdminConfigPage = lazy(() => import('@/pages/admin/AdminConfigPage'));
 // R27 : supervision des cours plateforme
 const AdminCoursesPage = lazy(() => import('@/pages/admin/AdminCoursesPage'));
+// R28 : audit + enrollments + placeholders
+const AdminAuditLogPage = lazy(() => import('@/pages/admin/AdminAuditLogPage'));
+const AdminEnrollmentsPage = lazy(() => import('@/pages/admin/AdminEnrollmentsPage'));
+// R30 : page instructeurs branchée (remplace le placeholder)
+const AdminInstructorsPage = lazy(() => import('@/pages/admin/AdminInstructorsPage'));
+// R31 : page organisations branchée
+const AdminOrganizationsPage = lazy(() => import('@/pages/admin/AdminOrganizationsPage'));
+// R32 : page modération branchée
+const AdminModerationPage = lazy(() => import('@/pages/admin/AdminModerationPage'));
+// R33 : page quiz plateforme branchée
+const AdminQuizzesPage = lazy(() => import('@/pages/admin/AdminQuizzesPage'));
+// R35 : page contenu pédagogique branchée
+const AdminContentPage = lazy(() => import('@/pages/admin/AdminContentPage'));
+// R31 : placeholder Organizations retiré, remplacé par AdminOrganizationsPage
+const AdminRolesPlaceholder = lazy(() =>
+  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
+    default: m.AdminRolesPlaceholder,
+  })),
+);
+// R35 : placeholder Content remplacé par AdminContentPage
+// R33 : placeholder Quizzes remplacé par AdminQuizzesPage
+const AdminPaymentsPlaceholder = lazy(() =>
+  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
+    default: m.AdminPaymentsPlaceholder,
+  })),
+);
+const AdminCommissionsPlaceholder = lazy(() =>
+  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
+    default: m.AdminCommissionsPlaceholder,
+  })),
+);
+const AdminPayoutsPlaceholder = lazy(() =>
+  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
+    default: m.AdminPayoutsPlaceholder,
+  })),
+);
+const AdminMarketingPlaceholder = lazy(() =>
+  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
+    default: m.AdminMarketingPlaceholder,
+  })),
+);
+// R32 : placeholder Moderation remplacé par AdminModerationPage
+const AdminSupportPlaceholder = lazy(() =>
+  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
+    default: m.AdminSupportPlaceholder,
+  })),
+);
+const AdminReportsPlaceholder = lazy(() =>
+  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
+    default: m.AdminReportsPlaceholder,
+  })),
+);
+const AdminSettingsPlaceholder = lazy(() =>
+  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
+    default: m.AdminSettingsPlaceholder,
+  })),
+);
 // R12 : espace apprenant premium
 const LearnerDashboardPage = lazy(() => import('@/pages/learner/LearnerDashboardPage'));
 const LearnerCoursesPage = lazy(() => import('@/pages/learner/LearnerCoursesPage'));
@@ -118,7 +181,28 @@ function InstructorOnlyRoute({ children }: { children: React.ReactNode }) {
 // Router
 // ─────────────────────────────────────────────────────────────────────
 
-const router = createBrowserRouter([
+/**
+ * R29.2 — Décore récursivement chaque route avec un `errorElement` par
+ * défaut si elle n'en a pas déjà un. Toute erreur JS non catchée ou 4xx
+ * loader tombera sur `RouteErrorElement` au lieu de la page « Unexpected
+ * Application Error » par défaut de React Router.
+ */
+function withErrorBoundary(routes: RouteObject[]): RouteObject[] {
+  // RouteObject est une union (index vs non-index) — le spread littéral
+  // casse la vérification stricte. On cast car on préserve la structure.
+  return routes.map(
+    (r) =>
+      ({
+        ...r,
+        errorElement: r.errorElement ?? <RouteErrorElement />,
+        ...(r.children
+          ? { children: withErrorBoundary(r.children) }
+          : {}),
+      }) as RouteObject,
+  );
+}
+
+const router = createBrowserRouter(withErrorBoundary([
   // ─── Public ─────────────────────────────────────────────
   {
     path: '/',
@@ -545,6 +629,59 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
+  // R28 : audit log
+  {
+    path: '/admin/audit',
+    element: (
+      <ProtectedRoute>
+        <AdminOnlyRoute>
+          <Suspense fallback={<PageSpinner />}>
+            <AdminAuditLogPage />
+          </Suspense>
+        </AdminOnlyRoute>
+      </ProtectedRoute>
+    ),
+  },
+  // R28 : inscriptions
+  {
+    path: '/admin/enrollments',
+    element: (
+      <ProtectedRoute>
+        <AdminOnlyRoute>
+          <Suspense fallback={<PageSpinner />}>
+            <AdminEnrollmentsPage />
+          </Suspense>
+        </AdminOnlyRoute>
+      </ProtectedRoute>
+    ),
+  },
+  // R28 : placeholders honnêtes (modules WIP, backend R29+)
+  ...[
+    { path: '/admin/instructors', Component: AdminInstructorsPage },
+    { path: '/admin/organizations', Component: AdminOrganizationsPage },
+    { path: '/admin/roles', Component: AdminRolesPlaceholder },
+    { path: '/admin/content', Component: AdminContentPage },
+    { path: '/admin/quiz', Component: AdminQuizzesPage },
+    { path: '/admin/payments', Component: AdminPaymentsPlaceholder },
+    { path: '/admin/commissions', Component: AdminCommissionsPlaceholder },
+    { path: '/admin/payouts', Component: AdminPayoutsPlaceholder },
+    { path: '/admin/marketing', Component: AdminMarketingPlaceholder },
+    { path: '/admin/moderation', Component: AdminModerationPage },
+    { path: '/admin/support', Component: AdminSupportPlaceholder },
+    { path: '/admin/reports', Component: AdminReportsPlaceholder },
+    { path: '/admin/settings', Component: AdminSettingsPlaceholder },
+  ].map(({ path, Component }) => ({
+    path,
+    element: (
+      <ProtectedRoute>
+        <AdminOnlyRoute>
+          <Suspense fallback={<PageSpinner />}>
+            <Component />
+          </Suspense>
+        </AdminOnlyRoute>
+      </ProtectedRoute>
+    ),
+  })),
   {
     path: '/admin/users/:id',
     element: (
@@ -579,7 +716,7 @@ const router = createBrowserRouter([
       </Suspense>
     ),
   },
-], {
+]), {
   // Opt-in RR v7 future flags côté router — supprime les warnings console
   // et prépare la migration React Router 7 sans surprise.
   // (v7_startTransition vit sur RouterProvider, pas ici.)

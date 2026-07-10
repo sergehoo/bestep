@@ -38,6 +38,26 @@ export default function InstructorDashboardPage() {
       value: c.enrolled_count,
     })) ?? [];
 
+  // R29 — Accès défensif : évite tout crash React si le backend renvoie
+  // un payload incomplet (fresh DB, erreur transitoire, config partielle).
+  const kpis = data?.kpis ?? {
+    published_courses: 0,
+    total_courses: 0,
+    draft_courses: 0,
+    review_courses: 0,
+    total_enrollments: 0,
+    avg_rating: 0,
+    rating_count: 0,
+    revenue_total: 0,
+    active_students: 0,
+    completion_rate: 0,
+  };
+  const series = data?.series ?? {
+    enrollments_per_day: [],
+    revenue_per_day: [],
+    new_students_per_day: [],
+  };
+
   return (
     <DashboardShell
       title="Espace formateur"
@@ -57,17 +77,17 @@ export default function InstructorDashboardPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
               label="Cours publiés"
-              value={data.kpis.published_courses}
-              hint={`${data.kpis.total_courses} au total`}
+              value={kpis.published_courses}
+              hint={`${kpis.total_courses} au total`}
               Icon={BookOpen}
               accent="primary"
             />
             <KpiCard
               label="Brouillons"
-              value={data.kpis.draft_courses}
+              value={kpis.draft_courses}
               hint={
-                data.kpis.review_courses > 0
-                  ? `${data.kpis.review_courses} en review`
+                kpis.review_courses > 0
+                  ? `${kpis.review_courses} en review`
                   : undefined
               }
               Icon={FileText}
@@ -75,16 +95,16 @@ export default function InstructorDashboardPage() {
             />
             <KpiCard
               label="Inscrits totaux"
-              value={data.kpis.total_enrollments}
+              value={kpis.total_enrollments}
               Icon={Users}
               accent="success"
             />
             <KpiCard
               label="Note moyenne"
-              value={data.kpis.avg_rating ? data.kpis.avg_rating.toFixed(2) : '—'}
+              value={kpis.avg_rating ? kpis.avg_rating.toFixed(2) : '—'}
               hint={
-                data.kpis.rating_count > 0
-                  ? `${data.kpis.rating_count} avis`
+                kpis.rating_count > 0
+                  ? `${kpis.rating_count} avis`
                   : 'Aucun avis'
               }
               Icon={Star}
@@ -104,7 +124,7 @@ export default function InstructorDashboardPage() {
               />
               <CardBody>
                 <TrendLineChart
-                  data={data.series?.enrollments_per_day ?? []}
+                  data={series.enrollments_per_day ?? []}
                   color="primary"
                   yLabel="Insc."
                   ariaLabel="Nouvelles inscriptions par jour"
@@ -121,7 +141,7 @@ export default function InstructorDashboardPage() {
               />
               <CardBody>
                 <TrendLineChart
-                  data={data.series?.revenue_per_day ?? []}
+                  data={series.revenue_per_day ?? []}
                   color="accent"
                   yLabel="XOF"
                   valueFormatter={(v) => formatPrice(v, 'XOF')}
