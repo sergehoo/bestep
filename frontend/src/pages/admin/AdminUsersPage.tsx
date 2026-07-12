@@ -10,6 +10,7 @@ import {
   BookOpen,
   UserX,
   UserCheck,
+  UserPlus,
 } from 'lucide-react';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
+import { CreateUserModal } from '@/components/admin/CreateUserModal';
 import { useAdminUsers } from '@/hooks/admin';
 import type { AdminUserFilters } from '@/lib/types';
 
@@ -53,6 +55,7 @@ export default function AdminUsersPage() {
     page: 1,
   });
   const [q, setQ] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
   const { data, isLoading, isFetching } = useAdminUsers(filters);
 
   const submitSearch = (e: React.FormEvent) => {
@@ -68,7 +71,28 @@ export default function AdminUsersPage() {
       title="Utilisateurs"
       subtitle={`${data?.count ?? '—'} utilisateurs au total. Édition rapide, gestion des rôles, désactivation.`}
     >
+      <CreateUserModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        defaultRole="INSTRUCTOR"
+      />
       <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Liste des utilisateurs plateforme. Créez un compte formateur,
+            apprenant, admin ou staff en un clic.
+          </p>
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            onClick={() => setCreateOpen(true)}
+          >
+            <UserPlus className="w-4 h-4" />
+            Créer un utilisateur
+          </Button>
+        </div>
+
         {/* Filtres */}
         <form
           onSubmit={submitSearch}

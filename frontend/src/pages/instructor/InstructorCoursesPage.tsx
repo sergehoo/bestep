@@ -2,7 +2,7 @@
  * InstructorCoursesPage.tsx — Liste cours instructor (R13.3).
  * Toggle vue cards / table. Filtres avancés. Actions rapides.
  */
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus,
@@ -450,9 +450,37 @@ function TableView({
 
 function QuickActions() {
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  // Recalcule la position du menu à l'ouverture. On rend le menu en
+  // position `fixed` pour échapper au `overflow-hidden` de la card
+  // parente (nécessaire pour arrondir la thumbnail).
+  useLayoutEffect(() => {
+    if (!open) return;
+    function update() {
+      const btn = btnRef.current;
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      const menuWidth = 160;
+      setPos({
+        top: r.bottom + 4,
+        left: Math.max(8, r.right - menuWidth),
+      });
+    }
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="px-3 py-2 rounded-xl text-xs font-semibold border border-neutral-200 hover:bg-neutral-50 transition"
@@ -461,21 +489,24 @@ function QuickActions() {
       >
         <MoreHorizontal className="w-3.5 h-3.5" />
       </button>
-      {open && (
+      {open && pos && (
         <>
           <div
-            className="fixed inset-0 z-10"
+            className="fixed inset-0 z-40"
             onClick={() => setOpen(false)}
             aria-hidden
           />
-          <div className="absolute right-0 top-full mt-1 z-20 w-40 bg-white border border-neutral-100 rounded-xl shadow-lift overflow-hidden">
+          <div
+            className="fixed z-50 w-40 bg-white border border-neutral-100 rounded-xl shadow-lift overflow-hidden"
+            style={{ top: pos.top, left: pos.left }}
+          >
             <MenuButton Icon={Copy} label="Dupliquer" />
             <MenuButton Icon={Download} label="Exporter" />
             <MenuButton Icon={Wallet} label="Voir revenus" />
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
 

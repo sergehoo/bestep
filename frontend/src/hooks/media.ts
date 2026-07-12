@@ -96,7 +96,8 @@ export function useDeleteMedia() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data } = await api.post(`/instructor/media/${id}/delete/`);
+      // Le backend expose HTTP DELETE sur cette URL (pas POST).
+      const { data } = await api.delete(`/instructor/media/${id}/delete/`);
       return data;
     },
     onSuccess: () => {
@@ -119,6 +120,8 @@ export interface UploadInitPayload {
 }
 
 interface UploadInitResponse {
+  upload_id: string;      // ← Requis par MediaUploadFinalizeSerializer
+  bucket?: string;
   upload_url: string;
   object_key: string;
   method?: 'PUT' | 'POST';
@@ -168,12 +171,12 @@ export function useUploadMedia() {
       }
       onProgress?.(90);
 
-      // 3) finalize
+      // 3) finalize — upload_id est OBLIGATOIRE côté backend
       const { data: asset } = await api.post<MediaAsset>(
         '/media/upload/finalize/',
         {
+          upload_id: init.upload_id,
           object_key: init.object_key,
-          filename: file.name,
           content_type: file.type,
           size: file.size,
           kind,

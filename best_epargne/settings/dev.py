@@ -27,7 +27,10 @@ DATABASES = {
     }
 }
 
-LOGIN_URL = "/account/login/"
+# Depuis la bascule SPA (R26) — la route login vit dans React à /login.
+# On garde ces overrides dev pour la symétrie mais ils dupliquent
+# désormais les valeurs de base.py.
+LOGIN_URL = "/login"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 

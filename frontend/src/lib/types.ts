@@ -26,6 +26,9 @@ export interface User {
   avatar_url: string | null;
   roles: UserRole[];
   is_platform_admin: boolean;
+  // Ajouté pour Best-AI T4 — le compte peut être désactivé par un admin.
+  // Optionnel pour rétro-compat : absent = considéré actif côté frontend.
+  is_active?: boolean;
   preferences: UserPreferences;
   created_at: string;
   last_login: string | null;

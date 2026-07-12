@@ -15,6 +15,7 @@ import { useIsAuthenticated, useIsPlatformAdmin, useAuthUser } from '@/stores/au
 import { PageSpinner } from '@/components/ui/Spinner';
 import { resolvePostLoginTarget } from '@/lib/auth-redirect';
 import { RouteErrorElement } from '@/components/RouteErrorElement';
+import { RootLayout } from '@/components/RootLayout';
 
 // Lazy pages (code-split)
 const HomePage = lazy(() => import('@/pages/HomePage'));
@@ -48,6 +49,16 @@ const InstructorSettingsPage = lazy(() => import('@/pages/instructor/InstructorS
 const InstructorCertificateTemplatesPage = lazy(
   () => import('@/pages/instructor/InstructorCertificateTemplatesPage'),
 );
+// AI-P2 : Générateur de cours IA
+const AICourseGeneratorPage = lazy(
+  () => import('@/pages/instructor/AICourseGeneratorPage'),
+);
+// AI-P4 : Atelier des outils IA
+const AIToolsPage = lazy(() => import('@/pages/AIToolsPage'));
+// AI-P5 : Base de connaissances
+const AIKnowledgeBasePage = lazy(() => import('@/pages/AIKnowledgeBasePage'));
+// AI-P6 : Centre admin IA (super admin only)
+const AIAdminCenterPage = lazy(() => import('@/pages/admin/AIAdminCenterPage'));
 // R7 : admin plateforme
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage'));
 const AdminUserDetailPage = lazy(() => import('@/pages/admin/AdminUserDetailPage'));
@@ -67,50 +78,34 @@ const AdminModerationPage = lazy(() => import('@/pages/admin/AdminModerationPage
 const AdminQuizzesPage = lazy(() => import('@/pages/admin/AdminQuizzesPage'));
 // R35 : page contenu pédagogique branchée
 const AdminContentPage = lazy(() => import('@/pages/admin/AdminContentPage'));
+// R37 : page paiements branchée
+const AdminPaymentsPage = lazy(() => import('@/pages/admin/AdminPaymentsPage'));
+// R38 : page marketing/coupons branchée
+const AdminMarketingPage = lazy(() => import('@/pages/admin/AdminMarketingPage'));
+// R39 : page rôles & permissions branchée
+const AdminRolesPage = lazy(() => import('@/pages/admin/AdminRolesPage'));
+// R40 : page support (MVP notifications) branchée
+const AdminSupportPage = lazy(() => import('@/pages/admin/AdminSupportPage'));
+// R41 : page commissions branchée
+const AdminCommissionsPage = lazy(() => import('@/pages/admin/AdminCommissionsPage'));
+// R42 : page reversements branchée
+const AdminPayoutsPage = lazy(() => import('@/pages/admin/AdminPayoutsPage'));
+// R43 : page rapports branchée
+const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage'));
+// R44 : page paramètres avancés branchée
+const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage'));
 // R31 : placeholder Organizations retiré, remplacé par AdminOrganizationsPage
-const AdminRolesPlaceholder = lazy(() =>
-  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
-    default: m.AdminRolesPlaceholder,
-  })),
-);
+// R39 : placeholder Roles remplacé par AdminRolesPage
 // R35 : placeholder Content remplacé par AdminContentPage
 // R33 : placeholder Quizzes remplacé par AdminQuizzesPage
-const AdminPaymentsPlaceholder = lazy(() =>
-  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
-    default: m.AdminPaymentsPlaceholder,
-  })),
-);
-const AdminCommissionsPlaceholder = lazy(() =>
-  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
-    default: m.AdminCommissionsPlaceholder,
-  })),
-);
-const AdminPayoutsPlaceholder = lazy(() =>
-  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
-    default: m.AdminPayoutsPlaceholder,
-  })),
-);
-const AdminMarketingPlaceholder = lazy(() =>
-  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
-    default: m.AdminMarketingPlaceholder,
-  })),
-);
+// R37 : placeholder Payments remplacé par AdminPaymentsPage
+// R41 : placeholder Commissions remplacé par AdminCommissionsPage
+// R42 : placeholder Payouts remplacé par AdminPayoutsPage
+// R38 : placeholder Marketing remplacé par AdminMarketingPage
 // R32 : placeholder Moderation remplacé par AdminModerationPage
-const AdminSupportPlaceholder = lazy(() =>
-  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
-    default: m.AdminSupportPlaceholder,
-  })),
-);
-const AdminReportsPlaceholder = lazy(() =>
-  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
-    default: m.AdminReportsPlaceholder,
-  })),
-);
-const AdminSettingsPlaceholder = lazy(() =>
-  import('@/pages/admin/AdminPlaceholderPage').then((m) => ({
-    default: m.AdminSettingsPlaceholder,
-  })),
-);
+// R40 : placeholder Support remplacé par AdminSupportPage (MVP)
+// R43 : placeholder Reports remplacé par AdminReportsPage
+// R44 : placeholder Settings remplacé par AdminSettingsPage
 // R12 : espace apprenant premium
 const LearnerDashboardPage = lazy(() => import('@/pages/learner/LearnerDashboardPage'));
 const LearnerCoursesPage = lazy(() => import('@/pages/learner/LearnerCoursesPage'));
@@ -202,7 +197,11 @@ function withErrorBoundary(routes: RouteObject[]): RouteObject[] {
   );
 }
 
-const router = createBrowserRouter(withErrorBoundary([
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    errorElement: <RouteErrorElement />,
+    children: withErrorBoundary([
   // ─── Public ─────────────────────────────────────────────
   {
     path: '/',
@@ -529,6 +528,54 @@ const router = createBrowserRouter(withErrorBoundary([
       </ProtectedRoute>
     ),
   },
+  // AI-P2 : Générateur de cours IA
+  {
+    path: '/instructor/ai/generate-course',
+    element: (
+      <ProtectedRoute>
+        <InstructorOnlyRoute>
+          <Suspense fallback={<PageSpinner />}>
+            <AICourseGeneratorPage />
+          </Suspense>
+        </InstructorOnlyRoute>
+      </ProtectedRoute>
+    ),
+  },
+  // AI-P4 : Atelier des tools IA (instructor + admin)
+  {
+    path: '/ai/tools',
+    element: (
+      <ProtectedRoute>
+        <Suspense fallback={<PageSpinner />}>
+          <AIToolsPage />
+        </Suspense>
+      </ProtectedRoute>
+    ),
+  },
+  // AI-P5 : Base de connaissances (instructor + admin)
+  {
+    path: '/ai/knowledge',
+    element: (
+      <ProtectedRoute>
+        <Suspense fallback={<PageSpinner />}>
+          <AIKnowledgeBasePage />
+        </Suspense>
+      </ProtectedRoute>
+    ),
+  },
+  // AI-P6 : Centre d'administration IA (platform_admin uniquement)
+  {
+    path: '/admin/ai',
+    element: (
+      <ProtectedRoute>
+        <AdminOnlyRoute>
+          <Suspense fallback={<PageSpinner />}>
+            <AIAdminCenterPage />
+          </Suspense>
+        </AdminOnlyRoute>
+      </ProtectedRoute>
+    ),
+  },
   {
     path: '/instructor/settings',
     element: (
@@ -659,17 +706,17 @@ const router = createBrowserRouter(withErrorBoundary([
   ...[
     { path: '/admin/instructors', Component: AdminInstructorsPage },
     { path: '/admin/organizations', Component: AdminOrganizationsPage },
-    { path: '/admin/roles', Component: AdminRolesPlaceholder },
+    { path: '/admin/roles', Component: AdminRolesPage },
     { path: '/admin/content', Component: AdminContentPage },
     { path: '/admin/quiz', Component: AdminQuizzesPage },
-    { path: '/admin/payments', Component: AdminPaymentsPlaceholder },
-    { path: '/admin/commissions', Component: AdminCommissionsPlaceholder },
-    { path: '/admin/payouts', Component: AdminPayoutsPlaceholder },
-    { path: '/admin/marketing', Component: AdminMarketingPlaceholder },
+    { path: '/admin/payments', Component: AdminPaymentsPage },
+    { path: '/admin/commissions', Component: AdminCommissionsPage },
+    { path: '/admin/payouts', Component: AdminPayoutsPage },
+    { path: '/admin/marketing', Component: AdminMarketingPage },
     { path: '/admin/moderation', Component: AdminModerationPage },
-    { path: '/admin/support', Component: AdminSupportPlaceholder },
-    { path: '/admin/reports', Component: AdminReportsPlaceholder },
-    { path: '/admin/settings', Component: AdminSettingsPlaceholder },
+    { path: '/admin/support', Component: AdminSupportPage },
+    { path: '/admin/reports', Component: AdminReportsPage },
+    { path: '/admin/settings', Component: AdminSettingsPage },
   ].map(({ path, Component }) => ({
     path,
     element: (
@@ -716,7 +763,9 @@ const router = createBrowserRouter(withErrorBoundary([
       </Suspense>
     ),
   },
-]), {
+    ]),
+  },
+], {
   // Opt-in RR v7 future flags côté router — supprime les warnings console
   // et prépare la migration React Router 7 sans surprise.
   // (v7_startTransition vit sur RouterProvider, pas ici.)

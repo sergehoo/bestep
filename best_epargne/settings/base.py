@@ -93,6 +93,8 @@ INSTALLED_APPS = [
     "drf_spectacular_sidecar",
     # Module transverse (permissions, cache, templatetags a11y).
     "core",
+    # Module IA (assistant, providers, RAG — Phase 1 : fondations).
+    "ai",
     # V_FIN.B : notifications transverse (label notifications_app).
     "notifications.apps.NotificationsConfig",
     # Apps métier
@@ -383,8 +385,17 @@ ACCOUNT_RATE_LIMITS = {
 
 ACCOUNT_ADAPTER = "compte.adapters.AccountAdapter"
 
+# ─────────────────────────────────────────────────────────────
+# Auth redirects — depuis la bascule SPA React (R26), les routes
+# de login/logout vivent dans le frontend React à ``/login``.
+# Django ne sert plus les vues HTML ``/accounts/login/`` ni
+# ``/account/login/`` — toute redirection auto (ex: ``@login_required``,
+# accès à ``/admin/`` sans session) doit renvoyer vers ``/login``
+# qui préserve le ``?next=`` géré côté SPA.
+# ─────────────────────────────────────────────────────────────
+LOGIN_URL = "/login"
 LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/account/login/"
+LOGOUT_REDIRECT_URL = "/"
 
 ACCOUNT_FORMS = {
     "signup": "compte.forms.CustomSignupForm",

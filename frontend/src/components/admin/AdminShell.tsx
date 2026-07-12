@@ -89,7 +89,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
       { to: '/admin/users', label: 'Utilisateurs', Icon: Users },
       { to: '/admin/instructors', label: 'Formateurs', Icon: GraduationCap },
       { to: '/admin/organizations', label: 'Organisations', Icon: Building2 },
-      { to: '/admin/roles', label: 'Rôles & permissions', Icon: Shield, wip: true },
+      { to: '/admin/roles', label: 'Rôles & permissions', Icon: Shield },
     ],
   },
   {
@@ -114,20 +114,20 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
   {
     label: 'Finance',
     items: [
-      { to: '/admin/payments', label: 'Paiements', Icon: Wallet, wip: true },
-      { to: '/admin/commissions', label: 'Commissions', Icon: Coins, wip: true },
-      { to: '/admin/payouts', label: 'Reversements', Icon: Wallet, wip: true },
-      { to: '/admin/marketing', label: 'Marketing', Icon: Tag, wip: true },
+      { to: '/admin/payments', label: 'Paiements', Icon: Wallet },
+      { to: '/admin/commissions', label: 'Commissions', Icon: Coins },
+      { to: '/admin/payouts', label: 'Reversements', Icon: Wallet },
+      { to: '/admin/marketing', label: 'Marketing', Icon: Tag },
     ],
   },
   {
     label: 'Plateforme',
     items: [
       { to: '/admin/moderation', label: 'Modération', Icon: MessageSquareWarning },
-      { to: '/admin/support', label: 'Support', Icon: LifeBuoy, wip: true },
-      { to: '/admin/reports', label: 'Rapports', Icon: BarChart3, wip: true },
+      { to: '/admin/support', label: 'Support', Icon: LifeBuoy },
+      { to: '/admin/reports', label: 'Rapports', Icon: BarChart3 },
       { to: '/admin/config', label: 'Configuration', Icon: Settings },
-      { to: '/admin/settings', label: 'Paramètres avancés', Icon: UserCog, wip: true },
+      { to: '/admin/settings', label: 'Paramètres avancés', Icon: UserCog },
     ],
   },
 ];

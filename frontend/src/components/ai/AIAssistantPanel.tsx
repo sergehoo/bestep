@@ -1,0 +1,600 @@
+/**
+ * AIAssistantPanel.tsx — Panneau IA global (Phase 1).
+ *
+ * - Side panel à droite en mode compact, plein écran en mode expandu.
+ * - Liste des conversations + composition + streaming des deltas.
+ * - Contexte de page envoyé automatiquement à chaque message.
+ * - Feedback +/- sur chaque réponse assistant.
+ */
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import {
+  X,
+  Maximize2,
+  Minimize2,
+  Send,
+  Plus,
+  Trash2,
+  MessageSquare,
+  ThumbsUp,
+  ThumbsDown,
+  Copy,
+  Check,
+  Sparkles,
+  Loader2,
+  StopCircle,
+} from 'lucide-react';
+
+import {
+  useAIConfig,
+  useAIConversationDetail,
+  useAIConversations,
+  useAIFeedback,
+  useCreateAIConversation,
+  useDeleteAIConversation,
+} from '@/hooks/ai';
+import { streamAssistantMessage } from '@/lib/ai-stream';
+import type { AIMessage, AIStreamEvent } from '@/lib/ai-types';
+import { useAIPanel } from '@/stores/ai';
+import { useAuthUser, useIsAuthenticated } from '@/stores/auth';
+import { AIMessageRenderer } from './AIMessageRenderer';
+
+// ─────────────────────────────────────────────────────────────
+// Root panel
+// ─────────────────────────────────────────────────────────────
+
+export function AIAssistantPanel() {
+  const isAuth = useIsAuthenticated();
+  const user = useAuthUser();
+  const isActive = user?.is_active !== false;
+  const { isOpen, isFullscreen, activeConversationId, close, setFullscreen, setActiveConversation } =
+    useAIPanel();
+
+  const { data: config } = useAIConfig();
+  const { data: convList } = useAIConversations();
+  const { data: active } = useAIConversationDetail(activeConversationId ?? null);
+  const createMut = useCreateAIConversation();
+  const deleteMut = useDeleteAIConversation();
+
+  const location = useLocation();
+  const pageContext = useMemo(
+    () => ({
+      route: location.pathname,
+      search: location.search || '',
+    }),
+    [location.pathname, location.search],
+  );
+
+  // Streaming state (transient, hors TanStack)
+  const [streaming, setStreaming] = useState<{
+    assistantMessageId: number | null;
+    text: string;
+    running: boolean;
+  }>({ assistantMessageId: null, text: '', running: false });
+  const [error, setError] = useState<string>('');
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Sélectionne automatiquement la conversation la plus récente à l'ouverture.
+  useEffect(() => {
+    if (!isOpen || activeConversationId) return;
+    const first = convList?.results?.[0];
+    if (first) setActiveConversation(first.id);
+  }, [isOpen, activeConversationId, convList, setActiveConversation]);
+
+  async function handleNewConversation() {
+    const created = await createMut.mutateAsync({
+      title: 'Nouvelle conversation',
+      default_purpose: config?.default_purpose ?? 'chat_fast',
+      context: pageContext,
+    });
+    setActiveConversation(created.id);
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm('Supprimer cette conversation ?')) return;
+    await deleteMut.mutateAsync(id);
+    if (activeConversationId === id) setActiveConversation(null);
+  }
+
+  async function handleSend(content: string) {
+    if (!content.trim() || streaming.running) return;
+    setError('');
+    let conversationId = activeConversationId;
+    if (!conversationId) {
+      const created = await createMut.mutateAsync({
+        title: content.slice(0, 60),
+        default_purpose: config?.default_purpose ?? 'chat_fast',
+        context: pageContext,
+      });
+      conversationId = created.id;
+      setActiveConversation(created.id);
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setStreaming({ assistantMessageId: null, text: '', running: true });
+
+    await streamAssistantMessage({
+      conversationId: conversationId!,
+      content,
+      pageContext,
+      signal: controller.signal,
+      onEvent: (evt: AIStreamEvent) => {
+        if (evt.type === 'assistant_start') {
+          setStreaming({
+            assistantMessageId: evt.message_id,
+            text: '',
+            running: true,
+          });
+        } else if (evt.type === 'delta') {
+          setStreaming((s) => ({ ...s, text: s.text + evt.text }));
+        } else if (evt.type === 'assistant_done') {
+          setStreaming({ assistantMessageId: null, text: '', running: false });
+        } else if (evt.type === 'error') {
+          setError(evt.detail || 'Erreur lors de la génération.');
+          setStreaming({ assistantMessageId: null, text: '', running: false });
+        }
+      },
+    }).catch((err) => {
+      if (err?.name !== 'AbortError') {
+        setError('Connexion interrompue.');
+      }
+      setStreaming({ assistantMessageId: null, text: '', running: false });
+    });
+
+    abortRef.current = null;
+    // Actualise la conversation avec le contenu persisté final.
+    // (Le hook detail re-fetche automatiquement grâce à l'invalidation.)
+  }
+
+  function handleAbort() {
+    abortRef.current?.abort();
+    setStreaming({ assistantMessageId: null, text: '', running: false });
+  }
+
+  // Best-AI est strictement réservé aux utilisateurs authentifiés + actifs.
+  if (!isAuth || !isActive || !isOpen) return null;
+
+  return (
+    <div
+      className={
+        'fixed z-50 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col ' +
+        (isFullscreen
+          ? 'inset-4 rounded-2xl'
+          : 'right-4 bottom-4 top-16 w-[420px] rounded-2xl')
+      }
+      role="dialog"
+      aria-label="Best-AI"
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-neutral-100 dark:border-neutral-800">
+        <Sparkles className="w-5 h-5 text-primary-600" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-extrabold text-neutral-900 dark:text-white truncate">
+            Best-AI
+          </p>
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+            {active?.title ?? 'Nouvelle conversation'}
+            {pageContext.route ? ` · ${pageContext.route}` : ''}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setFullscreen(!isFullscreen)}
+          className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+          aria-label={isFullscreen ? 'Réduire' : 'Agrandir'}
+        >
+          {isFullscreen ? (
+            <Minimize2 className="w-4 h-4" />
+          ) : (
+            <Maximize2 className="w-4 h-4" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={close}
+          className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+          aria-label="Fermer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className={'flex-1 min-h-0 flex ' + (isFullscreen ? 'flex-row' : 'flex-col')}>
+        {/* Liste des conversations */}
+        {isFullscreen && (
+          <aside className="w-64 border-r border-neutral-100 dark:border-neutral-800 flex flex-col">
+            <ConversationSidebar
+              activeId={activeConversationId}
+              onSelect={(id) => setActiveConversation(id)}
+              onNew={handleNewConversation}
+              onDelete={handleDelete}
+            />
+          </aside>
+        )}
+
+        {/* Zone conversation */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {!isFullscreen && (
+            <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={handleNewConversation}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Nouvelle
+              </button>
+              <select
+                value={activeConversationId ?? ''}
+                onChange={(e) =>
+                  setActiveConversation(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                className="text-xs bg-transparent text-neutral-700 dark:text-neutral-300 focus:outline-none max-w-[220px] truncate"
+              >
+                <option value="">— Historique —</option>
+                {(convList?.results ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title.slice(0, 40)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <MessagesArea
+            active={active}
+            streamingText={streaming.text}
+            streamingRunning={streaming.running}
+            error={error}
+          />
+
+          <Composer
+            onSend={handleSend}
+            onAbort={handleAbort}
+            running={streaming.running}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sidebar conversations
+// ─────────────────────────────────────────────────────────────
+
+function ConversationSidebar({
+  activeId,
+  onSelect,
+  onNew,
+  onDelete,
+}: {
+  activeId: number | null;
+  onSelect: (id: number) => void;
+  onNew: () => void;
+  onDelete: (id: number) => void;
+}) {
+  const { data } = useAIConversations();
+  const [q, setQ] = useState('');
+
+  const filtered = useMemo(() => {
+    const list = data?.results ?? [];
+    if (!q.trim()) return list;
+    const needle = q.toLowerCase();
+    return list.filter((c) => c.title.toLowerCase().includes(needle));
+  }, [data, q]);
+
+  return (
+    <>
+      <div className="p-2 border-b border-neutral-100 dark:border-neutral-800 flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={onNew}
+          className="w-full inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold transition"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Nouvelle conversation
+        </button>
+        <input
+          type="text"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Rechercher…"
+          className="w-full px-2 py-1.5 text-xs rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        />
+      </div>
+      <ul className="flex-1 overflow-y-auto py-2 space-y-0.5">
+        {filtered.length === 0 && (
+          <li className="px-3 py-4 text-xs text-neutral-500 text-center">
+            Aucune conversation.
+          </li>
+        )}
+        {filtered.map((c) => (
+          <li
+            key={c.id}
+            className={
+              'group flex items-center gap-1 px-2 mx-1 rounded-lg cursor-pointer ' +
+              (c.id === activeId
+                ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-800 dark:text-primary-200'
+                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300')
+            }
+          >
+            <button
+              type="button"
+              onClick={() => onSelect(c.id)}
+              className="flex-1 min-w-0 text-left py-1.5 flex items-center gap-2"
+            >
+              <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+              <span className="text-xs font-semibold truncate">{c.title}</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(c.id);
+              }}
+              className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 opacity-0 group-hover:opacity-100 transition"
+              aria-label="Supprimer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Messages area
+// ─────────────────────────────────────────────────────────────
+
+function MessagesArea({
+  active,
+  streamingText,
+  streamingRunning,
+  error,
+}: {
+  active: ReturnType<typeof useAIConversationDetail>['data'];
+  streamingText: string;
+  streamingRunning: boolean;
+  error: string;
+}) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [active?.messages?.length, streamingText, error]);
+
+  const messages = active?.messages ?? [];
+
+  if (messages.length === 0 && !streamingRunning) {
+    return (
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
+        <div className="rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700 p-4">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            Bonjour ! Je suis <strong>Best-AI</strong>, l'assistant officiel
+            de Best-Épargne. Posez-moi une question sur la page actuelle,
+            demandez un plan de formation, une explication ou une
+            recommandation.
+          </p>
+        </div>
+        <div ref={bottomRef} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+      {messages.map((m) => (
+        <MessageBubble key={m.id} message={m} conversationId={active?.id ?? 0} />
+      ))}
+      {streamingRunning && (
+        <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
+          <div className="flex items-center gap-2 mb-1 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+            <Sparkles className="w-3.5 h-3.5" />
+            Best-AI
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          </div>
+          {streamingText ? (
+            <AIMessageRenderer content={streamingText} />
+          ) : (
+            <p className="text-xs text-neutral-400 italic">
+              Génération en cours…
+            </p>
+          )}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-900/20 dark:border-rose-800 p-3 text-sm text-rose-800 dark:text-rose-200">
+          {error}
+        </div>
+      )}
+      <div ref={bottomRef} />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Bubble unique
+// ─────────────────────────────────────────────────────────────
+
+function MessageBubble({
+  message,
+  conversationId,
+}: {
+  message: AIMessage;
+  conversationId: number;
+}) {
+  const feedback = useAIFeedback();
+  const [copied, setCopied] = useState(false);
+  const isUser = message.role === 'user';
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard indispo */
+    }
+  }
+
+  return (
+    <div
+      className={
+        'rounded-xl p-3 ' +
+        (isUser
+          ? 'bg-primary-50 dark:bg-primary-900/20 ml-8'
+          : 'bg-neutral-50 dark:bg-neutral-800/60 mr-8')
+      }
+    >
+      <div className="flex items-center gap-2 mb-1 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+        {isUser ? (
+          'Vous'
+        ) : (
+          <>
+            <Sparkles className="w-3.5 h-3.5" />
+            Best-AI
+            {message.model_used && (
+              <span className="ml-1 font-normal normal-case">
+                · {message.model_used}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+      <AIMessageRenderer content={message.content} />
+      {!isUser && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={copy}
+            className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500 transition"
+            aria-label="Copier"
+            title="Copier"
+          >
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              feedback.mutate({
+                messageId: message.id,
+                conversationId,
+                score: message.feedback_score === 1 ? 0 : 1,
+              })
+            }
+            className={
+              'p-1 rounded transition ' +
+              (message.feedback_score === 1
+                ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30'
+                : 'text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700')
+            }
+            aria-label="Utile"
+            title="Utile"
+          >
+            <ThumbsUp className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              feedback.mutate({
+                messageId: message.id,
+                conversationId,
+                score: message.feedback_score === -1 ? 0 : -1,
+              })
+            }
+            className={
+              'p-1 rounded transition ' +
+              (message.feedback_score === -1
+                ? 'text-rose-600 bg-rose-50 dark:bg-rose-900/30'
+                : 'text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700')
+            }
+            aria-label="Pas utile"
+            title="Pas utile"
+          >
+            <ThumbsDown className="w-3.5 h-3.5" />
+          </button>
+          {typeof message.latency_ms === 'number' && message.latency_ms > 0 && (
+            <span className="ml-auto text-[10px] text-neutral-400">
+              {message.latency_ms} ms · {message.output_tokens ?? 0} tokens
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Composer
+// ─────────────────────────────────────────────────────────────
+
+function Composer({
+  onSend,
+  onAbort,
+  running,
+}: {
+  onSend: (text: string) => void;
+  onAbort: () => void;
+  running: boolean;
+}) {
+  const [text, setText] = useState('');
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  function submit() {
+    const t = text.trim();
+    if (!t || running) return;
+    onSend(t);
+    setText('');
+  }
+
+  return (
+    <div className="border-t border-neutral-100 dark:border-neutral-800 p-3">
+      <div className="flex items-end gap-2">
+        <textarea
+          ref={taRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          placeholder="Posez votre question… (Entrée pour envoyer, Shift+Entrée pour retour ligne)"
+          rows={2}
+          className="flex-1 min-h-[48px] max-h-32 resize-none px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+        />
+        {running ? (
+          <button
+            type="button"
+            onClick={onAbort}
+            className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold transition"
+          >
+            <StopCircle className="w-4 h-4" />
+            Stop
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!text.trim()}
+            className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold transition"
+          >
+            <Send className="w-4 h-4" />
+            Envoyer
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

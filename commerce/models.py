@@ -189,3 +189,244 @@ class CompanyAssignmentTarget(models.Model):
 
     class Meta:
         unique_together = ("assignment", "user")
+
+
+# ─────────────────────────────────────────────────────────────
+# R41 — Commission plateforme
+# ─────────────────────────────────────────────────────────────
+
+class CommissionRule(models.Model):
+    """Règles de commission plateforme (R41).
+
+    Le pourcentage représente la part QUE LA PLATEFORME PRÉLÈVE sur les
+    ventes. Ce qui reste va au formateur (ou à l'organisation).
+
+    Résolution : on cherche la règle la plus spécifique dans l'ordre
+    COURSE → INSTRUCTOR → CATEGORY → DEFAULT.
+    """
+
+    class Scope(models.TextChoices):
+        DEFAULT = "DEFAULT", "Défaut (fallback)"
+        INSTRUCTOR = "INSTRUCTOR", "Par formateur"
+        CATEGORY = "CATEGORY", "Par catégorie"
+        COURSE = "COURSE", "Par cours"
+
+    name = models.CharField(
+        max_length=120,
+        help_text="Nom lisible (ex : « Formateur premium », « Défaut »).",
+    )
+    scope = models.CharField(
+        max_length=16,
+        choices=Scope.choices,
+        default=Scope.DEFAULT,
+    )
+    percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Pourcentage prélevé par la plateforme (0-100).",
+    )
+
+    instructor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="commission_rules",
+    )
+    category = models.ForeignKey(
+        "catalog.Category",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="commission_rules",
+    )
+    course = models.ForeignKey(
+        "catalog.Course",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="commission_rules",
+    )
+
+    is_active = models.BooleanField(default=True)
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["scope", "-created_at"]
+        indexes = [
+            models.Index(fields=["scope", "is_active"]),
+            models.Index(fields=["instructor", "is_active"]),
+            models.Index(fields=["category", "is_active"]),
+            models.Index(fields=["course", "is_active"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                name="commission_scope_fk_consistent",
+                check=(
+                    (
+                        models.Q(scope="DEFAULT")
+                        & models.Q(instructor__isnull=True)
+                        & models.Q(category__isnull=True)
+                        & models.Q(course__isnull=True)
+                    )
+                    | (
+                        models.Q(scope="INSTRUCTOR")
+                        & models.Q(instructor__isnull=False)
+                        & models.Q(category__isnull=True)
+                        & models.Q(course__isnull=True)
+                    )
+                    | (
+                        models.Q(scope="CATEGORY")
+                        & models.Q(instructor__isnull=True)
+                        & models.Q(category__isnull=False)
+                        & models.Q(course__isnull=True)
+                    )
+                    | (
+                        models.Q(scope="COURSE")
+                        & models.Q(instructor__isnull=True)
+                        & models.Q(category__isnull=True)
+                        & models.Q(course__isnull=False)
+                    )
+                ),
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.scope} — {self.name} ({self.percent}%)"
+
+    @classmethod
+    def resolve_for(cls, course=None, instructor=None):
+        """Retourne la règle applicable pour un cours + formateur donnés.
+
+        Ordre de priorité : COURSE → INSTRUCTOR → CATEGORY → DEFAULT.
+        Retourne None si aucune DEFAULT active — bien seeder une règle
+        DEFAULT dès l'installation (voir data migration 0009).
+        """
+        qs = cls.objects.filter(is_active=True)
+        if course is not None:
+            r = qs.filter(scope=cls.Scope.COURSE, course=course).first()
+            if r:
+                return r
+        if instructor is not None:
+            r = qs.filter(scope=cls.Scope.INSTRUCTOR, instructor=instructor).first()
+            if r:
+                return r
+        if course is not None and getattr(course, "category_id", None):
+            r = qs.filter(
+                scope=cls.Scope.CATEGORY, category_id=course.category_id
+            ).first()
+            if r:
+                return r
+        return qs.filter(scope=cls.Scope.DEFAULT).first()
+
+
+# ─────────────────────────────────────────────────────────────
+# R42 — Reversements formateurs
+# ─────────────────────────────────────────────────────────────
+
+class Payout(models.Model):
+    """Reversement dû à un formateur pour une période donnée (R42).
+
+    Un Payout agrège :
+        - la période de calcul (period_start / period_end)
+        - le montant brut (somme des ventes du formateur sur la période)
+        - la commission plateforme prélevée
+        - les taxes
+        - le montant net à reverser
+        - le moyen et la référence du paiement une fois exécuté
+
+    Le workflow est : PENDING → VALIDATED → PAID (ou FAILED). Seul un
+    admin peut valider et déclencher le paiement.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "En attente"
+        VALIDATED = "VALIDATED", "Validé"
+        PAID = "PAID", "Payé"
+        FAILED = "FAILED", "Échoué"
+        CANCELED = "CANCELED", "Annulé"
+
+    instructor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="payouts",
+    )
+
+    period_start = models.DateField(help_text="Début de la période comptable.")
+    period_end = models.DateField(help_text="Fin de la période comptable.")
+
+    currency = models.CharField(max_length=8, default="XOF")
+    gross_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text="Total brut des ventes sur la période.",
+    )
+    commission_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text="Commission plateforme prélevée.",
+    )
+    tax_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text="Taxes appliquées.",
+    )
+    refund_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text="Remboursements à déduire du net.",
+    )
+    net_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text="Montant net à reverser (gross - commission - tax - refund).",
+    )
+
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING
+    )
+    payment_method = models.CharField(
+        max_length=40, blank=True,
+        help_text="Wave / OrangeMoney / Stripe / bank transfer…",
+    )
+    payment_reference = models.CharField(
+        max_length=120, blank=True,
+        help_text="Référence externe du paiement.",
+    )
+
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="validated_payouts",
+    )
+    validated_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    note = models.CharField(max_length=300, blank=True)
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-period_end", "-created_at"]
+        indexes = [
+            models.Index(fields=["instructor", "-period_end"]),
+            models.Index(fields=["status", "-period_end"]),
+            models.Index(fields=["-created_at"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["instructor", "period_start", "period_end"],
+                name="payout_unique_per_period",
+            ),
+            models.CheckConstraint(
+                name="payout_period_valid",
+                check=models.Q(period_end__gte=models.F("period_start")),
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Payout({self.instructor_id}, "
+            f"{self.period_start}→{self.period_end}, "
+            f"{self.net_amount} {self.currency}, {self.status})"
+        )

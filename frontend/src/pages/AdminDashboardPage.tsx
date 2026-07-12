@@ -17,6 +17,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { AdminOverviewSection } from '@/components/admin/AdminOverviewSection';
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { TrendLineChart } from '@/components/dashboard/TrendLineChart';
@@ -80,6 +81,9 @@ export default function AdminDashboardPage() {
         </div>
       }
     >
+      {/* R45 — Vue consolidée : alertes actionnables + raccourcis + activité + top */}
+      <AdminOverviewSection />
+
       {isLoading && !data && (
         <div className="py-20 flex justify-center">
           <Spinner size="xl" label="Chargement du dashboard…" />

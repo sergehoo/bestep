@@ -1,9 +1,10 @@
 """
-best_epargne/apis/api_admin.py — R7 : endpoints admin plateforme.
+best_epargne/apis/api_admin.py — R7 + R47 : endpoints admin plateforme.
 
 Endpoints exposés (tous restreints à ``is_platform_admin``) :
 
     GET    /api/admin/users/            Liste paginée + filtres
+    POST   /api/admin/users/            Création utilisateur (R47)
     GET    /api/admin/users/<id>/       Détail user
     PATCH  /api/admin/users/<id>/       Update ciblé (is_active, platform_role, full_name, phone)
     POST   /api/admin/users/<id>/reset-password/  Génère un lien de reset
@@ -13,13 +14,21 @@ Design :
 - Auth JWT + ``platform_admin_required`` bypass.
 - Aucune donnée sensible sortie (hash password jamais serialisé).
 - Update strict : whitelisté à un petit set de champs modifiables.
+- Création : le rôle sélectionné crée automatiquement le profil relié
+  (InstructorProfile / LearnerProfile). Mot de passe optionnel — si
+  absent, un mot de passe temporaire est généré et renvoyé une seule
+  fois dans la réponse (l'admin doit le communiquer via un canal sûr).
 """
 from __future__ import annotations
 
+import secrets
+import string
 from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -29,9 +38,24 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from compte.models import InstructorProfile, LearnerProfile
 from core.decorators import platform_admin_required
 
 User = get_user_model()
+
+
+def _generate_temp_password(length: int = 14) -> str:
+    """Génère un mot de passe temporaire cryptographiquement solide."""
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    while True:
+        pw = "".join(secrets.choice(alphabet) for _ in range(length))
+        # Politique minimale : au moins 1 minuscule + 1 majuscule + 1 chiffre.
+        if (
+            any(c.islower() for c in pw)
+            and any(c.isupper() for c in pw)
+            and any(c.isdigit() for c in pw)
+        ):
+            return pw
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -67,12 +91,13 @@ class AdminUserDetailSerializer(AdminUserListSerializer):
     courses_created_count = serializers.IntegerField(read_only=True)
 
     def get_memberships(self, obj):
+        cache = getattr(obj, "_active_memberships_cache", None) or []
         return [
             {
                 "organization_id": m["organization_id"],
                 "role": m["role"],
             }
-            for m in obj._active_memberships_cache
+            for m in cache
         ]
 
 
@@ -90,6 +115,58 @@ class AdminUserUpdateSerializer(serializers.Serializer):
     )
     full_name = serializers.CharField(required=False, allow_blank=True, max_length=160)
     phone = serializers.CharField(required=False, allow_blank=True, max_length=30)
+
+
+class AdminUserCreateSerializer(serializers.Serializer):
+    """
+    Payload de création d'un utilisateur par un admin (R47).
+
+    Le rôle sélectionné détermine les profils annexes créés :
+      - ``LEARNER``     → LearnerProfile (auto)
+      - ``INSTRUCTOR``  → InstructorProfile (auto, is_verified=True car
+                          créé par un admin, payout par défaut)
+      - ``ADMIN``       → platform_role=PLATFORM_ADMIN, is_staff=True
+      - ``STAFF``       → is_staff=True (accès Django admin sans droit
+                          plateforme)
+
+    Le mot de passe est facultatif : si absent, on en génère un
+    temporaire et on le renvoie **une seule fois** dans la réponse.
+    """
+
+    ROLE_CHOICES = ["LEARNER", "INSTRUCTOR", "ADMIN", "STAFF"]
+
+    email = serializers.EmailField()
+    full_name = serializers.CharField(max_length=160, allow_blank=True, required=False)
+    phone = serializers.CharField(max_length=30, allow_blank=True, required=False)
+    role = serializers.ChoiceField(choices=ROLE_CHOICES)
+    password = serializers.CharField(
+        min_length=8,
+        max_length=128,
+        required=False,
+        allow_blank=True,
+        write_only=True,
+    )
+    is_active = serializers.BooleanField(required=False, default=True)
+    # Options instructor
+    instructor_headline = serializers.CharField(
+        max_length=160, required=False, allow_blank=True
+    )
+    instructor_bio = serializers.CharField(required=False, allow_blank=True)
+    instructor_payout_percent = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False
+    )
+    # Options learner
+    learner_job_title = serializers.CharField(
+        max_length=120, required=False, allow_blank=True
+    )
+
+    def validate_email(self, value: str) -> str:
+        email = value.strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError(
+                "Un utilisateur avec cet email existe déjà."
+            )
+        return email
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -157,6 +234,91 @@ class AdminUserListView(APIView):
         return paginator.get_paginated_response(
             AdminUserListSerializer(page, many=True).data
         )
+
+    @extend_schema(
+        summary="Créer un utilisateur (admin)",
+        request=AdminUserCreateSerializer,
+        responses=AdminUserDetailSerializer,
+    )
+    def post(self, request):
+        """Créer un utilisateur avec son profil relié (R47).
+
+        Le rôle sélectionné détermine :
+          - LEARNER    → LearnerProfile
+          - INSTRUCTOR → InstructorProfile (is_verified=True car créé
+                          par un admin)
+          - ADMIN      → platform_role=PLATFORM_ADMIN + is_staff=True
+          - STAFF      → is_staff=True uniquement
+
+        Si aucun mot de passe n'est fourni, un mot de passe temporaire
+        est généré. Il est renvoyé UNE SEULE FOIS dans la réponse — à
+        transmettre à l'utilisateur via un canal sûr.
+        """
+        s = AdminUserCreateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data = s.validated_data
+
+        role = data["role"]
+        raw_password = (data.get("password") or "").strip()
+        generated = False
+        if not raw_password:
+            raw_password = _generate_temp_password()
+            generated = True
+
+        # Champs User de base
+        extra = {
+            "full_name": (data.get("full_name") or "").strip(),
+            "phone": (data.get("phone") or "").strip(),
+            "is_active": bool(data.get("is_active", True)),
+        }
+        if role == "ADMIN":
+            extra["platform_role"] = User.PlatformRole.PLATFORM_ADMIN
+            extra["is_staff"] = True
+        elif role == "STAFF":
+            extra["platform_role"] = User.PlatformRole.USER
+            extra["is_staff"] = True
+        else:
+            extra["platform_role"] = User.PlatformRole.USER
+            extra["is_staff"] = False
+
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    email=data["email"],
+                    password=raw_password,
+                    **extra,
+                )
+                if role == "INSTRUCTOR":
+                    InstructorProfile.objects.create(
+                        user=user,
+                        headline=(data.get("instructor_headline") or "").strip(),
+                        bio=(data.get("instructor_bio") or "").strip(),
+                        is_verified=True,
+                        payout_percent=data.get(
+                            "instructor_payout_percent"
+                        ) or 70.00,
+                    )
+                elif role == "LEARNER":
+                    LearnerProfile.objects.create(
+                        user=user,
+                        job_title=(data.get("learner_job_title") or "").strip(),
+                    )
+        except DjangoValidationError as exc:
+            return Response(
+                {"detail": "Validation échouée.", "errors": exc.message_dict
+                    if hasattr(exc, "message_dict") else exc.messages},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Enrichissement pour la sérialisation détaillée
+        user.enrollments_count = 0
+        user.courses_created_count = 0
+
+        payload = AdminUserDetailSerializer(user).data
+        payload["created_role"] = role
+        if generated:
+            payload["temporary_password"] = raw_password
+        return Response(payload, status=status.HTTP_201_CREATED)
 
 
 class AdminUserDetailView(APIView):

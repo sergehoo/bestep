@@ -92,6 +92,48 @@ export function useResetPasswordAdminUser() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Create user (R47)
+// ─────────────────────────────────────────────────────────────────────
+
+export type AdminUserCreateRole = 'LEARNER' | 'INSTRUCTOR' | 'ADMIN' | 'STAFF';
+
+export interface AdminUserCreatePayload {
+  email: string;
+  full_name?: string;
+  phone?: string;
+  role: AdminUserCreateRole;
+  password?: string;
+  is_active?: boolean;
+  instructor_headline?: string;
+  instructor_bio?: string;
+  instructor_payout_percent?: number;
+  learner_job_title?: string;
+}
+
+export interface AdminUserCreateResult extends AdminUserDetail {
+  created_role: AdminUserCreateRole;
+  temporary_password?: string;
+}
+
+export function useCreateAdminUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: AdminUserCreatePayload) => {
+      const { data } = await api.post<AdminUserCreateResult>(
+        '/admin/users/',
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      qc.invalidateQueries({ queryKey: ['admin-overview'] });
+      qc.invalidateQueries({ queryKey: ['admin-instructors'] });
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Config
 // ─────────────────────────────────────────────────────────────────────
 
@@ -103,5 +145,109 @@ export function useAdminConfig() {
       return data;
     },
     staleTime: 60_000,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Platform settings (R46) — persistés + versionnés
+// ─────────────────────────────────────────────────────────────────────
+
+export type PlatformSettingsSection =
+  | 'identity'
+  | 'auth'
+  | 'emails'
+  | 'storage'
+  | 'limits'
+  | 'maintenance';
+
+export interface PlatformSettingsData {
+  identity: Record<string, unknown>;
+  auth: Record<string, unknown>;
+  emails: Record<string, unknown>;
+  storage: Record<string, unknown>;
+  limits: Record<string, unknown>;
+  maintenance: Record<string, unknown>;
+}
+
+export interface PlatformSettingsPayload {
+  version: number;
+  updated_at: string;
+  updated_by: { id: number; email: string; full_name: string } | null;
+  data: PlatformSettingsData;
+  defaults: PlatformSettingsData;
+}
+
+export interface PlatformSettingsPatchInput {
+  patch: Partial<Record<PlatformSettingsSection, Record<string, unknown>>>;
+  note?: string;
+}
+
+export interface PlatformSettingsPatchResult extends PlatformSettingsPayload {
+  diff: Array<{
+    section: string;
+    key: string;
+    old: unknown;
+    new: unknown;
+  }>;
+  history_id: number;
+}
+
+export interface PlatformSettingsHistoryEntry {
+  id: number;
+  version: number;
+  created_at: string;
+  actor: { id: number; email: string; full_name: string } | null;
+  note: string;
+  diff: Array<{ section: string; key: string; old: unknown; new: unknown }>;
+  diff_count: number;
+}
+
+const PLATFORM_KEYS = {
+  settings: () => ['admin-platform-settings'] as const,
+  history: () => ['admin-platform-settings-history'] as const,
+};
+
+export function usePlatformSettings() {
+  return useQuery({
+    queryKey: PLATFORM_KEYS.settings(),
+    queryFn: async () => {
+      const { data } = await api.get<PlatformSettingsPayload>(
+        '/admin/platform-settings/',
+      );
+      return data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useUpdatePlatformSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: PlatformSettingsPatchInput) => {
+      const { data } = await api.patch<PlatformSettingsPatchResult>(
+        '/admin/platform-settings/',
+        input,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PLATFORM_KEYS.settings() });
+      qc.invalidateQueries({ queryKey: PLATFORM_KEYS.history() });
+    },
+  });
+}
+
+export function usePlatformSettingsHistory(limit = 20) {
+  return useQuery({
+    queryKey: [...PLATFORM_KEYS.history(), limit],
+    queryFn: async () => {
+      const { data } = await api.get<{
+        generated_at: string;
+        count: number;
+        results: PlatformSettingsHistoryEntry[];
+      }>('/admin/platform-settings/history/', { params: { limit } });
+      return data;
+    },
+    staleTime: 30_000,
   });
 }

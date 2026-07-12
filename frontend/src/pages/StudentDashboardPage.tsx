@@ -26,6 +26,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useStudentDashboard } from '@/hooks/queries';
 import { useAuthUser } from '@/stores/auth';
 import type { DashboardPeriod } from '@/lib/types';
+import { AIRecommendationWidget } from '@/components/ai/AIRecommendationWidget';
 
 export default function StudentDashboardPage() {
   const [period, setPeriod] = useState<DashboardPeriod>('30d');
@@ -62,6 +63,9 @@ export default function StudentDashboardPage() {
           <Spinner size="xl" label="Chargement du dashboard…" />
         </div>
       )}
+
+      {/* AI Phase 3 — Recommandations personnalisées */}
+      <AIRecommendationWidget className="mb-6" />
 
       {data && (
         <>

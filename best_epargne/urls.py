@@ -29,6 +29,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic import RedirectView
 
 from best_epargne.health import healthz, readyz
 from best_epargne.two_factor_urls import build_two_factor_patterns
@@ -46,8 +47,19 @@ urlpatterns = [
     path("healthz/", healthz, name="healthz"),
     path("readyz/", readyz, name="readyz"),
 
+    # Legacy — Django par défaut redirige vers /accounts/login/?next=…
+    # quand un utilisateur non-authentifié frappe /admin/. Depuis la
+    # bascule SPA (R26), la vraie route de login vit dans React à
+    # /login. On redirige pour éviter les 404 sur les vieux liens
+    # emails / bookmarks / logs. Le query ``?next=`` est préservé.
+    path(
+        "accounts/login/",
+        RedirectView.as_view(url="/login", query_string=True, permanent=False),
+        name="legacy_accounts_login_redirect",
+    ),
+
     # Plateforme / utilitaires
-    path("admin/", admin.site.urls),
+    path("admin/super/", admin.site.urls),
     path("account/", include("allauth.urls")),
     path("tinymce/", include("tinymce.urls")),
 
