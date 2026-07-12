@@ -661,6 +661,58 @@ planification).
 Fichiers : `best_epargne/apis/api_admin_reports.py` (nouveau, 5 vues),
 `frontend/src/pages/admin/AdminReportsPage.tsx` (nouveau).
 
+## Fix — `/admin/` renvoyait 404 (nginx / Django mal routé)
+
+Symptôme rapporté : `https://ayo-group.com/admin/` → **Not Found**.
+
+**Cause** — La config nginx (`frontend/nginx.conf`) avait
+`location /admin/` qui reverse-proxyait toute URL commençant par
+`/admin/` vers Django. Or Django admin (superuser) est monté à
+`/admin/super/` dans `best_epargne/urls.py`. Résultat :
+
+- Requête utilisateur : `GET /admin/`
+- nginx match `location /admin/` → proxy vers Django
+- Django n'a aucune route pour `/admin/` (que `/admin/super/`)
+- **404 Django** interceptée par nginx
+
+Ce comportement empêchait aussi d'atteindre l'espace admin SPA
+React (`AdminShell`) qui a des routes React Router à `/admin/*`.
+
+**Fix (`frontend/nginx.conf`)** :
+
+- **`location /admin/`** retiré. La règle est remplacée par
+  **`location /admin/super/`** qui ne reverse-proxie que le vrai
+  chemin Django admin. Toutes les autres URLs `/admin/*` tombent
+  maintenant sur le fallback SPA (`location /`) qui sert
+  `index.html`, laissant React Router prendre le relais.
+
+- Ajout de **`location /accounts/`** → proxy Django (pour que le
+  redirect legacy `/accounts/login/` fonctionne côté serveur avec
+  `LOGIN_URL=/login`).
+
+- Ajout de **`location /account/`** → proxy Django (allauth interne
+  si utilisé).
+
+**Séparation logique confirmée** :
+
+| URL                | Servie par         | Rôle                              |
+|--------------------|-------------------|-----------------------------------|
+| `/admin/`          | SPA React         | `AdminShell` — back-office SaaS   |
+| `/admin/users`     | SPA React         | Gestion users plateforme          |
+| `/admin/ai`        | SPA React         | Centre Best-AI                    |
+| `/admin/super/`    | Django admin      | Dépannage bas-niveau (rare)       |
+| `/api/*`           | Django DRF        | API REST + JWT                    |
+| `/accounts/login/` | Django → redirect | 302 vers `/login` (SPA)           |
+
+**Mise en service** — nginx doit être rechargé :
+```bash
+docker compose exec bestfront nginx -s reload
+# ou plus simplement :
+docker compose restart bestfront
+```
+
+Aucune migration Django ni rebuild du bundle React nécessaire.
+
 ## Fix — `/accounts/login/` retournait 404
 
 Symptôme rapporté en prod : `https://ayo-group.com/accounts/login/?next=/admin/`
