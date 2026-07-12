@@ -30,7 +30,6 @@ import {
   UserCheck,
   UserX,
   Loader2,
-  ShieldCheck,
 } from 'lucide-react';
 
 import api from '@/lib/api';
@@ -455,17 +454,6 @@ export default function AdminInstructorsPage() {
           </div>
         </div>
       )}
-
-      {/* Info roadmap */}
-      <div className="mt-6 rounded-2xl border border-primary-200 bg-primary-50/40 dark:bg-primary-900/20 dark:border-primary-800 p-4 text-xs text-neutral-700 dark:text-neutral-300 flex items-start gap-2">
-        <ShieldCheck className="w-4 h-4 text-primary-600 shrink-0 mt-0.5" />
-        <p>
-          Le workflow complet de validation formateur (docs, vérification
-          d'identité, commissions personnalisées, historique reversements) est
-          planifié en R31. Pour valider un formateur maintenant, utilisez
-          l'admin Django &gt; InstructorProfile &gt; <code>is_verified</code>.
-        </p>
-      </div>
 
       <ConfirmDialog
         open={!!suspendTarget}

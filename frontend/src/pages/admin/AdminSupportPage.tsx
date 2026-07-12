@@ -192,15 +192,12 @@ export default function AdminSupportPage() {
         <Info className="w-5 h-5 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5" />
         <div>
           <p className="font-bold text-amber-900 dark:text-amber-200">
-            Module Support — MVP
+            Module Support
           </p>
           <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
-            Cette vue expose actuellement les notifications système
-            plateforme. Un vrai système de tickets (avec fils de messages,
-            assignation, catégories, priorité) est planifié en R41 avec un
-            modèle <code>Ticket</code> dédié. Les notifications ci-dessous
-            couvrent déjà les alertes techniques et les événements
-            utilisateurs critiques.
+            Cette vue expose les notifications système plateforme, qui
+            couvrent les alertes techniques et les événements utilisateurs
+            critiques.
           </p>
         </div>
       </div>

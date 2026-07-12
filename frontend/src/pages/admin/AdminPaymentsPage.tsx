@@ -403,8 +403,7 @@ export default function AdminPaymentsPage() {
 
       <p className="mt-6 text-xs text-neutral-500">
         Note : les remboursements se déclenchent depuis l'admin Django &gt;
-        Commerce &gt; Order &gt; action « Rembourser ». L'endpoint API de
-        remboursement dédié est planifié R40.
+        Commerce &gt; Order &gt; action « Rembourser ».
       </p>
     </AdminShell>
   );

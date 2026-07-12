@@ -266,9 +266,7 @@ export default function AdminReportsPage() {
           <p className="font-bold">Exports synchrones (jusqu'à 10 000 lignes)</p>
           <p className="mt-1">
             Chaque export est généré à la volée en CSV UTF-8 (compatible
-            Excel via BOM). Pour des volumes plus importants, un pipeline
-            asynchrone Celery + storage MinIO est planifié en R45. Les
-            colonnes financières sont en{' '}
+            Excel via BOM). Les colonnes financières sont en{' '}
             <code>gross_amount / commission_amount / net_amount</code>{' '}
             (arrondi 2 décimales).
           </p>

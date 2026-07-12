@@ -444,8 +444,7 @@ export default function AdminRolesPage() {
           <p className="font-bold">Permissions Django par rôle</p>
           <p className="mt-1">
             L'affectation fine des permissions (view / add / change / delete par
-            modèle) se fait via l'admin Django &gt; Groups. Une matrice
-            visuelle est planifiée en R41.
+            modèle) se fait via l'admin Django &gt; Groups.
           </p>
         </div>
       </div>
