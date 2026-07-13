@@ -212,7 +212,7 @@ export function LandingHero() {
                   }}
                   onFocus={() => setOpenSuggest(true)}
                   placeholder="Rechercher un cours, une catégorie, un formateur…"
-                  className="flex-1 min-w-0 bg-transparent text-neutral-900 text-sm placeholder:text-neutral-400 outline-none py-1.5"
+                  className="flex-1 min-w-0 bg-transparent text-neutral-900 text-sm placeholder:text-neutral-400 border-0 outline-none focus:ring-0 focus:outline-none appearance-none py-1.5 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
                   aria-label="Rechercher"
                   aria-autocomplete="list"
                   aria-expanded={openSuggest}

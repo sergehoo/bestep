@@ -88,7 +88,7 @@ export function PublicFooter() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="votre@email.com"
               aria-label="Email newsletter"
-              className="flex-1 min-w-0 bg-transparent text-sm placeholder:text-neutral-500 outline-none py-2 text-white"
+              className="flex-1 min-w-0 bg-transparent text-sm placeholder:text-neutral-500 border-0 outline-none focus:ring-0 focus:outline-none appearance-none py-2 text-white"
             />
             <button
               type="submit"
