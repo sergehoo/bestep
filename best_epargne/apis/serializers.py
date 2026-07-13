@@ -104,17 +104,57 @@ class MediaAssetSerializer(serializers.ModelSerializer):
     preview_url = serializers.SerializerMethodField()
 
     def _default_storage_url(self, key: str) -> str:
-        """Construit une URL relative à partir d'un object_key MinIO/FS.
+        """Construit l'URL d'accès à un object_key stocké dans MinIO.
 
-        En dev : ``/media/<key>``. En prod MinIO avec presigned URLs, il
-        faudrait utiliser boto3 pour signer — hors périmètre ici, on
-        renvoie une URL relative que nginx/traefik peut proxifier.
+        UX-03 — Fix miniatures brisées : le backend est configuré avec
+        ``DEFAULT_FILE_STORAGE = S3Boto3Storage`` + ``AWS_QUERYSTRING_AUTH
+        = True``, donc les URLs bruts ``/media/<key>`` sont refusées par
+        MinIO (bucket privé). On génère ici une **URL presignée** via
+        boto3, réutilisant le même client que ``MediaSignedGetView``.
+
+        En cas d'échec (config manquante, etc.), on retourne une URL
+        best-effort ``MEDIA_URL + key`` — utile en environnement de dev
+        où le bucket peut être public. Cache par-appel : les listes
+        pagination faisant 20-30 items, on évite de signer 2 fois le
+        même key.
         """
         if not key:
             return ""
         from django.conf import settings
+
+        # Cache par contexte de sérialisation pour éviter des signatures
+        # redondantes (thumbnail_url + preview_url peuvent partager la
+        # même clé pour une image).
+        cache = self.context.setdefault("_signed_url_cache", {})
+        if key in cache:
+            return cache[key]
+
+        bucket = getattr(settings, "MINIO_BUCKET", None) or getattr(
+            settings, "AWS_STORAGE_BUCKET_NAME", None
+        )
+        try:
+            if bucket and getattr(settings, "MINIO_PUBLIC_ENDPOINT", None):
+                from best_epargne.apis.views import s3_public_client
+                client = s3_public_client()
+                url = client.generate_presigned_url(
+                    ClientMethod="get_object",
+                    Params={"Bucket": bucket, "Key": key.lstrip("/")},
+                    # 1h — suffisant pour un affichage sans re-signature
+                    # constante. Le frontend refetch la liste toutes les
+                    # 30s (staleTime react-query), donc largement OK.
+                    ExpiresIn=int(getattr(settings, "AWS_QUERYSTRING_EXPIRE", 3600)),
+                )
+                cache[key] = url
+                return url
+        except Exception:
+            # Best-effort : on tombe sur l'URL relative si la signature
+            # échoue (dev local sans MinIO, etc.).
+            pass
+
         media_url = getattr(settings, "MEDIA_URL", "/media/").rstrip("/")
-        return f"{media_url}/{key.lstrip('/')}"
+        url = f"{media_url}/{key.lstrip('/')}"
+        cache[key] = url
+        return url
 
     def get_thumbnail_url(self, obj) -> str:
         """URL de la miniature (image extraite pour vidéo, aperçu pour doc).
