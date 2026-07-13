@@ -393,6 +393,10 @@ export interface InstructorLesson {
   duration_sec: number;
   content: string;
   video_url: string;
+  /** UX-04 — Media asset lié (renvoyé par LessonSerializer.media_asset).
+   * Absent si aucun média attaché. Utilisé pour ré-hydrater le player
+   * vidéo avec la vraie URL presignée à chaque chargement. */
+  media_asset?: MediaAsset | null;
 }
 
 export interface InstructorSection {
@@ -467,6 +471,10 @@ export interface LessonCreatePayload {
   duration_sec?: number;
   video_url?: string;
   content?: string;
+  /** UX-04 — Référence UUID vers un MediaAsset de la médiathèque.
+   * Le backend re-génère une URL presignée à chaque lecture, évitant
+   * l'expiration du token S3 stocké dans video_url. */
+  media_asset_id?: string | null;
 }
 export interface LessonUpdatePayload extends Partial<LessonCreatePayload> {
   order?: number;

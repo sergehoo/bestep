@@ -76,6 +76,10 @@ export default function InstructorLessonEditorPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  // UX-04 — UUID du MediaAsset lié (pour envoyer media_asset_id au save).
+  // Séparé de videoUrl pour distinguer "lien externe" (YouTube, Vimeo)
+  // d'un "média de la médiathèque".
+  const [mediaAssetId, setMediaAssetId] = useState<string | null>(null);
   const [durationSec, setDurationSec] = useState(0);
   const [isPreview, setIsPreview] = useState(false);
   const [lessonType, setLessonType] = useState<LessonType>('VIDEO');
@@ -92,7 +96,17 @@ export default function InstructorLessonEditorPage() {
     if (fullLesson) {
       setTitle(fullLesson.title);
       setContent(fullLesson.content || '');
-      setVideoUrl(fullLesson.video_url || '');
+      // UX-04 — Si un media_asset est présent, on preferre son preview_url
+      // (URL presignée fraîche à chaque hydration) plutôt qu'un video_url
+      // stocké en base qui pourrait être expiré.
+      const attached = fullLesson.media_asset ?? null;
+      if (attached) {
+        setMediaAssetId(attached.id);
+        setVideoUrl(attached.preview_url || fullLesson.video_url || '');
+      } else {
+        setMediaAssetId(null);
+        setVideoUrl(fullLesson.video_url || '');
+      }
       setDurationSec(fullLesson.duration_sec || 0);
       setIsPreview(fullLesson.is_preview);
       // Normalise le lesson_type entrant (backend peut renvoyer string
@@ -120,7 +134,7 @@ export default function InstructorLessonEditorPage() {
       if (autosaveRef.current) clearTimeout(autosaveRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, content, videoUrl, durationSec, isPreview, lessonType, dirty]);
+  }, [title, content, videoUrl, mediaAssetId, durationSec, isPreview, lessonType, dirty]);
 
   async function save() {
     if (!section?.id || !lessonId || !courseId) return;
@@ -133,6 +147,9 @@ export default function InstructorLessonEditorPage() {
           title,
           content,
           video_url: videoUrl,
+          // UX-04 — On envoie l'UUID media_asset_id (persistant) plutôt
+          // que l'URL S3 qui expire en 1h. Envoyer null = détacher.
+          media_asset_id: mediaAssetId,
           duration_sec: durationSec,
           is_preview: isPreview,
           lesson_type: lessonType,
@@ -151,16 +168,20 @@ export default function InstructorLessonEditorPage() {
   function handlePick(asset: MediaAsset) {
     setDirty(true);
     if (asset.kind === 'video') {
-      // Rattache la vidéo à la leçon (media_asset_id serait meilleur mais
-      // nécessite passage de l'UUID) — MVP : on met l'ID dans video_url
-      setVideoUrl(`media://${asset.id}`);
+      // UX-04 — On stocke l'URL presignée réelle dans videoUrl (pour le
+      // preview player HTML5) ET l'UUID dans mediaAssetId (référence
+      // persistante envoyée au backend — celui-ci re-signera à chaque
+      // read pour éviter l'expiration du token S3).
+      setMediaAssetId(asset.id);
+      setVideoUrl(asset.preview_url || '');
       if (asset.duration_seconds) setDurationSec(asset.duration_seconds);
       setFlash({
         kind: 'ok',
         msg: `Vidéo « ${asset.title} » associée à la leçon.`,
       });
     } else if (asset.kind === 'audio') {
-      setVideoUrl(`media://${asset.id}`);
+      setMediaAssetId(asset.id);
+      setVideoUrl(asset.preview_url || '');
       if (asset.duration_seconds) setDurationSec(asset.duration_seconds);
     } else {
       // Doc : distinguer image (embed <img>) vs autres docs (lien attachment).
@@ -260,21 +281,43 @@ export default function InstructorLessonEditorPage() {
                   required
                 />
                 {videoUrl && (
-                  <div className="flex items-center gap-2 p-3 rounded-xl bg-primary-50 border border-primary-100">
-                    <Film className="w-4 h-4 text-primary-600" />
-                    <p className="text-xs text-primary-800 font-mono truncate flex-1">
-                      {videoUrl}
-                    </p>
-                    <button
-                      onClick={() => {
-                        setVideoUrl('');
-                        setDurationSec(0);
-                        setDirty(true);
-                      }}
-                      className="text-xs font-semibold text-rose-600 hover:text-rose-700 shrink-0"
-                    >
-                      Retirer
-                    </button>
+                  <div className="rounded-xl bg-primary-50 border border-primary-100 overflow-hidden">
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-primary-100">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Film className="w-4 h-4 text-primary-600 shrink-0" />
+                        <p className="text-xs font-semibold text-primary-800 truncate">
+                          {mediaAssetId
+                            ? 'Vidéo attachée depuis la médiathèque'
+                            : 'Vidéo externe'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setVideoUrl('');
+                          setMediaAssetId(null);
+                          setDurationSec(0);
+                          setDirty(true);
+                        }}
+                        className="text-xs font-semibold text-rose-600 hover:text-rose-700 shrink-0"
+                      >
+                        Retirer
+                      </button>
+                    </div>
+                    {/* UX-04 — Preview player : lecture HTML5 native si
+                        l'URL est http(s) ; sinon fallback texte (media://
+                        pseudo-URLs legacy). */}
+                    {/^https?:\/\//i.test(videoUrl) ? (
+                      <video
+                        src={videoUrl}
+                        controls
+                        preload="metadata"
+                        className="w-full max-h-[360px] bg-black"
+                      />
+                    ) : (
+                      <p className="text-xs text-primary-800 font-mono px-3 py-2 break-all">
+                        {videoUrl}
+                      </p>
+                    )}
                   </div>
                 )}
                 <RichTextEditor
