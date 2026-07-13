@@ -23,8 +23,39 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+
+# ─────────────────────────────────────────────────────────────
+# BUG-AI-02 — Content negotiation pour SSE
+# ─────────────────────────────────────────────────────────────
+#
+# Le frontend envoie ``Accept: text/event-stream`` sur POST /messages/.
+# Sans renderer enregistré pour ce mime type, DRF renvoie 406 Not
+# Acceptable ("L'en-tête « Accept » n'a pas pu être satisfaite.").
+#
+# On ajoute un renderer pass-through qui expose ``text/event-stream``.
+# La vue retourne directement un ``StreamingHttpResponse`` — le renderer
+# n'a donc jamais besoin de rendre quoi que ce soit, il sert uniquement
+# à satisfaire la content negotiation DRF.
+
+
+class EventStreamRenderer(BaseRenderer):
+    """Pass-through renderer pour ``text/event-stream`` (SSE)."""
+
+    media_type = "text/event-stream"
+    format = "sse"
+    charset = "utf-8"
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        # Jamais appelé en pratique : la vue retourne un
+        # StreamingHttpResponse et n'invoque pas ce renderer. On garde
+        # une implémentation par défaut au cas où.
+        if isinstance(data, (bytes, str)):
+            return data
+        return b""
 
 from ai.models import (
     AIAuditLog,
@@ -265,6 +296,11 @@ class AIMessagePostView(APIView):
     """POST /api/ai/conversations/<id>/messages/ — SSE streaming."""
 
     permission_classes = [IsAuthenticated]
+    # BUG-AI-02 — Le client envoie Accept: text/event-stream. Sans
+    # renderer déclaré pour ce mime type, DRF refuse la requête en 406.
+    # On expose EventStream + JSON (JSON reste utile pour les réponses
+    # d'erreur 400/403/404 qui ne sont pas des streams).
+    renderer_classes = [EventStreamRenderer, JSONRenderer]
 
     @extend_schema(
         summary="Envoyer un message (streaming SSE)",
