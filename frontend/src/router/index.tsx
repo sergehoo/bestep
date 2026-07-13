@@ -16,6 +16,7 @@ import { PageSpinner } from '@/components/ui/Spinner';
 import { resolvePostLoginTarget } from '@/lib/auth-redirect';
 import { RouteErrorElement } from '@/components/RouteErrorElement';
 import { RootLayout } from '@/components/RootLayout';
+import { DashboardResolver } from '@/components/DashboardResolver';
 
 // Lazy pages (code-split)
 const HomePage = lazy(() => import('@/pages/HomePage'));
@@ -67,6 +68,10 @@ const AdminConfigPage = lazy(() => import('@/pages/admin/AdminConfigPage'));
 const AdminCoursesPage = lazy(() => import('@/pages/admin/AdminCoursesPage'));
 // R28 : audit + enrollments + placeholders
 const AdminAuditLogPage = lazy(() => import('@/pages/admin/AdminAuditLogPage'));
+// SECURITE-06 : Audit unifié des événements sécurité admin
+const AdminSecurityAuditPage = lazy(
+  () => import('@/pages/admin/AdminSecurityAuditPage'),
+);
 const AdminEnrollmentsPage = lazy(() => import('@/pages/admin/AdminEnrollmentsPage'));
 // R30 : page instructeurs branchée (remplace le placeholder)
 const AdminInstructorsPage = lazy(() => import('@/pages/admin/AdminInstructorsPage'));
@@ -127,16 +132,38 @@ const RecommendedCoursesPage = lazy(
   () => import('@/pages/onboarding/RecommendedCoursesPage'),
 );
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
+// SECURITE-05 — écrans transverses de sécurité
+const VerifyEmailPage = lazy(() => import('@/pages/VerifyEmailPage'));
+const InstructorPendingPage = lazy(() => import('@/pages/InstructorPendingPage'));
+const AccountSuspendedPage = lazy(() => import('@/pages/AccountSuspendedPage'));
 
 // ─────────────────────────────────────────────────────────────────────
 // Guards
 // ─────────────────────────────────────────────────────────────────────
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+/**
+ * Guard racine : authentifié + actif + e-mail vérifié.
+ * Les routes exemptées de la vérif e-mail (login, verify-email, resend) ne
+ * DOIVENT PAS être enveloppées par ProtectedRoute.
+ */
+function ProtectedRoute({
+  children,
+  requireVerifiedEmail = true,
+}: {
+  children: React.ReactNode;
+  requireVerifiedEmail?: boolean;
+}) {
   const isAuthed = useIsAuthenticated();
+  const user = useAuthUser();
   if (!isAuthed) {
     const next = encodeURIComponent(window.location.pathname + window.location.search);
     return <Navigate to={`/login?next=${next}`} replace />;
+  }
+  if (user?.is_active === false) {
+    return <Navigate to="/account-suspended" replace />;
+  }
+  if (requireVerifiedEmail && user?.email_verified === false) {
+    return <Navigate to="/verify-email" replace />;
   }
   return <>{children}</>;
 }
@@ -166,6 +193,42 @@ function InstructorOnlyRoute({ children }: { children: React.ReactNode }) {
   if (!isInstructor && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
+  // Formateur non approuvé → page d'attente (sauf admin bypass).
+  if (!isAdmin && user?.approval_status === 'pending') {
+    return <Navigate to="/instructor-pending" replace />;
+  }
+  return <>{children}</>;
+}
+
+/**
+ * VerifiedEmailRoute — utilisé pour les routes qui exigent un e-mail vérifié
+ * mais ne veulent pas nécessairement basculer sur le flow "protected+auth".
+ * (En pratique ProtectedRoute couvre déjà ce besoin.)
+ */
+export function VerifiedEmailRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthUser();
+  if (user?.email_verified === false) {
+    return <Navigate to="/verify-email" replace />;
+  }
+  return <>{children}</>;
+}
+
+/**
+ * RoleRoute — restreint une route à un ou plusieurs rôles.
+ * Un ``platform_admin`` peut TOUJOURS accéder (bypass).
+ */
+export function RoleRoute({
+  children,
+  allow,
+}: {
+  children: React.ReactNode;
+  allow: Array<'learner' | 'instructor' | 'org_admin' | 'platform_admin'>;
+}) {
+  const user = useAuthUser();
+  const isAdmin = useIsPlatformAdmin();
+  if (isAdmin) return <>{children}</>;
+  const has = (user?.roles ?? []).some((r) => allow.includes(r as typeof allow[number]));
+  if (!has) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -263,7 +326,34 @@ const router = createBrowserRouter([
   // R12 : /dashboard alias vers /learn (nouvel espace apprenant premium)
   {
     path: '/dashboard',
-    element: <Navigate to="/learn" replace />,
+    element: <DashboardResolver />,
+  },
+  // SECURITE-05 — écrans transverses (accessibles authentifiés sans vérif e-mail)
+  {
+    path: '/verify-email',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <VerifyEmailPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/instructor-pending',
+    element: (
+      <ProtectedRoute requireVerifiedEmail={false}>
+        <Suspense fallback={<PageSpinner />}>
+          <InstructorPendingPage />
+        </Suspense>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/account-suspended',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <AccountSuspendedPage />
+      </Suspense>
+    ),
   },
   // R24 : onboarding apprenant
   {
@@ -684,6 +774,19 @@ const router = createBrowserRouter([
         <AdminOnlyRoute>
           <Suspense fallback={<PageSpinner />}>
             <AdminAuditLogPage />
+          </Suspense>
+        </AdminOnlyRoute>
+      </ProtectedRoute>
+    ),
+  },
+  // SECURITE-06 : audit sécurité unifié
+  {
+    path: '/admin/audit/security',
+    element: (
+      <ProtectedRoute>
+        <AdminOnlyRoute>
+          <Suspense fallback={<PageSpinner />}>
+            <AdminSecurityAuditPage />
           </Suspense>
         </AdminOnlyRoute>
       </ProtectedRoute>

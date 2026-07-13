@@ -1,5 +1,5 @@
 /**
- * Card.tsx — Card du design system (R3.3).
+ * Card.tsx — Card du design system (R3.3, dark mode aware).
  */
 import { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
@@ -12,7 +12,7 @@ export function Card({ elevated = true, className, children, ...rest }: CardProp
   return (
     <article
       className={cn(
-        'bg-white border border-neutral-100 rounded-2xl overflow-hidden',
+        'bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-2xl overflow-hidden',
         elevated && 'shadow-soft',
         className,
       )}
@@ -33,7 +33,7 @@ export function CardHeader({ title, subtitle, actions, className, children, ...r
   return (
     <header
       className={cn(
-        'px-5 py-4 border-b border-neutral-100 flex items-center justify-between gap-3',
+        'px-5 py-4 border-b border-neutral-100 dark:border-neutral-700 flex items-center justify-between gap-3',
         className,
       )}
       {...rest}
@@ -41,8 +41,16 @@ export function CardHeader({ title, subtitle, actions, className, children, ...r
       {children || (
         <>
           <div className="min-w-0">
-            {title && <h3 className="text-base font-bold text-neutral-900">{title}</h3>}
-            {subtitle && <p className="text-xs text-neutral-500 mt-0.5">{subtitle}</p>}
+            {title && (
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white">
+                {title}
+              </h3>
+            )}
+            {subtitle && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                {subtitle}
+              </p>
+            )}
           </div>
           {actions && <div className="shrink-0">{actions}</div>}
         </>
@@ -62,7 +70,10 @@ export function CardBody({ className, children, ...rest }: HTMLAttributes<HTMLDi
 export function CardFooter({ className, children, ...rest }: HTMLAttributes<HTMLElement>) {
   return (
     <footer
-      className={cn('px-5 py-4 border-t border-neutral-100 bg-neutral-50/50', className)}
+      className={cn(
+        'px-5 py-4 border-t border-neutral-100 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/40',
+        className,
+      )}
       {...rest}
     >
       {children}

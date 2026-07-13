@@ -25,14 +25,14 @@ export function DashboardShell({
   children,
 }: DashboardShellProps) {
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <PublicHeader />
-      <section className="border-b border-neutral-200 bg-white">
+      <section className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
         <div className="container mx-auto px-4 max-w-7xl py-6 flex flex-wrap items-center gap-4 justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold text-neutral-900">{title}</h1>
+            <h1 className="text-2xl font-extrabold text-neutral-900 dark:text-white">{title}</h1>
             {subtitle && (
-              <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{subtitle}</p>
             )}
           </div>
           <div className="flex items-center gap-3">

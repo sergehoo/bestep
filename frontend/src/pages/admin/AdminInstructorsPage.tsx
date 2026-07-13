@@ -1,7 +1,7 @@
 /**
- * AdminInstructorsPage.tsx — R30.2
+ * AdminInstructorsPage.tsx
  *
- * Vue d'ensemble des formateurs plateforme (remplace le placeholder R28.6).
+ * Vue d'ensemble des formateurs plateforme.
  * Consomme `GET /api/admin/instructors/`.
  *
  * Fonctionnalités :
@@ -9,15 +9,10 @@
  *   - Filtres : recherche, statut vérifié, actif
  *   - KPI : total / vérifiés / actifs
  *   - Actions : voir profil détaillé (/admin/users/:id), toggle actif
- *
- * L'endpoint de validation dédié ("valider un formateur") viendra en R30.4 :
- * pour l'instant, l'admin peut basculer `is_verified=True` via l'admin
- * Django ou via l'endpoint `/api/admin/users/<id>/` en modifiant l'objet
- * user profile (roadmap).
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Search,
   Filter,
@@ -30,6 +25,8 @@ import {
   UserCheck,
   UserX,
   Loader2,
+  History,
+  X as XIcon,
 } from 'lucide-react';
 
 import api from '@/lib/api';
@@ -84,17 +81,56 @@ interface Filters {
   active: '' | 'true' | 'false';
 }
 
+interface HistoryEvent {
+  id: number;
+  kind: 'INSTRUCTOR_APPROVED' | 'INSTRUCTOR_REJECTED' | 'EMAIL_FORCE_VERIFIED';
+  created_at: string;
+  admin: { id: number | null; email: string | null };
+  target: { user_id: number | null; email: string | null };
+  reason: string;
+}
+
+interface HistoryPayload {
+  events: HistoryEvent[];
+  total: number;
+}
+
 export default function AdminInstructorsPage() {
+  // SECURITE-06 — Auto-application du filtre depuis les query params URL
+  // permet au lien /admin/instructors?verified=false (depuis le cockpit
+  // ou l'alerte "formateurs en attente") de pré-filtrer la liste.
+  const [searchParams] = useSearchParams();
+  const initialVerified = searchParams.get('verified');
+  const initialActive = searchParams.get('active');
   const [filters, setFilters] = useState<Filters>({
-    q: '',
-    verified: '',
-    active: '',
+    q: searchParams.get('q') ?? '',
+    verified:
+      initialVerified === 'true' || initialVerified === 'false'
+        ? initialVerified
+        : '',
+    active:
+      initialActive === 'true' || initialActive === 'false'
+        ? initialActive
+        : '',
   });
   const [page, setPage] = useState(1);
   const [suspendTarget, setSuspendTarget] = useState<AdminInstructor | null>(
     null,
   );
+  const [historyOpen, setHistoryOpen] = useState(false);
   const qc = useQueryClient();
+
+  // SECURITE-06 — Historique des décisions formateur, ne se déclenche que
+  // quand l'utilisateur ouvre le drawer.
+  const historyQuery = useQuery<HistoryPayload>({
+    queryKey: ['admin-instructors-history'],
+    queryFn: async () => {
+      const res = await api.get<HistoryPayload>('/admin/instructors/history/');
+      return res.data;
+    },
+    enabled: historyOpen,
+    staleTime: 30_000,
+  });
 
   const { data, isLoading, isFetching, isError, refetch } = useQuery<Page>({
     queryKey: ['admin-instructors', filters, page],
@@ -127,6 +163,53 @@ export default function AdminInstructorsPage() {
       qc.invalidateQueries({ queryKey: ['admin-instructors'] });
     },
   });
+
+  // SECURITE-06 — Approbation / Refus formateur.
+  const approveInstructor = useMutation({
+    mutationFn: async (userId: number) => {
+      const res = await api.post(`/admin/instructors/${userId}/approve/`);
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-instructors'] });
+    },
+  });
+
+  const rejectInstructor = useMutation({
+    mutationFn: async ({
+      userId,
+      reason,
+    }: {
+      userId: number;
+      reason: string;
+    }) => {
+      const res = await api.post(`/admin/instructors/${userId}/reject/`, {
+        reason,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-instructors'] });
+    },
+  });
+
+  function handleApprove(userId: number, email: string) {
+    if (
+      !window.confirm(
+        `Approuver ${email} comme formateur ? Il pourra publier des cours immédiatement.`,
+      )
+    ) return;
+    approveInstructor.mutate(userId);
+  }
+
+  function handleReject(userId: number, email: string) {
+    const reason = window.prompt(
+      `Motif de refus pour ${email} (optionnel) :`,
+      '',
+    );
+    if (reason === null) return; // annulé
+    rejectInstructor.mutate({ userId, reason: reason.trim() });
+  }
 
   const rows = data?.results ?? [];
   const agg = data?.aggregated ?? { total: 0, verified: 0, active: 0 };
@@ -259,6 +342,36 @@ export default function AdminInstructorsPage() {
         </span>
       ),
     },
+    {
+      key: 'actions',
+      header: 'Actions',
+      width: '180px',
+      render: (r) => (
+        <div className="flex items-center gap-1.5">
+          {!r.is_verified ? (
+            <button
+              type="button"
+              onClick={() => handleApprove(r.id, r.email)}
+              disabled={approveInstructor.isPending}
+              className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold disabled:opacity-50"
+              title="Approuver — le formateur pourra publier des cours"
+            >
+              Approuver
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleReject(r.id, r.email)}
+              disabled={rejectInstructor.isPending}
+              className="px-2.5 py-1 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/50 text-xs font-semibold disabled:opacity-50"
+              title="Retirer l'agrément"
+            >
+              Retirer
+            </button>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -272,19 +385,127 @@ export default function AdminInstructorsPage() {
           { label: 'Formateurs' },
         ]}
         actions={
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition disabled:opacity-60"
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`}
-            />
-            Rafraîchir
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition"
+              title="Historique des décisions récentes"
+            >
+              <History className="w-4 h-4" />
+              Historique
+            </button>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition disabled:opacity-60"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`}
+              />
+              Rafraîchir
+            </button>
+          </div>
         }
       />
+
+      {historyOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Historique des décisions"
+          className="fixed inset-0 z-50 flex justify-end bg-black/40"
+          onClick={() => setHistoryOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md h-full bg-white dark:bg-neutral-900 shadow-xl border-l border-neutral-200 dark:border-neutral-800 overflow-y-auto"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+              <div>
+                <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-50">
+                  Historique
+                </h2>
+                <p className="text-xs text-neutral-500">
+                  50 dernières décisions formateur
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Fermer"
+                onClick={() => setHistoryOpen(false)}
+                className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              {historyQuery.isLoading && (
+                <p className="text-sm text-neutral-500">Chargement…</p>
+              )}
+              {historyQuery.isError && (
+                <p className="text-sm text-rose-600">
+                  Impossible de charger l'historique.
+                </p>
+              )}
+              {!historyQuery.isLoading &&
+                (historyQuery.data?.events?.length ?? 0) === 0 && (
+                  <p className="text-sm text-neutral-500">
+                    Aucune décision enregistrée pour le moment.
+                  </p>
+                )}
+              <ul className="space-y-2">
+                {(historyQuery.data?.events ?? []).map((ev) => {
+                  const isApprove = ev.kind === 'INSTRUCTOR_APPROVED';
+                  const isReject = ev.kind === 'INSTRUCTOR_REJECTED';
+                  const tone = isApprove
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-900/60 dark:text-emerald-100'
+                    : isReject
+                      ? 'bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-900/60 dark:text-rose-100'
+                      : 'bg-sky-50 border-sky-200 text-sky-900 dark:bg-sky-950/40 dark:border-sky-900/60 dark:text-sky-100';
+                  const label = isApprove
+                    ? 'Approbation'
+                    : isReject
+                      ? 'Refus'
+                      : 'Vérif e-mail forcée';
+                  return (
+                    <li
+                      key={ev.id}
+                      className={`rounded-lg border px-3 py-2 text-xs ${tone}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold">{label}</span>
+                        <time
+                          className="opacity-70"
+                          dateTime={ev.created_at}
+                        >
+                          {new Date(ev.created_at).toLocaleString('fr-FR', {
+                            dateStyle: 'short',
+                            timeStyle: 'short',
+                          })}
+                        </time>
+                      </div>
+                      <p className="mt-1 truncate" title={ev.target.email ?? ''}>
+                        Cible : {ev.target.email ?? '—'}
+                      </p>
+                      <p className="opacity-70 truncate" title={ev.admin.email ?? ''}>
+                        Par : {ev.admin.email ?? '—'}
+                      </p>
+                      {ev.reason && (
+                        <p className="mt-1 italic opacity-90 truncate">
+                          « {ev.reason} »
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">

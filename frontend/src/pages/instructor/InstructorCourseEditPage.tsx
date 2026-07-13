@@ -32,7 +32,7 @@ export default function InstructorCourseEditPage() {
 
   if (isLoading && !course) {
     return (
-      <div className="min-h-screen bg-neutral-50">
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <PublicHeader />
         <div className="py-20 flex justify-center">
           <Spinner size="xl" label="Chargement du cours…" />
@@ -43,7 +43,7 @@ export default function InstructorCourseEditPage() {
 
   if (error || !course || !id) {
     return (
-      <div className="min-h-screen bg-neutral-50">
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <PublicHeader />
         <div className="container mx-auto px-4 max-w-4xl py-16 text-center">
           <h1 className="text-2xl font-bold">Cours introuvable</h1>
@@ -59,7 +59,7 @@ export default function InstructorCourseEditPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <PublicHeader />
       <section className="border-b border-neutral-200 bg-white">
         <div className="container mx-auto px-4 max-w-5xl py-6">

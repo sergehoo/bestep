@@ -32,19 +32,23 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        'bg-white border border-neutral-100 rounded-2xl p-5 shadow-soft',
+        'bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-2xl p-5 shadow-soft',
         className,
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
             {label}
           </p>
-          <p className="text-3xl font-extrabold text-neutral-900 mt-1 truncate">
+          <p className="text-3xl font-extrabold text-neutral-900 dark:text-white mt-1 truncate">
             {value}
           </p>
-          {hint && <p className="text-xs text-neutral-500 mt-1">{hint}</p>}
+          {hint && (
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              {hint}
+            </p>
+          )}
         </div>
         {Icon && (
           <div className={cn('rounded-xl p-2.5 shrink-0', ACCENT_CLASSES[accent])}>

@@ -51,7 +51,36 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const original = error.config as AxiosRequestConfig & { _retry?: boolean };
-    if (!original || error.response?.status !== 401 || original._retry) {
+
+    // SECURITE-05 — Redirection automatique sur les codes stables émis par
+    // le backend (voir compte/drf_exception_handler.py). On ne redirige que
+    // sur 403 (403 = auth OK mais permission métier refusée). Les 401
+    // continuent de passer par le flow de refresh classique en dessous.
+    const status = error.response?.status;
+    const data = error.response?.data as { code?: string } | undefined;
+    if (status === 403 && data?.code) {
+      const path = window.location.pathname;
+      // Évite les boucles quand on est déjà sur l'écran cible.
+      if (data.code === 'EMAIL_NOT_VERIFIED' && !path.startsWith('/verify-email')) {
+        window.location.href = '/verify-email';
+        return Promise.reject(error);
+      }
+      if (data.code === 'ACCOUNT_SUSPENDED' && !path.startsWith('/account-suspended')) {
+        window.location.href = '/account-suspended';
+        return Promise.reject(error);
+      }
+      if (
+        data.code === 'INSTRUCTOR_NOT_APPROVED'
+        && !path.startsWith('/instructor-pending')
+      ) {
+        window.location.href = '/instructor-pending';
+        return Promise.reject(error);
+      }
+      // Autres codes (PERMISSION_DENIED, ROLE_FORBIDDEN) : on laisse le
+      // caller gérer l'erreur, pas de redirection globale.
+    }
+
+    if (!original || status !== 401 || original._retry) {
       return Promise.reject(error);
     }
 

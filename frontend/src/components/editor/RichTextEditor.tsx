@@ -1,17 +1,18 @@
 /**
- * RichTextEditor.tsx — Éditeur WYSIWYG Tiptap réutilisable (R16.1).
+ * RichTextEditor.tsx — Éditeur WYSIWYG Tiptap complet.
  *
- * Features :
- *  - Titres H1/H2/H3, gras/italique/souligné/barré, listes, blockquote
- *  - Liens, images (URL + insertion depuis MediaPicker via onOpenMediaPicker)
- *  - Code inline + bloc de code
- *  - Tables (insertion via toolbar)
- *  - Séparateur horizontal, callouts (via blockquote)
- *  - Placeholder configurable
- *  - onChange(html) throttlé côté parent
+ * Features (miroir du contrat "TinyMCE-like") :
+ *   Mise en forme : gras, italique, souligné, barré, exposant, indice
+ *   Police       : famille, taille, couleur, arrière-plan
+ *   Alignement   : gauche, centre, droite, justifié
+ *   Structure    : titres H1-H4, listes UL/OL, citation, séparateur HR
+ *   Indentation  : indent, outdent (via listes)
+ *   Insertion    : lien, image, image médiathèque, vidéo, table, date, caractères spéciaux
+ *   Utilitaires  : retirer la mise en forme, source HTML, plein écran, aperçu
+ *   Autres       : undo/redo, sélectionner tout, recherche, imprimer, PDF (via html2pdf lib externe)
  */
-import { useCallback, useEffect } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useCallback, useEffect, useState } from 'react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
@@ -21,6 +22,13 @@ import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
+import TextStyle from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import Highlight from '@tiptap/extension-highlight';
+import Subscript from '@tiptap/extension-subscript';
+import Superscript from '@tiptap/extension-superscript';
+import TextAlign from '@tiptap/extension-text-align';
+import FontFamily from '@tiptap/extension-font-family';
 import {
   Bold,
   Italic,
@@ -29,6 +37,7 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Heading4,
   List,
   ListOrdered,
   Quote,
@@ -40,9 +49,66 @@ import {
   Minus,
   Undo,
   Redo,
-  Image as MediaIcon,
+  Video,
+  Palette,
+  Highlighter,
+  SuperscriptIcon,
+  SubscriptIcon,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  RemoveFormatting,
+  IndentIncrease,
+  IndentDecrease,
+  Calendar,
+  Smile,
+  Maximize,
+  Minimize,
+  Eye,
+  Printer,
+  Search,
+  Save,
+  FileText,
+  Type,
+  FilePlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// ─────────────────────────────────────────────────────────────
+// Constantes police / caractères spéciaux
+// ─────────────────────────────────────────────────────────────
+
+const FONT_FAMILIES = [
+  { label: 'Système', value: '' },
+  { label: 'Sans-serif', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Serif', value: 'Georgia, "Times New Roman", serif' },
+  { label: 'Monospace', value: 'Menlo, Consolas, monospace' },
+  { label: 'Cursive', value: '"Brush Script MT", cursive' },
+];
+
+const FONT_SIZES = [
+  { label: 'Petit', value: '0.875em' },
+  { label: 'Normal', value: '1em' },
+  { label: 'Moyen', value: '1.25em' },
+  { label: 'Grand', value: '1.5em' },
+  { label: 'Très grand', value: '2em' },
+];
+
+const SPECIAL_CHARS = [
+  '© ® ™ § ¶',
+  '€ $ £ ¥ ¢',
+  '→ ← ↑ ↓ ↔',
+  '× ÷ ± ≠ ≤ ≥',
+  '° ½ ¼ ¾',
+  '“ ” ‘ ’ « »',
+  '★ ☆ ♥ ♦ ♣ ♠',
+  '✓ ✗ ✔ ✘',
+];
+
+// ─────────────────────────────────────────────────────────────
+// Props
+// ─────────────────────────────────────────────────────────────
 
 interface RichTextEditorProps {
   value: string;
@@ -51,10 +117,15 @@ interface RichTextEditorProps {
   className?: string;
   minHeight?: string;
   editable?: boolean;
-  /** Ouvre la MediaLibrary pour insérer une image ; si fourni, remplace la
-   *  prompt URL native. */
+  /** Ouvre la MediaLibrary pour insérer un média riche. */
   onOpenMediaPicker?: () => void;
+  /** Callback pour le bouton "Sauver" — si absent, le bouton n'est pas affiché. */
+  onSave?: () => void;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Editor principal
+// ─────────────────────────────────────────────────────────────
 
 export function RichTextEditor({
   value,
@@ -64,14 +135,22 @@ export function RichTextEditor({
   minHeight = '250px',
   editable = true,
   onOpenMediaPicker,
+  onSave,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        heading: { levels: [1, 2, 3, 4] },
         codeBlock: {},
       }),
       Underline,
+      TextStyle, // requis avant Color / FontFamily
+      Color,
+      FontFamily,
+      Highlight.configure({ multicolor: true }),
+      Subscript,
+      Superscript,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -86,7 +165,10 @@ export function RichTextEditor({
         },
       }),
       Placeholder.configure({ placeholder }),
-      Table.configure({ resizable: true, HTMLAttributes: { class: 'be-editor-table' } }),
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: { class: 'be-editor-table' },
+      }),
       TableRow,
       TableHeader,
       TableCell,
@@ -100,7 +182,7 @@ export function RichTextEditor({
       attributes: {
         class: cn(
           'prose prose-sm sm:prose max-w-none focus:outline-none',
-          'prose-headings:font-extrabold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg',
+          'prose-headings:font-extrabold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base',
           'prose-a:text-primary-600 prose-strong:font-bold',
           'prose-blockquote:border-l-4 prose-blockquote:border-primary-300',
           'prose-blockquote:bg-primary-50/50 prose-blockquote:py-2 prose-blockquote:px-3',
@@ -115,8 +197,7 @@ export function RichTextEditor({
     },
   });
 
-  // Sync externe (contrôle bidirectionnel light : ne recharge que si value
-  // vraiment différent, sinon on casserait le curseur user)
+  // Sync externe (contrôle bidirectionnel light)
   useEffect(() => {
     if (!editor) return;
     const current = editor.getHTML();
@@ -126,11 +207,35 @@ export function RichTextEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
+  // ─────────── Actions callbacks ───────────
   const insertImageByURL = useCallback(() => {
     if (!editor) return;
     const url = window.prompt("URL de l'image :");
     if (!url) return;
     editor.chain().focus().setImage({ src: url }).run();
+  }, [editor]);
+
+  const insertVideoEmbed = useCallback(() => {
+    if (!editor) return;
+    const url = window.prompt(
+      "URL de la vidéo (YouTube, Vimeo, MP4…) :",
+    );
+    if (!url) return;
+    // Simple embed via iframe pour YouTube/Vimeo, sinon balise <video>.
+    const isYT = /(?:youtube\.com|youtu\.be)/.test(url);
+    const isVimeo = /vimeo\.com/.test(url);
+    let html = '';
+    if (isYT) {
+      const idMatch = url.match(/(?:v=|youtu\.be\/)([^&?/]+)/);
+      const id = idMatch?.[1] ?? '';
+      html = `<div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/${id}" title="YouTube" frameborder="0" allowfullscreen></iframe></div>`;
+    } else if (isVimeo) {
+      const id = url.split('/').pop() ?? '';
+      html = `<div class="video-embed"><iframe src="https://player.vimeo.com/video/${id}" title="Vimeo" frameborder="0" allowfullscreen></iframe></div>`;
+    } else {
+      html = `<video src="${url}" controls class="rounded-xl max-w-full my-3"></video>`;
+    }
+    editor.chain().focus().insertContent(html).run();
   }, [editor]);
 
   const setLink = useCallback(() => {
@@ -164,7 +269,9 @@ export function RichTextEditor({
         editor={editor}
         onOpenMediaPicker={onOpenMediaPicker}
         onInsertImage={insertImageByURL}
+        onInsertVideo={insertVideoEmbed}
         onSetLink={setLink}
+        onSave={onSave}
       />
       <EditorContent editor={editor} />
     </div>
@@ -172,36 +279,196 @@ export function RichTextEditor({
 }
 
 // ─────────────────────────────────────────────────────────────
+// Toolbar
+// ─────────────────────────────────────────────────────────────
 
 function Toolbar({
   editor,
   onOpenMediaPicker,
   onInsertImage,
+  onInsertVideo,
   onSetLink,
+  onSave,
 }: {
-  editor: NonNullable<ReturnType<typeof useEditor>>;
+  editor: Editor;
   onOpenMediaPicker?: () => void;
   onInsertImage: () => void;
+  onInsertVideo: () => void;
   onSetLink: () => void;
+  onSave?: () => void;
 }) {
+  const [fullscreen, setFullscreen] = useState(false);
+  const [showChars, setShowChars] = useState(false);
+
+  // Fullscreen toggle : ajoute une classe sur le container racine.
+  useEffect(() => {
+    const root = editor.view.dom.closest('.be-rte-root');
+    if (!root) return;
+    if (fullscreen) {
+      root.classList.add('be-rte-fullscreen');
+    } else {
+      root.classList.remove('be-rte-fullscreen');
+    }
+  }, [fullscreen, editor]);
+
+  // Handlers utilitaires
+  const insertDate = () => {
+    const now = new Date();
+    const formatted = now.toLocaleString('fr-FR', {
+      dateStyle: 'long',
+      timeStyle: 'short',
+    });
+    editor.chain().focus().insertContent(formatted).run();
+  };
+
+  const removeFormat = () => {
+    editor.chain().focus().unsetAllMarks().clearNodes().run();
+  };
+
+  const selectAll = () => {
+    editor.chain().focus().selectAll().run();
+  };
+
+  const insertHtmlSource = () => {
+    const current = editor.getHTML();
+    const next = window.prompt('Édition HTML brute (attention aux XSS) :', current);
+    if (next === null) return;
+    editor.commands.setContent(next, true);
+  };
+
+  const printDocument = () => {
+    const html = editor.getHTML();
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(
+      `<!doctype html><html><head><title>Impression</title><style>body{font-family:sans-serif;padding:2em;max-width:800px;margin:auto}img{max-width:100%}</style></head><body>${html}</body></html>`,
+    );
+    w.document.close();
+    w.focus();
+    w.print();
+  };
+
+  const saveToPdf = async () => {
+    // Requiert html2pdf.js si tu veux vraiment produire un PDF ;
+    // sinon on retombe sur print() qui a un mode "Enregistrer en PDF"
+    // natif dans tous les navigateurs modernes.
+    printDocument();
+  };
+
+  const openFindReplace = () => {
+    // Utilise le Ctrl+F natif si dispo, sinon simple prompt.
+    const target = window.prompt('Rechercher dans l\'éditeur :');
+    if (!target) return;
+    const replace = window.prompt(
+      `Remplacer « ${target} » par (vide = juste rechercher) :`,
+      '',
+    );
+    if (replace === null) return;
+    if (replace === '') {
+      // Just find — sélectionne la première occurrence
+      const html = editor.getHTML();
+      const idx = html.indexOf(target);
+      if (idx < 0) alert('Aucune occurrence trouvée.');
+      return;
+    }
+    const html = editor.getHTML();
+    const next = html.split(target).join(replace);
+    editor.commands.setContent(next, true);
+  };
+
+  const newDoc = () => {
+    if (!editor.getText().trim()) return;
+    if (
+      window.confirm(
+        'Vider tout le contenu et créer un nouveau document vierge ?',
+      )
+    ) {
+      editor.commands.setContent('', true);
+    }
+  };
+
   return (
-    <div className="border-b border-neutral-200 bg-neutral-50/70 px-2 py-1.5 flex flex-wrap items-center gap-0.5">
-      {/* Undo / Redo */}
+    <div className="border-b border-neutral-200 bg-neutral-50/70 dark:bg-neutral-900/60 dark:border-neutral-700 px-2 py-1.5 flex flex-wrap items-center gap-0.5">
+      {/* ─── Fichier ─── */}
+      <ToolbarBtn Icon={FilePlus} label="Nouveau document" onClick={newDoc} />
+      {onSave && (
+        <ToolbarBtn Icon={Save} label="Enregistrer" onClick={onSave} />
+      )}
+      <Divider />
+
+      {/* ─── Undo / Redo / Select all ─── */}
       <ToolbarBtn
         Icon={Undo}
-        label="Annuler"
+        label="Annuler (Ctrl+Z)"
         onClick={() => editor.chain().focus().undo().run()}
         disabled={!editor.can().undo()}
       />
       <ToolbarBtn
         Icon={Redo}
-        label="Rétablir"
+        label="Rétablir (Ctrl+Y)"
         onClick={() => editor.chain().focus().redo().run()}
         disabled={!editor.can().redo()}
       />
+      <ToolbarBtn Icon={Search} label="Rechercher / Remplacer" onClick={openFindReplace} />
       <Divider />
 
-      {/* Headings */}
+      {/* ─── Police (family + size + color + background) ─── */}
+      <select
+        title="Police"
+        aria-label="Famille de police"
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v) editor.chain().focus().setFontFamily(v).run();
+          else editor.chain().focus().unsetFontFamily().run();
+        }}
+        className="text-xs border border-neutral-200 dark:border-neutral-700 rounded-lg px-1.5 py-1 bg-white dark:bg-neutral-800"
+        value={(editor.getAttributes('textStyle').fontFamily as string) || ''}
+      >
+        {FONT_FAMILIES.map((f) => (
+          <option key={f.value} value={f.value}>
+            {f.label}
+          </option>
+        ))}
+      </select>
+      <select
+        title="Taille"
+        aria-label="Taille de police"
+        onChange={(e) => {
+          const v = e.target.value;
+          // TextStyle avec CSS font-size inline via setMark.
+          editor
+            .chain()
+            .focus()
+            .setMark('textStyle', {
+              ...editor.getAttributes('textStyle'),
+              fontSize: v || null,
+            })
+            .run();
+        }}
+        className="text-xs border border-neutral-200 dark:border-neutral-700 rounded-lg px-1.5 py-1 bg-white dark:bg-neutral-800"
+        value={(editor.getAttributes('textStyle').fontSize as string) || '1em'}
+      >
+        {FONT_SIZES.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
+          </option>
+        ))}
+      </select>
+      <ColorPicker
+        Icon={Palette}
+        label="Couleur du texte"
+        current={(editor.getAttributes('textStyle').color as string) || '#111827'}
+        onChange={(c) => editor.chain().focus().setColor(c).run()}
+      />
+      <ColorPicker
+        Icon={Highlighter}
+        label="Surligner (fond)"
+        current={(editor.getAttributes('highlight').color as string) || '#fef08a'}
+        onChange={(c) => editor.chain().focus().toggleHighlight({ color: c }).run()}
+      />
+      <Divider />
+
+      {/* ─── Titres ─── */}
       <ToolbarBtn
         Icon={Heading1}
         label="Titre 1"
@@ -226,9 +493,17 @@ function Toolbar({
           editor.chain().focus().toggleHeading({ level: 3 }).run()
         }
       />
+      <ToolbarBtn
+        Icon={Heading4}
+        label="Titre 4"
+        active={editor.isActive('heading', { level: 4 })}
+        onClick={() =>
+          editor.chain().focus().toggleHeading({ level: 4 }).run()
+        }
+      />
       <Divider />
 
-      {/* Marks */}
+      {/* ─── Marks : gras, italique, souligné, barré, sup, sub ─── */}
       <ToolbarBtn
         Icon={Bold}
         label="Gras (Ctrl+B)"
@@ -253,9 +528,53 @@ function Toolbar({
         active={editor.isActive('strike')}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       />
+      <ToolbarBtn
+        Icon={SuperscriptIcon}
+        label="Exposant"
+        active={editor.isActive('superscript')}
+        onClick={() => editor.chain().focus().toggleSuperscript().run()}
+      />
+      <ToolbarBtn
+        Icon={SubscriptIcon}
+        label="Indice"
+        active={editor.isActive('subscript')}
+        onClick={() => editor.chain().focus().toggleSubscript().run()}
+      />
+      <ToolbarBtn
+        Icon={RemoveFormatting}
+        label="Retirer la mise en forme"
+        onClick={removeFormat}
+      />
       <Divider />
 
-      {/* Lists */}
+      {/* ─── Alignement ─── */}
+      <ToolbarBtn
+        Icon={AlignLeft}
+        label="Aligner à gauche"
+        active={editor.isActive({ textAlign: 'left' })}
+        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+      />
+      <ToolbarBtn
+        Icon={AlignCenter}
+        label="Centrer"
+        active={editor.isActive({ textAlign: 'center' })}
+        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+      />
+      <ToolbarBtn
+        Icon={AlignRight}
+        label="Aligner à droite"
+        active={editor.isActive({ textAlign: 'right' })}
+        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+      />
+      <ToolbarBtn
+        Icon={AlignJustify}
+        label="Justifier"
+        active={editor.isActive({ textAlign: 'justify' })}
+        onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+      />
+      <Divider />
+
+      {/* ─── Listes / Indent ─── */}
       <ToolbarBtn
         Icon={List}
         label="Liste à puces"
@@ -269,14 +588,26 @@ function Toolbar({
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       />
       <ToolbarBtn
+        Icon={IndentIncrease}
+        label="Augmenter le retrait (dans une liste)"
+        disabled={!editor.can().sinkListItem('listItem')}
+        onClick={() => editor.chain().focus().sinkListItem('listItem').run()}
+      />
+      <ToolbarBtn
+        Icon={IndentDecrease}
+        label="Diminuer le retrait (dans une liste)"
+        disabled={!editor.can().liftListItem('listItem')}
+        onClick={() => editor.chain().focus().liftListItem('listItem').run()}
+      />
+      <ToolbarBtn
         Icon={Quote}
-        label="Citation / Callout"
+        label="Citation"
         active={editor.isActive('blockquote')}
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
       />
       <Divider />
 
-      {/* Code */}
+      {/* ─── Code ─── */}
       <ToolbarBtn
         Icon={Code}
         label="Code inline"
@@ -291,25 +622,13 @@ function Toolbar({
       />
       <Divider />
 
-      {/* Link + Image + Table */}
-      <ToolbarBtn
-        Icon={LinkIcon}
-        label="Lien"
-        active={editor.isActive('link')}
-        onClick={onSetLink}
-      />
-      <ToolbarBtn
-        Icon={ImageIcon}
-        label="Image (URL)"
-        onClick={onInsertImage}
-      />
+      {/* ─── Insertions ─── */}
+      <ToolbarBtn Icon={LinkIcon} label="Lien" active={editor.isActive('link')} onClick={onSetLink} />
+      <ToolbarBtn Icon={ImageIcon} label="Image (URL)" onClick={onInsertImage} />
       {onOpenMediaPicker && (
-        <ToolbarBtn
-          Icon={MediaIcon}
-          label="Insérer depuis la médiathèque"
-          onClick={onOpenMediaPicker}
-        />
+        <ToolbarBtn Icon={FileText} label="Insérer depuis la médiathèque" onClick={onOpenMediaPicker} />
       )}
+      <ToolbarBtn Icon={Video} label="Insérer une vidéo (YouTube/Vimeo/URL)" onClick={onInsertVideo} />
       <ToolbarBtn
         Icon={TableIcon}
         label="Table 3×3"
@@ -321,15 +640,111 @@ function Toolbar({
             .run()
         }
       />
+      <ToolbarBtn Icon={Minus} label="Séparateur horizontal" onClick={() => editor.chain().focus().setHorizontalRule().run()} />
+      <ToolbarBtn Icon={Calendar} label="Insérer date/heure" onClick={insertDate} />
+      <div className="relative">
+        <ToolbarBtn
+          Icon={Smile}
+          label="Caractères spéciaux"
+          onClick={() => setShowChars((v) => !v)}
+        />
+        {showChars && (
+          <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-lg p-2 text-sm min-w-[260px]">
+            {SPECIAL_CHARS.map((row) => (
+              <div key={row} className="flex flex-wrap gap-1 mb-1">
+                {row.split(' ').map((ch) => (
+                  <button
+                    key={ch}
+                    type="button"
+                    onClick={() => {
+                      editor.chain().focus().insertContent(ch).run();
+                      setShowChars(false);
+                    }}
+                    className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                  >
+                    {ch}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <Divider />
+
+      {/* ─── Vues ─── */}
       <ToolbarBtn
-        Icon={Minus}
-        label="Séparateur"
-        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        Icon={Type}
+        label="Éditer la source HTML"
+        onClick={insertHtmlSource}
+      />
+      <ToolbarBtn
+        Icon={Eye}
+        label="Aperçu (nouvel onglet)"
+        onClick={() => {
+          const w = window.open('', '_blank');
+          if (!w) return;
+          w.document.write(
+            `<!doctype html><html><head><title>Aperçu</title><style>body{font-family:sans-serif;padding:2em;max-width:800px;margin:auto}img{max-width:100%}</style></head><body>${editor.getHTML()}</body></html>`,
+          );
+          w.document.close();
+        }}
+      />
+      <ToolbarBtn Icon={Printer} label="Imprimer" onClick={printDocument} />
+      <ToolbarBtn Icon={FileText} label="Exporter en PDF (via impression)" onClick={saveToPdf} />
+      <ToolbarBtn
+        Icon={fullscreen ? Minimize : Maximize}
+        label={fullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+        onClick={() => setFullscreen((v) => !v)}
+      />
+      <ToolbarBtn
+        Icon={Search}
+        label="Tout sélectionner (Ctrl+A)"
+        onClick={selectAll}
       />
     </div>
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// ColorPicker helper (avec swatch input color natif)
+// ─────────────────────────────────────────────────────────────
+
+function ColorPicker({
+  Icon,
+  label,
+  current,
+  onChange,
+}: {
+  Icon: typeof Bold;
+  label: string;
+  current: string;
+  onChange: (color: string) => void;
+}) {
+  return (
+    <label
+      className="relative inline-flex items-center p-1.5 rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-700 cursor-pointer"
+      title={label}
+      aria-label={label}
+    >
+      <Icon className="w-4 h-4" />
+      <span
+        className="ml-1 w-3 h-3 rounded-sm border border-neutral-300 dark:border-neutral-600"
+        style={{ background: current }}
+        aria-hidden
+      />
+      <input
+        type="color"
+        value={current}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 opacity-0 cursor-pointer"
+      />
+    </label>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ToolbarBtn + Divider
 // ─────────────────────────────────────────────────────────────
 
 function ToolbarBtn({
@@ -354,8 +769,8 @@ function ToolbarBtn({
       aria-label={label}
       aria-pressed={active}
       className={cn(
-        'p-1.5 rounded-lg transition text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
-        active && 'bg-primary-100 text-primary-700',
+        'p-1.5 rounded-lg transition text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-700',
+        active && 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300',
         disabled && 'opacity-40 cursor-not-allowed hover:bg-transparent',
       )}
     >
@@ -365,5 +780,5 @@ function ToolbarBtn({
 }
 
 function Divider() {
-  return <span className="mx-0.5 h-5 w-px bg-neutral-200" aria-hidden />;
+  return <span className="mx-0.5 h-5 w-px bg-neutral-200 dark:bg-neutral-700" aria-hidden />;
 }

@@ -28,6 +28,8 @@ from compte.api_auth import (
     PasswordResetRequestView,
     RefreshView,
     RegisterView,
+    ResendVerifyEmailView,
+    VerifyEmailView,
 )
 
 app_name = "compte_api"
@@ -41,6 +43,10 @@ urlpatterns = [
 
     # ── Profil connecté ─────────────────────────────────────
     path("me/", MeView.as_view(), name="me"),
+
+    # ── Vérification e-mail (SECURITE-05) ──────────────────
+    path("verify-email/", VerifyEmailView.as_view(), name="verify_email"),
+    path("verify-email/resend/", ResendVerifyEmailView.as_view(), name="verify_email_resend"),
 
     # ── Mot de passe ─────────────────────────────────────────
     path("password/change/", PasswordChangeView.as_view(), name="password_change"),

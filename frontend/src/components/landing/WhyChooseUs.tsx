@@ -67,7 +67,7 @@ const FEATURES: Feature[] = [
 export function WhyChooseUs() {
   return (
     <section
-      className="bg-white py-14 sm:py-16"
+      className="bg-white dark:bg-neutral-950 py-14 sm:py-16"
       aria-labelledby="why-title"
     >
       <div className="container mx-auto px-4 max-w-6xl">
@@ -77,11 +77,11 @@ export function WhyChooseUs() {
           </p>
           <h2
             id="why-title"
-            className="mt-1 text-2xl sm:text-3xl font-extrabold text-neutral-900"
+            className="mt-1 text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white"
           >
             Pourquoi choisir BestÉpargne ?
           </h2>
-          <p className="mt-3 text-sm sm:text-base text-neutral-600">
+          <p className="mt-3 text-sm sm:text-base text-neutral-600 dark:text-neutral-300">
             Nous conjuguons excellence pédagogique, technologie moderne et
             accompagnement humain pour rendre la formation accessible à tous.
           </p>
@@ -91,7 +91,7 @@ export function WhyChooseUs() {
           {FEATURES.map((f) => (
             <li
               key={f.title}
-              className="bg-neutral-50 border border-neutral-100 rounded-2xl p-5 sm:p-6 hover:shadow-soft transition"
+              className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-2xl p-5 sm:p-6 hover:shadow-soft transition"
             >
               <div
                 className={`w-11 h-11 rounded-xl ${f.bg} ${f.color} flex items-center justify-center mb-3`}

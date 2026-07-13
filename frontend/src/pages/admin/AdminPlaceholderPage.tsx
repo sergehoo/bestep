@@ -158,14 +158,12 @@ export function AdminInstructorsPlaceholder() {
       description="Gestion, validation et suivi financier des formateurs."
       features={[
         'Liste avec profil, expertise, nb apprenants, note moyenne',
-        'Workflow validation formateur (inscription → docs → validation)',
         'Revenus, commissions, montants reversés',
         'Suspension, restriction de publication',
         'Export financier',
       ]}
       backendNeeded={[
         'GET /api/admin/instructors/',
-        'POST /api/admin/instructors/<id>/validate/',
         'POST /api/admin/instructors/<id>/suspend/',
       ]}
       djangoAdmin="compte/user"

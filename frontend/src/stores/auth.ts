@@ -16,6 +16,11 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   error: string | null;
+  /** SECURITE-05 — code stable renvoyé par le backend (EMAIL_NOT_VERIFIED,
+   * ACCOUNT_SUSPENDED, ROLE_FORBIDDEN, INSTRUCTOR_NOT_APPROVED, …). Permet
+   * à l'UI de proposer une action ciblée (renvoyer le mail, contacter le
+   * support) plutôt qu'un simple message d'erreur. */
+  errorCode: string | null;
 
   // Actions
   login: (payload: LoginPayload) => Promise<void>;
@@ -34,9 +39,10 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       loading: false,
       error: null,
+      errorCode: null,
 
       login: async (payload) => {
-        set({ loading: true, error: null });
+        set({ loading: true, error: null, errorCode: null });
         try {
           const { data } = await api.post('/auth/login/', payload);
           set({
@@ -46,17 +52,25 @@ export const useAuthStore = create<AuthState>()(
             loading: false,
           });
         } catch (e: unknown) {
-          const err = e as { response?: { data?: { detail?: string } } };
+          const err = e as {
+            response?: { data?: { detail?: string; code?: string } };
+          };
           set({
             loading: false,
             error: err.response?.data?.detail || 'Identifiants incorrects.',
+            errorCode: err.response?.data?.code ?? null,
           });
           throw e;
         }
       },
 
       register: async (payload) => {
-        set({ loading: true, error: null });
+        // SÉCURITÉ CRITIQUE — purger toute session antérieure avant
+        // l'inscription. Sinon un utilisateur déjà loggé (ex : admin)
+        // conserve son token si le register échoue, et un utilisateur
+        // fraîchement inscrit hérite du state de l'ancien.
+        get().clear();
+        set({ loading: true, error: null, errorCode: null });
         try {
           const { data } = await api.post('/auth/register/', payload);
           set({
@@ -81,7 +95,8 @@ export const useAuthStore = create<AuthState>()(
               }
             }
           }
-          set({ loading: false, error: message });
+          const code = typeof errData?.code === 'string' ? (errData.code as string) : null;
+          set({ loading: false, error: message, errorCode: code });
           throw e;
         }
       },
@@ -126,7 +141,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       clear: () => {
-        set({ access: null, refresh: null, user: null, error: null });
+        set({ access: null, refresh: null, user: null, error: null, errorCode: null });
         try {
           localStorage.removeItem('be-auth');
         } catch { /* ignore */ }

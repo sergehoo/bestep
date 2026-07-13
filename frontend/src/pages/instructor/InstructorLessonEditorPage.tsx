@@ -38,7 +38,9 @@ import {
   useInstructorCourseDetail,
 } from '@/hooks/instructor';
 import { extractApiError, formatDuration } from '@/lib/utils';
-import type { MediaAsset } from '@/lib/types';
+import { LESSON_TYPE_META, type LessonType, type MediaAsset } from '@/lib/types';
+
+const LESSON_TYPES: LessonType[] = ['VIDEO', 'TEXT', 'FILE', 'QUIZ', 'LIVE'];
 
 const AUTOSAVE_DELAY_MS = 3000;
 
@@ -76,6 +78,7 @@ export default function InstructorLessonEditorPage() {
   const [videoUrl, setVideoUrl] = useState('');
   const [durationSec, setDurationSec] = useState(0);
   const [isPreview, setIsPreview] = useState(false);
+  const [lessonType, setLessonType] = useState<LessonType>('VIDEO');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [flash, setFlash] = useState<
     { kind: 'ok' | 'err'; msg: string } | null
@@ -92,6 +95,14 @@ export default function InstructorLessonEditorPage() {
       setVideoUrl(fullLesson.video_url || '');
       setDurationSec(fullLesson.duration_sec || 0);
       setIsPreview(fullLesson.is_preview);
+      // Normalise le lesson_type entrant (backend peut renvoyer string
+      // hors enum si migration ancienne). On tombe sur 'VIDEO' par défaut.
+      const incoming = String(fullLesson.lesson_type || '').toUpperCase();
+      setLessonType(
+        LESSON_TYPES.includes(incoming as LessonType)
+          ? (incoming as LessonType)
+          : 'VIDEO',
+      );
       setDirty(false);
     }
   }, [fullLesson?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -109,7 +120,7 @@ export default function InstructorLessonEditorPage() {
       if (autosaveRef.current) clearTimeout(autosaveRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, content, videoUrl, durationSec, isPreview, dirty]);
+  }, [title, content, videoUrl, durationSec, isPreview, lessonType, dirty]);
 
   async function save() {
     if (!section?.id || !lessonId || !courseId) return;
@@ -124,6 +135,7 @@ export default function InstructorLessonEditorPage() {
           video_url: videoUrl,
           duration_sec: durationSec,
           is_preview: isPreview,
+          lesson_type: lessonType,
         },
       });
       setDirty(false);
@@ -263,11 +275,29 @@ export default function InstructorLessonEditorPage() {
             <Card>
               <CardBody className="space-y-3">
                 <div>
-                  <label className="text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5 block">
-                    Type
+                  <label
+                    htmlFor="lesson-type-select"
+                    className="text-xs font-bold text-neutral-700 dark:text-neutral-200 uppercase tracking-wide mb-1.5 block"
+                  >
+                    Type de leçon
                   </label>
-                  <p className="text-sm font-semibold">
-                    {fullLesson.lesson_type}
+                  <select
+                    id="lesson-type-select"
+                    value={lessonType}
+                    onChange={(e) => {
+                      setLessonType(e.target.value as LessonType);
+                      setDirty(true);
+                    }}
+                    className="w-full border border-neutral-200 dark:border-neutral-700 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    {LESSON_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {LESSON_TYPE_META[t].label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug">
+                    {LESSON_TYPE_META[lessonType].description}
                   </p>
                 </div>
                 <Input

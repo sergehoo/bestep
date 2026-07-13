@@ -31,11 +31,10 @@ from ai.tools import (
 )
 
 
-def _forbidden():
-    return Response(
-        {"detail": "Best-AI indisponible pour ce compte."},
-        status=status.HTTP_403_FORBIDDEN,
-    )
+def _forbidden(user=None):
+    # SECURITE-05 — délègue à ai.http.forbidden_for
+    from ai.http import forbidden_for
+    return forbidden_for(user)
 
 
 def _client_ip(request):
@@ -101,7 +100,7 @@ class AIToolsListView(APIView):
     @extend_schema(summary="Liste des outils IA disponibles pour l'utilisateur")
     def get(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         return Response({"tools": list_tools_for_user(request.user)})
 
 
@@ -114,7 +113,7 @@ class AIToolExecuteView(APIView):
     )
     def post(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         s = ExecuteToolInput(data=request.data)
         s.is_valid(raise_exception=True)
         payload = request_execution(
@@ -134,7 +133,7 @@ class AIToolApprovalListView(APIView):
     @extend_schema(summary="Approbations d'action en attente (utilisateur courant)")
     def get(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         state = (request.query_params.get("status") or "PENDING").upper()
         qs = AIActionApproval.objects.filter(user=request.user)
         if state in {"PENDING", "CONFIRMED", "CANCELLED", "EXPIRED"}:
@@ -154,7 +153,7 @@ class AIToolApprovalConfirmView(APIView):
     @extend_schema(summary="Confirmer une approbation et exécuter le tool")
     def post(self, request, approval_id: int):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         payload = confirm_execution(
             user=request.user,
             approval_id=approval_id,
@@ -170,7 +169,7 @@ class AIToolApprovalCancelView(APIView):
     @extend_schema(summary="Annuler une approbation en attente")
     def post(self, request, approval_id: int):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         payload = cancel_execution(
             user=request.user,
             approval_id=approval_id,
@@ -186,7 +185,7 @@ class AIToolExecutionsView(APIView):
     @extend_schema(summary="Historique des exécutions de tools (utilisateur courant)")
     def get(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         qs = AIToolExecution.objects.filter(user=request.user).order_by("-created_at")
         paginator = PageNumberPagination()
         paginator.page_size = 25

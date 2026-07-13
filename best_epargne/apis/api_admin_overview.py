@@ -61,7 +61,8 @@ class AdminOverviewView(APIView):
         kpis = {
             "users_total": User.objects.count(),
             "users_active": User.objects.filter(is_active=True).count(),
-            "users_new_7d": User.objects.filter(date_joined__gte=seven_days_ago).count(),
+            # User custom : ``created_at`` (pas ``date_joined``).
+            "users_new_7d": User.objects.filter(created_at__gte=seven_days_ago).count(),
             "courses_total": Course.objects.count(),
             "courses_published": Course.objects.filter(status="PUBLISHED").count(),
             "enrollments_total": Enrollment.objects.count(),

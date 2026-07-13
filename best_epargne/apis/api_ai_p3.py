@@ -29,11 +29,10 @@ def _client_ip(request):
     return request.META.get("REMOTE_ADDR")
 
 
-def _forbidden():
-    return Response(
-        {"detail": "Best-AI indisponible pour ce compte."},
-        status=status.HTTP_403_FORBIDDEN,
-    )
+def _forbidden(user=None):
+    # SECURITE-05 — délègue à ai.http.forbidden_for
+    from ai.http import forbidden_for
+    return forbidden_for(user)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -59,7 +58,7 @@ class TextTransformView(APIView):
     )
     def post(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         # Seuls les créateurs de contenu peuvent transformer (instructor/admin).
         if not (
             getattr(request.user, "is_instructor", False)
@@ -125,7 +124,7 @@ class RecommendationsView(APIView):
     @extend_schema(summary="Recommandations personnalisées pour l'apprenant")
     def get(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         # Recos essentiellement destinées aux learners (mais accessible
         # aux instructors/admins pour tests).
         try:
@@ -211,7 +210,7 @@ class RecommendationFeedbackView(APIView):
     )
     def post(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         s = RecommendationFeedbackInput(data=request.data)
         s.is_valid(raise_exception=True)
         try:

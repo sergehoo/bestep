@@ -1,0 +1,17 @@
+Bonjour {{ user_name|default:user.email }},
+
+Bonne nouvelle : votre compte formateur vient d'être validé par notre équipe.
+
+Vous pouvez maintenant :
+  - Créer et publier vos propres cours
+  - Configurer votre profil public marketplace
+  - Suivre vos apprenants et vos revenus depuis votre cockpit
+  - Utiliser Best-AI pour générer des contenus pédagogiques
+
+Ouvrir votre espace formateur :
+{{ frontend_base }}/instructor
+
+Besoin d'aide pour bien commencer ? Consultez notre centre d'aide sur
+{{ frontend_base }}/help ou répondez simplement à ce message.
+
+— L'équipe Best-Épargne

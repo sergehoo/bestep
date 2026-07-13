@@ -176,6 +176,15 @@ urlpatterns = [
         ).AdminUserResetPasswordView.as_view(),
         name="api_admin_user_reset_password",
     ),
+    # SECURITE-05 — Support : forcer la vérif e-mail d'un user
+    path(
+        "admin/users/<int:user_id>/verify-email/",
+        __import__(
+            "best_epargne.apis.api_admin",
+            fromlist=["AdminUserForceVerifyEmailView"],
+        ).AdminUserForceVerifyEmailView.as_view(),
+        name="api_admin_user_force_verify_email",
+    ),
     path(
         "admin/config/",
         __import__(
@@ -955,6 +964,58 @@ urlpatterns = [
             fromlist=["AdminInstructorsListView"],
         ).AdminInstructorsListView.as_view(),
         name="api_admin_instructors",
+    ),
+    # SECURITE-06 — Compteur formateurs en attente (badge nav admin)
+    path(
+        "admin/instructors/pending-count/",
+        __import__(
+            "best_epargne.apis.api_admin_instructors",
+            fromlist=["AdminInstructorPendingCountView"],
+        ).AdminInstructorPendingCountView.as_view(),
+        name="api_admin_instructors_pending_count",
+    ),
+    # SECURITE-06 — Audit unifié des événements de sécurité (users + instructors)
+    path(
+        "admin/audit/security/",
+        __import__(
+            "best_epargne.apis.api_admin_audit_security",
+            fromlist=["AdminSecurityAuditView"],
+        ).AdminSecurityAuditView.as_view(),
+        name="api_admin_audit_security",
+    ),
+    path(
+        "admin/audit/security/export/",
+        __import__(
+            "best_epargne.apis.api_admin_audit_security",
+            fromlist=["AdminSecurityAuditExportCSVView"],
+        ).AdminSecurityAuditExportCSVView.as_view(),
+        name="api_admin_audit_security_export",
+    ),
+    # SECURITE-06 — Historique des décisions formateur
+    path(
+        "admin/instructors/history/",
+        __import__(
+            "best_epargne.apis.api_admin_instructors",
+            fromlist=["AdminInstructorHistoryView"],
+        ).AdminInstructorHistoryView.as_view(),
+        name="api_admin_instructors_history",
+    ),
+    # SECURITE-06 — Approbation / Refus formateur
+    path(
+        "admin/instructors/<int:pk>/approve/",
+        __import__(
+            "best_epargne.apis.api_admin_instructors",
+            fromlist=["AdminInstructorApproveView"],
+        ).AdminInstructorApproveView.as_view(),
+        name="api_admin_instructor_approve",
+    ),
+    path(
+        "admin/instructors/<int:pk>/reject/",
+        __import__(
+            "best_epargne.apis.api_admin_instructors",
+            fromlist=["AdminInstructorRejectView"],
+        ).AdminInstructorRejectView.as_view(),
+        name="api_admin_instructor_reject",
     ),
 
     # --- R28 — Admin enrollments ---

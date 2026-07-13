@@ -1,0 +1,12 @@
+Bonjour {{ user_name|default:user.email }},
+
+Merci pour votre inscription sur Best-Épargne.
+Confirmez votre adresse e-mail en cliquant sur le lien ci-dessous :
+
+{{ link }}
+
+Ce lien expire dans {{ ttl_hours }} heures.
+
+Si vous n'êtes pas à l'origine de cette inscription, ignorez ce message.
+
+— L'équipe Best-Épargne

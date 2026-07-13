@@ -54,7 +54,7 @@ export function StatsBar({ stats = DEFAULT_STATS }: StatsBarProps) {
   return (
     <section
       ref={ref}
-      className="bg-white border-y border-neutral-100"
+      className="bg-white dark:bg-neutral-950 border-y border-neutral-100 dark:border-neutral-800"
       aria-label="Statistiques de la plateforme"
     >
       <div className="container mx-auto px-4 max-w-6xl py-8 sm:py-10">

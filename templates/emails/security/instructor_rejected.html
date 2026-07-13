@@ -1,0 +1,39 @@
+{% extends "emails/security/_layout.html" %}
+{% block title %}Votre demande de compte formateur{% endblock %}
+{% block subtitle %}Demande formateur non validée{% endblock %}
+{% block body %}
+  <p style="margin:0 0 12px;font-size:18px;font-weight:700;color:#0f172a;">
+    Bonjour {{ user_name|default:user.email }},
+  </p>
+  <p style="margin:0 0 12px;">
+    Après examen, nous ne pouvons pas valider votre demande de compte
+    formateur pour le moment.
+  </p>
+  {% if reason %}
+  <div style="margin:16px 0;padding:14px 16px;border-left:4px solid #e11d48;background:#fff1f2;border-radius:6px;color:#1f2937;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#9f1239;margin-bottom:4px;">
+      Motif
+    </div>
+    <div style="font-size:14px;line-height:1.5;">{{ reason }}</div>
+  </div>
+  {% endif %}
+  <p style="margin:0 0 12px;">
+    Vous conservez l'accès à Best-Épargne en tant qu'apprenant : le
+    catalogue de cours et vos formations en cours restent disponibles.
+  </p>
+  <div style="text-align:center;margin:24px 0;">
+    <a href="{{ frontend_base }}/learn"
+       style="display:inline-block;background:#1e3a8a;color:#ffffff;
+              text-decoration:none;padding:12px 24px;border-radius:10px;
+              font-weight:700;font-size:15px;">
+      Continuer en tant qu'apprenant
+    </a>
+  </div>
+  <p style="margin:18px 0 0;font-size:13px;color:#4b5563;">
+    Vous pensez qu'il s'agit d'une erreur ? Répondez à ce message ou
+    contactez notre support à
+    <a href="mailto:support@best-epargne.local" style="color:#1e3a8a;">
+      support@best-epargne.local
+    </a>.
+  </p>
+{% endblock %}

@@ -176,6 +176,7 @@ export default function LoginPage() {
   const clearAuth = useAuthStore((s) => s.clear);
   const loading = useAuthStore((s) => s.loading);
   const authError = useAuthStore((s) => s.error);
+  const authErrorCode = useAuthStore((s) => s.errorCode);
   const user = useAuthUser();
   const isAuthed = useIsAuthenticated();
 
@@ -257,13 +258,17 @@ export default function LoginPage() {
     setSubmitted(false);
   };
 
-  // Détection compte désactivé : le backend renvoie souvent "compte inactif"
-  // ou "désactivé" dans le detail — heuristique simple qui laisse l'affichage
-  // par défaut si aucun match.
+  // SECURITE-05 — codes stables renvoyés par le backend (voir
+  // compte/drf_exception_handler.py). Le code prime sur le message texte ;
+  // les regex historiques ne servent plus que de fallback pour d'anciens
+  // déploiements qui ne l'auraient pas encore.
   const errorMessage = submitted && authError ? authError : null;
+  const errorCode = submitted ? authErrorCode : null;
   const isDeactivated =
-    errorMessage &&
-    /inactif|désactivé|desactive|not\s+active|disabled/i.test(errorMessage);
+    errorCode === 'ACCOUNT_SUSPENDED' ||
+    (errorMessage != null &&
+      /inactif|désactivé|desactive|not\s+active|disabled/i.test(errorMessage));
+  const isEmailUnverified = errorCode === 'EMAIL_NOT_VERIFIED';
 
   const emailValue = watch('email');
 
@@ -432,20 +437,34 @@ export default function LoginPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className={
                   'mt-5 flex items-start gap-3 rounded-xl px-4 py-3 text-sm border ' +
-                  (isDeactivated
-                    ? 'bg-amber-50 border-amber-200 text-amber-900'
-                    : 'bg-rose-50 border-rose-200 text-rose-900')
+                  (isEmailUnverified
+                    ? 'bg-sky-50 border-sky-200 text-sky-900'
+                    : isDeactivated
+                      ? 'bg-amber-50 border-amber-200 text-amber-900'
+                      : 'bg-rose-50 border-rose-200 text-rose-900')
                 }
                 role="alert"
               >
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="font-semibold">
-                    {isDeactivated
-                      ? 'Votre compte n\'est pas activé.'
-                      : 'Impossible de vous connecter.'}
+                    {isEmailUnverified
+                      ? 'Adresse e-mail non vérifiée.'
+                      : isDeactivated
+                        ? 'Votre compte n\'est pas activé.'
+                        : 'Impossible de vous connecter.'}
                   </p>
                   <p className="text-xs mt-0.5 opacity-90">{errorMessage}</p>
+                  {isEmailUnverified && (
+                    <p className="mt-1 text-xs">
+                      <Link
+                        to="/verify-email"
+                        className="font-semibold underline hover:text-sky-950"
+                      >
+                        Ouvrir la page de vérification e-mail
+                      </Link>
+                    </p>
+                  )}
                   {isDeactivated && (
                     <p className="mt-1 text-xs">
                       <Link

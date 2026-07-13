@@ -18,6 +18,20 @@ export interface UserPreferences {
   public_profile: boolean;
 }
 
+/**
+ * Profil métier normalisé exposé par ``/api/auth/me``.
+ * Le champ ``type`` détermine le dashboard cible et les capacités UI.
+ */
+export type UserProfile =
+  | { type: 'platform_admin' }
+  | { type: 'instructor'; is_verified: boolean; headline?: string; payout_percent?: number | null }
+  | { type: 'org_admin' }
+  | { type: 'learner'; job_title?: string }
+  | { type: 'unknown' };
+
+/** État d'approbation d'un formateur (ou 'not_applicable' pour les autres rôles). */
+export type ApprovalStatus = 'not_applicable' | 'pending' | 'approved';
+
 export interface User {
   id: number;
   email: string;
@@ -29,6 +43,14 @@ export interface User {
   // Ajouté pour Best-AI T4 — le compte peut être désactivé par un admin.
   // Optionnel pour rétro-compat : absent = considéré actif côté frontend.
   is_active?: boolean;
+  /** SECURITE-05 — vérification e-mail obligatoire pour toute action métier. */
+  email_verified?: boolean;
+  /** État d'approbation formateur ; ``not_applicable`` pour les non-formateurs. */
+  approval_status?: ApprovalStatus;
+  /** Profil métier normalisé (source de vérité pour le routage). */
+  profile?: UserProfile;
+  /** True si le user a rempli son onboarding métier (LearnerKYC, InstructorProfile validé, …). */
+  onboarding_completed?: boolean;
   preferences: UserPreferences;
   created_at: string;
   last_login: string | null;
@@ -50,6 +72,10 @@ export interface RegisterPayload {
   password: string;
   full_name: string;
   phone?: string;
+  /** Whitelist backend : learner | instructor | org_admin. */
+  account_type?: 'learner' | 'instructor' | 'org_admin';
+  /** Renseigné uniquement si account_type === 'org_admin'. */
+  organization_name?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -325,7 +351,38 @@ export interface AdminDashboardV5 extends AdminDashboard {
 // R6 — Instructor course CRUD
 // ─────────────────────────────────────────────────────────────────────
 
-export type LessonType = 'VIDEO' | 'ARTICLE' | 'PDF' | 'QUIZ' | 'AUDIO';
+/**
+ * Types de leçons — miroir des choix backend
+ * (voir `catalog.models.Lesson.LessonType`).
+ */
+export type LessonType = 'VIDEO' | 'TEXT' | 'FILE' | 'QUIZ' | 'LIVE';
+
+/** Métadonnées d'affichage pour chaque type de leçon (label + description). */
+export const LESSON_TYPE_META: Record<
+  LessonType,
+  { label: string; description: string }
+> = {
+  VIDEO: {
+    label: 'Vidéo',
+    description: "Cours vidéo (upload MinIO ou URL externe YouTube/Vimeo).",
+  },
+  TEXT: {
+    label: 'Texte',
+    description: 'Leçon rédigée dans l\'éditeur riche (Tiptap).',
+  },
+  FILE: {
+    label: 'Fichier',
+    description: 'PDF ou document téléchargeable.',
+  },
+  QUIZ: {
+    label: 'Quiz',
+    description: 'Évaluation à choix multiples avec score.',
+  },
+  LIVE: {
+    label: 'Live',
+    description: 'Session en direct planifiée.',
+  },
+};
 
 export interface InstructorLesson {
   id: number;
@@ -438,6 +495,10 @@ export interface AdminUserListItem {
   is_instructor: boolean;
   is_learner: boolean;
   has_organization: boolean;
+  /** SECURITE-06 — null si non-formateur, sinon status de validation. */
+  instructor_is_verified?: boolean | null;
+  /** SECURITE-05 — flag unifié (natif + allauth). */
+  email_verified?: boolean;
   date_joined: string | null;
   last_login: string | null;
 }
@@ -452,6 +513,8 @@ export interface AdminUserFilters {
   q?: string;
   role?: 'all' | 'admin' | 'instructor' | 'learner';
   is_active?: 'true' | 'false' | '';
+  /** SECURITE-06 — filtre sur InstructorProfile.is_verified. */
+  verified?: 'true' | 'false' | '';
   page?: number;
 }
 
@@ -610,4 +673,8 @@ export interface MediaAsset {
   can_delete: boolean;
   scope: 'personal' | 'organization';
   owner_name: string;
+  /** UX-01 — URL de la miniature (image extraite pour vidéo, aperçu pour doc). */
+  thumbnail_url?: string;
+  /** UX-01 — URL de streaming (vidéo/audio) ou visualisation (doc image). */
+  preview_url?: string;
 }

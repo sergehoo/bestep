@@ -34,7 +34,7 @@ const STEPS = [
 export function HowItWorks() {
   return (
     <section
-      className="bg-gradient-to-b from-white to-neutral-50 py-14 sm:py-16"
+      className="bg-gradient-to-b from-white to-neutral-50 dark:from-neutral-950 dark:to-neutral-900 py-14 sm:py-16"
       aria-labelledby="how-title"
     >
       <div className="container mx-auto px-4 max-w-6xl">
@@ -44,7 +44,7 @@ export function HowItWorks() {
           </p>
           <h2
             id="how-title"
-            className="mt-1 text-2xl sm:text-3xl font-extrabold text-neutral-900"
+            className="mt-1 text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white"
           >
             Comment ça fonctionne
           </h2>
@@ -63,7 +63,7 @@ export function HowItWorks() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.4, delay: i * 0.08 }}
-              className="relative bg-white border border-neutral-100 rounded-2xl p-5 sm:p-6 shadow-soft text-center"
+              className="relative bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-2xl p-5 sm:p-6 shadow-soft text-center"
             >
               <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white flex items-center justify-center shadow-lift mb-3">
                 <s.Icon className="w-7 h-7" />

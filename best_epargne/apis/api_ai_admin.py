@@ -37,9 +37,13 @@ from ai.models import (
 )
 
 
-def _forbidden():
+def _forbidden(user=None):
+    # SECURITE-05 — le refus signifie "pas platform_admin" → ROLE_FORBIDDEN.
     return Response(
-        {"detail": "Réservé aux administrateurs plateforme."},
+        {
+            "detail": "Réservé aux administrateurs plateforme.",
+            "code": "ROLE_FORBIDDEN",
+        },
         status=status.HTTP_403_FORBIDDEN,
     )
 

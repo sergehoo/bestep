@@ -23,10 +23,16 @@ from __future__ import annotations
 def user_can_use_assistant(user) -> bool:
     """Vrai si l'utilisateur peut ouvrir/utiliser Best-AI.
 
-    Règles cumulatives :
+    Règles cumulatives (SECURITE-05) :
         - Objet ``user`` valide (pas ``None``, pas ``AnonymousUser``)
         - ``is_authenticated`` True (session/JWT valide)
         - ``is_active`` True (compte non désactivé par l'admin)
+        - ``is_email_verified`` True (e-mail vérifié)
+
+    Les administrateurs plateforme (``is_platform_admin``) sont
+    exemptés de la vérification e-mail pour ne pas casser le support
+    technique (leur compte est créé via ``createsuperuser`` avant
+    l'ajout du champ).
 
     Retourne systématiquement ``False`` pour tout accès anonyme, même
     si d'autres champs du user existent — c'est intentionnel : Best-AI
@@ -38,6 +44,10 @@ def user_can_use_assistant(user) -> bool:
     if not getattr(user, "is_authenticated", False):
         return False
     if not getattr(user, "is_active", False):
+        return False
+    if getattr(user, "is_platform_admin", False):
+        return True
+    if not getattr(user, "is_email_verified", True):
         return False
     return True
 

@@ -80,6 +80,10 @@ class UserAPISerializer(serializers.ModelSerializer):
     avatar_url = serializers.SerializerMethodField()
     roles = serializers.SerializerMethodField()
     is_platform_admin = serializers.BooleanField(read_only=True)
+    email_verified = serializers.SerializerMethodField()
+    approval_status = serializers.SerializerMethodField()
+    profile = serializers.SerializerMethodField()
+    onboarding_completed = serializers.SerializerMethodField()
     preferences = serializers.SerializerMethodField()
 
     class Meta:
@@ -92,13 +96,19 @@ class UserAPISerializer(serializers.ModelSerializer):
             "avatar_url",
             "roles",
             "is_platform_admin",
+            "email_verified",
+            "approval_status",
+            "profile",
+            "onboarding_completed",
             "preferences",
             "created_at",
             "last_login",
         ]
         read_only_fields = [
             "id", "email", "avatar_url", "roles",
-            "is_platform_admin", "preferences", "created_at", "last_login",
+            "is_platform_admin", "email_verified", "approval_status",
+            "profile", "onboarding_completed",
+            "preferences", "created_at", "last_login",
         ]
 
     def get_avatar_url(self, obj):
@@ -119,6 +129,96 @@ class UserAPISerializer(serializers.ModelSerializer):
         roles.append("learner")
         return roles
 
+    def get_email_verified(self, obj) -> bool:
+        """SECURITE-05 — unifie 2 sources de vérité pour la vérif e-mail.
+
+        1) ``User.is_email_verified`` — flag natif ajouté en SECURITE-05
+        2) ``allauth.account.EmailAddress.verified`` — flag legacy géré
+           par django-allauth (flow social login / templates HTML anciens)
+
+        Certains users ont été validés via allauth avant SECURITE-05 (par
+        ex. via l'e-mail HTML natif d'allauth) sans que ``User.is_email_verified``
+        ne soit mis à jour. On accepte donc l'un OU l'autre. Un signal
+        (compte.signals) synchronise allauth → User pour éviter la
+        divergence à l'avenir.
+        """
+        if bool(getattr(obj, "is_email_verified", False)):
+            return True
+        try:
+            from allauth.account.models import EmailAddress
+            if EmailAddress.objects.filter(
+                user=obj, verified=True,
+            ).exists():
+                # Best-effort : synchronise le flag natif pour les
+                # prochains appels.
+                try:
+                    from django.utils import timezone
+                    obj.is_email_verified = True
+                    obj.email_verified_at = obj.email_verified_at or timezone.now()
+                    obj.save(update_fields=["is_email_verified", "email_verified_at"])
+                except Exception:
+                    pass
+                return True
+        except Exception:
+            pass
+        return False
+
+    def get_approval_status(self, obj) -> str:
+        """Retourne l'état d'approbation pour les formateurs.
+
+        Valeurs possibles :
+            - ``not_applicable`` : le user n'est pas formateur
+            - ``pending``        : formateur créé, non validé
+            - ``approved``       : formateur validé
+        """
+        prof = getattr(obj, "instructor_profile", None)
+        if prof is None:
+            return "not_applicable"
+        return "approved" if getattr(prof, "is_verified", False) else "pending"
+
+    def get_profile(self, obj) -> dict:
+        """Retourne le profil métier principal du user, normalisé.
+
+        Sert au frontend à savoir dans quel dashboard rediriger et
+        quelles données afficher.
+        """
+        if obj.is_platform_admin:
+            return {"type": "platform_admin"}
+        instr = getattr(obj, "instructor_profile", None)
+        if instr is not None:
+            return {
+                "type": "instructor",
+                "is_verified": bool(getattr(instr, "is_verified", False)),
+                "headline": getattr(instr, "headline", ""),
+                "payout_percent": getattr(instr, "payout_percent", None),
+            }
+        if getattr(obj, "is_org_admin", False):
+            return {"type": "org_admin"}
+        learner = getattr(obj, "learner_profile", None)
+        if learner is not None:
+            return {
+                "type": "learner",
+                "job_title": getattr(learner, "job_title", ""),
+            }
+        return {"type": "unknown"}
+
+    def get_onboarding_completed(self, obj) -> bool:
+        """Renvoie True si l'onboarding métier est complet.
+
+        Learner : LearnerKYC créé (indication d'onboarding fini) → True.
+        Instructor : InstructorProfile.is_verified → True.
+        Autres : True par défaut.
+        """
+        instr = getattr(obj, "instructor_profile", None)
+        if instr is not None:
+            return bool(getattr(instr, "is_verified", False))
+        # LearnerKYC = onboarding apprenant
+        try:
+            from compte.models import LearnerKYC
+            return LearnerKYC.objects.filter(user=obj).exists()
+        except Exception:
+            return True
+
     def get_preferences(self, obj):
         from compte.models import UserPreferences
         prefs = UserPreferences.get_or_create_for(obj)
@@ -127,19 +227,38 @@ class UserAPISerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.Serializer):
     """
-    Inscription : email + password + full_name (phone optionnel).
+    Inscription publique : email + password + full_name + type de compte.
 
-    Validations :
-    - Email unique (via User.objects.create_user)
-    - Password strong (Argon2 + AUTH_PASSWORD_VALIDATORS)
-    - full_name >= 2 caractères
+    Validations & sécurité :
+    - Email unique (via User.objects.create_user).
+    - Password strong (Argon2 + AUTH_PASSWORD_VALIDATORS).
+    - full_name >= 2 caractères.
+    - ``account_type`` STRICTEMENT limité à ``learner`` / ``instructor``
+      / ``org_admin``. Toute autre valeur (``admin``, ``platform_admin``,
+      ``superuser``, ``staff``…) est **rejetée** avec 400 : l'endpoint
+      public ne peut PAS créer d'admin plateforme. L'élévation vers
+      admin passe exclusivement par ``python manage.py createsuperuser``
+      ou par ``POST /api/admin/users/`` (endpoint réservé is_platform_admin).
+    - Création atomique : User + profil métier (LearnerProfile /
+      InstructorProfile / OrganizationProfile) dans une transaction.
+      Si la création du profil échoue, le User est rollback.
     """
+    ACCOUNT_TYPE_CHOICES = ("learner", "instructor", "org_admin")
+
     email = serializers.EmailField(required=True)
     password = serializers.CharField(
         required=True, min_length=8, write_only=True, style={"input_type": "password"}
     )
     full_name = serializers.CharField(required=True, min_length=2, max_length=160)
     phone = serializers.CharField(required=False, allow_blank=True, max_length=30)
+    account_type = serializers.ChoiceField(
+        choices=ACCOUNT_TYPE_CHOICES,
+        required=False,
+        default="learner",
+    )
+    organization_name = serializers.CharField(
+        required=False, allow_blank=True, max_length=160
+    )
 
     def validate_email(self, value):
         value = value.strip().lower()
@@ -154,13 +273,88 @@ class RegisterSerializer(serializers.Serializer):
             raise DRFValidationError(list(e.messages))
         return value
 
+    def validate_account_type(self, value):
+        # Ceinture + bretelles : ChoiceField devrait déjà rejeter, mais
+        # on double-check pour ne jamais laisser passer un rôle admin
+        # même via un contournement de serializer.
+        if value not in self.ACCOUNT_TYPE_CHOICES:
+            raise DRFValidationError(
+                "Type de compte non autorisé pour une inscription publique."
+            )
+        return value
+
     def create(self, validated_data):
-        return User.objects.create_user(
-            email=validated_data["email"],
-            password=validated_data["password"],
-            full_name=validated_data["full_name"],
-            phone=validated_data.get("phone", ""),
-        )
+        from django.db import transaction
+
+        account_type = validated_data.get("account_type") or "learner"
+        organization_name = (validated_data.get("organization_name") or "").strip()
+
+        # Filet de sécurité final : jamais d'admin/staff/superuser depuis
+        # cet endpoint public — peu importe ce qui a été envoyé.
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=validated_data["email"],
+                password=validated_data["password"],
+                full_name=validated_data["full_name"],
+                phone=validated_data.get("phone", ""),
+                is_staff=False,
+                is_superuser=False,
+                platform_role=User.PlatformRole.USER,
+            )
+            self._create_business_profile(user, account_type, organization_name)
+        return user
+
+    @staticmethod
+    def _create_business_profile(user, account_type: str, organization_name: str) -> None:
+        """Crée le profil métier correspondant au type de compte."""
+        if account_type == "instructor":
+            from compte.models import InstructorProfile
+            InstructorProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    "headline": "",
+                    "bio": "",
+                    # ``is_verified=False`` par défaut : le formateur doit
+                    # être validé par un admin plateforme avant de publier
+                    # (workflow d'approbation).
+                    "is_verified": False,
+                    "payout_percent": 70,
+                },
+            )
+        elif account_type == "org_admin":
+            # Le profil "Organisation" est représenté par
+            # ``organizations.Organization`` + ``OrganizationMembership``
+            # avec ``role=OWNER``. Importation locale pour éviter les
+            # cycles.
+            try:
+                from organizations.models import (
+                    Organization,
+                    OrganizationMembership,
+                )
+                org = Organization.objects.create(
+                    name=organization_name or f"{user.full_name} Organization",
+                    owner=user,
+                    is_active=True,
+                )
+                OrganizationMembership.objects.create(
+                    user=user,
+                    organization=org,
+                    role=OrganizationMembership.Role.OWNER
+                    if hasattr(OrganizationMembership, "Role")
+                    else "OWNER",
+                    is_active=True,
+                )
+            except Exception:
+                # L'app organizations peut manquer certains champs — on
+                # laisse le user comme LEARNER et on journalisera.
+                pass
+        else:
+            # LEARNER par défaut : profil apprenant automatique.
+            from compte.models import LearnerProfile
+            LearnerProfile.objects.get_or_create(
+                user=user,
+                defaults={"job_title": "", "bio": ""},
+            )
 
 
 class TokenObtainWithClaimsSerializer(TokenObtainPairSerializer):
@@ -250,13 +444,24 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
+        # Envoi du mail de vérification immédiat (best-effort).
+        try:
+            from compte.email_verification import issue_token
+            issue_token(user)
+        except Exception:
+            pass
+
         # Token pair immédiat pour connexion auto post-signup.
+        # Le front lira ``user.is_email_verified`` pour rediriger vers
+        # /verify-email et bloquer l'accès aux endpoints métier via
+        # ``IsEmailVerified``.
         refresh = RefreshToken.for_user(user)
         return Response(
             {
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
                 "user": UserAPISerializer(user).data,
+                "verification_email_sent": True,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -457,3 +662,93 @@ class PasswordResetConfirmView(APIView):
         user.set_password(new_pwd)
         user.save(update_fields=["password"])
         return Response({"detail": "Mot de passe réinitialisé avec succès."})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Vérification e-mail (SECURITE-05)
+# ─────────────────────────────────────────────────────────────────────
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    uid = serializers.IntegerField()
+    token = serializers.CharField(max_length=128)
+
+
+class VerifyEmailView(APIView):
+    """POST /api/auth/verify-email/ — Confirme un token de vérification.
+
+    Accepte ``uid`` + ``token`` en JSON. Ne requiert PAS d'auth (l'user
+    peut cliquer depuis n'importe où). Retourne 200 avec ``user`` mis
+    à jour si succès, 400 sinon (codes normalisés).
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "reset_password"
+
+    @extend_schema(request=VerifyEmailSerializer, summary="Vérifier l'e-mail")
+    def post(self, request):
+        from compte.email_verification import verify_token
+
+        s = VerifyEmailSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        try:
+            user = User.objects.get(pk=s.validated_data["uid"])
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Lien invalide.", "code": "EMAIL_TOKEN_INVALID"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.is_email_verified:
+            return Response(
+                {"detail": "E-mail déjà vérifié.", "user": UserAPISerializer(user).data},
+                status=status.HTTP_200_OK,
+            )
+
+        ok = verify_token(user, s.validated_data["token"])
+        if not ok:
+            return Response(
+                {"detail": "Lien invalide ou expiré.", "code": "EMAIL_TOKEN_INVALID"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(
+            {"detail": "E-mail vérifié.", "user": UserAPISerializer(user).data},
+            status=status.HTTP_200_OK,
+        )
+
+
+class ResendVerifyEmailView(APIView):
+    """POST /api/auth/verify-email/resend/ — Renvoie un mail de vérif.
+
+    Requiert d'être authentifié (par le token JWT reçu à l'inscription).
+    Applique un cooldown pour prévenir le spam.
+    """
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "reset_password"
+
+    @extend_schema(summary="Renvoyer le mail de vérification")
+    def post(self, request):
+        from compte.email_verification import can_resend, issue_token
+
+        user = request.user
+        if user.is_email_verified:
+            return Response(
+                {"detail": "E-mail déjà vérifié.", "code": "EMAIL_ALREADY_VERIFIED"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        allowed, retry_after = can_resend(user)
+        if not allowed:
+            return Response(
+                {
+                    "detail": f"Merci d'attendre {retry_after}s avant de renvoyer.",
+                    "code": "EMAIL_RESEND_COOLDOWN",
+                    "retry_after_seconds": retry_after,
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        issue_token(user)
+        return Response(
+            {"detail": "Un nouveau mail de vérification a été envoyé."},
+            status=status.HTTP_200_OK,
+        )

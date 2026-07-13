@@ -93,7 +93,7 @@ const CARDS: AudienceCard[] = [
 export function AudienceSpaces() {
   return (
     <section
-      className="bg-white py-14 sm:py-20"
+      className="bg-white dark:bg-neutral-950 py-14 sm:py-20"
       aria-labelledby="audiences-title"
     >
       <div className="container mx-auto px-4 max-w-6xl">

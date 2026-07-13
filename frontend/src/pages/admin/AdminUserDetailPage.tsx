@@ -323,7 +323,7 @@ export default function AdminUserDetailPage() {
               <div>
                 <dt className="text-xs text-neutral-500">Memberships</dt>
                 <dd className="font-bold text-lg">
-                  {user.memberships.length}
+                  {(user.memberships ?? []).length}
                 </dd>
               </div>
               <div>
@@ -332,13 +332,13 @@ export default function AdminUserDetailPage() {
               </div>
             </dl>
 
-            {user.memberships.length > 0 && (
+            {(user.memberships ?? []).length > 0 && (
               <div className="mt-4">
                 <p className="text-xs text-neutral-500 mb-2">
                   Organisations :
                 </p>
                 <ul className="space-y-1">
-                  {user.memberships.map((m, i) => (
+                  {(user.memberships ?? []).map((m, i) => (
                     <li key={i} className="text-sm">
                       Org #{m.organization_id} —{' '}
                       <Badge variant="neutral" size="xs">

@@ -99,6 +99,56 @@ class MediaAssetSerializer(serializers.ModelSerializer):
     can_delete = serializers.SerializerMethodField()
     scope = serializers.SerializerMethodField()
     owner_name = serializers.SerializerMethodField()
+    # UX-01 — URLs de rendu pour la médiathèque (thumbnails).
+    thumbnail_url = serializers.SerializerMethodField()
+    preview_url = serializers.SerializerMethodField()
+
+    def _default_storage_url(self, key: str) -> str:
+        """Construit une URL relative à partir d'un object_key MinIO/FS.
+
+        En dev : ``/media/<key>``. En prod MinIO avec presigned URLs, il
+        faudrait utiliser boto3 pour signer — hors périmètre ici, on
+        renvoie une URL relative que nginx/traefik peut proxifier.
+        """
+        if not key:
+            return ""
+        from django.conf import settings
+        media_url = getattr(settings, "MEDIA_URL", "/media/").rstrip("/")
+        return f"{media_url}/{key.lstrip('/')}"
+
+    def get_thumbnail_url(self, obj) -> str:
+        """URL de la miniature (image extraite pour vidéo, aperçu pour doc).
+
+        Retourne '' si aucune miniature disponible. Le frontend affiche
+        alors l'icône générique par type.
+        """
+        key = getattr(obj, "thumbnail_object_key", "") or ""
+        if key:
+            return self._default_storage_url(key)
+        # Pour un doc image direct (kind=DOC + content_type image/*), on
+        # peut fallback sur l'objet lui-même.
+        content_type = getattr(obj, "content_type", "") or ""
+        if content_type.startswith("image/"):
+            main_key = (
+                getattr(obj, "optimized_object_key", "")
+                or getattr(obj, "original_object_key", "")
+                or ""
+            )
+            if main_key:
+                return self._default_storage_url(main_key)
+        return ""
+
+    def get_preview_url(self, obj) -> str:
+        """URL de streaming/lecture (video optimisée si dispo, sinon original).
+
+        Utile pour les cards vidéo qui peuvent lire un `<video poster>`
+        dans la médiathèque.
+        """
+        for attr in ("optimized_object_key", "original_object_key"):
+            key = getattr(obj, attr, "") or ""
+            if key:
+                return self._default_storage_url(key)
+        return ""
 
     def _writable_org_ids(self):
         """Lazy cache des org_ids OWNER/ADMIN/MANAGER du request.user.
@@ -177,6 +227,8 @@ class MediaAssetSerializer(serializers.ModelSerializer):
             "can_delete",
             "scope",
             "owner_name",
+            "thumbnail_url",
+            "preview_url",
         ]
 
 

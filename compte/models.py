@@ -103,6 +103,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)  # accès admin Django
+
+    # SECURITE-05 — vérification email obligatoire pour toute action métier.
+    is_email_verified = models.BooleanField(default=False, db_index=True)
+    email_verification_token = models.CharField(max_length=64, blank=True, default="")
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 

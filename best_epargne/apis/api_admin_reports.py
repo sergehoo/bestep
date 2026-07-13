@@ -107,7 +107,8 @@ class ReportUsersCSVView(APIView):
         g = _admin_guard(request)
         if g:
             return g
-        qs = User.objects.order_by("-date_joined")
+        # User custom : ``created_at`` (pas ``date_joined``).
+        qs = User.objects.order_by("-created_at")
 
         active = request.query_params.get("active")
         if active in ("true", "false", "1", "0"):
@@ -139,7 +140,7 @@ class ReportUsersCSVView(APIView):
                 getattr(u, "phone", "") or "",
                 u.is_active,
                 getattr(u, "is_platform_admin", False),
-                u.date_joined,
+                u.created_at,  # colonne CSV nommée date_joined pour compat
                 u.last_login,
             ]
             for u in qs.iterator(chunk_size=500)

@@ -9,8 +9,14 @@ User = get_user_model()
 
 @pytest.fixture
 def make_user(db):
-    """Factory de User minimaliste."""
+    """Factory de User minimaliste.
+
+    SECURITE-05 — par défaut on considère l'utilisateur comme vérifié pour
+    ne pas casser les tests existants. Les tests spécifiques à la
+    vérification e-mail passent explicitement ``is_email_verified=False``.
+    """
     def _make(email="alice@example.com", password="StrongPa$$word12", **extra):
+        extra.setdefault("is_email_verified", True)
         return User.objects.create_user(email=email, password=password, **extra)
     return _make
 

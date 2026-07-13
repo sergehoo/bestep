@@ -275,15 +275,37 @@ export default function RegisterPage() {
             : undefined,
       });
 
+      // On transmet aussi ``account_type`` + ``organization_name`` au
+      // backend pour qu'il crée le bon profil métier de façon
+      // transactionnelle. Le backend valide strictement la valeur —
+      // il rejette tout account_type ne figurant pas dans la whitelist
+      // (learner / instructor / org_admin).
       await registerUser({
         email: v.email.trim(),
         password: v.password,
         full_name: v.full_name.trim(),
         phone: v.phone?.trim() || undefined,
+        account_type: v.account_type,
+        organization_name:
+          v.account_type === 'org_admin'
+            ? v.organization_name?.trim() || undefined
+            : undefined,
       });
 
-      // Post-register : détermine la destination
+      // Post-register :
+      // SECURITE-05 — si l'e-mail n'est pas encore vérifié (cas
+      // normal juste après signup), on redirige explicitement vers
+      // /verify-email avec un state indiquant que le mail vient
+      // d'être envoyé. Ça évite un rebond via /dashboard qui
+      // paraîtrait cassé côté utilisateur.
       const freshUser = useAuthStore.getState().user;
+      if (freshUser && freshUser.email_verified === false) {
+        navigate('/verify-email', {
+          replace: true,
+          state: { justRegistered: true },
+        });
+        return;
+      }
       const target = postRegisterTarget(
         v.account_type,
         freshUser?.roles,

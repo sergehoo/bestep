@@ -36,7 +36,45 @@ from rest_framework.views import APIView
 
 from catalog.models import Course
 from core.constants import CourseStatus, EnrollmentStatus
-from core.decorators import instructor_required, platform_admin_required
+from core.decorators import instructor_required, platform_admin_required  # noqa: F401
+from rest_framework.exceptions import PermissionDenied
+
+
+class _PlatformAdminOnlyMixin:
+    """Refuse l'accès aux non-admins APRES l'auth JWT DRF (SECURITE-07).
+    Voir api_admin.py pour le contexte : le décorateur legacy s'exécutait
+    AVANT ``initial()`` et redirigeait AnonymousUser vers /accounts/login/
+    en HTML — le SPA recevait alors du HTML au lieu du JSON attendu.
+    """
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if not getattr(request.user, "is_platform_admin", False):
+            raise PermissionDenied(
+                {
+                    "detail": "Réservé aux administrateurs plateforme.",
+                    "code": "PERMISSION_DENIED",
+                }
+            )
+
+
+class _InstructorOrAdminOnlyMixin:
+    """Refuse l'accès aux non-instructeurs APRES l'auth JWT (SECURITE-07).
+    Les admins plateforme passent aussi (bypass instructor)."""
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        user = request.user
+        if not user or not user.is_authenticated:
+            raise PermissionDenied(
+                {"detail": "Authentification requise.", "code": "NOT_AUTHENTICATED"}
+            )
+        if getattr(user, "is_platform_admin", False):
+            return
+        if not getattr(user, "is_instructor", False):
+            raise PermissionDenied(
+                {"detail": "Réservé aux formateurs.", "code": "PERMISSION_DENIED"}
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -201,7 +239,7 @@ class StudentDashboardView(APIView):
 # Dashboard INSTRUCTOR (Formateur)
 # ─────────────────────────────────────────────────────────────────────
 
-class InstructorDashboardView(APIView):
+class InstructorDashboardView(_InstructorOrAdminOnlyMixin, APIView):
     """
     GET /api/dashboard/instructor/ — Hydrate le dashboard formateur.
 
@@ -216,10 +254,6 @@ class InstructorDashboardView(APIView):
       - top_courses (R5) : top 5 cours par enrollments sur la période
     """
     permission_classes = [IsAuthenticated]
-
-    def dispatch(self, request, *args, **kwargs):
-        # instructor_required + admin bypass
-        return instructor_required(super().dispatch)(request, *args, **kwargs)
 
     @extend_schema(
         summary="Dashboard formateur",
@@ -377,7 +411,7 @@ class InstructorDashboardView(APIView):
 # Dashboard ADMIN (Plateforme)
 # ─────────────────────────────────────────────────────────────────────
 
-class AdminDashboardView(APIView):
+class AdminDashboardView(_PlatformAdminOnlyMixin, APIView):
     """
     GET /api/dashboard/admin/ — Hydrate le dashboard admin plateforme.
 
@@ -392,9 +426,6 @@ class AdminDashboardView(APIView):
       - revenue_per_day
     """
     permission_classes = [IsAuthenticated]
-
-    def dispatch(self, request, *args, **kwargs):
-        return platform_admin_required(super().dispatch)(request, *args, **kwargs)
 
     @extend_schema(
         summary="Dashboard admin plateforme",
@@ -417,10 +448,11 @@ class AdminDashboardView(APIView):
             active=Count("id", filter=Q(is_active=True)),
         )
 
-        # Série new_users/jour
+        # Série new_users/jour — User custom : ``created_at`` (pas
+        # ``date_joined``).
         new_users_rows = list(
-            User.objects.filter(date_joined__date__gte=start)
-            .annotate(day=TruncDate("date_joined"))
+            User.objects.filter(created_at__date__gte=start)
+            .annotate(day=TruncDate("created_at"))
             .values("day")
             .annotate(value=Count("id"))
             .order_by("day")

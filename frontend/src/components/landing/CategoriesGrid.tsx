@@ -48,7 +48,7 @@ export function CategoriesGrid() {
   return (
     <section
       id="categories"
-      className="bg-neutral-50 py-14 sm:py-16"
+      className="bg-neutral-50 dark:bg-neutral-900 py-14 sm:py-16"
       aria-labelledby="categories-title"
     >
       <div className="container mx-auto px-4 max-w-6xl">
@@ -77,7 +77,7 @@ export function CategoriesGrid() {
             {Array.from({ length: 10 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-white border border-neutral-100 rounded-2xl h-28 animate-pulse"
+                className="bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-2xl h-28 animate-pulse"
               />
             ))}
           </div>
@@ -97,7 +97,7 @@ export function CategoriesGrid() {
                 >
                   <Link
                     to={`/catalogue?category=${encodeURIComponent(c.slug)}`}
-                    className="group block bg-white border border-neutral-100 rounded-2xl p-4 sm:p-5 shadow-soft hover:shadow-lift hover:border-primary-200 transition h-full"
+                    className="group block bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-2xl p-4 sm:p-5 shadow-soft hover:shadow-lift hover:border-primary-200 transition h-full"
                   >
                     <div
                       className={`w-11 h-11 rounded-xl ${s.bg} ${s.color} flex items-center justify-center mb-3 group-hover:scale-110 transition`}

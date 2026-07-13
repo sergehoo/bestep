@@ -60,7 +60,7 @@ export default function CourseDetailPage() {
 
   if (isLoading && !course) {
     return (
-      <div className="min-h-screen bg-neutral-50">
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <PublicHeader />
         <div className="py-20 flex justify-center">
           <Spinner size="xl" label="Chargement du cours…" />
@@ -71,7 +71,7 @@ export default function CourseDetailPage() {
 
   if (!course || !slug) {
     return (
-      <div className="min-h-screen bg-neutral-50">
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <PublicHeader />
         <div className="text-center py-20">
           <h1 className="text-2xl font-bold">Cours introuvable</h1>
@@ -136,7 +136,7 @@ export default function CourseDetailPage() {
   const ratingCount = reviewsSummary?.count ?? course.rating_count ?? 0;
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <PublicHeader />
 
       <CourseHero

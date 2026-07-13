@@ -35,3 +35,49 @@ def ensure_user_preferences(sender, instance, created, **kwargs):
             "ensure_user_preferences: échec création UserPreferences user=%s",
             instance.pk,
         )
+
+
+# ─────────────────────────────────────────────────────────────
+# SECURITE-05 — Sync allauth EmailAddress → User.is_email_verified
+# ─────────────────────────────────────────────────────────────
+try:
+    from allauth.account.models import EmailAddress
+    from django.utils import timezone
+
+    @receiver(
+        post_save,
+        sender=EmailAddress,
+        dispatch_uid="compte.user.sync_allauth_verified",
+    )
+    def sync_allauth_email_verified(sender, instance, **kwargs):
+        """Quand allauth marque un e-mail comme vérifié, propage sur User.
+
+        Deux flows peuvent vérifier un e-mail dans le système :
+          1. Notre endpoint ``POST /api/auth/verify-email/`` (SECURITE-05)
+             qui met à jour ``User.is_email_verified`` directement.
+          2. Le flow allauth (registration + email confirmation via ses
+             templates ou son SocialAccount adapter) qui coche
+             ``EmailAddress.verified``.
+
+        Sans ce signal, un user validé via allauth verrait toujours son
+        ``User.is_email_verified`` à ``False``, avec les mêmes symptômes
+        que si la vérif n'avait pas eu lieu (blocage sur /verify-email).
+        """
+        if not instance.verified:
+            return
+        user = instance.user
+        # Idempotent : ne touche pas si déjà True.
+        if getattr(user, "is_email_verified", False):
+            return
+        try:
+            user.is_email_verified = True
+            user.email_verified_at = user.email_verified_at or timezone.now()
+            user.save(update_fields=["is_email_verified", "email_verified_at"])
+        except Exception:
+            logger.warning(
+                "sync_allauth_email_verified: échec propagation user=%s",
+                user.pk,
+            )
+except ImportError:
+    # allauth non installé (tests unitaires isolés) — pas de signal
+    pass

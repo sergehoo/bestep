@@ -39,9 +39,43 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from compte.models import InstructorProfile, LearnerProfile
-from core.decorators import platform_admin_required
+from core.decorators import platform_admin_required  # noqa: F401 (legacy, mixin used now)
+from rest_framework.exceptions import PermissionDenied
 
 User = get_user_model()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Mixin d'autorisation (SECURITE-07)
+# ─────────────────────────────────────────────────────────────────────
+#
+# BUG HISTORIQUE : les vues admin surchargeaient ``dispatch()`` avec
+# ``platform_admin_required`` (décorateur basé sur ``request.user``
+# Django/session). Or DRF ne résout ``request.user`` via JWT qu'à
+# ``initial()`` — donc au moment du dispatch, ``request.user`` était
+# ``AnonymousUser`` et le décorateur redirigeait vers /accounts/login/
+# en HTML. Le SPA recevait du HTML au lieu de JSON, ce qui rendait la
+# liste des utilisateurs vide (data.count undefined).
+#
+# Le mixin ci-dessous fait le check APRES l'auth JWT, dans ``initial()``
+# de DRF — c'est le hook officiel pour ce genre de contrôle.
+
+
+class PlatformAdminOnlyMixin:
+    """Refuse l'accès (403 JSON) à toute requête dont l'utilisateur
+    authentifié n'est pas ``is_platform_admin``. À utiliser avec
+    ``permission_classes = [IsAuthenticated]``.
+    """
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if not getattr(request.user, "is_platform_admin", False):
+            raise PermissionDenied(
+                {
+                    "detail": "Réservé aux administrateurs plateforme.",
+                    "code": "PERMISSION_DENIED",
+                }
+            )
 
 
 def _generate_temp_password(length: int = 14) -> str:
@@ -78,9 +112,35 @@ class AdminUserListSerializer(serializers.Serializer):
     has_organization = serializers.BooleanField()
     date_joined = serializers.SerializerMethodField()
     last_login = serializers.DateTimeField(allow_null=True)
+    # SECURITE-06 — champs enveloppés dans try/except pour ne JAMAIS
+    # planter la sérialisation même sur un user mal formé. Si le
+    # calcul échoue, on retourne None/False plutôt que de raise.
+    instructor_is_verified = serializers.SerializerMethodField()
+    email_verified = serializers.SerializerMethodField()
 
     def get_date_joined(self, obj):
-        return getattr(obj, "created_at", None) or getattr(obj, "date_joined", None)
+        try:
+            return getattr(obj, "created_at", None) or getattr(obj, "date_joined", None)
+        except Exception:
+            return None
+
+    def get_instructor_is_verified(self, obj):
+        try:
+            prof = getattr(obj, "instructor_profile", None)
+            if prof is None:
+                return None
+            return bool(getattr(prof, "is_verified", False))
+        except Exception:
+            return None
+
+    def get_email_verified(self, obj):
+        try:
+            if bool(getattr(obj, "is_email_verified", False)):
+                return True
+            from allauth.account.models import EmailAddress
+            return EmailAddress.objects.filter(user=obj, verified=True).exists()
+        except Exception:
+            return False
 
 
 class AdminUserDetailSerializer(AdminUserListSerializer):
@@ -174,13 +234,10 @@ class AdminUserCreateSerializer(serializers.Serializer):
 # ─────────────────────────────────────────────────────────────────────
 
 
-class AdminUserListView(APIView):
+class AdminUserListView(PlatformAdminOnlyMixin, APIView):
     """GET /api/admin/users/ — liste paginée avec filtres."""
 
     permission_classes = [IsAuthenticated]
-
-    def dispatch(self, request, *args, **kwargs):
-        return platform_admin_required(super().dispatch)(request, *args, **kwargs)
 
     @extend_schema(
         summary="Liste des utilisateurs (admin)",
@@ -203,18 +260,34 @@ class AdminUserListView(APIView):
         if is_active in ("true", "false"):
             qs = qs.filter(is_active=(is_active == "true"))
 
+        # SECURITE-06 — Filtres role + verified consolidés en UNE
+        # seule ``.filter()`` pour éviter les JOINs Django redondants.
+        # Chaîner deux ``.filter(instructor_profile__...)`` crée deux
+        # JOINs sur la même table et peut annuler les résultats.
         role = (request.query_params.get("role") or "").lower()
+        verified = (request.query_params.get("verified") or "").lower()
+
         if role == "admin":
             qs = qs.filter(platform_role="PLATFORM_ADMIN")
         elif role == "instructor":
-            # Users qui ont un instructor_profile ou membership INSTRUCTOR
-            qs = qs.filter(
-                Q(instructor_profile__isnull=False)
-                | Q(
-                    organization_memberships__role="INSTRUCTOR",
-                    organization_memberships__is_active=True,
-                )
-            ).distinct()
+            # Combine role=instructor + verified=? en un seul filtre.
+            base_q = Q(instructor_profile__isnull=False) | Q(
+                organization_memberships__role="INSTRUCTOR",
+                organization_memberships__is_active=True,
+            )
+            if verified in ("true", "1"):
+                # instructor_profile OBLIGATOIRE + is_verified=True
+                qs = qs.filter(
+                    instructor_profile__isnull=False,
+                    instructor_profile__is_verified=True,
+                ).distinct()
+            elif verified in ("false", "0"):
+                qs = qs.filter(
+                    instructor_profile__isnull=False,
+                    instructor_profile__is_verified=False,
+                ).distinct()
+            else:
+                qs = qs.filter(base_q).distinct()
         elif role == "learner":
             qs = qs.filter(
                 Q(learner_profile__isnull=False)
@@ -223,6 +296,18 @@ class AdminUserListView(APIView):
                     organization_memberships__is_active=True,
                 )
             ).distinct()
+        else:
+            # Pas de rôle spécifié — verified seul peut encore filtrer.
+            if verified in ("true", "1"):
+                qs = qs.filter(
+                    instructor_profile__isnull=False,
+                    instructor_profile__is_verified=True,
+                )
+            elif verified in ("false", "0"):
+                qs = qs.filter(
+                    instructor_profile__isnull=False,
+                    instructor_profile__is_verified=False,
+                )
 
         qs = qs.order_by("-created_at")
 
@@ -232,7 +317,9 @@ class AdminUserListView(APIView):
         paginator.max_page_size = 100
         page = paginator.paginate_queryset(qs, request, view=self)
         return paginator.get_paginated_response(
-            AdminUserListSerializer(page, many=True).data
+            AdminUserListSerializer(
+                page, many=True, context={"request": request}
+            ).data
         )
 
     @extend_schema(
@@ -321,13 +408,10 @@ class AdminUserListView(APIView):
         return Response(payload, status=status.HTTP_201_CREATED)
 
 
-class AdminUserDetailView(APIView):
+class AdminUserDetailView(PlatformAdminOnlyMixin, APIView):
     """GET/PATCH /api/admin/users/<id>/."""
 
     permission_classes = [IsAuthenticated]
-
-    def dispatch(self, request, *args, **kwargs):
-        return platform_admin_required(super().dispatch)(request, *args, **kwargs)
 
     def _get_user(self, user_id):
         try:
@@ -374,19 +458,55 @@ class AdminUserDetailView(APIView):
             )
         s = AdminUserUpdateSerializer(data=request.data, partial=True)
         s.is_valid(raise_exception=True)
+
+        # SECURITE-06 — snapshot avant modification pour journaliser les
+        # transitions sensibles (activation, rôle).
+        prev_is_active = u.is_active
+        prev_platform_role = getattr(u, "platform_role", None)
+
         for field, value in s.validated_data.items():
             setattr(u, field, value)
         u.save()
+
+        # Journalisation best-effort : ne bloque pas la réponse si l'app
+        # ai/AIAuditLog n'est pas disponible.
+        try:
+            from ai.models import AIAuditLog
+            if "is_active" in s.validated_data and prev_is_active != u.is_active:
+                AIAuditLog.objects.create(
+                    user=request.user,
+                    kind="USER_SUSPENDED" if not u.is_active else "USER_REACTIVATED",
+                    payload={
+                        "target_user_id": u.id,
+                        "target_email": u.email,
+                        "previous_is_active": prev_is_active,
+                        "new_is_active": u.is_active,
+                    },
+                )
+            if (
+                "platform_role" in s.validated_data
+                and prev_platform_role != u.platform_role
+            ):
+                AIAuditLog.objects.create(
+                    user=request.user,
+                    kind="USER_ROLE_CHANGED",
+                    payload={
+                        "target_user_id": u.id,
+                        "target_email": u.email,
+                        "previous_role": prev_platform_role,
+                        "new_role": u.platform_role,
+                    },
+                )
+        except Exception:
+            pass
+
         return Response(AdminUserDetailSerializer(u).data)
 
 
-class AdminUserResetPasswordView(APIView):
+class AdminUserResetPasswordView(PlatformAdminOnlyMixin, APIView):
     """POST /api/admin/users/<id>/reset-password/ — génère un lien reset (support)."""
 
     permission_classes = [IsAuthenticated]
-
-    def dispatch(self, request, *args, **kwargs):
-        return platform_admin_required(super().dispatch)(request, *args, **kwargs)
 
     @extend_schema(summary="Envoie un email de reset password (admin support)")
     def post(self, request, user_id: int):
@@ -413,13 +533,70 @@ class AdminUserResetPasswordView(APIView):
         )
 
 
-class AdminConfigView(APIView):
-    """GET /api/admin/config/ — snapshot de la config runtime plateforme."""
+class AdminUserForceVerifyEmailView(PlatformAdminOnlyMixin, APIView):
+    """POST /api/admin/users/<id>/verify-email/ — SECURITE-05.
+
+    Marque manuellement un user comme ayant un e-mail vérifié. Utile au
+    support quand un utilisateur ne reçoit pas le mail (spam, adresse
+    invalide, etc.) et qu'on veut débloquer manuellement son accès.
+
+    Journalisation obligatoire pour traçabilité RGPD.
+    """
 
     permission_classes = [IsAuthenticated]
 
-    def dispatch(self, request, *args, **kwargs):
-        return platform_admin_required(super().dispatch)(request, *args, **kwargs)
+    @extend_schema(summary="Admin — Forcer la vérification e-mail d'un user")
+    def post(self, request, user_id: int):
+        try:
+            u = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Utilisateur introuvable.", "code": "NOT_FOUND"},
+                status=404,
+            )
+        if u.is_email_verified:
+            return Response(
+                {
+                    "detail": "E-mail déjà vérifié.",
+                    "code": "EMAIL_ALREADY_VERIFIED",
+                    "user_id": u.id,
+                },
+                status=200,
+            )
+        u.is_email_verified = True
+        u.email_verified_at = timezone.now()
+        u.email_verification_token = ""
+        u.save(
+            update_fields=[
+                "is_email_verified",
+                "email_verified_at",
+                "email_verification_token",
+            ]
+        )
+        # Journalisation best-effort
+        try:
+            from ai.models import AIAuditLog
+            AIAuditLog.objects.create(
+                user=request.user,
+                kind="EMAIL_FORCE_VERIFIED",
+                payload={"target_user_id": u.id, "target_email": u.email},
+            )
+        except Exception:
+            pass
+        return Response(
+            {
+                "detail": "E-mail marqué comme vérifié.",
+                "user_id": u.id,
+                "email_verified_at": u.email_verified_at.isoformat(),
+            },
+            status=200,
+        )
+
+
+class AdminConfigView(PlatformAdminOnlyMixin, APIView):
+    """GET /api/admin/config/ — snapshot de la config runtime plateforme."""
+
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(summary="Config plateforme (lecture seule)")
     def get(self, request):

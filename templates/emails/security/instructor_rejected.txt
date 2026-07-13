@@ -1,0 +1,17 @@
+Bonjour {{ user_name|default:user.email }},
+
+Après examen, nous ne pouvons pas valider votre demande de compte
+formateur pour le moment.
+{% if reason %}
+Motif : {{ reason }}
+{% endif %}
+Vous conservez l'accès à Best-Épargne en tant qu'apprenant : le catalogue
+de cours et vos formations en cours restent disponibles.
+
+Continuer en tant qu'apprenant :
+{{ frontend_base }}/learn
+
+Vous pensez qu'il s'agit d'une erreur ? Répondez à ce message ou
+contactez notre support à support@best-epargne.local.
+
+— L'équipe Best-Épargne

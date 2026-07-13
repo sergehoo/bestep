@@ -42,11 +42,11 @@ from ai.permissions import user_can_use_assistant
 from ai.web_search import search_web
 
 
-def _forbidden():
-    return Response(
-        {"detail": "Best-AI indisponible pour ce compte."},
-        status=status.HTTP_403_FORBIDDEN,
-    )
+def _forbidden(user=None):
+    # SECURITE-05 — délègue à ai.http.forbidden_for pour émettre un ``code``
+    # stable (EMAIL_NOT_VERIFIED, ACCOUNT_SUSPENDED, …).
+    from ai.http import forbidden_for
+    return forbidden_for(user)
 
 
 def _client_ip(request):
@@ -204,7 +204,7 @@ class KBSpaceListView(APIView):
     @extend_schema(summary="Liste des espaces KB visibles")
     def get(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         ids = _visible_space_ids(request.user)
         qs = AIKnowledgeSpace.objects.filter(id__in=ids).order_by("scope", "name")
         return Response({"spaces": SpaceSerializer(qs, many=True).data})
@@ -212,7 +212,7 @@ class KBSpaceListView(APIView):
     @extend_schema(summary="Créer un espace KB", request=SpaceCreateSerializer)
     def post(self, request):
         if not _is_editor(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         s = SpaceCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         data = s.validated_data
@@ -246,7 +246,7 @@ class KBDocumentListView(APIView):
     @extend_schema(summary="Liste des documents KB visibles")
     def get(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         space_ids = _visible_space_ids(request.user)
         qs = AIKnowledgeDocument.objects.filter(space_id__in=space_ids).select_related("space").order_by(
             "-updated_at"
@@ -259,7 +259,7 @@ class KBDocumentListView(APIView):
     @extend_schema(summary="Créer + indexer un document", request=DocumentCreateSerializer)
     def post(self, request):
         if not _is_editor(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         s = DocumentCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         data = s.validated_data
@@ -312,7 +312,7 @@ class KBDocumentDetailView(APIView):
         if err:
             return err
         if not _is_editor(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         allowed = {"title", "content", "source_url", "language", "metadata"}
         for key, val in (request.data or {}).items():
             if key in allowed:
@@ -326,7 +326,7 @@ class KBDocumentDetailView(APIView):
         if err:
             return err
         if not _is_editor(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         delete_document_chunks(doc)
         doc.delete()
         return Response(status=204)
@@ -338,13 +338,13 @@ class KBDocumentReindexView(APIView):
     @extend_schema(summary="Re-indexer un document")
     def post(self, request, document_id: int):
         if not _is_editor(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         try:
             doc = AIKnowledgeDocument.objects.get(pk=document_id)
         except AIKnowledgeDocument.DoesNotExist:
             return Response({"detail": "Introuvable."}, status=404)
         if doc.space_id not in _visible_space_ids(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         reindex_document(doc, actor=request.user)
         doc.refresh_from_db()
         return Response(DocumentSerializer(doc).data)
@@ -361,7 +361,7 @@ class KBSearchView(APIView):
     @extend_schema(summary="Recherche RAG dans les documents accessibles", request=SearchInput)
     def post(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         s = SearchInput(data=request.data)
         s.is_valid(raise_exception=True)
 
@@ -405,7 +405,7 @@ class WebSearchView(APIView):
     @extend_schema(summary="Recherche Internet (avec allowlist/blocklist)", request=WebSearchInput)
     def post(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         s = WebSearchInput(data=request.data)
         s.is_valid(raise_exception=True)
         payload = search_web(

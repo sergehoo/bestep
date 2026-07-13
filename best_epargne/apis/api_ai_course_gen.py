@@ -52,11 +52,20 @@ def _user_can_generate(user) -> bool:
     )
 
 
-def _forbidden():
-    return Response(
-        {"detail": "Réservé aux formateurs et administrateurs plateforme."},
-        status=status.HTTP_403_FORBIDDEN,
-    )
+def _forbidden(user=None):
+    # SECURITE-05 — expose un ``code`` stable. Si l'utilisateur est déjà
+    # vérifié mais n'est pas formateur, on émet ROLE_FORBIDDEN pour être
+    # explicite (le frontend n'a pas besoin de rediriger, juste d'afficher).
+    from ai.http import forbidden_for
+    if user is not None and getattr(user, "is_email_verified", True):
+        return Response(
+            {
+                "detail": "Réservé aux formateurs et administrateurs plateforme.",
+                "code": "ROLE_FORBIDDEN",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return forbidden_for(user)
 
 
 def _client_ip(request):
@@ -143,7 +152,7 @@ class AICourseGenerationListView(APIView):
     @extend_schema(summary="Liste des générations de cours IA de l'utilisateur")
     def get(self, request):
         if not _user_can_generate(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         qs = AICourseGeneration.objects.filter(user=request.user).order_by(
             "-updated_at", "-id"
         )
@@ -161,7 +170,7 @@ class AICourseGenerationListView(APIView):
     )
     def post(self, request):
         if not _user_can_generate(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         s = BriefSerializer(data=request.data)
         s.is_valid(raise_exception=True)
 

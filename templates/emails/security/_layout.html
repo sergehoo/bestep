@@ -1,0 +1,37 @@
+{% load i18n %}<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Best-Épargne{% endblock %}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#111827;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f5f7fb;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="560" style="max-width:560px;background:#ffffff;border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,0.06);overflow:hidden;">
+          <tr>
+            <td style="padding:24px 32px;background:linear-gradient(135deg,#1e3a8a 0%,#3730a3 100%);color:#ffffff;">
+              <div style="font-size:18px;font-weight:700;letter-spacing:-0.01em;">Best-Épargne</div>
+              <div style="font-size:12px;opacity:0.85;margin-top:2px;">{% block subtitle %}Notification de sécurité{% endblock %}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px;font-size:15px;line-height:1.55;color:#111827;">
+              {% block body %}{% endblock %}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;line-height:1.5;">
+              Vous recevez ce message parce qu'une action a été effectuée sur votre compte Best-Épargne.
+              Si vous n'êtes pas à l'origine de cette action, ignorez ce message.
+              <br><br>
+              &copy; Best-Épargne — {% block year %}2026{% endblock %}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -3,7 +3,7 @@
  * Sidebar sticky desktop + drawer mobile Framer Motion. Nav dédiée à la
  * création et à l'exploitation des formations.
  */
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -22,6 +22,7 @@ import {
   LogOut,
   Plus,
   Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuthStore, useAuthUser } from '@/stores/auth';
 import { cn } from '@/lib/utils';
@@ -48,11 +49,39 @@ const PERSONAL_NAV = [
   { to: '/instructor/settings', label: 'Paramètres', Icon: Settings },
 ];
 
+const WELCOME_BANNER_STORAGE_KEY = 'be:instructor-welcome-seen';
+
 export function InstructorShell({ title, subtitle, actions, children }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const user = useAuthUser();
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+
+  // SECURITE-06 — banner de bienvenue affiché une seule fois quand un
+  // formateur nouvellement approuvé arrive sur son espace. Persistance
+  // par user.id pour ne pas re-flasher au reload.
+  const [showWelcome, setShowWelcome] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    if (user.approval_status !== 'approved') return;
+    const key = `${WELCOME_BANNER_STORAGE_KEY}:${user.id}`;
+    try {
+      if (localStorage.getItem(key) !== '1') {
+        setShowWelcome(true);
+      }
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [user]);
+  const dismissWelcome = () => {
+    setShowWelcome(false);
+    if (!user) return;
+    try {
+      localStorage.setItem(`${WELCOME_BANNER_STORAGE_KEY}:${user.id}`, '1');
+    } catch {
+      /* ignore */
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -60,9 +89,9 @@ export function InstructorShell({ title, subtitle, actions, children }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <aside
-        className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-white border-r border-neutral-200 flex-col z-30"
+        className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex-col z-30"
         aria-label="Navigation instructeur"
       >
         <SidebarContent user={user} onLogout={handleLogout} />
@@ -110,7 +139,7 @@ export function InstructorShell({ title, subtitle, actions, children }: Props) {
       </AnimatePresence>
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-neutral-200">
+        <header className="sticky top-0 z-20 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-neutral-200 dark:border-neutral-800">
           <div className="px-4 sm:px-6 py-3 flex items-center gap-3">
             <button
               onClick={() => setDrawerOpen(true)}
@@ -173,6 +202,33 @@ export function InstructorShell({ title, subtitle, actions, children }: Props) {
                   {actions}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {showWelcome && (
+          <div
+            role="status"
+            className="border-b border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/40"
+          >
+            <div className="container mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-700 dark:text-emerald-300 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                  Votre compte formateur est validé.
+                </p>
+                <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80">
+                  Vous pouvez maintenant créer et publier des cours.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={dismissWelcome}
+                aria-label="Masquer le message de bienvenue"
+                className="p-1 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}

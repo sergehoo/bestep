@@ -227,10 +227,35 @@ class PermissionUtils:
 
 
 class BaseActivePermission(BasePermission):
-    """Base commune : utilisateur authentifié et actif."""
+    """Base commune : utilisateur authentifié + actif + e-mail vérifié.
+
+    SECURITE-05 — cette classe est le point unique de vérité pour la
+    vérification d'e-mail sur toute l'API métier (Instructor, Learner,
+    Organization, Enrollments…). Les sous-classes qui override
+    ``has_permission`` doivent penser à appeler ``super().has_permission``
+    OU respecter la même règle en local.
+
+    Les administrateurs plateforme (``is_platform_admin``) sont
+    exemptés de la vérif e-mail (leur compte peut être créé via
+    ``createsuperuser`` avant migration).
+
+    Une sous-classe peut désactiver la vérif e-mail en positionnant
+    ``require_email_verified = False`` (utile pour les vues d'onboarding
+    qui doivent rester accessibles avant vérification).
+    """
+
+    require_email_verified: bool = True
 
     def is_valid_user(self, request) -> bool:
-        return PermissionUtils.is_authenticated_and_active(request.user)
+        user = request.user
+        if not PermissionUtils.is_authenticated_and_active(user):
+            return False
+        if not self.require_email_verified:
+            return True
+        # Bypass pour les admins plateforme (compte technique historique).
+        if PermissionUtils.is_platform_admin(user):
+            return True
+        return bool(getattr(user, "is_email_verified", True))
 
     def has_permission(self, request, view) -> bool:
         return self.is_valid_user(request)
@@ -244,22 +269,38 @@ class IsAuthenticatedAndActive(BaseActivePermission):
 class IsPlatformAdmin(BaseActivePermission):
     """Accès réservé aux admins plateforme."""
 
+    # Les admins plateforme n'ont pas de contrainte de vérif e-mail
+    # (createsuperuser).
+    require_email_verified = False
+
     def has_permission(self, request, view) -> bool:
-        return PermissionUtils.is_platform_admin(request.user)
+        return (
+            self.is_valid_user(request)
+            and PermissionUtils.is_platform_admin(request.user)
+        )
 
 
 class IsInstructor(BaseActivePermission):
-    """Accès réservé aux formateurs et admins plateforme."""
+    """Accès réservé aux formateurs et admins plateforme.
+
+    SECURITE-05 — inclut la vérification d'e-mail via ``is_valid_user``.
+    """
 
     def has_permission(self, request, view) -> bool:
-        return PermissionUtils.is_instructor(request.user)
+        return (
+            self.is_valid_user(request)
+            and PermissionUtils.is_instructor(request.user)
+        )
 
 
 class IsLearner(BaseActivePermission):
     """Accès réservé aux apprenants."""
 
     def has_permission(self, request, view) -> bool:
-        return PermissionUtils.is_learner(request.user)
+        return (
+            self.is_valid_user(request)
+            and PermissionUtils.is_learner(request.user)
+        )
 
 
 class IsOrganizationMember(BaseActivePermission):

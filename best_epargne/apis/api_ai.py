@@ -144,11 +144,10 @@ class AIMessageFeedbackSerializer(serializers.Serializer):
 # ─────────────────────────────────────────────────────────────
 
 
-def _forbidden():
-    return Response(
-        {"detail": "Best-AI indisponible pour ce compte."},
-        status=status.HTTP_403_FORBIDDEN,
-    )
+def _forbidden(user=None):
+    # SECURITE-05 — délègue à ai.http.forbidden_for pour émettre un ``code``.
+    from ai.http import forbidden_for
+    return forbidden_for(user)
 
 
 def _client_ip(request) -> Optional[str]:
@@ -164,7 +163,7 @@ class AIConversationListView(APIView):
     @extend_schema(summary="Liste des conversations IA de l'utilisateur")
     def get(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         qs = (
             AIConversation.objects.filter(user=request.user, is_archived=False)
             .order_by("-last_message_at", "-id")
@@ -184,7 +183,7 @@ class AIConversationListView(APIView):
     )
     def post(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         s = AIConversationCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         data = s.validated_data
@@ -248,7 +247,7 @@ class AIConversationDetailView(APIView):
         if err:
             return err
         if not user_can_delete_conversation(request.user, conversation):
-            return _forbidden()
+            return _forbidden(request.user)
         conv_id = conversation.id
         title = conversation.title
         conversation.delete()
@@ -273,7 +272,7 @@ class AIMessagePostView(APIView):
     )
     def post(self, request, conversation_id: int):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         try:
             conversation = AIConversation.objects.get(
                 pk=conversation_id, user=request.user
@@ -327,7 +326,7 @@ class AIMessageFeedbackView(APIView):
         except AIMessage.DoesNotExist:
             return Response({"detail": "Introuvable."}, status=404)
         if not user_can_access_conversation(request.user, message.conversation):
-            return _forbidden()
+            return _forbidden(request.user)
         s = AIMessageFeedbackSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         message.feedback_score = s.validated_data["score"]
@@ -352,7 +351,7 @@ class AIUsageView(APIView):
     @extend_schema(summary="Consommation IA de l'utilisateur (compte + tokens)")
     def get(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         from django.db.models import Count, Sum
 
         qs = AIUsageRecord.objects.filter(user=request.user)
@@ -378,7 +377,7 @@ class AIConfigView(APIView):
     @extend_schema(summary="Configuration front du panel IA")
     def get(self, request):
         if not user_can_use_assistant(request.user):
-            return _forbidden()
+            return _forbidden(request.user)
         return Response(
             {
                 "purposes": [

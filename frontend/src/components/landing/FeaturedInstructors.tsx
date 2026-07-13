@@ -69,7 +69,7 @@ const INSTRUCTORS: FeaturedInstructor[] = [
 export function FeaturedInstructors() {
   return (
     <section
-      className="bg-white py-14 sm:py-16"
+      className="bg-white dark:bg-neutral-950 py-14 sm:py-16"
       aria-labelledby="instructors-title"
     >
       <div className="container mx-auto px-4 max-w-6xl">
@@ -95,7 +95,7 @@ export function FeaturedInstructors() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.4, delay: i * 0.05 }}
-              className="bg-neutral-50 border border-neutral-100 rounded-2xl p-5 text-center hover:shadow-lift hover:border-primary-200 transition"
+              className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-2xl p-5 text-center hover:shadow-lift hover:border-primary-200 transition"
             >
               <div
                 className={`mx-auto w-20 h-20 rounded-full ${it.bgClass} text-white text-3xl font-extrabold flex items-center justify-center shadow-lift`}

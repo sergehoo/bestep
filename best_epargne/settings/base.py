@@ -200,6 +200,10 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": int(os.getenv("DRF_PAGE_SIZE", "25")),
     # V_OBS.A : génération auto du schéma OpenAPI.
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # SECURITE-05 — enrichit les 401/403 avec un champ ``code`` stable pour
+    # piloter les redirections côté frontend (EMAIL_NOT_VERIFIED,
+    # ACCOUNT_SUSPENDED, PERMISSION_DENIED, NOT_AUTHENTICATED).
+    "EXCEPTION_HANDLER": "compte.drf_exception_handler.enriched_exception_handler",
 }
 
 

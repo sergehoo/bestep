@@ -77,10 +77,10 @@ export function LearnerShell({
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       {/* Sidebar desktop */}
       <aside
-        className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-white border-r border-neutral-200 flex-col z-30"
+        className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex-col z-30"
         aria-label="Navigation principale"
       >
         <SidebarContent user={user} onLogout={handleLogout} />
@@ -131,7 +131,7 @@ export function LearnerShell({
       {/* Main */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-neutral-200">
+        <header className="sticky top-0 z-20 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-neutral-200 dark:border-neutral-800">
           <div className="px-4 sm:px-6 py-3 flex items-center gap-3">
             <button
               type="button"

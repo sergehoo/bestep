@@ -55,8 +55,12 @@ class AdminPlatformSettingsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def _forbidden(self):
+        # SECURITE-05 — expose un ``code`` stable ROLE_FORBIDDEN.
         return Response(
-            {"detail": "Réservé aux administrateurs plateforme."},
+            {
+                "detail": "Réservé aux administrateurs plateforme.",
+                "code": "ROLE_FORBIDDEN",
+            },
             status=403,
         )
 

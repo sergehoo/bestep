@@ -1797,3 +1797,196 @@ Support (MVP notifications), Commissions.
 ## Prochaine étape suggérée (hors périmètre)
 
 - **R9** — Upload thumbnail cours (flow MinIO présigné), audit log admin, ouverture publique du SPA, déprécation des templates Django.
+
+---
+
+## SECURITE-05 + SECURITE-06 — Vérification e-mail et workflow d'approbation formateur
+
+Livré : 41 fichiers touchés (23 backend + 15 frontend + 3 tests dossier),
+~2 200 LOC nettes, 6 endpoints backend nouveaux, 4 pages frontend
+nouvelles, ~65 cas pytest ajoutés.
+
+### Résumé fonctionnel
+
+**Vérification e-mail obligatoire** (SECURITE-05) — chaque inscription
+publique reçoit désormais un lien de vérification. Tant que l'e-mail
+n'est pas vérifié, l'utilisateur reste bloqué au niveau des permissions
+DRF sur toute action métier (création cours, Best-AI, media library,
+etc.). Les codes d'erreur normalisés (`EMAIL_NOT_VERIFIED`,
+`ACCOUNT_SUSPENDED`, `INSTRUCTOR_NOT_APPROVED`, `ROLE_FORBIDDEN`,
+`PERMISSION_DENIED`) permettent au frontend de rediriger
+automatiquement vers l'écran approprié via un handler d'exceptions DRF
+centralisé + un interceptor axios.
+
+**Workflow d'approbation formateur** (SECURITE-06) — un compte
+formateur nouvellement créé arrive en `is_verified=False`. Un admin
+plateforme le valide (ou refuse) via `/admin/instructors`. Le
+formateur voit son statut basculer automatiquement en ≤ 30 s grâce à
+un poll `/me` sur la page d'attente. Un banner de bienvenue s'affiche
+une seule fois au premier accès à l'espace instructor après
+approbation. Toutes les décisions sont journalisées dans `AIAuditLog`
+et consultables via `/admin/audit/security` (avec export CSV pour
+audit RGPD).
+
+### Backend — modèles + endpoints
+
+**Migrations** :
+- `compte/0007_user_email_verification_fields.py` — 4 nouveaux champs
+  sur `User` : `is_email_verified` (indexé), `email_verification_token`,
+  `email_verification_sent_at`, `email_verified_at`.
+
+**Endpoints nouveaux** :
+- `POST /api/auth/verify-email/` — Confirme un token (idempotent)
+- `POST /api/auth/verify-email/resend/` — Renvoie un mail (cooldown 60 s)
+- `POST /api/admin/instructors/{id}/approve/` — Valide un formateur
+- `POST /api/admin/instructors/{id}/reject/` — Refuse avec raison
+- `GET  /api/admin/instructors/pending-count/` — Compteur badge nav
+- `GET  /api/admin/instructors/history/` — 50 dernières décisions
+- `POST /api/admin/users/{id}/verify-email/` — Force verify (support)
+- `GET  /api/admin/audit/security/` — Journal unifié filtrable
+- `GET  /api/admin/audit/security/export/` — Export CSV (max 10 000 lignes)
+
+**Endpoints enrichis** :
+- `POST /api/auth/register/` — Whitelist stricte `account_type ∈
+  {learner, instructor, org_admin}` (rejet `admin`/`platform_admin`/
+  `super_admin` en 400). Création atomique du profil métier
+  (LearnerProfile / InstructorProfile / Organization+Membership).
+  Envoi automatique du mail de vérification.
+- `GET  /api/auth/me/` — Nouveaux champs `email_verified`,
+  `approval_status`, `profile.type`, `onboarding_completed`.
+- `PATCH /api/admin/users/{id}/` — Journalise `USER_SUSPENDED`,
+  `USER_REACTIVATED`, `USER_ROLE_CHANGED` dans `AIAuditLog`.
+
+**Permissions DRF durcies** :
+- `BaseActivePermission.is_valid_user` intègre la vérif e-mail avec
+  bypass pour `is_platform_admin`. Par ricochet, `IsInstructor` et
+  `IsLearner` refusent tous les users non vérifiés (~50 vues protégées
+  sans modification individuelle).
+- `ai.permissions.user_can_use_assistant` refuse également les users
+  non vérifiés — protège toute la stack Best-AI (chat, tools, KB,
+  text-transform, image gen).
+
+**Handler exceptions DRF** :
+- `compte.drf_exception_handler.enriched_exception_handler` — enrichit
+  les 401/403 avec un `code` stable en inspectant `request.user`
+  (`NOT_AUTHENTICATED`, `ACCOUNT_SUSPENDED`, `EMAIL_NOT_VERIFIED`,
+  `PERMISSION_DENIED`).
+
+**Management command** :
+- `python manage.py audit_user_profiles [--apply]
+  [--create-missing-profiles] [--json]` — détecte et répare 5 types
+  d'incohérences (user sans profil métier, staff sans admin role,
+  admin role sans staff, profils orphelins Instructor/Learner).
+
+### Frontend — pages + composants
+
+**Pages nouvelles** :
+- `/verify-email` — auto-vérif via `?uid&token`, bouton renvoyer avec
+  cooldown visuel, message de bienvenue si arrivée post-signup
+- `/instructor-pending` — poll `/me` toutes les 30 s, redirection auto
+  vers `/instructor` dès approbation, bouton "Vérifier maintenant"
+- `/account-suspended` — écran de suspension + purge session locale
+- `/admin/audit/security` — journal filtrable + 6 KPI cards + export CSV
+
+**Composants existants enrichis** :
+- `DashboardResolver` — redirige selon `email_verified` +
+  `approval_status` + `is_active` (au lieu du fallback `/learn`
+  hardcodé)
+- `ProtectedRoute` — bloque les non-vérifiés (bypass via
+  `requireVerifiedEmail={false}` pour les routes exemptées)
+- Nouveaux guards `VerifiedEmailRoute`, `RoleRoute` (exportés pour
+  usage futur)
+- `AdminShell` — badge orange sur "Formateurs" quand `pending_count >
+  0` (rafraîchi toutes les 60 s), nouvelle entrée nav "Audit sécurité"
+- `AdminDashboardPage` — carte cliquable "N formateurs en attente" en
+  haut du cockpit
+- `AdminInstructorsPage` — colonne Actions (Approuver/Retirer), drawer
+  historique, filtre `?verified=false` auto-appliqué depuis les query
+  params URL
+- `InstructorShell` — banner émeraude "Compte formateur validé" une
+  seule fois par user (persistance localStorage)
+- `LoginPage` — affichage cohérent des codes d'erreur backend, CTA
+  "Ouvrir la page de vérification e-mail" quand `EMAIL_NOT_VERIFIED`
+- `RegisterPage` — transmet `account_type` + `organization_name` au
+  backend, redirige explicitement vers `/verify-email` avec state
+  `justRegistered=true`
+- `stores/auth.ts` — `errorCode` exposé pour piloter l'UX
+- `lib/api.ts` — interceptor axios redirige sur 403 avec code
+- `lib/types.ts` — `User` étendu avec `email_verified`,
+  `approval_status`, `profile: UserProfile`, `onboarding_completed`
+
+### Tests
+
+~65 cas pytest répartis en 8 fichiers :
+- `test_register_security.py` — whitelist rôle, extra fields ignorés,
+  création atomique, envoi token
+- `test_verify_email_endpoints.py` — verify + resend, expiration,
+  cooldown, idempotence
+- `test_permissions_email_verified.py` — bypass admin, refus
+  non-vérifié sur Instructor/Learner
+- `test_admin_instructor_approval.py` — approve/reject/history,
+  filtres, agrégations
+- `test_admin_force_verify_email.py` — support technique
+- `test_admin_user_audit.py` — journalisation suspend/reactivate/
+  role_change
+- `test_admin_audit_security.py` — endpoint unifié, filtres, fenêtre
+- `test_admin_audit_security_export.py` — CSV headers, colonnes,
+  contenu
+
+### Journalisation `AIAuditLog` — nouveaux kinds
+
+Toutes les actions admin sensibles laissent une trace horodatée
+consultable via l'endpoint et l'UI d'audit :
+
+| Kind                     | Déclencheur                                     |
+|--------------------------|-------------------------------------------------|
+| `INSTRUCTOR_APPROVED`    | Approbation formateur par admin                 |
+| `INSTRUCTOR_REJECTED`    | Rejet formateur (avec raison optionnelle)       |
+| `EMAIL_FORCE_VERIFIED`   | Vérif e-mail forcée par support technique       |
+| `USER_SUSPENDED`         | `is_active` bascule True → False sur PATCH      |
+| `USER_REACTIVATED`       | `is_active` bascule False → True sur PATCH      |
+| `USER_ROLE_CHANGED`      | `platform_role` change sur PATCH                |
+
+### Post-déploiement — actions requises
+
+```bash
+# 1. Migration DB
+docker compose exec bestweb python manage.py migrate compte
+
+# 2. Audit + réparation des comptes existants
+docker compose exec bestweb python manage.py audit_user_profiles
+docker compose exec bestweb python manage.py audit_user_profiles \
+    --apply --create-missing-profiles
+
+# 3. Smoke test
+docker compose exec bestweb pytest \
+    tests/test_register_security.py \
+    tests/test_verify_email_endpoints.py \
+    tests/test_permissions_email_verified.py \
+    tests/test_admin_instructor_approval.py \
+    tests/test_admin_force_verify_email.py \
+    tests/test_admin_user_audit.py \
+    tests/test_admin_audit_security.py \
+    tests/test_admin_audit_security_export.py \
+    -v
+```
+
+**Effet immédiat en prod** : les utilisateurs déjà inscrits arrivent
+avec `is_email_verified=False` (défaut du champ) — l'admin peut soit
+les débloquer un par un via `POST /admin/users/{id}/verify-email/`,
+soit exécuter un dry-run puis appliquer une migration SQL du type
+`UPDATE compte_user SET is_email_verified = TRUE WHERE date_joined <
+'{cutoff_date}'` selon la politique choisie (grandfather ou reset).
+
+### Périmètre non couvert (backlog)
+
+- Templates HTML des e-mails d'approbation/refus (actuellement texte
+  brut envoyé par `_send_status_email`)
+- Onboarding métier différencié post-vérification (steps guidés
+  learner / instructor / org_admin)
+- E2E Playwright complet du workflow inscription → vérif → attente →
+  approbation → création cours
+- Notifications in-app pour les événements de sécurité côté admin
+  (au-delà du badge sidebar)
+- Rate limiting spécifique sur `POST /api/auth/verify-email/` (pour
+  l'instant utilise le scope `reset_password` — pertinent mais partagé)

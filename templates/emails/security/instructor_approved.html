@@ -1,0 +1,31 @@
+{% extends "emails/security/_layout.html" %}
+{% block title %}Votre compte formateur est validé{% endblock %}
+{% block subtitle %}Compte formateur validé{% endblock %}
+{% block body %}
+  <p style="margin:0 0 12px;font-size:18px;font-weight:700;color:#0f172a;">
+    Bonjour {{ user_name|default:user.email }},
+  </p>
+  <p style="margin:0 0 12px;">
+    Bonne nouvelle : votre compte formateur vient d'être validé par
+    notre équipe. Vous pouvez maintenant :
+  </p>
+  <ul style="margin:0 0 18px;padding-left:20px;color:#111827;">
+    <li>Créer et publier vos propres cours</li>
+    <li>Configurer votre profil public marketplace</li>
+    <li>Suivre vos apprenants et vos revenus depuis votre cockpit</li>
+    <li>Utiliser Best-AI pour générer des contenus pédagogiques</li>
+  </ul>
+  <div style="text-align:center;margin:24px 0;">
+    <a href="{{ frontend_base }}/instructor"
+       style="display:inline-block;background:#059669;color:#ffffff;
+              text-decoration:none;padding:12px 24px;border-radius:10px;
+              font-weight:700;font-size:15px;">
+      Ouvrir mon espace formateur
+    </a>
+  </div>
+  <p style="margin:18px 0 0;font-size:13px;color:#4b5563;">
+    Besoin d'aide pour bien commencer ? Consultez notre
+    <a href="{{ frontend_base }}/help" style="color:#1e3a8a;">centre d'aide</a>
+    ou répondez simplement à cet e-mail.
+  </p>
+{% endblock %}

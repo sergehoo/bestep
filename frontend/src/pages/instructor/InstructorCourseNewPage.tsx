@@ -112,9 +112,9 @@ export default function InstructorCourseNewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <PublicHeader />
-      <section className="border-b border-neutral-200 bg-white">
+      <section className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
         <div className="container mx-auto px-4 max-w-4xl py-6">
           <Link
             to="/instructor/courses"

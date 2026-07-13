@@ -23,7 +23,7 @@ export function PartnersMarquee() {
 
   return (
     <section
-      className="bg-white py-10 sm:py-12 border-y border-neutral-100"
+      className="bg-white dark:bg-neutral-950 py-10 sm:py-12 border-y border-neutral-100 dark:border-neutral-800"
       aria-label="Nos partenaires"
     >
       <div className="container mx-auto px-4 max-w-6xl">

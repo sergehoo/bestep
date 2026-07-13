@@ -24,7 +24,6 @@ import {
   X,
   LogOut,
   Bell,
-  GraduationCap,
   Library,
   Award,
   Wallet,
@@ -40,8 +39,30 @@ import {
   LucideIcon,
 } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
+
 import { useAuthStore, useAuthUser } from '@/stores/auth';
 import { cn } from '@/lib/utils';
+import api from '@/lib/api';
+
+/**
+ * Compteur de formateurs en attente de validation (SECURITE-06).
+ * Rafraîchi toutes les 60 secondes pour ne pas alourdir le backend.
+ */
+function usePendingInstructorsCount() {
+  const { data } = useQuery({
+    queryKey: ['admin-instructors-pending-count'],
+    queryFn: async () => {
+      const r = await api.get<{ pending_count: number }>(
+        '/admin/instructors/pending-count/',
+      );
+      return r.data.pending_count;
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  return typeof data === 'number' ? data : 0;
+}
 
 interface Props {
   title?: string;
@@ -86,8 +107,9 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
   {
     label: 'Communauté',
     items: [
+      // SECURITE-06 — vue unique : formateurs et apprenants sont le
+      // même modèle User, on garde une seule entrée + filtre par rôle.
       { to: '/admin/users', label: 'Utilisateurs', Icon: Users },
-      { to: '/admin/instructors', label: 'Formateurs', Icon: GraduationCap },
       { to: '/admin/organizations', label: 'Organisations', Icon: Building2 },
       { to: '/admin/roles', label: 'Rôles & permissions', Icon: Shield },
     ],
@@ -126,6 +148,8 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
       { to: '/admin/moderation', label: 'Modération', Icon: MessageSquareWarning },
       { to: '/admin/support', label: 'Support', Icon: LifeBuoy },
       { to: '/admin/reports', label: 'Rapports', Icon: BarChart3 },
+      // SECURITE-06 : audit unifié des événements sensibles admin
+      { to: '/admin/audit/security', label: 'Audit sécurité', Icon: ShieldCheck },
       { to: '/admin/config', label: 'Configuration', Icon: Settings },
       { to: '/admin/settings', label: 'Paramètres avancés', Icon: UserCog },
     ],
@@ -256,7 +280,7 @@ export function AdminShell({ title, subtitle, actions, children }: Props) {
           </div>
         )}
 
-        <main className="container mx-auto px-4 sm:px-6 py-6">
+        <main className="container mx-auto px-4 sm:px-6 py-6 space-y-6">
           {children}
         </main>
       </div>
@@ -277,6 +301,7 @@ function SidebarContent({
   onLogout: () => void;
   onNavigate?: () => void;
 }) {
+  const pendingInstructors = usePendingInstructorsCount();
   return (
     <>
       <div className="p-5 border-b border-neutral-100 dark:border-neutral-700">
@@ -351,6 +376,14 @@ function SidebarContent({
                   >
                     <it.Icon className="w-4 h-4 shrink-0" />
                     <span className="flex-1 truncate">{it.label}</span>
+                    {it.to === '/admin/users' && pendingInstructors > 0 && (
+                      <span
+                        className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-500 text-white group-[.text-white]:bg-white group-[.text-white]:text-amber-700"
+                        title={`${pendingInstructors} formateur(s) en attente de validation`}
+                      >
+                        {pendingInstructors > 99 ? '99+' : pendingInstructors}
+                      </span>
+                    )}
                     {it.wip && (
                       <span
                         className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 group-[.text-white]:bg-white/25 group-[.text-white]:text-white"

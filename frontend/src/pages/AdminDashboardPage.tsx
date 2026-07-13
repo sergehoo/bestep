@@ -15,7 +15,10 @@ import {
   GraduationCap,
   Wallet,
   CheckCircle,
+  Clock,
+  ArrowRight,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { AdminOverviewSection } from '@/components/admin/AdminOverviewSection';
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
@@ -26,7 +29,49 @@ import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAdminDashboard } from '@/hooks/queries';
 import { formatPrice } from '@/lib/utils';
+import api from '@/lib/api';
 import type { DashboardPeriod } from '@/lib/types';
+
+/**
+ * Bloc "Approbations en attente" (SECURITE-06).
+ * Affiché uniquement si au moins un formateur attend d'être validé.
+ * Cliquable → /admin/instructors?verified=false.
+ */
+function PendingInstructorsAlert() {
+  const { data } = useQuery({
+    queryKey: ['admin-instructors-pending-count'],
+    queryFn: async () => {
+      const r = await api.get<{ pending_count: number }>(
+        '/admin/instructors/pending-count/',
+      );
+      return r.data.pending_count;
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const count = typeof data === 'number' ? data : 0;
+  if (count === 0) return null;
+
+  return (
+    <Link
+      to="/admin/users?role=instructor&verified=false"
+      className="mb-4 flex items-center gap-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 hover:bg-amber-100 transition dark:border-amber-900/60 dark:bg-amber-950/40 dark:hover:bg-amber-950/60"
+    >
+      <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
+        <Clock className="w-5 h-5 text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-amber-900 dark:text-amber-100">
+          {count} formateur{count > 1 ? 's' : ''} en attente de validation
+        </p>
+        <p className="text-xs text-amber-800/80 dark:text-amber-200/80">
+          Cliquez pour examiner les demandes et approuver / refuser.
+        </p>
+      </div>
+      <ArrowRight className="w-4 h-4 text-amber-800 dark:text-amber-200 shrink-0" />
+    </Link>
+  );
+}
 
 export default function AdminDashboardPage() {
   const [period, setPeriod] = useState<DashboardPeriod>('30d');
@@ -81,6 +126,9 @@ export default function AdminDashboardPage() {
         </div>
       }
     >
+      {/* SECURITE-06 — Alerte formateurs en attente (visible seulement si > 0) */}
+      <PendingInstructorsAlert />
+
       {/* R45 — Vue consolidée : alertes actionnables + raccourcis + activité + top */}
       <AdminOverviewSection />
 

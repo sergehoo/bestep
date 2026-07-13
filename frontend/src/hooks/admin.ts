@@ -37,6 +37,7 @@ export function useAdminUsers(filters: AdminUserFilters = {}) {
       if (filters.q) params.q = filters.q;
       if (filters.role && filters.role !== 'all') params.role = filters.role;
       if (filters.is_active) params.is_active = filters.is_active;
+      if (filters.verified) params.verified = filters.verified;
       if (filters.page) params.page = filters.page;
       const { data } = await api.get<Paginated<AdminUserListItem>>(
         '/admin/users/',
