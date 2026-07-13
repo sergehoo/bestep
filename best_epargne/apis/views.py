@@ -840,9 +840,29 @@ class InstructorLessonUpdateView(APIView):
         section = get_object_or_404(CourseSection, id=section_id, course=course)
         lesson = get_object_or_404(Lesson, id=lesson_id, section=section)
 
-        for f in ["title", "lesson_type", "is_preview", "duration_sec", "video_url", "content"]:
+        for f in ["title", "lesson_type", "is_preview", "duration_sec", "content"]:
             if f in request.data:
                 setattr(lesson, f, request.data.get(f))
+
+        # UX-06 — video_url : URLField(max_length=200) par défaut. Une URL
+        # presignée MinIO dépasse largement 200 caractères → PostgreSQL
+        # rejette le save avec 500. On tronque défensivement + on retire
+        # les URLs de type S3 presignées (qui expirent) : quand un
+        # media_asset_id est présent, on vide video_url pour éviter de
+        # stocker une URL périmée. Le serializer regénère l'URL à chaque
+        # read via ``media_asset.preview_url``.
+        if "video_url" in request.data:
+            raw = str(request.data.get("video_url") or "")
+            # Détection presigned S3 (contient X-Amz-Signature) → on ne
+            # stocke PAS ce type d'URL en base (elle expire + trop longue).
+            if "X-Amz-Signature" in raw:
+                lesson.video_url = ""
+            elif len(raw) > 200:
+                # Sécurité : URL externe > 200 chars → tronquée + log
+                # potentiel côté audit. Évite absolument le 500.
+                lesson.video_url = raw[:200]
+            else:
+                lesson.video_url = raw
 
         # R6 : réordonnancement lesson dans sa section (swap avec voisin)
         if "order" in request.data:
@@ -864,7 +884,40 @@ class InstructorLessonUpdateView(APIView):
         if "media_asset_id" in request.data:
             media_asset_id = request.data.get("media_asset_id")
             if media_asset_id:
-                lesson.media_asset = get_object_or_404(MediaAsset, id=media_asset_id, owner=request.user)
+                # UX-06 — Lookup élargie : le media peut appartenir à
+                # l'utilisateur (owner=me) OU à une de ses organisations
+                # (dont il est OWNER/ADMIN/MANAGER), OU tout média si
+                # l'utilisateur est platform admin.
+                asset_qs = MediaAsset.objects.filter(id=media_asset_id)
+                if getattr(request.user, "is_platform_admin", False):
+                    pass  # accès global admin
+                else:
+                    from compte.models import OrganizationMembership
+                    org_ids = list(
+                        request.user.organization_memberships.filter(
+                            role__in=[
+                                OrganizationMembership.Role.OWNER,
+                                OrganizationMembership.Role.ADMIN,
+                                OrganizationMembership.Role.MANAGER,
+                            ],
+                            is_active=True,
+                            organization__is_active=True,
+                        ).values_list("organization_id", flat=True)
+                    )
+                    from django.db.models import Q
+                    asset_qs = asset_qs.filter(
+                        Q(owner=request.user) | Q(organization_id__in=org_ids)
+                    )
+                asset = asset_qs.first()
+                if not asset:
+                    return Response(
+                        {
+                            "detail": "Média introuvable ou non autorisé.",
+                            "code": "MEDIA_NOT_ACCESSIBLE",
+                        },
+                        status=403,
+                    )
+                lesson.media_asset = asset
             else:
                 lesson.media_asset = None
 

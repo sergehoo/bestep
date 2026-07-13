@@ -140,13 +140,25 @@ export default function InstructorLessonEditorPage() {
     if (!section?.id || !lessonId || !courseId) return;
     setFlash(null);
     try {
+      // UX-06 — Ne PAS envoyer l'URL presignée S3 dans video_url quand
+      // un media_asset est attaché : (1) video_url est un URLField(200)
+      // en DB qui déborderait avec une URL AWS signée (~1000 chars) →
+      // 500. (2) L'URL S3 signée expire en 1h ; on préfère stocker
+      // uniquement media_asset_id et laisser le serializer regénérer
+      // une URL fraîche à chaque lecture (via media_asset.preview_url).
+      // On garde video_url pour les vrais liens externes (YouTube,
+      // Vimeo…) — reconnaissables car ils ne contiennent pas de
+      // signature AWS.
+      const isPresignedS3 = /[?&]X-Amz-Signature=/i.test(videoUrl);
+      const videoUrlToSend = mediaAssetId || isPresignedS3 ? '' : videoUrl;
+
       await update.mutateAsync({
         sectionId: section.id,
         lessonId,
         payload: {
           title,
           content,
-          video_url: videoUrl,
+          video_url: videoUrlToSend,
           // UX-04 — On envoie l'UUID media_asset_id (persistant) plutôt
           // que l'URL S3 qui expire en 1h. Envoyer null = détacher.
           media_asset_id: mediaAssetId,
