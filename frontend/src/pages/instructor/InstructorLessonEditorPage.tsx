@@ -163,12 +163,33 @@ export default function InstructorLessonEditorPage() {
       setVideoUrl(`media://${asset.id}`);
       if (asset.duration_seconds) setDurationSec(asset.duration_seconds);
     } else {
-      // Doc : on ajoute un lien dans le contenu
-      setContent(
-        (prev) =>
-          prev +
-          `\n\n<p><a href="media://${asset.id}" target="_blank" rel="noopener">📎 ${asset.title}</a></p>`,
-      );
+      // Doc : distinguer image (embed <img>) vs autres docs (lien attachment).
+      // UX-02 — Fix : les images étaient inserées comme un lien "📎 fichier.png"
+      // au lieu d'être affichées. On regarde content_type + preview_url pour
+      // produire un vrai <img> quand possible.
+      const ct = (asset.content_type || '').toLowerCase();
+      const url = asset.preview_url || asset.thumbnail_url || '';
+      const isImage = ct.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(asset.title);
+      if (isImage && url) {
+        const alt = (asset.title || 'image').replace(/"/g, '&quot;');
+        setContent(
+          (prev) =>
+            prev +
+            `\n\n<p><img src="${url}" alt="${alt}" style="max-width:100%;height:auto;" /></p>`,
+        );
+        setFlash({
+          kind: 'ok',
+          msg: `Image « ${asset.title} » insérée.`,
+        });
+      } else {
+        // Autres docs (PDF, DOCX…) → lien téléchargeable.
+        const href = asset.preview_url || `media://${asset.id}`;
+        setContent(
+          (prev) =>
+            prev +
+            `\n\n<p><a href="${href}" target="_blank" rel="noopener">📎 ${asset.title}</a></p>`,
+        );
+      }
     }
   }
 

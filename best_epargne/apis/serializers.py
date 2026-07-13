@@ -119,19 +119,22 @@ class MediaAssetSerializer(serializers.ModelSerializer):
     def get_thumbnail_url(self, obj) -> str:
         """URL de la miniature (image extraite pour vidéo, aperçu pour doc).
 
-        Retourne '' si aucune miniature disponible. Le frontend affiche
-        alors l'icône générique par type.
+        UX-02 — Fix : le modèle MediaAsset expose ``object_key`` (pas
+        ``original_object_key``). Pour un doc image (kind=DOC +
+        content_type image/*), on fallback sur ``object_key`` afin que
+        la vignette montre l'image elle-même.
+
+        Retourne '' si aucune miniature disponible.
         """
         key = getattr(obj, "thumbnail_object_key", "") or ""
         if key:
             return self._default_storage_url(key)
-        # Pour un doc image direct (kind=DOC + content_type image/*), on
-        # peut fallback sur l'objet lui-même.
+        # Fallback pour images : le fichier lui-même sert de miniature.
         content_type = getattr(obj, "content_type", "") or ""
         if content_type.startswith("image/"):
             main_key = (
                 getattr(obj, "optimized_object_key", "")
-                or getattr(obj, "original_object_key", "")
+                or getattr(obj, "object_key", "")
                 or ""
             )
             if main_key:
@@ -142,9 +145,10 @@ class MediaAssetSerializer(serializers.ModelSerializer):
         """URL de streaming/lecture (video optimisée si dispo, sinon original).
 
         Utile pour les cards vidéo qui peuvent lire un `<video poster>`
-        dans la médiathèque.
+        dans la médiathèque, et pour l'insertion réelle du média dans
+        l'éditeur WYSIWYG.
         """
-        for attr in ("optimized_object_key", "original_object_key"):
+        for attr in ("optimized_object_key", "object_key"):
             key = getattr(obj, attr, "") or ""
             if key:
                 return self._default_storage_url(key)
