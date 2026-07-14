@@ -59,14 +59,14 @@ export function CategoriesGrid() {
             </p>
             <h2
               id="categories-title"
-              className="mt-1 text-2xl sm:text-3xl font-extrabold text-neutral-900"
+              className="mt-1 text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white"
             >
               Choisissez votre catégorie
             </h2>
           </div>
           <Link
             to="/catalogue"
-            className="text-sm font-semibold text-primary-600 hover:text-primary-700"
+            className="text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
           >
             Voir toutes les catégories →
           </Link>
@@ -97,17 +97,17 @@ export function CategoriesGrid() {
                 >
                   <Link
                     to={`/catalogue?category=${encodeURIComponent(c.slug)}`}
-                    className="group block bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-2xl p-4 sm:p-5 shadow-soft hover:shadow-lift hover:border-primary-200 transition h-full"
+                    className="group block bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-2xl p-4 sm:p-5 shadow-soft hover:shadow-lift hover:border-primary-200 dark:hover:border-primary-500/60 transition h-full"
                   >
                     <div
                       className={`w-11 h-11 rounded-xl ${s.bg} ${s.color} flex items-center justify-center mb-3 group-hover:scale-110 transition`}
                     >
                       <s.Icon className="w-5 h-5" />
                     </div>
-                    <p className="text-sm sm:text-base font-bold text-neutral-900 group-hover:text-primary-700 transition line-clamp-2">
+                    <p className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white group-hover:text-primary-700 dark:group-hover:text-primary-400 transition line-clamp-2">
                       {c.name}
                     </p>
-                    <p className="mt-1 text-[11px] text-neutral-500">
+                    <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
                       Explorer les cours →
                     </p>
                   </Link>

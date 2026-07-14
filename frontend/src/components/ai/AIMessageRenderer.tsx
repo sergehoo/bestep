@@ -269,7 +269,15 @@ function renderBlocks(content: string): string {
 }
 
 export function AIMessageRenderer({ content, className }: Props) {
-  const html = useMemo(() => renderBlocks(content || ''), [content]);
+  // BEST-AI T5 — Masque les blocs <action>{...}</action> émis par Claude
+  // pour déclencher un tool use. Ils sont interceptés côté backend et
+  // remontés en event SSE dédié qui affiche un bouton — les afficher ici
+  // (JSON brut) polluerait la lecture pour l'utilisateur.
+  const cleaned = useMemo(
+    () => (content || '').replace(/<action>[\s\S]*?<\/action>/g, '').trim(),
+    [content],
+  );
+  const html = useMemo(() => renderBlocks(cleaned), [cleaned]);
   return (
     <div
       className={

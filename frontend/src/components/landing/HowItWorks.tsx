@@ -71,7 +71,7 @@ export function HowItWorks() {
               <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-accent-400 text-primary-900 shadow">
                 Étape {s.n}
               </span>
-              <h3 className="mt-2 font-extrabold text-neutral-900">
+              <h3 className="mt-2 font-extrabold text-neutral-900 dark:text-white">
                 {s.title}
               </h3>
               <p className="mt-1.5 text-sm text-neutral-600 leading-relaxed">

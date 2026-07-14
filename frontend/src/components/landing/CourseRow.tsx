@@ -48,7 +48,7 @@ export function CourseRow({
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6 flex-wrap">
           <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-900">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-900 dark:text-white">
               {title}
             </h2>
             {subtitle && (

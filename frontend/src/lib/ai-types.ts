@@ -85,13 +85,23 @@ export interface AIStreamEventError {
   type: 'error';
   detail: string;
 }
+/** BEST-AI T5 — Claude a émis un bloc <action>…</action> proposant
+ * l'exécution d'un tool wired-in DB. Le frontend affiche un bouton
+ * "Voir l'aperçu + exécuter" qui lance le flow /api/ai/tools/execute/. */
+export interface AIStreamEventActionProposed {
+  type: 'action_proposed';
+  assistant_message_id: number;
+  tool: string;
+  params: Record<string, unknown>;
+}
 
 export type AIStreamEvent =
   | AIStreamEventUserMessage
   | AIStreamEventAssistantStart
   | AIStreamEventDelta
   | AIStreamEventAssistantDone
-  | AIStreamEventError;
+  | AIStreamEventError
+  | AIStreamEventActionProposed;
 
 // ─────────────────────────────────────────────────────────────
 // Course generator (AI Phase 2)

@@ -80,7 +80,7 @@ export function FeaturedInstructors() {
             </p>
             <h2
               id="instructors-title"
-              className="mt-1 text-2xl sm:text-3xl font-extrabold text-neutral-900"
+              className="mt-1 text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white"
             >
               Apprenez auprès des meilleurs
             </h2>
@@ -103,7 +103,7 @@ export function FeaturedInstructors() {
               >
                 {it.avatarInitial}
               </div>
-              <h3 className="mt-4 font-extrabold text-neutral-900">
+              <h3 className="mt-4 font-extrabold text-neutral-900 dark:text-white">
                 {it.name}
               </h3>
               <p className="text-xs text-neutral-500">{it.title}</p>

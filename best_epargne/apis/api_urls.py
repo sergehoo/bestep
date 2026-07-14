@@ -6,9 +6,11 @@ from best_epargne.apis.views import (
     CategoryViewSet,
     InstructorCourseArchiveView,
     InstructorCourseDetailView,
+    InstructorCourseGenerateCoverView,
     InstructorCoursePublishView,
     InstructorCourseRestoreView,
     InstructorCourseUnpublishView,
+    InstructorCourseUploadCoverView,
     InstructorCourseQuizListView,
     InstructorCourseViewSet,
     InstructorKpisView,
@@ -259,6 +261,17 @@ urlpatterns = [
         "instructor/courses/<int:course_id>/restore/",
         InstructorCourseRestoreView.as_view(),
         name="api_instructor_course_restore",
+    ),
+    # Cover image du cours (T6)
+    path(
+        "instructor/courses/<int:course_id>/cover/generate/",
+        InstructorCourseGenerateCoverView.as_view(),
+        name="api_instructor_course_cover_generate",
+    ),
+    path(
+        "instructor/courses/<int:course_id>/cover/upload/",
+        InstructorCourseUploadCoverView.as_view(),
+        name="api_instructor_course_cover_upload",
     ),
 
     # --- Builder: sections ---

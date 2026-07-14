@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import { CourseCertificationSection } from '@/components/instructor/CourseCertificationSection';
+import { CourseCoverSection } from '@/components/instructor/CourseCoverSection';
 import { useUpdateInstructorCourse } from '@/hooks/instructor';
 import { usePublicCategories } from '@/hooks/queries';
 import { extractApiError } from '@/lib/utils';
@@ -198,6 +199,14 @@ export function CourseMetadataTab({ course }: Props) {
         </Button>
       </div>
     </form>
+
+    {/* T6 — Section Image de couverture */}
+    <CourseCoverSection
+      courseId={course.id}
+      courseTitle={course.title}
+      currentThumbnailUrl={course.thumbnail_url ?? null}
+      canEdit={course.can_edit}
+    />
 
     {/* R20.4 — Section Certification */}
     <CourseCertificationSection

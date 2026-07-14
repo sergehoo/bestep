@@ -100,7 +100,7 @@ export function AudienceSpaces() {
         <div className="text-center max-w-2xl mx-auto">
           <h2
             id="audiences-title"
-            className="text-2xl sm:text-4xl font-extrabold text-neutral-900 leading-tight"
+            className="text-2xl sm:text-4xl font-extrabold text-neutral-900 dark:text-white leading-tight"
           >
             Une plateforme{' '}
             <span className="text-primary-600">complète</span> pour tous vos
@@ -120,7 +120,7 @@ export function AudienceSpaces() {
                 <card.Icon className="w-6 h-6 sm:w-7 sm:h-7" />
               </div>
 
-              <h3 className="text-xl sm:text-2xl font-extrabold text-neutral-900">
+              <h3 className="text-xl sm:text-2xl font-extrabold text-neutral-900 dark:text-white">
                 {card.title}
               </h3>
               <p className="mt-2 text-sm sm:text-base text-neutral-600 leading-relaxed">

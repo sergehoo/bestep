@@ -70,7 +70,7 @@ export function StatsBar({ stats = DEFAULT_STATS }: StatsBarProps) {
               <div className="mx-auto w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center mb-2">
                 <Icon className="w-5 h-5" />
               </div>
-              <dd className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tabular-nums">
+              <dd className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white tabular-nums">
                 {visible ? (
                   <StatsCounter value={value} suffix={suffix ?? ''} />
                 ) : (

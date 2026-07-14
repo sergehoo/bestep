@@ -75,6 +75,15 @@ export function AIAssistantPanel() {
   }>({ assistantMessageId: null, text: '', running: false });
   const [error, setError] = useState<string>('');
   const abortRef = useRef<AbortController | null>(null);
+  // BEST-AI T5 — Actions proposées par Claude (tool use). Keyed par
+  // assistant_message_id pour associer le CTA à la bonne bulle.
+  const [pendingActions, setPendingActions] = useState<
+    Record<number, { tool: string; params: Record<string, unknown> }>
+  >({});
+  // Feedback UI par action (loading / ok / erreur).
+  const [actionFlash, setActionFlash] = useState<
+    Record<number, { kind: 'loading' | 'ok' | 'err'; msg: string }>
+  >({});
 
   // Sélectionne automatiquement la conversation la plus récente à l'ouverture.
   useEffect(() => {
@@ -162,6 +171,13 @@ export function AIAssistantPanel() {
           });
         } else if (evt.type === 'delta') {
           setStreaming((s) => ({ ...s, text: s.text + evt.text }));
+        } else if (evt.type === 'action_proposed') {
+          // BEST-AI T5 — Claude propose l'exécution d'un tool. On mémorise
+          // l'action ; le rendu s'active dans MessageBubble via pendingActions.
+          setPendingActions((prev) => ({
+            ...prev,
+            [evt.assistant_message_id]: { tool: evt.tool, params: evt.params },
+          }));
         } else if (evt.type === 'assistant_done') {
           setStreaming({ assistantMessageId: null, text: '', running: false });
           // BUG-AI-04 — On invalide la conversation détail pour que le
@@ -195,6 +211,96 @@ export function AIAssistantPanel() {
     });
 
     abortRef.current = null;
+  }
+
+  // BEST-AI T5 — Exécute un tool proposé par Claude. On enchaîne :
+  //   1) POST /api/ai/tools/execute/ → crée une AIActionApproval
+  //      (le dispatcher préview → détermine si approval requise)
+  //   2) POST /api/ai/tools/approvals/<id>/confirm/ → exécute vraiment
+  //
+  // Pour l'utilisateur, le flow est atomique : un clic sur "Exécuter"
+  // lance l'action ; l'approbation est immédiatement confirmée par le
+  // même user (déjà authentifié) — c'est l'équivalent d'un "confirm
+  // now" dans le modal d'approbation existant.
+  async function handleExecuteAction(assistantMessageId: number) {
+    const action = pendingActions[assistantMessageId];
+    if (!action) return;
+    setActionFlash((p) => ({
+      ...p,
+      [assistantMessageId]: { kind: 'loading', msg: 'Exécution en cours…' },
+    }));
+    try {
+      const { data: exec } = await (
+        await import('@/lib/api')
+      ).default.post<{
+        status?: string;
+        approval_id?: number | null;
+        result?: { ok: boolean; detail: string; data?: Record<string, unknown> } | null;
+        requires_approval?: boolean;
+      }>(
+        '/ai/tools/execute/',
+        // Backend attend `tool_key` (voir ExecuteToolInput). On envoie
+        // aussi les params + conversation_id pour audit trail.
+        {
+          tool_key: action.tool,
+          params: action.params,
+          conversation_id: activeConversationId,
+        },
+      );
+      let ok = exec.result?.ok ?? false;
+      let detail = exec.result?.detail || '';
+      let data = exec.result?.data || {};
+      // Si l'action requiert une approbation explicite, on la confirme
+      // immédiatement (le user a déjà cliqué "Exécuter").
+      if (exec.requires_approval && exec.approval_id != null) {
+        const { data: confirmed } = await (
+          await import('@/lib/api')
+        ).default.post<{ result: { ok: boolean; detail: string; data?: Record<string, unknown> } }>(
+          `/ai/tools/approvals/${exec.approval_id}/confirm/`,
+        );
+        ok = confirmed.result?.ok ?? false;
+        detail = confirmed.result?.detail || detail;
+        data = confirmed.result?.data || data;
+      }
+      setActionFlash((p) => ({
+        ...p,
+        [assistantMessageId]: {
+          kind: ok ? 'ok' : 'err',
+          msg: detail || (ok ? 'Action exécutée.' : "Échec de l'exécution."),
+        },
+      }));
+      // Retire l'action pending si succès (pour ne pas re-cliquer).
+      if (ok) {
+        setPendingActions((p) => {
+          const copy = { ...p };
+          delete copy[assistantMessageId];
+          return copy;
+        });
+        // Optionnel : si l'action retourne une edit_url, on peut proposer
+        // un lien direct — géré dans l'affichage flash.
+        if (data?.edit_url) {
+          setActionFlash((p) => ({
+            ...p,
+            [assistantMessageId]: {
+              kind: 'ok',
+              msg: `${detail} · Voir : ${data.edit_url}`,
+            },
+          }));
+        }
+      }
+    } catch (e) {
+      const anyErr = e as { response?: { data?: { detail?: string } }; message?: string };
+      setActionFlash((p) => ({
+        ...p,
+        [assistantMessageId]: {
+          kind: 'err',
+          msg:
+            anyErr?.response?.data?.detail
+            || anyErr?.message
+            || "Échec de l'appel serveur.",
+        },
+      }));
+    }
   }
 
   function handleAbort() {
@@ -311,6 +417,9 @@ export function AIAssistantPanel() {
             streamingText={streaming.text}
             streamingRunning={streaming.running}
             error={error}
+            pendingActions={pendingActions}
+            actionFlash={actionFlash}
+            onExecuteAction={handleExecuteAction}
           />
 
           <Composer
@@ -419,11 +528,17 @@ function MessagesArea({
   streamingText,
   streamingRunning,
   error,
+  pendingActions,
+  actionFlash,
+  onExecuteAction,
 }: {
   active: ReturnType<typeof useAIConversationDetail>['data'];
   streamingText: string;
   streamingRunning: boolean;
   error: string;
+  pendingActions: Record<number, { tool: string; params: Record<string, unknown> }>;
+  actionFlash: Record<number, { kind: 'loading' | 'ok' | 'err'; msg: string }>;
+  onExecuteAction: (assistantMessageId: number) => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -452,7 +567,14 @@ function MessagesArea({
   return (
     <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
       {messages.map((m) => (
-        <MessageBubble key={m.id} message={m} conversationId={active?.id ?? 0} />
+        <MessageBubble
+          key={m.id}
+          message={m}
+          conversationId={active?.id ?? 0}
+          pendingAction={pendingActions[m.id]}
+          actionFlash={actionFlash[m.id]}
+          onExecuteAction={() => onExecuteAction(m.id)}
+        />
       ))}
       {streamingRunning && (
         <div className="rounded-xl bg-neutral-50 dark:bg-neutral-800/60 p-3">
@@ -487,9 +609,15 @@ function MessagesArea({
 function MessageBubble({
   message,
   conversationId,
+  pendingAction,
+  actionFlash,
+  onExecuteAction,
 }: {
   message: AIMessage;
   conversationId: number;
+  pendingAction?: { tool: string; params: Record<string, unknown> };
+  actionFlash?: { kind: 'loading' | 'ok' | 'err'; msg: string };
+  onExecuteAction?: () => void;
 }) {
   const feedback = useAIFeedback();
   const [copied, setCopied] = useState(false);
@@ -532,6 +660,49 @@ function MessageBubble({
         )}
       </div>
       <AIMessageRenderer content={message.content} />
+      {/* BEST-AI T5 — Action proposée par Claude : bouton d'exécution. */}
+      {!isUser && (pendingAction || actionFlash) && (
+        <div className="mt-3 rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50/60 dark:bg-primary-900/20 p-3">
+          {pendingAction && !actionFlash?.kind && (
+            <>
+              <p className="text-xs font-bold text-primary-800 dark:text-primary-200 mb-1">
+                Action proposée
+              </p>
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-2">
+                Best-AI peut exécuter directement l'action{' '}
+                <code className="text-[11px] px-1 py-0.5 rounded bg-white dark:bg-neutral-800 font-mono">
+                  {pendingAction.tool}
+                </code>{' '}
+                sur le serveur. Vérifiez le contenu proposé, puis cliquez
+                pour l'exécuter.
+              </p>
+              <button
+                type="button"
+                onClick={() => onExecuteAction?.()}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold transition"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Exécuter l'action
+              </button>
+            </>
+          )}
+          {actionFlash?.kind === 'loading' && (
+            <p className="inline-flex items-center gap-2 text-xs text-primary-800 dark:text-primary-200">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {actionFlash.msg}
+            </p>
+          )}
+          {actionFlash?.kind === 'ok' && (
+            <p className="text-xs text-emerald-700 dark:text-emerald-300">
+              <Check className="inline w-3.5 h-3.5 mr-1" />
+              {actionFlash.msg}
+            </p>
+          )}
+          {actionFlash?.kind === 'err' && (
+            <p className="text-xs text-rose-700 dark:text-rose-300">{actionFlash.msg}</p>
+          )}
+        </div>
+      )}
       {!isUser && (
         <div className="mt-2 flex items-center gap-2">
           <button

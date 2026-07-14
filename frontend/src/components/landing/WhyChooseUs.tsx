@@ -98,7 +98,7 @@ export function WhyChooseUs() {
               >
                 <f.Icon className="w-5 h-5" />
               </div>
-              <h3 className="font-extrabold text-neutral-900">{f.title}</h3>
+              <h3 className="font-extrabold text-neutral-900 dark:text-white">{f.title}</h3>
               <p className="mt-1.5 text-sm text-neutral-600 leading-relaxed">
                 {f.desc}
               </p>

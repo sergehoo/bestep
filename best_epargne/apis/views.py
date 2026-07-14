@@ -716,6 +716,116 @@ class InstructorCourseRestoreView(APIView):
         return _lifecycle_response(course, "Restauré")
 
 
+# ─────────────────────────────────────────────────────────────
+# Cover image — auto-génération SVG + upload manuel (T6)
+# ─────────────────────────────────────────────────────────────
+
+class InstructorCourseGenerateCoverView(APIView):
+    """POST /api/instructor/courses/<id>/cover/generate/
+
+    Génère automatiquement une image de couverture SVG à partir des
+    métadonnées du cours (titre, sous-titre, niveau, langue). Le fichier
+    est enregistré dans ``Course.thumbnail`` (remplace l'existant).
+    """
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def post(self, request, course_id):
+        from django.core.files.base import ContentFile
+        from catalog.cover_generator import generate_svg_cover
+
+        course = _course_owned(course_id, request.user)
+        svg_bytes = generate_svg_cover(
+            title=course.title or "",
+            subtitle=course.subtitle or "",
+            level=course.level or "BEGINNER",
+            language=course.language or "fr",
+        )
+        # Nom fichier basé sur slug pour rester déterministe (mêmes cours
+        # = même chemin, écrase l'ancien). Extension .svg pour l'index
+        # MIME (nginx/whitenoise renverra Content-Type: image/svg+xml).
+        filename = f"cover-{course.slug or course.id}.svg"
+        course.thumbnail.save(filename, ContentFile(svg_bytes), save=False)
+        course.save(update_fields=["thumbnail", "updated_at"] if hasattr(course, "updated_at") else ["thumbnail"])
+        thumbnail_url = ""
+        if course.thumbnail and hasattr(course.thumbnail, "url"):
+            thumbnail_url = (
+                request.build_absolute_uri(course.thumbnail.url)
+                if request
+                else course.thumbnail.url
+            )
+        return Response(
+            {
+                "detail": "Image de couverture générée.",
+                "thumbnail_url": thumbnail_url,
+            }
+        )
+
+
+class InstructorCourseUploadCoverView(APIView):
+    """POST /api/instructor/courses/<id>/cover/upload/
+
+    Accepte un fichier image en multipart form (champ ``image``). Types
+    autorisés : image/png, image/jpeg, image/webp, image/svg+xml.
+    Taille max : 5 Mo.
+    """
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    ALLOWED_CTYPES = {
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/webp",
+        "image/svg+xml",
+    }
+    MAX_BYTES = 5 * 1024 * 1024  # 5 Mo
+
+    def post(self, request, course_id):
+        course = _course_owned(course_id, request.user)
+        upload = request.FILES.get("image")
+        if not upload:
+            return Response(
+                {"detail": "Aucun fichier reçu (champ ``image`` manquant)."},
+                status=400,
+            )
+        ctype = (upload.content_type or "").lower()
+        if ctype not in self.ALLOWED_CTYPES:
+            return Response(
+                {
+                    "detail": (
+                        "Format non supporté. Accepté : PNG, JPEG, WebP, SVG."
+                    ),
+                    "content_type": ctype,
+                },
+                status=400,
+            )
+        if upload.size and upload.size > self.MAX_BYTES:
+            return Response(
+                {
+                    "detail": (
+                        f"Fichier trop volumineux ({upload.size // 1024} kB). "
+                        f"Maximum : {self.MAX_BYTES // (1024 * 1024)} Mo."
+                    )
+                },
+                status=400,
+            )
+        # Django ImageField prend un UploadedFile directement.
+        course.thumbnail = upload
+        course.save(update_fields=["thumbnail", "updated_at"] if hasattr(course, "updated_at") else ["thumbnail"])
+        thumbnail_url = ""
+        if course.thumbnail and hasattr(course.thumbnail, "url"):
+            thumbnail_url = (
+                request.build_absolute_uri(course.thumbnail.url)
+                if request
+                else course.thumbnail.url
+            )
+        return Response(
+            {
+                "detail": "Image de couverture importée.",
+                "thumbnail_url": thumbnail_url,
+            }
+        )
+
+
 class InstructorSectionListView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
 

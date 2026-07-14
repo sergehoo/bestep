@@ -16,6 +16,7 @@ from . import (  # noqa: F401 — enregistre les tools au import
     search_courses,
     analyze_progress,
     create_course_draft,
+    generate_full_course,  # BEST-AI T5 — création formation complète en tool use
     enroll_learner,
     publish_course,
     deactivate_user,
