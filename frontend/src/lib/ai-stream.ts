@@ -34,8 +34,12 @@ function debugEnabled(): boolean {
 }
 
 function getAccessToken(): string | null {
+  // BUG-AI-03 — La clé Zustand persist du store auth est ``be-auth``
+  // (voir src/stores/auth.ts, ligne persist({ name: 'be-auth' })). Le
+  // code précédent cherchait ``best-auth`` → renvoyait toujours null →
+  // fetch SSE sans Authorization → 401.
   try {
-    const raw = localStorage.getItem('best-auth');
+    const raw = localStorage.getItem('be-auth');
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed?.state?.access ?? null;
