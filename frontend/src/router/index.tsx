@@ -20,6 +20,8 @@ import { DashboardResolver } from '@/components/DashboardResolver';
 
 // Lazy pages (code-split)
 const HomePage = lazy(() => import('@/pages/HomePage'));
+// T7 — Landing publique B2B "Espace Entreprise"
+const EnterprisePage = lazy(() => import('@/pages/EnterprisePage'));
 const CatalogPage = lazy(() => import('@/pages/CatalogPage'));
 const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage'));
 const CertifyPage = lazy(() => import('@/pages/CertifyPage'));
@@ -279,6 +281,15 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageSpinner />}>
         <CatalogPage />
+      </Suspense>
+    ),
+  },
+  // T7 — Landing publique B2B (CTA "Découvrir nos offres" de AudienceSpaces)
+  {
+    path: '/entreprise',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <EnterprisePage />
       </Suspense>
     ),
   },

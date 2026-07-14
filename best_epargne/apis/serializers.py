@@ -159,19 +159,31 @@ class MediaAssetSerializer(serializers.ModelSerializer):
     def get_thumbnail_url(self, obj) -> str:
         """URL de la miniature (image extraite pour vidéo, aperçu pour doc).
 
-        UX-02 — Fix : le modèle MediaAsset expose ``object_key`` (pas
-        ``original_object_key``). Pour un doc image (kind=DOC +
-        content_type image/*), on fallback sur ``object_key`` afin que
-        la vignette montre l'image elle-même.
+        UX-09 — Détection image élargie : certains uploads anciens ont
+        ``content_type`` vide en base (ex : upload direct via boto3 sans
+        entête). On fallback donc aussi sur l'extension du ``object_key``
+        et du ``title`` pour reconnaître PNG/JPEG/GIF/WebP/SVG.
 
         Retourne '' si aucune miniature disponible.
         """
+        import re
+
         key = getattr(obj, "thumbnail_object_key", "") or ""
         if key:
             return self._default_storage_url(key)
-        # Fallback pour images : le fichier lui-même sert de miniature.
-        content_type = getattr(obj, "content_type", "") or ""
-        if content_type.startswith("image/"):
+
+        # Détection image robuste : content_type OU extension dans
+        # object_key / title.
+        content_type = (getattr(obj, "content_type", "") or "").lower()
+        object_key = (getattr(obj, "object_key", "") or "").lower()
+        title = (getattr(obj, "title", "") or "").lower()
+        ext_re = re.compile(r"\.(png|jpe?g|gif|webp|svg|bmp|avif)($|\?)")
+        is_image = (
+            content_type.startswith("image/")
+            or bool(ext_re.search(object_key))
+            or bool(ext_re.search(title))
+        )
+        if is_image:
             main_key = (
                 getattr(obj, "optimized_object_key", "")
                 or getattr(obj, "object_key", "")
