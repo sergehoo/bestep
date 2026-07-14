@@ -405,6 +405,23 @@ ACCOUNT_FORMS = {
     "signup": "compte.forms.CustomSignupForm",
 }
 
+# ─────────────────────────────────────────────────────────────
+# SECURITE-08 — django-two-factor-auth : désactivation du patch admin
+# ─────────────────────────────────────────────────────────────
+# Par défaut, ``two_factor`` monkey-patch ``admin.site`` en
+# ``AdminSiteOTPRequired`` qui refuse l'accès à /admin/super/ tant que
+# l'utilisateur n'a pas de device OTP vérifié — et redirige alors vers
+# ``settings.LOGIN_URL`` (le SPA). Combiné au ``GuestOnlyRoute`` du SPA
+# qui redirige tout user déjà loggé vers son dashboard, on obtient une
+# boucle : /admin/super/ → /admin/super/login/ → /login?next=/admin/super/
+# → /dashboard/admin. Impossible d'atteindre Django admin.
+#
+# On désactive donc le patch : Django admin reprend sa page de login
+# native (formulaire HTML classique) et un superuser peut s'y logger
+# normalement. La protection 2FA reste disponible mais optionnelle via
+# /account/two-factor/setup/ pour les utilisateurs qui l'activent.
+TWO_FACTOR_PATCH_ADMIN = False
+
 
 # ------------------------------------------------------------
 # Celery + Redis + Beat (SEC-07, INFRA-10)
