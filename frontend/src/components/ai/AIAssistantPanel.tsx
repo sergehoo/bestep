@@ -216,11 +216,14 @@ export function AIAssistantPanel() {
 
   return (
     <div
+      // UX-08 — Élargi de 420 → 520px en mode réduit pour que les
+      // tableaux markdown ne débordent plus (overflow-x-auto reste pour
+      // les tables très larges). Max 92vw sur petits écrans.
       className={
         'fixed z-50 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col ' +
         (isFullscreen
           ? 'inset-4 rounded-2xl'
-          : 'right-4 bottom-4 top-16 w-[420px] rounded-2xl')
+          : 'right-4 bottom-4 top-16 w-[min(520px,92vw)] rounded-2xl')
       }
       role="dialog"
       aria-label="Best-AI"
@@ -506,9 +509,11 @@ function MessageBubble({
     <div
       className={
         'rounded-xl p-3 ' +
+        // UX-08 — Marge gauche/droite réduite pour laisser plus de largeur
+        // aux tableaux et blocs de code dans le panel compact.
         (isUser
-          ? 'bg-primary-50 dark:bg-primary-900/20 ml-8'
-          : 'bg-neutral-50 dark:bg-neutral-800/60 mr-8')
+          ? 'bg-primary-50 dark:bg-primary-900/20 ml-4'
+          : 'bg-neutral-50 dark:bg-neutral-800/60 mr-4')
       }
     >
       <div className="flex items-center gap-2 mb-1 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
