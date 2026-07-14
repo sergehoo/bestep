@@ -25,6 +25,7 @@ import {
   StopCircle,
 } from 'lucide-react';
 
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useAIConfig,
   useAIConversationDetail,
@@ -50,6 +51,7 @@ export function AIAssistantPanel() {
   const { isOpen, isFullscreen, activeConversationId, close, setFullscreen, setActiveConversation } =
     useAIPanel();
 
+  const qc = useQueryClient();
   const { data: config } = useAIConfig();
   const { data: convList } = useAIConversations();
   const { data: active } = useAIConversationDetail(activeConversationId ?? null);
@@ -114,6 +116,38 @@ export function AIAssistantPanel() {
     abortRef.current = controller;
     setStreaming({ assistantMessageId: null, text: '', running: true });
 
+    // BUG-AI-04 — Injection optimiste du message utilisateur dans le
+    // cache TanStack pour un rendu immédiat (avant même que le stream
+    // remonte le premier event). Sans ça, l'utilisateur ne voit rien
+    // pendant plusieurs secondes ("chat qui n'affiche rien").
+    const tempUserId = -Date.now(); // id transitoire négatif
+    const nowIso = new Date().toISOString();
+    qc.setQueryData(['ai-conversation', conversationId], (prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        messages: [
+          ...(prev.messages ?? []),
+          {
+            id: tempUserId,
+            role: 'user',
+            content,
+            created_at: nowIso,
+            page_context: pageContext,
+            model_used: '',
+            input_tokens: 0,
+            output_tokens: 0,
+            latency_ms: 0,
+            feedback_score: 0,
+            feedback_note: '',
+          },
+        ],
+      };
+    });
+
+    // Ref locale pour accumuler le texte assistant tout au long du
+    // stream (setStreaming state est trop lent pour être lisible
+    // depuis onEvent — on lit s.text via callback à chaque delta).
     await streamAssistantMessage({
       conversationId: conversationId!,
       content,
@@ -130,9 +164,23 @@ export function AIAssistantPanel() {
           setStreaming((s) => ({ ...s, text: s.text + evt.text }));
         } else if (evt.type === 'assistant_done') {
           setStreaming({ assistantMessageId: null, text: '', running: false });
+          // BUG-AI-04 — On invalide la conversation détail pour que le
+          // dernier message assistant persisté (avec model_used,
+          // input_tokens, latency_ms…) remplace notre placeholder.
+          qc.invalidateQueries({
+            queryKey: ['ai-conversation', conversationId],
+          });
+          // La liste des conversations aussi (titre auto-généré,
+          // last_message_at, unread_count, etc.).
+          qc.invalidateQueries({ queryKey: ['ai-conversations'] });
         } else if (evt.type === 'error') {
           setError(evt.detail || 'Erreur lors de la génération.');
           setStreaming({ assistantMessageId: null, text: '', running: false });
+          // En cas d'erreur, invalider aussi pour resynchroniser le
+          // cache avec ce que le backend a réellement persisté.
+          qc.invalidateQueries({
+            queryKey: ['ai-conversation', conversationId],
+          });
         }
       },
     }).catch((err) => {
@@ -140,16 +188,27 @@ export function AIAssistantPanel() {
         setError('Connexion interrompue.');
       }
       setStreaming({ assistantMessageId: null, text: '', running: false });
+      // Best-effort resync même en cas d'exception.
+      qc.invalidateQueries({
+        queryKey: ['ai-conversation', conversationId],
+      });
     });
 
     abortRef.current = null;
-    // Actualise la conversation avec le contenu persisté final.
-    // (Le hook detail re-fetche automatiquement grâce à l'invalidation.)
   }
 
   function handleAbort() {
     abortRef.current?.abort();
     setStreaming({ assistantMessageId: null, text: '', running: false });
+    // BUG-AI-04 — Après abort utilisateur, le backend a peut-être
+    // persisté une réponse partielle : on resynchronise le cache pour
+    // éviter que les messages restent invisibles jusqu'au prochain
+    // refresh manuel de la page.
+    if (activeConversationId) {
+      qc.invalidateQueries({
+        queryKey: ['ai-conversation', activeConversationId],
+      });
+    }
   }
 
   // Best-AI est strictement réservé aux utilisateurs authentifiés + actifs.
