@@ -483,21 +483,14 @@ function LessonPlayer({
         )}
 
         {/* T8 — Ressources externes téléchargeables */}
-        {Array.isArray((state.lesson as unknown as { resources?: unknown[] }).resources)
-          && ((state.lesson as unknown as { resources: unknown[] }).resources.length > 0) && (
+        {Array.isArray(state.lesson.resources)
+          && state.lesson.resources.length > 0 && (
             <div className="pt-3 mt-1 border-t border-neutral-100 dark:border-neutral-800">
               <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
                 Ressources téléchargeables
               </p>
               <ul className="space-y-2">
-                {((state.lesson as unknown as { resources: Array<{
-                  id: number;
-                  title: string;
-                  kind: string;
-                  size_human: string;
-                  file_url: string;
-                  is_downloadable: boolean;
-                }> }).resources).map((r) => {
+                {state.lesson.resources.map((r) => {
                   const kindLabel = (
                     { pdf: 'PDF', image: 'Image', html: 'HTML', zip: 'Archive', other: 'Fichier' } as Record<string, string>
                   )[r.kind] || 'Fichier';

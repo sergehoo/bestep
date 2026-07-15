@@ -3643,6 +3643,13 @@ class LearnerLessonStateView(LearnerBaseAPIView):
             except Exception:
                 pass
 
+        # T8 — Ressources externes téléchargeables (PDF, image, HTML, ZIP)
+        from best_epargne.apis.serializers import LessonResourceSerializer
+        resources_qs = lesson.resources.all().order_by("order", "id")
+        resources_data = LessonResourceSerializer(
+            resources_qs, many=True, context={"request": request}
+        ).data
+
         return Response({
             "lesson": {
                 "id": lesson.id,
@@ -3655,6 +3662,8 @@ class LearnerLessonStateView(LearnerBaseAPIView):
                 "duration_sec": lesson.duration_sec,
                 "duration_seconds": lesson.duration_sec,
                 "media_asset_id": str(lesson.media_asset_id) if lesson.media_asset_id else None,
+                # T8 — Ressources téléchargeables (list) : PDF, JPG, HTML, ZIP
+                "resources": resources_data,
             },
             "progress": {
                 "percent": int(lp.progress_percent or 0),

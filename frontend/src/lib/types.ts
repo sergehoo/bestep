@@ -635,6 +635,8 @@ export interface LessonStateResponse {
     video_url?: string;
     content?: string;
     is_preview?: boolean;
+    /** T8 — Ressources externes téléchargeables (PDF, JPG, HTML, ZIP). */
+    resources?: LessonResource[];
   };
   progress: {
     progress_percent: number;
