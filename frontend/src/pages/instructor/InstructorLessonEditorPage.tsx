@@ -31,6 +31,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import { MediaPickerDialog } from '@/components/media/MediaPickerDialog';
+import { LessonResourcesPanel } from '@/components/instructor/LessonResourcesPanel';
 import {
   useInstructorLessons,
   useUpdateLesson,
@@ -344,6 +345,16 @@ export default function InstructorLessonEditorPage() {
                 />
               </CardBody>
             </Card>
+
+            {/* T8 — Ressources externes téléchargeables (PDF, JPG, HTML, ZIP) */}
+            {courseId && section?.id && lessonId && (
+              <LessonResourcesPanel
+                courseId={courseId}
+                sectionId={section.id}
+                lessonId={lessonId}
+                canEdit={true}
+              />
+            )}
           </div>
 
           {/* Sidebar métadonnées */}

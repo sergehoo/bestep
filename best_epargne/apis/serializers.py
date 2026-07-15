@@ -291,9 +291,58 @@ class MediaAssetSerializer(serializers.ModelSerializer):
 # --- Lesson / Section ------------------------------------------------------
 
 
+class LessonResourceSerializer(serializers.ModelSerializer):
+    """T8 — Ressource externe téléchargeable attachée à une leçon."""
+
+    file_url = serializers.SerializerMethodField()
+    size_human = serializers.SerializerMethodField()
+
+    class Meta:
+        from catalog.models import LessonResource  # noqa
+        model = LessonResource
+        fields = [
+            "id",
+            "title",
+            "kind",
+            "size",
+            "size_human",
+            "content_type",
+            "order",
+            "is_downloadable",
+            "file_url",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id", "kind", "size", "size_human", "content_type",
+            "file_url", "created_at", "updated_at",
+        ]
+
+    def get_file_url(self, obj) -> str:
+        request = self.context.get("request")
+        if not obj.file:
+            return ""
+        try:
+            url = obj.file.url
+        except Exception:
+            return ""
+        return request.build_absolute_uri(url) if request else url
+
+    def get_size_human(self, obj) -> str:
+        n = obj.size or 0
+        if n < 1024:
+            return f"{n} o"
+        if n < 1024 * 1024:
+            return f"{n / 1024:.1f} Ko"
+        if n < 1024 * 1024 * 1024:
+            return f"{n / (1024 * 1024):.1f} Mo"
+        return f"{n / (1024 * 1024 * 1024):.2f} Go"
+
+
 class LessonSerializer(serializers.ModelSerializer):
     media_asset = MediaAssetSerializer(read_only=True)
     media_asset_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    resources = LessonResourceSerializer(many=True, read_only=True)
 
     class Meta:
         model = Lesson
@@ -301,8 +350,9 @@ class LessonSerializer(serializers.ModelSerializer):
             "id", "title", "order", "lesson_type", "is_preview", "duration_sec",
             "video_url", "content", "file",
             "media_asset", "media_asset_id",
+            "resources",
         ]
-        read_only_fields = ["id", "media_asset"]
+        read_only_fields = ["id", "media_asset", "resources"]
 
     def validate_media_asset_id(self, value):
         """CORRECTIF API-31 : un instructeur ne peut référencer que les médias

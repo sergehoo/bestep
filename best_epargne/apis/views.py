@@ -877,8 +877,21 @@ class InstructorSectionUpdateView(APIView):
                 .first()
             )
             if neighbor:
-                neighbor.order, section.order = section.order, new_order
-                neighbor.save(update_fields=["order"])
+                # UX-13 — Fix 500 : même problème unique_together que
+                # pour les Lesson. Swap en 3 étapes atomiques.
+                with transaction.atomic():
+                    old_section_order = section.order
+                    tmp_order = 999_000 + section.id
+                    CourseSection.objects.filter(pk=neighbor.pk).update(
+                        order=tmp_order
+                    )
+                    CourseSection.objects.filter(pk=section.pk).update(
+                        order=new_order
+                    )
+                    section.order = new_order
+                    CourseSection.objects.filter(pk=neighbor.pk).update(
+                        order=old_section_order
+                    )
             else:
                 section.order = new_order
             updates.append("order")
@@ -974,7 +987,12 @@ class InstructorLessonUpdateView(APIView):
             else:
                 lesson.video_url = raw
 
-        # R6 : réordonnancement lesson dans sa section (swap avec voisin)
+        # R6 : réordonnancement lesson dans sa section (swap avec voisin).
+        # UX-13 — Fix 500 : la contrainte unique_together=(section, order)
+        # rendait le swap naïf impossible (les 2 leçons se retrouvaient
+        # avec le même order pendant une nanoseconde de transaction →
+        # IntegrityError). On passe par une valeur temporaire négative
+        # hors-plage garantie de ne collisionner avec aucune vraie order.
         if "order" in request.data:
             try:
                 new_order = int(request.data["order"])
@@ -986,8 +1004,25 @@ class InstructorLessonUpdateView(APIView):
                 .first()
             )
             if neighbor:
-                neighbor.order, lesson.order = lesson.order, new_order
-                neighbor.save(update_fields=["order"])
+                with transaction.atomic():
+                    # 1. Park le neighbor à une order temporaire (négative
+                    #    n'est pas autorisée sur PositiveIntegerField,
+                    #    mais on peut utiliser un très grand nombre qui
+                    #    ne collisionne jamais avec de vraies leçons).
+                    old_lesson_order = lesson.order
+                    tmp_order = 999_000 + lesson.id  # unique par lesson
+                    Lesson.objects.filter(pk=neighbor.pk).update(
+                        order=tmp_order
+                    )
+                    # 2. Move lesson to new_order (la case libérée).
+                    Lesson.objects.filter(pk=lesson.pk).update(
+                        order=new_order
+                    )
+                    lesson.order = new_order
+                    # 3. Move neighbor à l'ancien order de lesson.
+                    Lesson.objects.filter(pk=neighbor.pk).update(
+                        order=old_lesson_order
+                    )
             else:
                 lesson.order = new_order
 
@@ -1044,6 +1079,152 @@ class InstructorLessonDeleteView(APIView):
         lesson = get_object_or_404(Lesson, id=lesson_id, section=section)
         lesson.delete()
         return Response({"ok": True})
+
+
+# ─────────────────────────────────────────────────────────────
+# T8 — Ressources externes attachées à une leçon
+# ─────────────────────────────────────────────────────────────
+
+def _detect_resource_kind(filename: str, content_type: str) -> str:
+    """Devine le kind (pdf/image/html/zip/other) depuis extension + MIME."""
+    from catalog.models import LessonResource
+    name = (filename or "").lower()
+    ctype = (content_type or "").lower()
+    if name.endswith(".pdf") or ctype == "application/pdf":
+        return LessonResource.Kind.PDF
+    if any(name.endswith(e) for e in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg")):
+        return LessonResource.Kind.IMAGE
+    if ctype.startswith("image/"):
+        return LessonResource.Kind.IMAGE
+    if name.endswith(".html") or name.endswith(".htm") or ctype == "text/html":
+        return LessonResource.Kind.HTML
+    if name.endswith(".zip") or ctype in ("application/zip", "application/x-zip-compressed"):
+        return LessonResource.Kind.ZIP
+    return LessonResource.Kind.OTHER
+
+
+class InstructorLessonResourceListView(APIView):
+    """GET  liste des ressources de la leçon
+    POST  upload d'un nouveau fichier (multipart, champ ``file``).
+    """
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    ALLOWED_KIND_EXTENSIONS = {
+        "pdf", "jpg", "jpeg", "png", "gif", "webp", "svg",
+        "html", "htm", "zip",
+    }
+    MAX_BYTES = 20 * 1024 * 1024  # 20 Mo
+
+    def get(self, request, course_id, section_id, lesson_id):
+        from catalog.models import LessonResource
+        course = _course_owned(course_id, request.user)
+        section = get_object_or_404(CourseSection, id=section_id, course=course)
+        lesson = get_object_or_404(Lesson, id=lesson_id, section=section)
+        qs = LessonResource.objects.filter(lesson=lesson).order_by("order", "id")
+        from best_epargne.apis.serializers import LessonResourceSerializer
+        return Response(
+            LessonResourceSerializer(qs, many=True, context={"request": request}).data
+        )
+
+    def post(self, request, course_id, section_id, lesson_id):
+        from catalog.models import LessonResource
+        course = _course_owned(course_id, request.user)
+        section = get_object_or_404(CourseSection, id=section_id, course=course)
+        lesson = get_object_or_404(Lesson, id=lesson_id, section=section)
+
+        upload = request.FILES.get("file")
+        if not upload:
+            return Response(
+                {"detail": "Champ ``file`` manquant."}, status=400,
+            )
+
+        # Validation extension
+        name_lower = (upload.name or "").lower()
+        ext = name_lower.rsplit(".", 1)[-1] if "." in name_lower else ""
+        if ext not in self.ALLOWED_KIND_EXTENSIONS:
+            return Response(
+                {
+                    "detail": (
+                        "Format non supporté. Accepté : PDF, JPG, PNG, "
+                        "GIF, WebP, SVG, HTML, ZIP."
+                    ),
+                    "extension": ext,
+                },
+                status=400,
+            )
+        if upload.size and upload.size > self.MAX_BYTES:
+            return Response(
+                {
+                    "detail": (
+                        f"Fichier trop volumineux ({upload.size // 1024} kB). "
+                        f"Maximum : {self.MAX_BYTES // (1024 * 1024)} Mo."
+                    )
+                },
+                status=400,
+            )
+
+        title = (request.data.get("title") or upload.name or "Ressource")[:200]
+        last_order = (
+            LessonResource.objects.filter(lesson=lesson)
+            .order_by("-order")
+            .values_list("order", flat=True)
+            .first()
+            or 0
+        )
+        resource = LessonResource.objects.create(
+            lesson=lesson,
+            title=title,
+            file=upload,
+            kind=_detect_resource_kind(upload.name, upload.content_type or ""),
+            size=int(upload.size or 0),
+            content_type=(upload.content_type or "")[:120],
+            order=last_order + 1,
+            is_downloadable=True,
+        )
+        from best_epargne.apis.serializers import LessonResourceSerializer
+        return Response(
+            LessonResourceSerializer(resource, context={"request": request}).data,
+            status=201,
+        )
+
+
+class InstructorLessonResourceDetailView(APIView):
+    """PATCH renommer / réordonner / toggle is_downloadable
+    DELETE (via POST) supprimer.
+    """
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def _get(self, request, course_id, section_id, lesson_id, resource_id):
+        from catalog.models import LessonResource
+        course = _course_owned(course_id, request.user)
+        section = get_object_or_404(CourseSection, id=section_id, course=course)
+        lesson = get_object_or_404(Lesson, id=lesson_id, section=section)
+        return get_object_or_404(LessonResource, id=resource_id, lesson=lesson)
+
+    def patch(self, request, course_id, section_id, lesson_id, resource_id):
+        resource = self._get(request, course_id, section_id, lesson_id, resource_id)
+        allowed = {"title", "order", "is_downloadable"}
+        for f in allowed:
+            if f in request.data:
+                setattr(resource, f, request.data[f])
+        resource.save(update_fields=list(allowed & set(request.data.keys())) + ["updated_at"])
+        from best_epargne.apis.serializers import LessonResourceSerializer
+        return Response(
+            LessonResourceSerializer(resource, context={"request": request}).data
+        )
+
+    def post(self, request, course_id, section_id, lesson_id, resource_id):
+        """Alias delete via POST (compat frontend qui poste sur /delete/)."""
+        return self.delete(request, course_id, section_id, lesson_id, resource_id)
+
+    def delete(self, request, course_id, section_id, lesson_id, resource_id):
+        resource = self._get(request, course_id, section_id, lesson_id, resource_id)
+        try:
+            resource.file.delete(save=False)
+        except Exception:
+            pass
+        resource.delete()
+        return Response({"ok": True}, status=200)
 
 
 # def s3_client():

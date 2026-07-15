@@ -397,6 +397,24 @@ export interface InstructorLesson {
    * Absent si aucun média attaché. Utilisé pour ré-hydrater le player
    * vidéo avec la vraie URL presignée à chaque chargement. */
   media_asset?: MediaAsset | null;
+  /** T8 — Ressources externes téléchargeables (PDF, image, HTML, ZIP). */
+  resources?: LessonResource[];
+}
+
+/** T8 — Ressource externe attachée à une leçon (PDF, JPG, HTML, ZIP…). */
+export type LessonResourceKind = 'pdf' | 'image' | 'html' | 'zip' | 'other';
+export interface LessonResource {
+  id: number;
+  title: string;
+  kind: LessonResourceKind;
+  size: number;
+  size_human: string;
+  content_type: string;
+  order: number;
+  is_downloadable: boolean;
+  file_url: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface InstructorSection {

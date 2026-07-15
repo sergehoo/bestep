@@ -482,6 +482,72 @@ function LessonPlayer({
           </div>
         )}
 
+        {/* T8 — Ressources externes téléchargeables */}
+        {Array.isArray((state.lesson as unknown as { resources?: unknown[] }).resources)
+          && ((state.lesson as unknown as { resources: unknown[] }).resources.length > 0) && (
+            <div className="pt-3 mt-1 border-t border-neutral-100 dark:border-neutral-800">
+              <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+                Ressources téléchargeables
+              </p>
+              <ul className="space-y-2">
+                {((state.lesson as unknown as { resources: Array<{
+                  id: number;
+                  title: string;
+                  kind: string;
+                  size_human: string;
+                  file_url: string;
+                  is_downloadable: boolean;
+                }> }).resources).map((r) => {
+                  const kindLabel = (
+                    { pdf: 'PDF', image: 'Image', html: 'HTML', zip: 'Archive', other: 'Fichier' } as Record<string, string>
+                  )[r.kind] || 'Fichier';
+                  const kindColor = (
+                    {
+                      pdf: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+                      image: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+                      html: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+                      zip: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+                      other: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
+                    } as Record<string, string>
+                  )[r.kind] || 'bg-neutral-100 text-neutral-700';
+                  return (
+                    <li
+                      key={r.id}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-neutral-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-primary-200 hover:shadow-soft transition"
+                    >
+                      <div
+                        className={
+                          'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 font-bold text-xs uppercase '
+                          + kindColor
+                        }
+                      >
+                        {kindLabel.slice(0, 3)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
+                          {r.title}
+                        </p>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                          {kindLabel} · {r.size_human}
+                          {!r.is_downloadable && ' · Lecture seule'}
+                        </p>
+                      </div>
+                      <a
+                        href={r.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download={r.is_downloadable ? r.title : undefined}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold transition shrink-0"
+                      >
+                        {r.is_downloadable ? 'Télécharger' : 'Ouvrir'}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
         {/* Actions bas de lecteur */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-neutral-100">
           <div className="flex items-center gap-2">

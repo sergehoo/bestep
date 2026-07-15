@@ -11,6 +11,8 @@ from best_epargne.apis.views import (
     InstructorCourseRestoreView,
     InstructorCourseUnpublishView,
     InstructorCourseUploadCoverView,
+    InstructorLessonResourceDetailView,
+    InstructorLessonResourceListView,
     InstructorCourseQuizListView,
     InstructorCourseViewSet,
     InstructorKpisView,
@@ -272,6 +274,17 @@ urlpatterns = [
         "instructor/courses/<int:course_id>/cover/upload/",
         InstructorCourseUploadCoverView.as_view(),
         name="api_instructor_course_cover_upload",
+    ),
+    # T8 — Ressources externes attachées à une leçon
+    path(
+        "instructor/courses/<int:course_id>/sections/<int:section_id>/lessons/<int:lesson_id>/resources/",
+        InstructorLessonResourceListView.as_view(),
+        name="api_instructor_lesson_resource_list",
+    ),
+    path(
+        "instructor/courses/<int:course_id>/sections/<int:section_id>/lessons/<int:lesson_id>/resources/<int:resource_id>/",
+        InstructorLessonResourceDetailView.as_view(),
+        name="api_instructor_lesson_resource_detail",
     ),
 
     # --- Builder: sections ---

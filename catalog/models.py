@@ -401,6 +401,68 @@ class Lesson(models.Model):
         return f"{self.section.course.title} — {self.section.order}.{self.order} {self.title}"
 
 
+class LessonResource(models.Model):
+    """Ressource externe attachée à une leçon (PDF, image, HTML, ZIP…).
+
+    Feature T8 — Chaque leçon peut porter N fichiers téléchargeables par
+    l'apprenant : fiches, exercices, checklists, ressources d'appui.
+    Le kind est déduit automatiquement de l'extension à l'upload.
+    """
+
+    class Kind(models.TextChoices):
+        PDF = "pdf", "PDF"
+        IMAGE = "image", "Image"
+        HTML = "html", "HTML"
+        ZIP = "zip", "Archive ZIP"
+        OTHER = "other", "Autre"
+
+    lesson = models.ForeignKey(
+        "catalog.Lesson",
+        on_delete=models.CASCADE,
+        related_name="resources",
+    )
+    title = models.CharField(
+        max_length=200,
+        help_text="Nom affiché à l'apprenant. Par défaut, le nom du fichier.",
+    )
+    file = models.FileField(
+        upload_to="lesson_resources/%Y/%m/",
+        help_text="Fichier téléchargeable. Max 20 Mo.",
+    )
+    kind = models.CharField(
+        max_length=10,
+        choices=Kind.choices,
+        default=Kind.OTHER,
+    )
+    size = models.PositiveBigIntegerField(
+        default=0,
+        help_text="Taille en octets (rempli automatiquement).",
+    )
+    content_type = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+    )
+    order = models.PositiveIntegerField(default=1)
+    is_downloadable = models.BooleanField(
+        default=True,
+        help_text=(
+            "Si False, le fichier reste visible mais pas téléchargeable "
+            "(streaming inline uniquement — utile pour PDF/HTML)."
+        ),
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+        indexes = [models.Index(fields=["lesson", "order"])]
+
+    def __str__(self):
+        return f"{self.lesson.title} — {self.title}"
+
+
 class Payment(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", "En attente"
