@@ -444,14 +444,30 @@ function LessonPlayer({
           </div>
         )}
 
-        {/* Article / doc — le content est du HTML riche produit par Tiptap.
-            On le rend via dangerouslySetInnerHTML (contenu créé par un
-            instructeur authentifié, sanitisé côté backend). */}
-        {!isVideo && state.lesson.content && (
-          <div
-            className={LESSON_PROSE_CLASSES}
-            dangerouslySetInnerHTML={{ __html: state.lesson.content }}
-          />
+        {/* Article / doc / description leçon vidéo — le content est du
+            HTML riche produit par Tiptap. On le rend via
+            dangerouslySetInnerHTML (contenu créé par un instructeur
+            authentifié, sanitisé côté backend).
+
+            UX-12 — Fix : la description était masquée pour les leçons
+            de type VIDEO. On l'affiche maintenant en dessous du player,
+            précédée d'un séparateur visuel pour distinguer clairement
+            la vidéo (support principal) de sa description
+            (transcription, notes, résumé, ressources complémentaires). */}
+        {state.lesson.content && (
+          <>
+            {isVideo && (
+              <div className="pt-1 mt-1 border-t border-neutral-100 dark:border-neutral-800">
+                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+                  Description de la leçon
+                </p>
+              </div>
+            )}
+            <div
+              className={LESSON_PROSE_CLASSES}
+              dangerouslySetInnerHTML={{ __html: state.lesson.content }}
+            />
+          </>
         )}
 
         {!isVideo && !state.lesson.content && (
