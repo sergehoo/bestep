@@ -319,9 +319,40 @@ class LessonResourceSerializer(serializers.ModelSerializer):
         ]
 
     def get_file_url(self, obj) -> str:
-        request = self.context.get("request")
+        """URL de téléchargement — presignée MinIO si stockage S3.
+
+        UX-15 — Le stockage par défaut est S3Boto3Storage + bucket privé.
+        ``obj.file.url`` retourne parfois une URL sans signature (selon
+        la version django-storages), ce qui donne un ``Access Denied``
+        MinIO. On force la génération d'une presigned URL boto3, avec
+        fallback sur l'URL relative.
+        """
         if not obj.file:
             return ""
+        from django.conf import settings
+
+        request = self.context.get("request")
+        key = obj.file.name  # ex: "lesson_resources/2026/07/FicheXX.pdf"
+
+        # 1. Tentative presigned URL boto3 (chemin nominal en prod MinIO).
+        bucket = getattr(settings, "MINIO_BUCKET", None) or getattr(
+            settings, "AWS_STORAGE_BUCKET_NAME", None
+        )
+        try:
+            if bucket and key and getattr(settings, "MINIO_PUBLIC_ENDPOINT", None):
+                from best_epargne.apis.views import s3_public_client
+                client = s3_public_client()
+                return client.generate_presigned_url(
+                    ClientMethod="get_object",
+                    Params={"Bucket": bucket, "Key": key.lstrip("/")},
+                    ExpiresIn=int(
+                        getattr(settings, "AWS_QUERYSTRING_EXPIRE", 3600)
+                    ),
+                )
+        except Exception:
+            pass
+
+        # 2. Fallback : URL FileField (dev local sans MinIO, etc.).
         try:
             url = obj.file.url
         except Exception:
