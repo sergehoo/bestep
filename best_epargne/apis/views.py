@@ -1232,11 +1232,13 @@ class MediaUploadFinalizeView(APIView):
                 content_type=remote_type,
                 size=remote_size,
                 duration_seconds=data.get("duration_seconds"),
-                processing_status=(
-                    MediaAsset.ProcessingStatus.PENDING
-                    if data["kind"] == MediaAsset.Kind.VIDEO
-                    else MediaAsset.ProcessingStatus.READY
-                ),
+                # UX-11 — On marque tous les médias comme READY dès la
+                # finalisation de l'upload. Un worker de post-processing
+                # (ffmpeg thumbnail, transcodage) pourra plus tard
+                # repasser en PROCESSING → READY sans que ça bloque la
+                # lecture par le user. L'ancien flow laissait les
+                # vidéos en PENDING indéfiniment faute de worker actif.
+                processing_status=MediaAsset.ProcessingStatus.READY,
             )
         )
 
