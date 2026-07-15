@@ -9,7 +9,7 @@
  * Après chaque action, on re-fetch le cours pour rafraîchir la vignette
  * dans le reste de l'UI (fiche publique, liste instructor, etc.).
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sparkles, Upload, ImageIcon, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -45,11 +45,33 @@ export function CourseCoverSection({
   // rester identique côté serveur car on écrase à la génération).
   const [ver, setVer] = useState<number>(0);
 
+  // UX-10 — Optimistic preview : on mémorise localement l'URL retournée
+  // par le backend juste après upload/génération, sans attendre le
+  // refetch async de la query parente (~200-500 ms). Sinon l'utilisateur
+  // voit la miniature ne pas bouger avant le refetch (ou l'ancien
+  // placeholder si aucune image n'existait).
+  const [optimisticUrl, setOptimisticUrl] = useState<string | null>(null);
+
+  // Resynchronisation : quand le parent re-rend avec la vraie prop
+  // fraîchement re-fetchée, on peut oublier l'optimistic (les 2 pointent
+  // vers la même image, mais la prop est stable dans le temps).
+  useEffect(() => {
+    if (optimisticUrl && currentThumbnailUrl) {
+      // Compare sans le query string (?v=xxx) pour matcher les 2 URLs
+      // qui pointent sur la même image.
+      const strip = (u: string) => u.split('?')[0];
+      if (strip(optimisticUrl) === strip(currentThumbnailUrl)) {
+        setOptimisticUrl(null);
+      }
+    }
+  }, [currentThumbnailUrl, optimisticUrl]);
+
+  const effectiveUrl = optimisticUrl || currentThumbnailUrl;
   const previewUrl = useMemo(() => {
-    if (!currentThumbnailUrl) return '';
-    const sep = currentThumbnailUrl.includes('?') ? '&' : '?';
-    return ver > 0 ? `${currentThumbnailUrl}${sep}v=${ver}` : currentThumbnailUrl;
-  }, [currentThumbnailUrl, ver]);
+    if (!effectiveUrl) return '';
+    const sep = effectiveUrl.includes('?') ? '&' : '?';
+    return ver > 0 ? `${effectiveUrl}${sep}v=${ver}` : effectiveUrl;
+  }, [effectiveUrl, ver]);
 
   const generateMut = useMutation({
     mutationFn: async () => {
@@ -61,6 +83,8 @@ export function CourseCoverSection({
     onSuccess: (data) => {
       setFlash({ kind: 'ok', msg: data.detail || 'Image générée.' });
       setVer(Date.now());
+      // UX-10 — Affichage immédiat sans attendre le refetch.
+      if (data.thumbnail_url) setOptimisticUrl(data.thumbnail_url);
       qc.invalidateQueries({ queryKey: ['instructor-course', courseId] });
       qc.invalidateQueries({ queryKey: ['instructor-courses'] });
     },
@@ -83,6 +107,8 @@ export function CourseCoverSection({
     onSuccess: (data) => {
       setFlash({ kind: 'ok', msg: data.detail || 'Image importée.' });
       setVer(Date.now());
+      // UX-10 — Affichage immédiat sans attendre le refetch.
+      if (data.thumbnail_url) setOptimisticUrl(data.thumbnail_url);
       qc.invalidateQueries({ queryKey: ['instructor-course', courseId] });
       qc.invalidateQueries({ queryKey: ['instructor-courses'] });
     },
