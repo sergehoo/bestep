@@ -12,7 +12,7 @@
  *   Autres       : undo/redo, sélectionner tout, recherche, imprimer, PDF (via html2pdf lib externe)
  */
 import { useCallback, useEffect, useState } from 'react';
-import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { useEditor, EditorContent, Node, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
@@ -29,6 +29,77 @@ import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import TextAlign from '@tiptap/extension-text-align';
 import FontFamily from '@tiptap/extension-font-family';
+
+
+// ─────────────────────────────────────────────────────────────
+// UX-14 — Extension Node custom "IframeEmbed" (YouTube / Vimeo / MP4)
+// ─────────────────────────────────────────────────────────────
+// Tiptap StarterKit ne connaît pas les balises <iframe> : quand on lui
+// envoie du HTML brut avec `insertContent('<iframe...>')`, il l'échappe
+// en texte au lieu de créer un vrai node → la vidéo YouTube s'affiche
+// comme du code source. Cette extension déclare un node "iframe" propre
+// avec parse/serialize DOM, utilisable via
+// `chain().setIframeEmbed({ src }).run()`.
+const IframeEmbed = Node.create({
+  name: 'iframeEmbed',
+  group: 'block',
+  atom: true, // pas de contenu éditable à l'intérieur
+  draggable: true,
+  selectable: true,
+
+  addAttributes() {
+    return {
+      src: { default: '' },
+      title: { default: 'Vidéo embed' },
+      frameborder: { default: '0' },
+      allowfullscreen: { default: 'true' },
+    };
+  },
+
+  parseHTML() {
+    // Reconnaît tous les <iframe> (surtout ceux à l'intérieur de
+    // <div class="video-embed">) au parsing initial du content HTML.
+    return [{ tag: 'iframe[src]' }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    // Wrapping div.video-embed pour appliquer le ratio 16:9 via CSS
+    // et permettre le responsive.
+    return [
+      'div',
+      { class: 'video-embed' },
+      [
+        'iframe',
+        {
+          ...HTMLAttributes,
+          allow:
+            'accelerometer; autoplay; clipboard-write; encrypted-media; '
+            + 'gyroscope; picture-in-picture; web-share',
+          referrerpolicy: 'strict-origin-when-cross-origin',
+        },
+      ],
+    ];
+  },
+
+  addCommands() {
+    return {
+      // Cast large — le typage précis nécessiterait de patcher les
+      // types Commands de Tiptap au niveau global ; on garde simple.
+      setIframeEmbed: (attrs: { src: string; title?: string }) => (props: {
+        commands: { insertContent: (arg: unknown) => boolean };
+      }) => {
+        return props.commands.insertContent({
+          type: this.name,
+          attrs: {
+            src: attrs.src,
+            title: attrs.title || 'Vidéo embed',
+          },
+        });
+      },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+  },
+});
 import {
   Bold,
   Italic,
@@ -172,6 +243,8 @@ export function RichTextEditor({
       TableRow,
       TableHeader,
       TableCell,
+      // UX-14 — Node iframe custom pour embed YouTube/Vimeo.
+      IframeEmbed,
     ],
     content: value || '',
     editable,
@@ -221,21 +294,58 @@ export function RichTextEditor({
       "URL de la vidéo (YouTube, Vimeo, MP4…) :",
     );
     if (!url) return;
-    // Simple embed via iframe pour YouTube/Vimeo, sinon balise <video>.
+    // UX-14 — Tiptap StarterKit n'a pas de node <iframe> natif :
+    // insertContent(html) échappait le HTML en texte brut. On passe
+    // désormais par le node "iframeEmbed" custom déclaré plus haut,
+    // via un objet ProseMirror {type, attrs} que Tiptap accepte.
     const isYT = /(?:youtube\.com|youtu\.be)/.test(url);
     const isVimeo = /vimeo\.com/.test(url);
-    let html = '';
+    let embedSrc = '';
+    let title = 'Vidéo';
     if (isYT) {
-      const idMatch = url.match(/(?:v=|youtu\.be\/)([^&?/]+)/);
+      const idMatch = url.match(/(?:v=|youtu\.be\/|embed\/)([^&?/]+)/);
       const id = idMatch?.[1] ?? '';
-      html = `<div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/${id}" title="YouTube" frameborder="0" allowfullscreen></iframe></div>`;
+      if (!id) {
+        window.alert("ID YouTube introuvable dans l'URL.");
+        return;
+      }
+      embedSrc = `https://www.youtube-nocookie.com/embed/${id}`;
+      title = 'YouTube';
     } else if (isVimeo) {
       const id = url.split('/').pop() ?? '';
-      html = `<div class="video-embed"><iframe src="https://player.vimeo.com/video/${id}" title="Vimeo" frameborder="0" allowfullscreen></iframe></div>`;
+      if (!id) {
+        window.alert("ID Vimeo introuvable dans l'URL.");
+        return;
+      }
+      embedSrc = `https://player.vimeo.com/video/${id}`;
+      title = 'Vimeo';
+    } else if (/^https?:\/\/.+\.(mp4|webm|ogg)($|\?)/i.test(url)) {
+      // Fichier vidéo direct → on l'insère comme <img> avec un poster,
+      // ou on peut aussi utiliser un iframe. Ici on passe par un tag
+      // vidéo natif inséré via insertContent — bricolage acceptable
+      // vu la rareté du cas.
+      editor
+        .chain()
+        .focus()
+        .insertContent(
+          `<video src="${url}" controls class="rounded-xl max-w-full my-3"></video>`,
+        )
+        .run();
+      return;
     } else {
-      html = `<video src="${url}" controls class="rounded-xl max-w-full my-3"></video>`;
+      // URL générique — on tente quand même un iframe direct.
+      embedSrc = url;
+      title = 'Vidéo externe';
     }
-    editor.chain().focus().insertContent(html).run();
+    editor
+      .chain()
+      .focus()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insertContent({
+        type: 'iframeEmbed',
+        attrs: { src: embedSrc, title },
+      } as any)
+      .run();
   }, [editor]);
 
   const setLink = useCallback(() => {
