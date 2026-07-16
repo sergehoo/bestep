@@ -11,7 +11,13 @@
  *   Utilitaires  : retirer la mise en forme, source HTML, plein écran, aperçu
  *   Autres       : undo/redo, sélectionner tout, recherche, imprimer, PDF (via html2pdf lib externe)
  */
-import { useCallback, useEffect, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from 'react';
 import { useEditor, EditorContent, Node, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -194,20 +200,38 @@ interface RichTextEditorProps {
   onSave?: () => void;
 }
 
+/** UX-16 — Ref imperative exposée par le RichTextEditor.
+ * Permet au parent d'insérer du HTML **à la position du curseur** au
+ * lieu de manipuler la string content (qui appendait en fin de doc).
+ */
+export interface RichTextEditorHandle {
+  /** Insère du HTML à la position courante du curseur. */
+  insertHTML: (html: string) => void;
+  /** Focus l'éditeur (utile après picker media pour rendre le curseur
+   *  visible). */
+  focus: () => void;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Editor principal
 // ─────────────────────────────────────────────────────────────
 
-export function RichTextEditor({
-  value,
-  onChange,
-  placeholder = 'Rédigez votre contenu…',
-  className,
-  minHeight = '250px',
-  editable = true,
-  onOpenMediaPicker,
-  onSave,
-}: RichTextEditorProps) {
+export const RichTextEditor = forwardRef<
+  RichTextEditorHandle,
+  RichTextEditorProps
+>(function RichTextEditor(
+  {
+    value,
+    onChange,
+    placeholder = 'Rédigez votre contenu…',
+    className,
+    minHeight = '250px',
+    editable = true,
+    onOpenMediaPicker,
+    onSave,
+  }: RichTextEditorProps,
+  ref,
+) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -279,6 +303,23 @@ export function RichTextEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
+
+  // UX-16 — Handle imperative exposé au parent : insertHTML à la
+  // position du curseur (au lieu d'un append en fin de string dans
+  // le state React).
+  useImperativeHandle(
+    ref,
+    () => ({
+      insertHTML: (html: string) => {
+        if (!editor) return;
+        editor.chain().focus().insertContent(html).run();
+      },
+      focus: () => {
+        editor?.chain().focus().run();
+      },
+    }),
+    [editor],
+  );
 
   // ─────────── Actions callbacks ───────────
   const insertImageByURL = useCallback(() => {
@@ -386,7 +427,13 @@ export function RichTextEditor({
       <EditorContent editor={editor} />
     </div>
   );
-}
+});
+
+// UX-16 — Expose l'imperative handle en dehors du body de la fonction
+// forwardRef pour rester lisible. On l'attache via un helper hook au
+// prochain rendu — mais TSX préfère qu'on utilise useImperativeHandle
+// dans le corps du composant. La déclaration effective a été faite en
+// haut du composant (voir bloc `useImperativeHandle` inséré).
 
 // ─────────────────────────────────────────────────────────────
 // Toolbar

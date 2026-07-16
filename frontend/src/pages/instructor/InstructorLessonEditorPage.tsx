@@ -29,7 +29,10 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
 import { Badge } from '@/components/ui/Badge';
-import { RichTextEditor } from '@/components/editor/RichTextEditor';
+import {
+  RichTextEditor,
+  type RichTextEditorHandle,
+} from '@/components/editor/RichTextEditor';
 import { MediaPickerDialog } from '@/components/media/MediaPickerDialog';
 import { LessonResourcesPanel } from '@/components/instructor/LessonResourcesPanel';
 import {
@@ -91,6 +94,9 @@ export default function InstructorLessonEditorPage() {
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // UX-16 — Ref imperative sur le RichTextEditor : permet d'insérer un
+  // média à la position du curseur au lieu d'append en fin de string.
+  const editorRef = useRef<RichTextEditorHandle>(null);
 
   // Hydratation initiale
   useEffect(() => {
@@ -198,19 +204,15 @@ export default function InstructorLessonEditorPage() {
       if (asset.duration_seconds) setDurationSec(asset.duration_seconds);
     } else {
       // Doc : distinguer image (embed <img>) vs autres docs (lien attachment).
-      // UX-02 — Fix : les images étaient inserées comme un lien "📎 fichier.png"
-      // au lieu d'être affichées. On regarde content_type + preview_url pour
-      // produire un vrai <img> quand possible.
+      // UX-16 — Insertion à la position du curseur via editorRef.insertHTML
+      // au lieu de setContent(prev + html) qui appendait en fin de string.
       const ct = (asset.content_type || '').toLowerCase();
       const url = asset.preview_url || asset.thumbnail_url || '';
       const isImage = ct.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(asset.title);
+      let html = '';
       if (isImage && url) {
         const alt = (asset.title || 'image').replace(/"/g, '&quot;');
-        setContent(
-          (prev) =>
-            prev +
-            `\n\n<p><img src="${url}" alt="${alt}" style="max-width:100%;height:auto;" /></p>`,
-        );
+        html = `<p><img src="${url}" alt="${alt}" style="max-width:100%;height:auto;" /></p>`;
         setFlash({
           kind: 'ok',
           msg: `Image « ${asset.title} » insérée.`,
@@ -218,11 +220,15 @@ export default function InstructorLessonEditorPage() {
       } else {
         // Autres docs (PDF, DOCX…) → lien téléchargeable.
         const href = asset.preview_url || `media://${asset.id}`;
-        setContent(
-          (prev) =>
-            prev +
-            `\n\n<p><a href="${href}" target="_blank" rel="noopener">📎 ${asset.title}</a></p>`,
-        );
+        html = `<p><a href="${href}" target="_blank" rel="noopener">📎 ${asset.title}</a></p>`;
+      }
+      // Priorité : insertion à la position du curseur si l'éditeur est
+      // monté. Fallback : append en fin de content si la ref n'est pas
+      // encore prête (rare mais possible juste après le mount).
+      if (editorRef.current) {
+        editorRef.current.insertHTML(html);
+      } else {
+        setContent((prev) => prev + '\n\n' + html);
       }
     }
   }
@@ -334,6 +340,7 @@ export default function InstructorLessonEditorPage() {
                   </div>
                 )}
                 <RichTextEditor
+                  ref={editorRef}
                   value={content}
                   onChange={(html) => {
                     setContent(html);
