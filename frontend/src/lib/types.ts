@@ -701,6 +701,8 @@ export interface MediaAsset {
   can_delete: boolean;
   scope: 'personal' | 'organization';
   owner_name: string;
+  /** Indique explicitement que le fichier peut être rendu comme une image. */
+  is_image?: boolean;
   /** UX-01 — URL de la miniature (image extraite pour vidéo, aperçu pour doc). */
   thumbnail_url?: string;
   /** UX-01 — URL de streaming (vidéo/audio) ou visualisation (doc image). */

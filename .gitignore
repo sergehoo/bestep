@@ -32,7 +32,7 @@ ENV/
 # Static & Media
 # =========================
 staticfiles/
-media/
+/media/
 static_collected/
 
 # =========================

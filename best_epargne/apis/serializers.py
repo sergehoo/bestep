@@ -102,6 +102,24 @@ class MediaAssetSerializer(serializers.ModelSerializer):
     # UX-01 — URLs de rendu pour la médiathèque (thumbnails).
     thumbnail_url = serializers.SerializerMethodField()
     preview_url = serializers.SerializerMethodField()
+    is_image = serializers.SerializerMethodField()
+
+    @staticmethod
+    def _is_image_asset(obj) -> bool:
+        """Reconnaît aussi les anciens uploads dont le MIME est incomplet."""
+        import re
+
+        content_type = (getattr(obj, "content_type", "") or "").lower()
+        object_key = (getattr(obj, "object_key", "") or "").lower()
+        title = (getattr(obj, "title", "") or "").lower()
+        image_extension = re.compile(
+            r"\.(png|jpe?g|jfif|gif|webp|svg|bmp|avif|heic|heif)($|[?#])"
+        )
+        return (
+            content_type.startswith("image/")
+            or bool(image_extension.search(object_key))
+            or bool(image_extension.search(title))
+        )
 
     def _default_storage_url(self, key: str) -> str:
         """Construit l'URL d'accès à un object_key stocké dans MinIO.
@@ -166,24 +184,11 @@ class MediaAssetSerializer(serializers.ModelSerializer):
 
         Retourne '' si aucune miniature disponible.
         """
-        import re
-
         key = getattr(obj, "thumbnail_object_key", "") or ""
         if key:
             return self._default_storage_url(key)
 
-        # Détection image robuste : content_type OU extension dans
-        # object_key / title.
-        content_type = (getattr(obj, "content_type", "") or "").lower()
-        object_key = (getattr(obj, "object_key", "") or "").lower()
-        title = (getattr(obj, "title", "") or "").lower()
-        ext_re = re.compile(r"\.(png|jpe?g|gif|webp|svg|bmp|avif)($|\?)")
-        is_image = (
-            content_type.startswith("image/")
-            or bool(ext_re.search(object_key))
-            or bool(ext_re.search(title))
-        )
-        if is_image:
+        if self._is_image_asset(obj):
             main_key = (
                 getattr(obj, "optimized_object_key", "")
                 or getattr(obj, "object_key", "")
@@ -192,6 +197,9 @@ class MediaAssetSerializer(serializers.ModelSerializer):
             if main_key:
                 return self._default_storage_url(main_key)
         return ""
+
+    def get_is_image(self, obj) -> bool:
+        return self._is_image_asset(obj)
 
     def get_preview_url(self, obj) -> str:
         """URL de streaming/lecture (video optimisée si dispo, sinon original).
@@ -283,6 +291,7 @@ class MediaAssetSerializer(serializers.ModelSerializer):
             "can_delete",
             "scope",
             "owner_name",
+            "is_image",
             "thumbnail_url",
             "preview_url",
         ]
