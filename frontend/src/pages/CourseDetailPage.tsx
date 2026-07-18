@@ -175,13 +175,15 @@ export default function CourseDetailPage() {
           ratingCount={ratingCount}
         />
 
-        {/* Pricing card desktop (absolute overlay ancrée sur le hero) */}
+        {/* Pricing card desktop (absolute overlay ancrée sur le hero,
+            couvre TOUTE la hauteur du wrapper .relative pour que le
+            `sticky` fonctionne pendant tout le scroll du contenu). */}
         <div
           aria-hidden="false"
-          className="hidden lg:block absolute inset-x-0 top-0 pointer-events-none z-20"
+          className="hidden lg:block absolute inset-0 pointer-events-none z-40"
         >
-          <div className="container mx-auto px-4 max-w-6xl flex justify-end">
-            <div className="w-[360px] pointer-events-auto pt-8">
+          <div className="container mx-auto px-4 max-w-6xl flex justify-end h-full">
+            <div className="w-[360px] pointer-events-auto pt-8 h-full">
               <div className="sticky top-24">{pricingCard}</div>
             </div>
           </div>
