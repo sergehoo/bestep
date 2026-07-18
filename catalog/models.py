@@ -410,10 +410,20 @@ class LessonResource(models.Model):
     """
 
     class Kind(models.TextChoices):
+        # T8 v2 — palette étendue de types acceptés pour les ressources.
+        # Chaque type est associé à une icône et une couleur côté
+        # frontend (voir LessonResourcesPanel.tsx / rendu learner).
         PDF = "pdf", "PDF"
         IMAGE = "image", "Image"
+        AUDIO = "audio", "Audio"
+        VIDEO = "video", "Vidéo"
+        DOC = "doc", "Document Word"
+        SHEET = "sheet", "Tableur"
+        SLIDES = "slides", "Présentation"
         HTML = "html", "HTML"
-        ZIP = "zip", "Archive ZIP"
+        TEXT = "text", "Texte"
+        CODE = "code", "Code"
+        ZIP = "zip", "Archive"
         OTHER = "other", "Autre"
 
     lesson = models.ForeignKey(

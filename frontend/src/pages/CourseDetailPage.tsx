@@ -151,8 +151,10 @@ export default function CourseDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 lg:gap-8">
           {/* Sticky pricing card — R10.5 : ordre 1er sur mobile (juste
               sous le hero), ordre 2 sur desktop pour rester à droite.
-              Le sticky top est calé sous la nav sections (56 px) + marge. */}
-          <aside className="order-1 lg:order-2 lg:sticky lg:top-20 lg:self-start">
+              Le sticky top est calé sous la nav sections (56 px) + marge.
+              -mt-40 sur desktop : ancre visuellement la card sur le hero
+              (pattern Udemy/Coursera) — évite qu'elle apparaisse trop bas. */}
+          <aside className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start lg:-mt-40 xl:-mt-48 relative z-10">
             <StickyPricingCard
               course={course}
               isAuthed={isAuthed}

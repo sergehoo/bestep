@@ -28,6 +28,12 @@ import {
   Check,
   X,
   PenSquare,
+  Music,
+  Video,
+  FileSpreadsheet,
+  Presentation,
+  Code,
+  FileType,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/Button';
@@ -42,10 +48,19 @@ interface Props {
   canEdit: boolean;
 }
 
+// T8 v2 — Chaque kind a son icône, son label et sa couleur (palette
+// cohérente entre l'éditeur instructor et le player learner).
 const KIND_ICON: Record<LessonResourceKind, typeof FileText> = {
   pdf: FileText,
   image: ImageIcon,
+  audio: Music,
+  video: Video,
+  doc: FileType,
+  sheet: FileSpreadsheet,
+  slides: Presentation,
   html: Globe,
+  text: FileText,
+  code: Code,
   zip: FileArchive,
   other: Paperclip,
 };
@@ -53,7 +68,14 @@ const KIND_ICON: Record<LessonResourceKind, typeof FileText> = {
 const KIND_LABEL: Record<LessonResourceKind, string> = {
   pdf: 'PDF',
   image: 'Image',
+  audio: 'Audio',
+  video: 'Vidéo',
+  doc: 'Document',
+  sheet: 'Tableur',
+  slides: 'Présentation',
   html: 'HTML',
+  text: 'Texte',
+  code: 'Code',
   zip: 'Archive',
   other: 'Fichier',
 };
@@ -61,14 +83,43 @@ const KIND_LABEL: Record<LessonResourceKind, string> = {
 const KIND_COLOR: Record<LessonResourceKind, string> = {
   pdf: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
   image: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  audio: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300',
+  video: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300',
+  doc: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+  sheet: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+  slides: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
   html: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  text: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
+  code: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
   zip: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
   other: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
 };
 
-const ACCEPT =
-  '.pdf,.jpg,.jpeg,.png,.gif,.webp,.svg,.html,.htm,.zip,'
-  + 'application/pdf,image/*,text/html,application/zip';
+// T8 v2 — Extensions + MIME acceptés côté file picker. Ordre : PDF,
+// images, audio, vidéo, Word, Excel, PowerPoint, HTML/texte, code,
+// archives.
+const ACCEPT = [
+  // PDF
+  '.pdf', 'application/pdf',
+  // Images
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.avif', 'image/*',
+  // Audio
+  '.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac', 'audio/*',
+  // Vidéo (petits fichiers)
+  '.mp4', '.webm', '.mov', '.m4v', 'video/*',
+  // Word
+  '.doc', '.docx', '.odt', '.rtf',
+  // Excel
+  '.xls', '.xlsx', '.xlsm', '.ods', '.csv', '.tsv',
+  // PowerPoint
+  '.ppt', '.pptx', '.odp',
+  // Web / texte
+  '.html', '.htm', '.txt', '.md', 'text/html', 'text/plain',
+  // Code
+  '.json', '.xml', '.yaml', '.yml', '.sql', '.js', '.ts', '.py',
+  // Archives
+  '.zip', '.rar', '.7z', '.tar', '.gz', 'application/zip',
+].join(',');
 
 export function LessonResourcesPanel({
   courseId,
@@ -200,8 +251,9 @@ export function LessonResourcesPanel({
           >
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               Glissez-déposez un fichier ici, ou cliquez pour parcourir.
-              Formats : PDF, JPG/PNG/WebP/SVG, HTML, ZIP · Max 20 Mo par
-              fichier.
+              Formats acceptés : PDF, images, audio (MP3…), Word, Excel,
+              PowerPoint, HTML, texte, code, archives (ZIP…) · Max 50 Mo
+              par fichier.
             </p>
             <Button
               type="button"

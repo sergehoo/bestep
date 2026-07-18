@@ -940,17 +940,24 @@ class InstructorLessonCreateView(APIView):
         if media_asset_id:
             media_asset = get_object_or_404(MediaAsset, id=media_asset_id, owner=request.user)
 
+        wants_preview = bool(request.data.get("is_preview", False))
         lesson = Lesson.objects.create(
             section=section,
             title=title,
             lesson_type=lesson_type,
             order=max_order + 1,
-            is_preview=bool(request.data.get("is_preview", False)),
+            is_preview=wants_preview,
             duration_sec=int(request.data.get("duration_sec") or 0),
             video_url=request.data.get("video_url") or "",
             content=request.data.get("content") or "",
             media_asset=media_asset,
         )
+
+        # UX — Unicité de l'aperçu : une seule leçon en preview par cours.
+        if wants_preview:
+            Lesson.objects.filter(
+                section__course=course
+            ).exclude(pk=lesson.pk).update(is_preview=False)
 
         return Response(LessonSerializer(lesson, context={"request": request}).data, status=201)
 
@@ -966,6 +973,14 @@ class InstructorLessonUpdateView(APIView):
         for f in ["title", "lesson_type", "is_preview", "duration_sec", "content"]:
             if f in request.data:
                 setattr(lesson, f, request.data.get(f))
+
+        # UX — Unicité de l'aperçu : une seule leçon par cours peut avoir
+        # is_preview=True. Si l'instructeur active is_preview sur cette leçon,
+        # on décoche automatiquement toutes les autres leçons du même cours.
+        if bool(request.data.get("is_preview")):
+            Lesson.objects.filter(
+                section__course=course
+            ).exclude(pk=lesson.pk).update(is_preview=False)
 
         # UX-06 — video_url : URLField(max_length=200) par défaut. Une URL
         # presignée MinIO dépasse largement 200 caractères → PostgreSQL
@@ -1086,21 +1101,89 @@ class InstructorLessonDeleteView(APIView):
 # ─────────────────────────────────────────────────────────────
 
 def _detect_resource_kind(filename: str, content_type: str) -> str:
-    """Devine le kind (pdf/image/html/zip/other) depuis extension + MIME."""
+    """Devine le kind d'une ressource depuis son extension + son MIME.
+
+    T8 v2 — Palette étendue : PDF, images, audio (mp3/wav/ogg/m4a),
+    vidéo (mp4/webm/mov), Word, Excel, PowerPoint, HTML, texte, code
+    (json/xml/csv), archives (zip/rar/7z/tar/gz). Fallback OTHER si
+    aucune règle ne matche.
+    """
     from catalog.models import LessonResource
+    K = LessonResource.Kind
     name = (filename or "").lower()
     ctype = (content_type or "").lower()
+
+    def ends_with_any(exts):
+        return any(name.endswith(e) for e in exts)
+
+    # PDF
     if name.endswith(".pdf") or ctype == "application/pdf":
-        return LessonResource.Kind.PDF
-    if any(name.endswith(e) for e in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg")):
-        return LessonResource.Kind.IMAGE
+        return K.PDF
+    # Images
+    if ends_with_any((".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".avif")):
+        return K.IMAGE
     if ctype.startswith("image/"):
-        return LessonResource.Kind.IMAGE
+        return K.IMAGE
+    # Audio
+    if ends_with_any((".mp3", ".wav", ".ogg", ".oga", ".m4a", ".aac", ".flac")):
+        return K.AUDIO
+    if ctype.startswith("audio/"):
+        return K.AUDIO
+    # Vidéo
+    if ends_with_any((".mp4", ".webm", ".mov", ".avi", ".mkv", ".m4v")):
+        return K.VIDEO
+    if ctype.startswith("video/"):
+        return K.VIDEO
+    # Documents Word
+    if ends_with_any((".doc", ".docx", ".odt", ".rtf")):
+        return K.DOC
+    if ctype in (
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.oasis.opendocument.text",
+    ):
+        return K.DOC
+    # Tableurs
+    if ends_with_any((".xls", ".xlsx", ".xlsm", ".ods", ".csv", ".tsv")):
+        return K.SHEET
+    if ctype in (
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "text/csv",
+    ):
+        return K.SHEET
+    # Présentations
+    if ends_with_any((".ppt", ".pptx", ".odp", ".key")):
+        return K.SLIDES
+    if ctype in (
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.oasis.opendocument.presentation",
+    ):
+        return K.SLIDES
+    # HTML
     if name.endswith(".html") or name.endswith(".htm") or ctype == "text/html":
-        return LessonResource.Kind.HTML
-    if name.endswith(".zip") or ctype in ("application/zip", "application/x-zip-compressed"):
-        return LessonResource.Kind.ZIP
-    return LessonResource.Kind.OTHER
+        return K.HTML
+    # Texte / Markdown
+    if ends_with_any((".txt", ".md", ".markdown", ".rst", ".log")):
+        return K.TEXT
+    # Code / structuré (JSON, XML, YAML…)
+    if ends_with_any((".json", ".xml", ".yaml", ".yml", ".ini", ".sql", ".js", ".ts", ".py", ".java", ".c", ".cpp", ".css", ".scss")):
+        return K.CODE
+    # Archives
+    if ends_with_any((".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2")):
+        return K.ZIP
+    if ctype in (
+        "application/zip",
+        "application/x-zip-compressed",
+        "application/x-rar-compressed",
+        "application/x-7z-compressed",
+        "application/x-tar",
+        "application/gzip",
+    ):
+        return K.ZIP
+    return K.OTHER
 
 
 class InstructorLessonResourceListView(APIView):
@@ -1109,11 +1192,33 @@ class InstructorLessonResourceListView(APIView):
     """
     permission_classes = [IsAuthenticated, IsInstructor]
 
+    # T8 v2 — Palette large de formats acceptés (organisée par catégorie
+    # pour lisibilité). Chaque extension doit être présente sans le point.
     ALLOWED_KIND_EXTENSIONS = {
-        "pdf", "jpg", "jpeg", "png", "gif", "webp", "svg",
-        "html", "htm", "zip",
+        # PDF
+        "pdf",
+        # Images
+        "jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "avif",
+        # Audio
+        "mp3", "wav", "ogg", "oga", "m4a", "aac", "flac",
+        # Vidéo (petits fichiers ; les gros doivent passer par MediaAsset)
+        "mp4", "webm", "mov", "m4v",
+        # Documents Word / traitement texte
+        "doc", "docx", "odt", "rtf",
+        # Tableurs
+        "xls", "xlsx", "xlsm", "ods", "csv", "tsv",
+        # Présentations
+        "ppt", "pptx", "odp",
+        # Web / texte
+        "html", "htm", "txt", "md", "markdown",
+        # Code / structuré
+        "json", "xml", "yaml", "yml", "sql", "js", "ts", "py",
+        # Archives
+        "zip", "rar", "7z", "tar", "gz", "tgz",
     }
-    MAX_BYTES = 20 * 1024 * 1024  # 20 Mo
+    # T8 v2 — 50 Mo (au lieu de 20) car les mp3, xlsx et docx peuvent
+    # facilement dépasser 20 Mo pour un contenu pédagogique riche.
+    MAX_BYTES = 50 * 1024 * 1024  # 50 Mo
 
     def get(self, request, course_id, section_id, lesson_id):
         from catalog.models import LessonResource
@@ -1145,8 +1250,11 @@ class InstructorLessonResourceListView(APIView):
             return Response(
                 {
                     "detail": (
-                        "Format non supporté. Accepté : PDF, JPG, PNG, "
-                        "GIF, WebP, SVG, HTML, ZIP."
+                        "Format non supporté. Formats acceptés : PDF, "
+                        "images (JPG/PNG/GIF/WebP/SVG), audio (MP3/WAV/"
+                        "OGG/M4A), Word (DOC/DOCX), Excel (XLS/XLSX/CSV),"
+                        " PowerPoint (PPT/PPTX), HTML, texte, code "
+                        "(JSON/XML), archives (ZIP/RAR/7Z)."
                     ),
                     "extension": ext,
                 },
@@ -1940,7 +2048,7 @@ class InstructorMediaListView(APIView):
 
     def get(self, request):
         page = max(int(request.query_params.get("page", 1) or 1), 1)
-        page_size = int(request.query_params.get("page_size", 10) or 10)
+        page_size = int(request.query_params.get("page_size", 12) or 12)
         page_size = min(max(page_size, 8), 100)
 
         qs = self.get_queryset()

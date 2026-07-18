@@ -491,14 +491,27 @@ function LessonPlayer({
               </p>
               <ul className="space-y-2">
                 {state.lesson.resources.map((r) => {
+                  // T8 v2 — Palette complète (miroir de LessonResourcesPanel).
                   const kindLabel = (
-                    { pdf: 'PDF', image: 'Image', html: 'HTML', zip: 'Archive', other: 'Fichier' } as Record<string, string>
+                    {
+                      pdf: 'PDF', image: 'Image', audio: 'Audio', video: 'Vidéo',
+                      doc: 'Document', sheet: 'Tableur', slides: 'Présentation',
+                      html: 'HTML', text: 'Texte', code: 'Code',
+                      zip: 'Archive', other: 'Fichier',
+                    } as Record<string, string>
                   )[r.kind] || 'Fichier';
                   const kindColor = (
                     {
                       pdf: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
                       image: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+                      audio: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300',
+                      video: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300',
+                      doc: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+                      sheet: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+                      slides: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
                       html: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+                      text: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
+                      code: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
                       zip: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
                       other: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
                     } as Record<string, string>

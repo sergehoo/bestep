@@ -402,12 +402,14 @@ class PublicCoursePreviewLessonView(APIView):
 
     @extend_schema(summary="Preview d'une leçon gratuite d'un cours public")
     def get(self, request, slug: str, lesson_id: int):
+        from django.conf import settings as _settings
+
         course = get_object_or_404(
             get_visible_courses_qs(request.user, public_only=True),
             slug=slug,
         )
         try:
-            lesson = Lesson.objects.select_related("section").get(
+            lesson = Lesson.objects.select_related("section", "media_asset").get(
                 pk=lesson_id, section__course=course
             )
         except Lesson.DoesNotExist:
@@ -419,13 +421,38 @@ class PublicCoursePreviewLessonView(APIView):
                 {"detail": "Cette leçon nécessite une inscription."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        # Résout l'URL vidéo : media_asset MinIO en priorité (presigned URL),
+        # sinon fallback sur video_url (YouTube / lien externe).
+        video_url = lesson.video_url or ""
+        if lesson.media_asset_id:
+            bucket = getattr(_settings, "MINIO_BUCKET", None) or getattr(
+                _settings, "AWS_STORAGE_BUCKET_NAME", None
+            )
+            try:
+                if bucket:
+                    from best_epargne.apis.views import s3_public_client
+                    client = s3_public_client()
+                    key = lesson.media_asset.effective_object_key
+                    if key:
+                        video_url = client.generate_presigned_url(
+                            ClientMethod="get_object",
+                            Params={"Bucket": bucket, "Key": key},
+                            ExpiresIn=int(getattr(
+                                _settings, "AWS_QUERYSTRING_EXPIRE", 3600
+                            )),
+                        )
+            except Exception:
+                # Fallback silencieux : video_url legacy reste (peut être vide).
+                pass
+
         return Response({
             "id": lesson.id,
             "title": lesson.title,
             "lesson_type": lesson.lesson_type,
             "duration_sec": lesson.duration_sec,
             "content": lesson.content,
-            "video_url": lesson.video_url,
+            "video_url": video_url,
         })
 
 

@@ -19,6 +19,8 @@ import {
   Check,
   X,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -44,6 +46,26 @@ const KIND_LABEL: Record<MediaKind, string> = {
   audio: 'Audio',
   doc: 'Document',
 };
+
+const DEFAULT_PAGE_SIZE = 12;
+const PAGE_SIZE_OPTIONS = [12, 24, 48];
+
+function paginationRange(current: number, total: number) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, index) => index + 1);
+  }
+
+  const pages: Array<number | 'start-ellipsis' | 'end-ellipsis'> = [1];
+  if (current > 4) pages.push('start-ellipsis');
+
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let page = start; page <= end; page += 1) pages.push(page);
+
+  if (current < total - 3) pages.push('end-ellipsis');
+  pages.push(total);
+  return pages;
+}
 
 // UX-07 — Gradients dégradés pour cartes vidéo/audio (au lieu de tenter
 // de rendre <video preload=metadata> qui n'affiche pas fiablement la
@@ -75,7 +97,10 @@ interface Props {
 }
 
 export function MediaLibraryPanel({ pickable = false, onPick, className }: Props) {
-  const [params, setParams] = useState<MediaListParams>({});
+  const [params, setParams] = useState<MediaListParams>({
+    page: 1,
+    page_size: DEFAULT_PAGE_SIZE,
+  });
   const [q, setQ] = useState('');
   const { data, isLoading, isFetching } = useInstructorMedia(params);
   const upload = useUploadMedia();
@@ -88,7 +113,7 @@ export function MediaLibraryPanel({ pickable = false, onPick, className }: Props
 
   const submitFilters = (e: React.FormEvent) => {
     e.preventDefault();
-    setParams((p) => ({ ...p, q: q.trim() || undefined }));
+    setParams((p) => ({ ...p, q: q.trim() || undefined, page: 1 }));
   };
 
   const handleUpload = useCallback(
@@ -115,6 +140,25 @@ export function MediaLibraryPanel({ pickable = false, onPick, className }: Props
   );
 
   const items = data?.results ?? [];
+  const currentPage = params.page ?? 1;
+  const pageSize = params.page_size ?? DEFAULT_PAGE_SIZE;
+  const totalCount = data?.count ?? items.length;
+  const totalPages = data?.total_pages ?? Math.max(1, Math.ceil(totalCount / pageSize));
+  const firstVisible = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const lastVisible = Math.min(currentPage * pageSize, totalCount);
+
+  // Le backend ramène une page hors limites vers la dernière page existante
+  // (par exemple après la suppression du dernier fichier d'une page).
+  useEffect(() => {
+    if (!isFetching && data?.page && data.page !== currentPage) {
+      setParams((previous) => ({ ...previous, page: data.page }));
+    }
+  }, [currentPage, data?.page, isFetching]);
+
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+    setParams((previous) => ({ ...previous, page }));
+  };
 
   return (
     <div className={cn('space-y-3', className)}>
@@ -142,6 +186,7 @@ export function MediaLibraryPanel({ pickable = false, onPick, className }: Props
             setParams((p) => ({
               ...p,
               kind: (e.target.value || undefined) as MediaKind | undefined,
+              page: 1,
             }))
           }
           className="border border-neutral-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -238,6 +283,80 @@ export function MediaLibraryPanel({ pickable = false, onPick, className }: Props
             />
           ))}
         </ul>
+      )}
+
+      {totalCount > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-neutral-100 bg-white px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+            <span>
+              {firstVisible}–{lastVisible} sur {totalCount} fichier{totalCount > 1 ? 's' : ''}
+            </span>
+            <label className="inline-flex items-center gap-1.5">
+              Afficher
+              <select
+                aria-label="Nombre de fichiers par page"
+                value={pageSize}
+                onChange={(event) =>
+                  setParams((previous) => ({
+                    ...previous,
+                    page: 1,
+                    page_size: Number(event.target.value),
+                  }))
+                }
+                className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <nav aria-label="Pagination des médias" className="flex items-center justify-center gap-1">
+            <button
+              type="button"
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage <= 1 || isFetching}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Page précédente"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            {paginationRange(currentPage, totalPages).map((page) =>
+              typeof page === 'number' ? (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => goToPage(page)}
+                  disabled={isFetching}
+                  aria-current={page === currentPage ? 'page' : undefined}
+                  aria-label={`Page ${page}`}
+                  className={cn(
+                    'inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-xs font-semibold transition',
+                    page === currentPage
+                      ? 'bg-primary-600 text-white'
+                      : 'border border-neutral-200 text-neutral-600 hover:bg-neutral-50',
+                  )}
+                >
+                  {page}
+                </button>
+              ) : (
+                <span key={page} className="px-1 text-neutral-400" aria-hidden="true">…</span>
+              ),
+            )}
+
+            <button
+              type="button"
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage >= totalPages || isFetching}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Page suivante"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </nav>
+        </div>
       )}
     </div>
   );

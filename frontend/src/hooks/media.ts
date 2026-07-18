@@ -29,8 +29,11 @@ export interface MediaListParams {
 
 interface Paginated<T> {
   count: number;
-  next: string | null;
-  previous: string | null;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  next?: string | null;
+  previous?: string | null;
   results: T[];
 }
 
@@ -51,6 +54,9 @@ export function useInstructorMedia(params: MediaListParams = {}) {
       if (Array.isArray(data)) {
         return {
           count: data.length,
+          page: 1,
+          page_size: data.length,
+          total_pages: 1,
           next: null,
           previous: null,
           results: data,

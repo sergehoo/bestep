@@ -401,8 +401,20 @@ export interface InstructorLesson {
   resources?: LessonResource[];
 }
 
-/** T8 — Ressource externe attachée à une leçon (PDF, JPG, HTML, ZIP…). */
-export type LessonResourceKind = 'pdf' | 'image' | 'html' | 'zip' | 'other';
+/** T8 v2 — Ressource externe attachée à une leçon (palette étendue). */
+export type LessonResourceKind =
+  | 'pdf'
+  | 'image'
+  | 'audio'
+  | 'video'
+  | 'doc'
+  | 'sheet'
+  | 'slides'
+  | 'html'
+  | 'text'
+  | 'code'
+  | 'zip'
+  | 'other';
 export interface LessonResource {
   id: number;
   title: string;

@@ -429,12 +429,6 @@ export const RichTextEditor = forwardRef<
   );
 });
 
-// UX-16 — Expose l'imperative handle en dehors du body de la fonction
-// forwardRef pour rester lisible. On l'attache via un helper hook au
-// prochain rendu — mais TSX préfère qu'on utilise useImperativeHandle
-// dans le corps du composant. La déclaration effective a été faite en
-// haut du composant (voir bloc `useImperativeHandle` inséré).
-
 // ─────────────────────────────────────────────────────────────
 // Toolbar
 // ─────────────────────────────────────────────────────────────
