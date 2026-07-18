@@ -61,7 +61,7 @@ export function CourseHero({ course, ratingAvg, ratingCount }: CourseHeroProps) 
         }}
       />
 
-      <div className="relative container mx-auto px-4 max-w-6xl py-8 sm:py-10 lg:py-14">
+      <div className="relative container mx-auto px-4 max-w-6xl py-8 sm:py-10 lg:py-14 lg:pr-[400px]">
         {/* Breadcrumb */}
         <nav
           aria-label="Fil d'Ariane"

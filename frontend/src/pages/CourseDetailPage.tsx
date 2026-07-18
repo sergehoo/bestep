@@ -135,53 +135,74 @@ export default function CourseDetailPage() {
   const ratingAvg = reviewsSummary?.average ?? Number(course.rating_avg) ?? 0;
   const ratingCount = reviewsSummary?.count ?? course.rating_count ?? 0;
 
+  const pricingCard = (
+    <StickyPricingCard
+      course={course}
+      isAuthed={isAuthed}
+      isPending={enroll.isPending}
+      onEnroll={handleEnroll}
+      cta={deriveCourseCTA({
+        isAuthed,
+        enrollment,
+        courseId: course.id,
+        courseSlug: slug,
+        isFree: course.pricing_type === 'FREE',
+        isCertifying: course.course_type === 'CERTIFIANTE',
+      })}
+      onOpenPreview={() => {
+        const firstPreview = course.sections
+          .flatMap((s) => s.lessons)
+          .find((l) => l.is_preview);
+        if (firstPreview) setPreviewLessonId(firstPreview.id);
+      }}
+      onToggleFavorite={() => setFavorite((v) => !v)}
+      isFavorite={favorite}
+      onShare={handleShare}
+    />
+  );
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <PublicHeader />
 
-      <CourseHero
-        course={course}
-        ratingAvg={ratingAvg}
-        ratingCount={ratingCount}
-      />
+      {/* Pattern Udemy — la pricing card flotte à droite en absolu sur
+          desktop dans un wrapper relatif qui englobe le hero + main.
+          Sur mobile, elle est rendue en flux normal dans <main>. */}
+      <div className="relative">
+        <CourseHero
+          course={course}
+          ratingAvg={ratingAvg}
+          ratingCount={ratingCount}
+        />
 
-      <StickySectionsNav items={SECTIONS} offset={80} />
+        {/* Pricing card desktop (absolute overlay ancrée sur le hero) */}
+        <div
+          aria-hidden="false"
+          className="hidden lg:block absolute inset-x-0 top-0 pointer-events-none z-20"
+        >
+          <div className="container mx-auto px-4 max-w-6xl flex justify-end">
+            <div className="w-[360px] pointer-events-auto pt-8">
+              <div className="sticky top-24">{pricingCard}</div>
+            </div>
+          </div>
+        </div>
 
-      <main className="container mx-auto px-4 max-w-6xl py-6 sm:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 lg:gap-8">
-          {/* Sticky pricing card — R10.5 : ordre 1er sur mobile (juste
-              sous le hero), ordre 2 sur desktop pour rester à droite.
-              Le sticky top est calé sous la nav sections (56 px) + marge.
-              -mt-40 sur desktop : ancre visuellement la card sur le hero
-              (pattern Udemy/Coursera) — évite qu'elle apparaisse trop bas. */}
-          <aside className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start lg:-mt-40 xl:-mt-48 relative z-10">
-            <StickyPricingCard
-              course={course}
-              isAuthed={isAuthed}
-              isPending={enroll.isPending}
-              onEnroll={handleEnroll}
-              cta={deriveCourseCTA({
-                isAuthed,
-                enrollment,
-                courseId: course.id,
-                courseSlug: slug,
-                isFree: course.pricing_type === 'FREE',
-                isCertifying: course.course_type === 'CERTIFIANTE',
-              })}
-              onOpenPreview={() => {
-                const firstPreview = course.sections
-                  .flatMap((s) => s.lessons)
-                  .find((l) => l.is_preview);
-                if (firstPreview) setPreviewLessonId(firstPreview.id);
-              }}
-              onToggleFavorite={() => setFavorite((v) => !v)}
-              isFavorite={favorite}
-              onShare={handleShare}
-            />
-          </aside>
+        <StickySectionsNav items={SECTIONS} offset={80} />
 
-          {/* Colonne gauche — contenu */}
-          <article className="order-2 lg:order-1 space-y-8 sm:space-y-10 min-w-0">
+        <main className="container mx-auto px-4 max-w-6xl py-6 sm:py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 lg:gap-8">
+            {/* Pricing card mobile — visible <lg uniquement (l'overlay
+                desktop est absolu et pris en charge au-dessus). */}
+            <aside className="order-1 lg:hidden">
+              {pricingCard}
+            </aside>
+
+            {/* Spacer desktop : occupe la colonne droite pour que la
+                grille reste 2-colonnes ; la vraie card est absolue. */}
+            <div aria-hidden className="hidden lg:block lg:order-2" />
+
+            {/* Colonne gauche — contenu */}
+            <article className="order-2 lg:order-1 space-y-8 sm:space-y-10 min-w-0">
             <section id="section-overview" className="scroll-mt-24 space-y-5 sm:space-y-6">
               <LearnGrid description={course.description} />
 
@@ -237,8 +258,9 @@ export default function CourseDetailPage() {
               <RelatedCarousel slug={slug} />
             </section>
           </article>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
 
       {/* Modal preview leçon */}
       <LessonPreviewModal
