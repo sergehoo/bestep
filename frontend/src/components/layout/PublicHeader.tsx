@@ -69,7 +69,9 @@ export function PublicHeader() {
     <>
       <nav
         className={cn(
-          'sticky top-0 z-40 border-b transition-all',
+          // z-50 : le header (et ses dropdowns) doit toujours passer
+          // au-dessus des overlays de page (ex. sticky pricing card z-40).
+          'sticky top-0 z-50 border-b transition-all',
           scrolled
             ? 'bg-white/85 dark:bg-neutral-900/85 backdrop-blur-md border-neutral-200 dark:border-neutral-800 shadow-sm'
             : 'bg-white/70 dark:bg-neutral-900/70 backdrop-blur-md border-neutral-100 dark:border-neutral-800',
