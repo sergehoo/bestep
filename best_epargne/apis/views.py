@@ -2241,17 +2241,39 @@ class InstructorQuizUpdateView(APIView):
         })
 
     def post(self, request, quiz_id: int):
-        quiz = _get_writable_quiz(quiz_id, request.user)
+        """FIX QUIZ-02 — Le POST update ignorait ``section_id``.
+
+        Bug : sur la page « Configuration du quiz », changer le select
+        « Section » puis cliquer « Enregistrer la configuration » ne
+        persistait pas le rattachement. Après refresh, le champ
+        revenait à sa valeur précédente.
+
+        Fix : prise en compte de ``section_id`` (null/empty → detach,
+        int → attach à la section si elle appartient bien au même cours).
+        """
+        quiz = _get_writable_quiz(
+            quiz_id, request.user, select_related=("course",)
+        )
 
         title = (request.data.get("title") or quiz.title).strip()
         if not title:
-            return Response({"detail": "Le titre est requis."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Le titre est requis."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
-            passing_score = int(request.data.get("passing_score", quiz.passing_score or 70))
-            max_attempts = int(request.data.get("max_attempts", quiz.max_attempts or 3))
+            passing_score = int(
+                request.data.get("passing_score", quiz.passing_score or 70)
+            )
+            max_attempts = int(
+                request.data.get("max_attempts", quiz.max_attempts or 3)
+            )
         except (TypeError, ValueError):
-            return Response({"detail": "Paramètres invalides."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Paramètres invalides."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         quiz.title = title
         quiz.passing_score = passing_score
@@ -2261,6 +2283,52 @@ class InstructorQuizUpdateView(APIView):
             raw_is_active = request.data.get("is_active")
             quiz.is_active = raw_is_active in (True, "true", "True", 1, "1", "on")
 
+        # ── Rattachement à une section (peut être vide → détacher) ──
+        if "section_id" in request.data:
+            raw_section = request.data.get("section_id")
+            if raw_section in ("", None, "null", 0, "0"):
+                # Détacher explicitement : quiz de fin de cours.
+                quiz.section = None
+                # On garde course inchangé — le quiz reste rattaché au cours.
+            else:
+                try:
+                    section_id_int = int(raw_section)
+                except (TypeError, ValueError):
+                    return Response(
+                        {"detail": "section_id doit être un entier ou vide."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                # La section doit appartenir au même cours que le quiz.
+                # Si le quiz n'a pas encore de course, on refuse : il faut
+                # d'abord assigner le quiz au cours via l'endpoint dédié.
+                if not quiz.course_id:
+                    return Response(
+                        {
+                            "detail": (
+                                "Le quiz n'est rattaché à aucun cours — "
+                                "impossible de choisir une section."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                section = CourseSection.objects.filter(
+                    id=section_id_int, course_id=quiz.course_id
+                ).first()
+                if not section:
+                    return Response(
+                        {
+                            "detail": (
+                                f"Section #{section_id_int} introuvable "
+                                f"dans le cours « {quiz.course.title} »."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                quiz.section = section
+                # Défaire un rattachement lesson d'une autre section.
+                if quiz.lesson_id and quiz.lesson.section_id != section.id:
+                    quiz.lesson = None
+
         quiz.save()
 
         return Response({
@@ -2269,6 +2337,9 @@ class InstructorQuizUpdateView(APIView):
             "passing_score": quiz.passing_score,
             "max_attempts": quiz.max_attempts,
             "is_active": quiz.is_active,
+            "section_id": quiz.section_id,
+            "section_title": quiz.section.title if quiz.section else "",
+            "course_id": quiz.course_id,
         })
 
 
