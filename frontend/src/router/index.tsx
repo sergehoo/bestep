@@ -25,6 +25,15 @@ const EnterprisePage = lazy(() => import('@/pages/EnterprisePage'));
 // GLOSS — Lexique pédagogique
 const GlossaryPage = lazy(() => import('@/pages/GlossaryPage'));
 const GlossaryTermPage = lazy(() => import('@/pages/GlossaryTermPage'));
+const InstructorGlossaryPage = lazy(
+  () => import('@/pages/instructor/InstructorGlossaryPage'),
+);
+const LearnerGlossaryPage = lazy(
+  () => import('@/pages/learner/LearnerGlossaryPage'),
+);
+const AdminGlossaryPage = lazy(
+  () => import('@/pages/admin/AdminGlossaryPage'),
+);
 const CatalogPage = lazy(() => import('@/pages/CatalogPage'));
 const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage'));
 const CertifyPage = lazy(() => import('@/pages/CertifyPage'));
@@ -310,6 +319,30 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageSpinner />}>
         <GlossaryTermPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/mon-lexique',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <LearnerGlossaryPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/formateur/lexique',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <InstructorGlossaryPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/admin/lexique',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <AdminGlossaryPage />
       </Suspense>
     ),
   },

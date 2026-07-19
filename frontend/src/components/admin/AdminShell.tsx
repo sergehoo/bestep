@@ -120,6 +120,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
       { to: '/admin/courses', label: 'Cours', Icon: BookOpen },
       { to: '/admin/enrollments', label: 'Inscriptions', Icon: ClipboardList },
       { to: '/admin/content', label: 'Contenu pédagogique', Icon: Library },
+      { to: '/admin/lexique', label: 'Lexique', Icon: Library },
     ],
   },
   {

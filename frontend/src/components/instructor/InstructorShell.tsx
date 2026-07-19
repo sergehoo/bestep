@@ -23,6 +23,7 @@ import {
   Plus,
   Sparkles,
   CheckCircle2,
+  Library,
 } from 'lucide-react';
 import { useAuthStore, useAuthUser } from '@/stores/auth';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,7 @@ const MAIN_NAV = [
   { to: '/instructor/reviews', label: 'Avis', Icon: Star },
   { to: '/instructor/reports', label: 'Rapports', Icon: BarChart3 },
   { to: '/instructor/certificate-templates', label: 'Certificats', Icon: Award },
+  { to: '/formateur/lexique', label: 'Lexique', Icon: Library },
 ];
 
 const PERSONAL_NAV = [

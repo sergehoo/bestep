@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Film,
   ExternalLink,
+  Library,
 } from 'lucide-react';
 import { InstructorShell } from '@/components/instructor/InstructorShell';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -35,6 +36,7 @@ import {
 } from '@/components/editor/RichTextEditor';
 import { MediaPickerDialog } from '@/components/media/MediaPickerDialog';
 import { LessonResourcesPanel } from '@/components/instructor/LessonResourcesPanel';
+import { GlossaryQuickAddDialog } from '@/components/glossary/GlossaryQuickAddDialog';
 import {
   useInstructorLessons,
   useUpdateLesson,
@@ -88,6 +90,10 @@ export default function InstructorLessonEditorPage() {
   const [isPreview, setIsPreview] = useState(false);
   const [lessonType, setLessonType] = useState<LessonType>('VIDEO');
   const [pickerOpen, setPickerOpen] = useState(false);
+  // GLOSS-9 — Modal "Ajouter au lexique" avec pré-remplissage depuis
+  // la sélection courante de l'éditeur Tiptap.
+  const [glossOpen, setGlossOpen] = useState(false);
+  const [glossInitialWord, setGlossInitialWord] = useState('');
   const [flash, setFlash] = useState<
     { kind: 'ok' | 'err'; msg: string } | null
   >(null);
@@ -339,6 +345,23 @@ export default function InstructorLessonEditorPage() {
                     )}
                   </div>
                 )}
+                {/* GLOSS-9 — Bouton "Ajouter au lexique" : lit la sélection
+                    courante de l'éditeur et ouvre un modal pré-rempli. */}
+                <div className="mb-2 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const w = editorRef.current?.getSelectedText() ?? '';
+                      setGlossInitialWord(w);
+                      setGlossOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 rounded-lg"
+                    title="Sélectionnez d'abord un mot dans l'éditeur, puis cliquez ici pour l'ajouter au lexique."
+                  >
+                    <Library className="w-3.5 h-3.5" />
+                    Ajouter au lexique
+                  </button>
+                </div>
                 <RichTextEditor
                   ref={editorRef}
                   value={content}
@@ -479,6 +502,14 @@ export default function InstructorLessonEditorPage() {
         onClose={() => setPickerOpen(false)}
         onPick={handlePick}
         title="Insérer un média"
+      />
+
+      {/* GLOSS-9 — Modal d'ajout rapide au lexique. */}
+      <GlossaryQuickAddDialog
+        open={glossOpen}
+        initialWord={glossInitialWord}
+        courseId={courseId ?? null}
+        onClose={() => setGlossOpen(false)}
       />
     </InstructorShell>
   );

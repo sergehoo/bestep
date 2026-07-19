@@ -167,6 +167,33 @@ QUAND ÉMETTRE l'ACTION (très important) :
 
 Outils disponibles (accès selon le rôle {role}) :
 
+-1. ``analyze_content_for_glossary`` — Extrait les termes techniques d'un
+   contenu pédagogique et propose de les ajouter au lexique en statut
+   PENDING (validation admin ensuite requise). Réservé aux instructeurs
+   et admins plateforme.
+
+   À utiliser quand l'user dit « analyse cette leçon et propose des mots
+   au lexique », « extrait les termes techniques du cours X », « enrichis
+   le lexique à partir de mon contenu », etc.
+
+   Paramètres :
+     - ``course_id`` (int, opt.) ou ``lesson_id`` (int, opt.) — contexte.
+     - ``scope`` (string, opt., défaut "global") : "global" ou "course".
+     - ``proposed_terms`` (array, requis) : liste d'objets
+       ``{{word, short_definition, long_definition?, category?, domain?,
+       level?, variants?, examples?, confidence?}}``.
+
+   Exemple d'appel :
+
+     <action>{{"tool": "analyze_content_for_glossary", "params": {{
+       "course_id": 42, "scope": "global",
+       "proposed_terms": [
+         {{"word": "BRVM", "short_definition": "Bourse Régionale des...",
+          "category": "Bourse", "level": "beginner",
+          "variants": ["Bourse régionale"], "confidence": 0.95}}
+       ]
+     }}}}</action>
+
 0. ``add_quiz_to_course`` — Ajoute un quiz à un cours DÉJÀ EN BASE.
    Réservé aux instructeurs et admins plateforme.
 

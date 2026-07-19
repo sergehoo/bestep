@@ -224,6 +224,203 @@ export function useSaveGlossaryNote() {
   });
 }
 
+// ─────────────────────────────────────────────────────────
+// Instructor CRUD (GLOSS-6)
+// ─────────────────────────────────────────────────────────
+
+export interface InstructorTermsFilters {
+  q?: string;
+  status?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export function useInstructorGlossaryTerms(filters: InstructorTermsFilters = {}) {
+  return useQuery({
+    queryKey: [KEY, 'instructor-terms', filters],
+    queryFn: async () => {
+      const { data } = await api.get<GlossaryPaginatedList>(
+        '/glossary/instructor/terms/',
+        { params: filters },
+      );
+      return data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export interface GlossaryTermWritePayload {
+  word: string;
+  short_definition: string;
+  long_definition?: string;
+  pronunciation?: string;
+  language?: string;
+  level?: 'beginner' | 'intermediate' | 'advanced';
+  category?: number | null;
+  domain?: string;
+  scope?: 'global' | 'course' | 'section' | 'lesson';
+  status?: 'draft' | 'pending';
+  is_active?: boolean;
+  is_case_sensitive?: boolean;
+  enable_auto_detection?: boolean;
+  illustration_url?: string;
+  external_source?: string;
+  variants?: Array<{
+    variant: string;
+    variant_type?:
+      | 'synonym'
+      | 'acronym'
+      | 'plural'
+      | 'abbreviation'
+      | 'alternative_spelling';
+    is_case_sensitive?: boolean;
+  }>;
+  examples?: Array<{ example: string; source?: string; order?: number }>;
+}
+
+export function useCreateGlossaryTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: GlossaryTermWritePayload) => {
+      const { data } = await api.post('/glossary/instructor/terms/', payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY, 'instructor-terms'] });
+      qc.invalidateQueries({ queryKey: [KEY, 'terms'] });
+    },
+  });
+}
+
+export function useUpdateGlossaryTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: Partial<GlossaryTermWritePayload>;
+    }) => {
+      const { data } = await api.patch(
+        `/glossary/instructor/terms/${id}/`,
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY, 'instructor-terms'] });
+      qc.invalidateQueries({ queryKey: [KEY, 'terms'] });
+    },
+  });
+}
+
+export function useDeleteGlossaryTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/glossary/instructor/terms/${id}/`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY, 'instructor-terms'] });
+      qc.invalidateQueries({ queryKey: [KEY, 'terms'] });
+    },
+  });
+}
+
+export function useSubmitGlossaryTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post(
+        `/glossary/instructor/terms/${id}/submit/`,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY, 'instructor-terms'] });
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────
+// Admin moderation (GLOSS-8)
+// ─────────────────────────────────────────────────────────
+
+export interface AdminTermsFilters {
+  q?: string;
+  status?: string;
+  scope?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export function useAdminGlossaryTerms(filters: AdminTermsFilters = {}) {
+  return useQuery({
+    queryKey: [KEY, 'admin-terms', filters],
+    queryFn: async () => {
+      const { data } = await api.get<GlossaryPaginatedList>(
+        '/glossary/admin/terms/',
+        { params: filters },
+      );
+      return data;
+    },
+    staleTime: 15_000,
+  });
+}
+
+export function useValidateGlossaryTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post(
+        `/glossary/admin/terms/${id}/validate/`,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY] });
+    },
+  });
+}
+
+export function useRejectGlossaryTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post(
+        `/glossary/admin/terms/${id}/reject/`,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY, 'admin-terms'] });
+    },
+  });
+}
+
+export function useMergeGlossaryTerms() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      sourceId,
+      targetId,
+    }: {
+      sourceId: number;
+      targetId: number;
+    }) => {
+      const { data } = await api.post(
+        `/glossary/admin/terms/${sourceId}/merge/`,
+        { target_id: targetId },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY] });
+    },
+  });
+}
+
 export function useSubmitGlossarySuggestion() {
   return useMutation({
     mutationFn: async (payload: {

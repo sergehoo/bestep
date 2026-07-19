@@ -21,6 +21,7 @@ import {
   Bell,
   User,
   History,
+  Library,
   LogOut,
   Menu,
   X,
@@ -50,6 +51,7 @@ const NAV_MAIN: NavItem[] = [
   { to: '/learn/certificates', label: 'Certificats', Icon: Award },
   { to: '/learn/badges', label: 'Badges', Icon: Trophy },
   { to: '/learn/goals', label: 'Objectifs', Icon: Target },
+  { to: '/mon-lexique', label: 'Mon lexique', Icon: Library },
 ];
 
 const NAV_PERSONAL: NavItem[] = [

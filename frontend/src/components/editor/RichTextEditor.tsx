@@ -210,6 +210,10 @@ export interface RichTextEditorHandle {
   /** Focus l'éditeur (utile après picker media pour rendre le curseur
    *  visible). */
   focus: () => void;
+  /** Retourne le texte actuellement sélectionné (ou "" si aucune sélection).
+   *  Utilisé par le plugin lexique pour pré-remplir le modal "Ajouter au
+   *  lexique" à partir du mot sélectionné. */
+  getSelectedText: () => string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -316,6 +320,16 @@ export const RichTextEditor = forwardRef<
       },
       focus: () => {
         editor?.chain().focus().run();
+      },
+      getSelectedText: () => {
+        if (!editor) return '';
+        const { from, to, empty } = editor.state.selection;
+        if (empty) return '';
+        try {
+          return editor.state.doc.textBetween(from, to, ' ').trim();
+        } catch {
+          return '';
+        }
       },
     }),
     [editor],

@@ -400,3 +400,272 @@ class GlossarySuggestionCreateView(APIView):
         ser.is_valid(raise_exception=True)
         ser.save(suggested_by=request.user)
         return Response(ser.data, status=status.HTTP_201_CREATED)
+
+
+# ─────────────────────────────────────────────────────────────
+# INSTRUCTOR CRUD (page /formateur/lexique)
+# ─────────────────────────────────────────────────────────────
+
+def _is_instructor(user) -> bool:
+    return bool(
+        user
+        and user.is_authenticated
+        and (
+            getattr(user, "is_platform_admin", False)
+            or getattr(user, "is_instructor", False)
+        )
+    )
+
+
+class InstructorGlossaryListView(APIView):
+    """GET /api/glossary/instructor/terms/ — mes termes + tous les statuts.
+    POST identique — création directe.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _is_instructor(request.user):
+            return Response({"detail": "Réservé aux formateurs."}, status=403)
+        qs = GlossaryTerm.objects.filter(created_by=request.user).select_related(
+            "category"
+        )
+        status_filter = (request.query_params.get("status") or "").strip()
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            key = normalize_search_key(q)
+            qs = qs.filter(
+                Q(search_key__icontains=key) | Q(word__icontains=q)
+            )
+        qs = qs.annotate(variants_count=Count("variants", distinct=True)).order_by(
+            "-updated_at"
+        )
+        paginator = GlossaryPagination()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        ser = GlossaryTermListSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(ser.data)
+
+    def post(self, request):
+        if not _is_instructor(request.user):
+            return Response({"detail": "Réservé aux formateurs."}, status=403)
+        from .serializers import GlossaryTermWriteSerializer
+
+        ser = GlossaryTermWriteSerializer(data=request.data, context={"request": request})
+        ser.is_valid(raise_exception=True)
+        term = ser.save()
+        return Response(
+            GlossaryTermDetailSerializer(term, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class InstructorGlossaryDetailView(APIView):
+    """GET/PATCH/DELETE /api/glossary/instructor/terms/<id>/ — mes termes."""
+    permission_classes = [IsAuthenticated]
+
+    def _own_qs(self, user):
+        # Instructor : ne modifie que ses termes. Admin : tout.
+        if getattr(user, "is_platform_admin", False):
+            return GlossaryTerm.objects.all()
+        return GlossaryTerm.objects.filter(created_by=user)
+
+    def get(self, request, term_id: int):
+        if not _is_instructor(request.user):
+            return Response({"detail": "Réservé aux formateurs."}, status=403)
+        term = get_object_or_404(self._own_qs(request.user), pk=term_id)
+        return Response(
+            GlossaryTermDetailSerializer(term, context={"request": request}).data
+        )
+
+    def patch(self, request, term_id: int):
+        if not _is_instructor(request.user):
+            return Response({"detail": "Réservé aux formateurs."}, status=403)
+        from .serializers import GlossaryTermWriteSerializer
+
+        term = get_object_or_404(self._own_qs(request.user), pk=term_id)
+        ser = GlossaryTermWriteSerializer(
+            term, data=request.data, partial=True, context={"request": request}
+        )
+        ser.is_valid(raise_exception=True)
+        term = ser.save()
+        return Response(
+            GlossaryTermDetailSerializer(term, context={"request": request}).data
+        )
+
+    def delete(self, request, term_id: int):
+        if not _is_instructor(request.user):
+            return Response({"detail": "Réservé aux formateurs."}, status=403)
+        term = get_object_or_404(self._own_qs(request.user), pk=term_id)
+        term.is_active = False
+        term.status = GlossaryTerm.Status.ARCHIVED
+        term.save(update_fields=["is_active", "status", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─────────────────────────────────────────────────────────────
+# ADMIN MODERATION (page /admin/lexique)
+# ─────────────────────────────────────────────────────────────
+
+def _is_platform_admin(user) -> bool:
+    return bool(
+        user
+        and user.is_authenticated
+        and getattr(user, "is_platform_admin", False)
+    )
+
+
+class AdminGlossaryListView(APIView):
+    """GET /api/glossary/admin/terms/ — TOUS les termes tous statuts."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _is_platform_admin(request.user):
+            return Response({"detail": "Réservé aux administrateurs."}, status=403)
+        qs = GlossaryTerm.objects.select_related("category", "created_by")
+        status_filter = (request.query_params.get("status") or "").strip()
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            key = normalize_search_key(q)
+            qs = qs.filter(
+                Q(search_key__icontains=key) | Q(word__icontains=q)
+            )
+        scope = request.query_params.get("scope")
+        if scope:
+            qs = qs.filter(scope=scope)
+        qs = qs.annotate(variants_count=Count("variants", distinct=True)).order_by(
+            "-updated_at"
+        )
+        paginator = GlossaryPagination()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        ser = GlossaryTermListSerializer(
+            page, many=True, context={"request": request}
+        )
+        return paginator.get_paginated_response(ser.data)
+
+
+class AdminGlossaryValidateView(APIView):
+    """POST /api/glossary/admin/terms/<id>/validate/ — valide un terme."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, term_id: int):
+        if not _is_platform_admin(request.user):
+            return Response({"detail": "Réservé aux administrateurs."}, status=403)
+        term = get_object_or_404(GlossaryTerm, pk=term_id)
+        term.status = GlossaryTerm.Status.VALIDATED
+        term.is_active = True
+        term.validated_by = request.user
+        if not term.published_at:
+            term.published_at = timezone.now()
+        term.save(
+            update_fields=[
+                "status", "is_active", "validated_by",
+                "published_at", "updated_at",
+            ]
+        )
+        return Response(
+            {"detail": "Terme validé et publié.", "status": term.status}
+        )
+
+
+class AdminGlossaryRejectView(APIView):
+    """POST /api/glossary/admin/terms/<id>/reject/ — rejette un terme."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, term_id: int):
+        if not _is_platform_admin(request.user):
+            return Response({"detail": "Réservé aux administrateurs."}, status=403)
+        term = get_object_or_404(GlossaryTerm, pk=term_id)
+        term.status = GlossaryTerm.Status.REJECTED
+        term.is_active = False
+        term.save(update_fields=["status", "is_active", "updated_at"])
+        return Response(
+            {"detail": "Terme rejeté.", "status": term.status}
+        )
+
+
+class AdminGlossaryMergeView(APIView):
+    """POST /api/glossary/admin/terms/<id>/merge/ — fusionne deux doublons.
+
+    Payload : {"target_id": N}. Le terme <id> est archivé, ses associations
+    et favoris sont transférés vers <target_id>.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, term_id: int):
+        from .models import (
+            GlossaryAssociation, GlossaryFavorite, GlossaryView,
+        )
+
+        if not _is_platform_admin(request.user):
+            return Response({"detail": "Réservé aux administrateurs."}, status=403)
+        source = get_object_or_404(GlossaryTerm, pk=term_id)
+        try:
+            target_id = int(request.data.get("target_id") or 0)
+        except (TypeError, ValueError):
+            return Response({"detail": "target_id manquant."}, status=400)
+        if target_id == source.pk:
+            return Response({"detail": "Impossible de fusionner un terme avec lui-même."}, status=400)
+        target = get_object_or_404(GlossaryTerm, pk=target_id)
+
+        from django.db import transaction as _tx
+        with _tx.atomic():
+            # Transfère associations (ignore doublons possibles).
+            for assoc in GlossaryAssociation.objects.filter(term=source):
+                exists = GlossaryAssociation.objects.filter(
+                    term=target, course=assoc.course,
+                    section=assoc.section, lesson=assoc.lesson,
+                ).exists()
+                if not exists:
+                    assoc.term = target
+                    assoc.save(update_fields=["term"])
+                else:
+                    assoc.delete()
+            # Transfère favoris.
+            for fav in GlossaryFavorite.objects.filter(term=source):
+                if not GlossaryFavorite.objects.filter(
+                    user=fav.user, term=target
+                ).exists():
+                    fav.term = target
+                    fav.save(update_fields=["term"])
+                else:
+                    fav.delete()
+            # Transfère l'historique de vues.
+            GlossaryView.objects.filter(term=source).update(term=target)
+            # Archive le source.
+            source.status = GlossaryTerm.Status.ARCHIVED
+            source.is_active = False
+            source.save(update_fields=["status", "is_active", "updated_at"])
+
+        return Response(
+            {
+                "detail": f"« {source.word} » fusionné dans « {target.word} ».",
+                "source_id": source.pk,
+                "target_id": target.pk,
+            }
+        )
+
+
+class InstructorGlossarySubmitView(APIView):
+    """POST /api/glossary/instructor/terms/<id>/submit/ — soumettre pour
+    validation (passe de draft → pending)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, term_id: int):
+        if not _is_instructor(request.user):
+            return Response({"detail": "Réservé aux formateurs."}, status=403)
+        qs = (
+            GlossaryTerm.objects.all()
+            if getattr(request.user, "is_platform_admin", False)
+            else GlossaryTerm.objects.filter(created_by=request.user)
+        )
+        term = get_object_or_404(qs, pk=term_id)
+        if term.status not in {GlossaryTerm.Status.DRAFT, GlossaryTerm.Status.REJECTED}:
+            return Response(
+                {"detail": f"Terme déjà en statut {term.status}."}, status=400
+            )
+        term.status = GlossaryTerm.Status.PENDING
+        term.save(update_fields=["status", "updated_at"])
+        return Response({"detail": "Terme soumis pour validation.", "status": term.status})

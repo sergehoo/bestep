@@ -29,4 +29,15 @@ urlpatterns = [
     # Détection dans un cours / leçon
     path("courses/<slug:slug>/terms/", v.GlossaryCourseTermsView.as_view(), name="course-terms"),
     path("lessons/<int:lesson_id>/terms/", v.GlossaryLessonTermsView.as_view(), name="lesson-terms"),
+
+    # GLOSS-6 — CRUD formateur (mes termes + soumission au global).
+    path("instructor/terms/", v.InstructorGlossaryListView.as_view(), name="instructor-terms"),
+    path("instructor/terms/<int:term_id>/", v.InstructorGlossaryDetailView.as_view(), name="instructor-term-detail"),
+    path("instructor/terms/<int:term_id>/submit/", v.InstructorGlossarySubmitView.as_view(), name="instructor-term-submit"),
+
+    # GLOSS-8 — Modération admin (validation, rejet, fusion de doublons).
+    path("admin/terms/", v.AdminGlossaryListView.as_view(), name="admin-terms"),
+    path("admin/terms/<int:term_id>/validate/", v.AdminGlossaryValidateView.as_view(), name="admin-term-validate"),
+    path("admin/terms/<int:term_id>/reject/", v.AdminGlossaryRejectView.as_view(), name="admin-term-reject"),
+    path("admin/terms/<int:term_id>/merge/", v.AdminGlossaryMergeView.as_view(), name="admin-term-merge"),
 ]
