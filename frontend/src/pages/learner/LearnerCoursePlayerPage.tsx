@@ -43,6 +43,8 @@ import {
 } from '@/hooks/player';
 import { extractApiError, formatDuration, cn } from '@/lib/utils';
 import type { PlayerLesson } from '@/lib/types';
+// GLOSS — Détection des termes du lexique dans le contenu de la leçon.
+import { GlossaryContent } from '@/components/glossary/GlossaryContent';
 
 // Classes prose pour le rendu du HTML riche produit par Tiptap.
 const LESSON_PROSE_CLASSES = cn(
@@ -463,9 +465,16 @@ function LessonPlayer({
                 </p>
               </div>
             )}
-            <div
+            {/* GLOSS — Contenu HTML enrobé par le détecteur de lexique.
+                Les termes reconnus deviennent des boutons cliquables
+                (tooltip + lien vers /lexique/:slug). Le contenu source
+                n'est PAS modifié en base — le wrapping est purement
+                visuel au moment du rendu. */}
+            <GlossaryContent
+              html={state.lesson.content}
+              lessonId={state.lesson.id}
               className={LESSON_PROSE_CLASSES}
-              dangerouslySetInnerHTML={{ __html: state.lesson.content }}
+              skipHeadings
             />
           </>
         )}

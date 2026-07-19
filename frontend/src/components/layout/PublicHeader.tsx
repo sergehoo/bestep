@@ -45,6 +45,7 @@ export function PublicHeader() {
   const NAV_LINKS_PUBLIC = [
     { to: '/', label: t('nav.home') },
     { to: '/catalogue', label: t('nav.courses') },
+    { to: '/lexique', label: 'Lexique' },
   ];
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);

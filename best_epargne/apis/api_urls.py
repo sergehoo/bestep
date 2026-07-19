@@ -94,6 +94,9 @@ from drf_spectacular.views import (  # noqa: E402
 )
 
 urlpatterns = [
+    # GLOSS — Module lexique pédagogique (dictionnaire interne).
+    path("glossary/", include(("glossary.urls", "glossary"), namespace="glossary")),
+
     # V_OBS.A : documentation OpenAPI auto-générée.
     path("schema/", SpectacularAPIView.as_view(), name="api-schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-docs"),

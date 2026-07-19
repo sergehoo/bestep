@@ -107,6 +107,8 @@ INSTALLED_APPS = [
     "enrollments",
     "reviews",
     "formations",
+    # GLOSS — Module lexique pédagogique (dictionnaire interne).
+    "glossary",
 ]
 
 MIDDLEWARE = [

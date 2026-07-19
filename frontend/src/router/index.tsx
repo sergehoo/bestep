@@ -22,6 +22,9 @@ import { DashboardResolver } from '@/components/DashboardResolver';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 // T7 — Landing publique B2B "Espace Entreprise"
 const EnterprisePage = lazy(() => import('@/pages/EnterprisePage'));
+// GLOSS — Lexique pédagogique
+const GlossaryPage = lazy(() => import('@/pages/GlossaryPage'));
+const GlossaryTermPage = lazy(() => import('@/pages/GlossaryTermPage'));
 const CatalogPage = lazy(() => import('@/pages/CatalogPage'));
 const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage'));
 const CertifyPage = lazy(() => import('@/pages/CertifyPage'));
@@ -290,6 +293,23 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageSpinner />}>
         <EnterprisePage />
+      </Suspense>
+    ),
+  },
+  // GLOSS — Lexique pédagogique (dictionnaire interne).
+  {
+    path: '/lexique',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <GlossaryPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/lexique/:slug',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <GlossaryTermPage />
       </Suspense>
     ),
   },

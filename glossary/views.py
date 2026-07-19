@@ -1,0 +1,402 @@
+"""glossary.views — Endpoints REST du lexique."""
+from __future__ import annotations
+
+from typing import Optional
+
+from django.db.models import Count, Q, Exists, OuterRef, F
+from django.db.models.functions import Upper, Substr
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import (
+    GlossaryCategory,
+    GlossaryTerm,
+    GlossaryFavorite,
+    GlossaryUserNote,
+    GlossarySuggestion,
+    GlossaryView,
+    normalize_search_key,
+)
+from .serializers import (
+    GlossaryCategorySerializer,
+    GlossaryTermListSerializer,
+    GlossaryTermDetailSerializer,
+    GlossaryTermDetectSerializer,
+    GlossaryTermWriteSerializer,
+    GlossarySuggestionSerializer,
+    GlossaryUserNoteSerializer,
+)
+
+
+# ─────────────────────────────────────────────────────────────
+# Pagination
+# ─────────────────────────────────────────────────────────────
+
+class GlossaryPagination(PageNumberPagination):
+    page_size = 30
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+# ─────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────
+
+def _active_public_terms():
+    """Termes actifs, validés, globaux ou associés à un cours publié."""
+    return (
+        GlossaryTerm.objects.filter(is_active=True, status=GlossaryTerm.Status.VALIDATED)
+        .select_related("category")
+    )
+
+
+def _annotate_for_list(qs, user):
+    qs = qs.annotate(variants_count=Count("variants", distinct=True))
+    if user and user.is_authenticated:
+        fav_sq = GlossaryFavorite.objects.filter(user=user, term=OuterRef("pk"))
+        qs = qs.annotate(_is_favorite=Exists(fav_sq))
+    return qs
+
+
+# ─────────────────────────────────────────────────────────────
+# LISTE / DÉTAIL
+# ─────────────────────────────────────────────────────────────
+
+class GlossaryTermListView(APIView):
+    """GET /api/glossary/terms/ — liste paginée + filtres.
+
+    Query params :
+      - q : recherche libre (mot, variantes, définition)
+      - letter : filtre alphabet (A-Z ou '#' pour autres)
+      - category : slug catégorie
+      - domain : chaîne exacte
+      - level : beginner|intermediate|advanced
+      - course : slug cours (retourne termes associés au cours)
+      - ordering : recent | popular | alpha (défaut alpha)
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = _active_public_terms()
+
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            key = normalize_search_key(q)
+            qs = qs.filter(
+                Q(search_key__icontains=key)
+                | Q(variants__search_key__icontains=key)
+                | Q(short_definition__icontains=q)
+                | Q(long_definition__icontains=q)
+            ).distinct()
+
+        letter = (request.query_params.get("letter") or "").strip().lower()
+        if letter:
+            if letter == "#":
+                # Termes qui ne commencent pas par une lettre.
+                qs = qs.exclude(search_key__regex=r"^[a-z]")
+            elif len(letter) == 1 and letter.isalpha():
+                qs = qs.filter(search_key__startswith=letter)
+
+        cat = request.query_params.get("category")
+        if cat:
+            qs = qs.filter(category__slug=cat)
+
+        domain = request.query_params.get("domain")
+        if domain:
+            qs = qs.filter(domain__iexact=domain)
+
+        level = request.query_params.get("level")
+        if level:
+            qs = qs.filter(level=level)
+
+        course_slug = request.query_params.get("course")
+        if course_slug:
+            qs = qs.filter(associations__course__slug=course_slug).distinct()
+
+        ordering = request.query_params.get("ordering", "alpha")
+        if ordering == "recent":
+            qs = qs.order_by("-updated_at")
+        elif ordering == "popular":
+            qs = qs.order_by("-view_count", "word")
+        else:
+            qs = qs.order_by("search_key", "word")
+
+        qs = _annotate_for_list(qs, request.user)
+
+        paginator = GlossaryPagination()
+        page = paginator.paginate_queryset(qs, request, view=self)
+        ser = GlossaryTermListSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(ser.data)
+
+
+class GlossaryTermDetailView(APIView):
+    """GET /api/glossary/terms/:slug/ — page détail."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug: str):
+        term = get_object_or_404(
+            GlossaryTerm.objects.select_related("category").prefetch_related(
+                "variants", "examples",
+                "relations_out__target_term",
+                "associations__course",
+            ),
+            slug=slug, is_active=True,
+        )
+        # Trace la consultation (best-effort, ignore erreurs).
+        try:
+            user = request.user if request.user.is_authenticated else None
+            GlossaryView.objects.create(user=user, term=term)
+            GlossaryTerm.objects.filter(pk=term.pk).update(
+                view_count=F("view_count") + 1
+            )
+        except Exception:
+            pass
+        ser = GlossaryTermDetailSerializer(term, context={"request": request})
+        return Response(ser.data)
+
+
+# ─────────────────────────────────────────────────────────────
+# RECHERCHE INSTANTANÉE / AUTOCOMPLÉTION
+# ─────────────────────────────────────────────────────────────
+
+class GlossaryTermSearchView(APIView):
+    """GET /api/glossary/terms/search/?q=... — autocomplétion (max 20)."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        q = (request.query_params.get("q") or "").strip()
+        if len(q) < 1:
+            return Response([])
+        key = normalize_search_key(q)
+        qs = (
+            _active_public_terms()
+            .filter(
+                Q(search_key__startswith=key)
+                | Q(variants__search_key__startswith=key)
+                | Q(word__icontains=q)
+            )
+            .distinct()
+            .order_by("search_key")[:20]
+        )
+        ser = GlossaryTermListSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)
+
+
+# ─────────────────────────────────────────────────────────────
+# ALPHABET, POPULAIRES, RÉCENTS
+# ─────────────────────────────────────────────────────────────
+
+class GlossaryAlphabetIndexView(APIView):
+    """GET /api/glossary/terms/alphabet/ — compte de termes par lettre."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = _active_public_terms()
+        counts = (
+            qs.annotate(letter=Upper(Substr("search_key", 1, 1)))
+            .values("letter")
+            .annotate(n=Count("id"))
+            .order_by("letter")
+        )
+        total = qs.count()
+        by_letter = {c["letter"] or "#": c["n"] for c in counts}
+        return Response({"total": total, "by_letter": by_letter})
+
+
+class GlossaryPopularView(APIView):
+    """GET /api/glossary/terms/popular/ — top 12 par view_count."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = _active_public_terms().order_by("-view_count", "word")[:12]
+        qs = _annotate_for_list(qs, request.user)
+        ser = GlossaryTermListSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)
+
+
+class GlossaryRecentView(APIView):
+    """GET /api/glossary/terms/recent/ — 12 derniers ajoutés."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = _active_public_terms().order_by("-updated_at")[:12]
+        qs = _annotate_for_list(qs, request.user)
+        ser = GlossaryTermListSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)
+
+
+class GlossaryCategoryListView(APIView):
+    """GET /api/glossary/categories/ — liste catégories actives + compte."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = (
+            GlossaryCategory.objects.filter(is_active=True)
+            .annotate(
+                terms_count=Count(
+                    "terms",
+                    filter=Q(
+                        terms__is_active=True,
+                        terms__status=GlossaryTerm.Status.VALIDATED,
+                    ),
+                    distinct=True,
+                )
+            )
+            .order_by("order", "name")
+        )
+        return Response(GlossaryCategorySerializer(qs, many=True).data)
+
+
+# ─────────────────────────────────────────────────────────────
+# TERMES D'UN COURS / LEÇON (pour détection frontend)
+# ─────────────────────────────────────────────────────────────
+
+class GlossaryCourseTermsView(APIView):
+    """GET /api/glossary/courses/<slug>/terms/
+
+    Renvoie un payload compact utilisé par la détection côté client :
+    liste des termes actifs ayant une association avec le cours OU
+    étant globaux (avec ``enable_auto_detection=True``).
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, slug: str):
+        from catalog.models import Course
+
+        course = get_object_or_404(Course, slug=slug)
+        base = (
+            GlossaryTerm.objects.filter(
+                is_active=True,
+                status=GlossaryTerm.Status.VALIDATED,
+                enable_auto_detection=True,
+            )
+            .prefetch_related("variants")
+        )
+        # Termes globaux + associés à ce cours.
+        qs = base.filter(
+            Q(scope=GlossaryTerm.Scope.GLOBAL)
+            | Q(associations__course=course, associations__is_detection_enabled=True)
+        ).distinct().order_by(F("word").desc())  # ordre : longs d'abord (détection prio)
+        ser = GlossaryTermDetectSerializer(qs, many=True)
+        return Response({
+            "course": {"id": course.id, "slug": course.slug, "title": course.title},
+            "terms": ser.data,
+            "count": len(ser.data),
+        })
+
+
+class GlossaryLessonTermsView(APIView):
+    """GET /api/glossary/lessons/<lesson_id>/terms/ — variante par leçon."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, lesson_id: int):
+        from catalog.models import Lesson
+
+        lesson = get_object_or_404(
+            Lesson.objects.select_related("section__course"), pk=lesson_id
+        )
+        course = lesson.section.course
+        base = (
+            GlossaryTerm.objects.filter(
+                is_active=True,
+                status=GlossaryTerm.Status.VALIDATED,
+                enable_auto_detection=True,
+            )
+            .prefetch_related("variants")
+        )
+        qs = base.filter(
+            Q(scope=GlossaryTerm.Scope.GLOBAL)
+            | Q(associations__course=course, associations__is_detection_enabled=True)
+        ).distinct()
+        ser = GlossaryTermDetectSerializer(qs, many=True)
+        return Response({
+            "lesson_id": lesson.id,
+            "course_id": course.id,
+            "terms": ser.data,
+            "count": len(ser.data),
+        })
+
+
+# ─────────────────────────────────────────────────────────────
+# FAVORIS
+# ─────────────────────────────────────────────────────────────
+
+class GlossaryFavoriteView(APIView):
+    """POST/DELETE /api/glossary/terms/:slug/favorite/ — toggle favori."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, slug: str):
+        term = get_object_or_404(GlossaryTerm, slug=slug, is_active=True)
+        _, created = GlossaryFavorite.objects.get_or_create(
+            user=request.user, term=term
+        )
+        return Response(
+            {"detail": "Ajouté aux favoris." if created else "Déjà en favoris."},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    def delete(self, request, slug: str):
+        term = get_object_or_404(GlossaryTerm, slug=slug)
+        GlossaryFavorite.objects.filter(user=request.user, term=term).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GlossaryMyFavoritesView(APIView):
+    """GET /api/glossary/my/favorites/ — mes favoris."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = (
+            GlossaryTerm.objects.filter(favorited_by__user=request.user, is_active=True)
+            .select_related("category")
+            .order_by("-favorited_by__created_at")
+        )
+        qs = _annotate_for_list(qs, request.user)
+        ser = GlossaryTermListSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)
+
+
+# ─────────────────────────────────────────────────────────────
+# NOTES PERSONNELLES
+# ─────────────────────────────────────────────────────────────
+
+class GlossaryUserNoteView(APIView):
+    """PUT /api/glossary/terms/:slug/note/ — upsert note perso."""
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, slug: str):
+        term = get_object_or_404(GlossaryTerm, slug=slug, is_active=True)
+        note_txt = str(request.data.get("note") or "")[:5000]
+        note_status = (request.data.get("status") or "new").lower()
+        if note_status not in {v for v, _ in GlossaryUserNote.Status.choices}:
+            note_status = "new"
+        obj, _ = GlossaryUserNote.objects.update_or_create(
+            user=request.user, term=term,
+            defaults={"note": note_txt, "status": note_status},
+        )
+        return Response(GlossaryUserNoteSerializer(obj).data)
+
+    def delete(self, request, slug: str):
+        term = get_object_or_404(GlossaryTerm, slug=slug)
+        GlossaryUserNote.objects.filter(user=request.user, term=term).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─────────────────────────────────────────────────────────────
+# SUGGESTIONS
+# ─────────────────────────────────────────────────────────────
+
+class GlossarySuggestionCreateView(APIView):
+    """POST /api/glossary/suggestions/ — proposer un terme / erreur."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        ser = GlossarySuggestionSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        ser.save(suggested_by=request.user)
+        return Response(ser.data, status=status.HTTP_201_CREATED)
