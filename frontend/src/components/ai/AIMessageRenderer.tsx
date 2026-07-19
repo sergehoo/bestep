@@ -31,6 +31,123 @@ function esc(s: string): string {
     .replace(/>/g, '&gt;');
 }
 
+// Tags HTML autorisés en passthrough (whitelist stricte). Toute autre balise
+// est réencodée en texte via esc(). Les attributs sont filtrés à leur tour.
+const ALLOWED_TAGS = new Set([
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'p', 'br', 'hr', 'span', 'div', 'section', 'article',
+  'strong', 'b', 'em', 'i', 'u', 's', 'del', 'mark', 'small', 'sub', 'sup',
+  'ul', 'ol', 'li',
+  'blockquote', 'pre', 'code', 'kbd',
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption',
+  'a', 'img',
+  'figure', 'figcaption',
+]);
+const ALLOWED_ATTRS: Record<string, Set<string>> = {
+  a: new Set(['href', 'title', 'target', 'rel']),
+  img: new Set(['src', 'alt', 'title', 'width', 'height']),
+  th: new Set(['colspan', 'rowspan', 'align']),
+  td: new Set(['colspan', 'rowspan', 'align']),
+};
+
+/** Classes Tailwind injectées automatiquement quand une balise HTML brute
+ *  passe le filtre — donne un rendu cohérent avec le parser Markdown. */
+const TAG_STYLES: Record<string, string> = {
+  h1: 'mt-4 mb-2 text-lg font-extrabold',
+  h2: 'mt-4 mb-1.5 text-base font-extrabold',
+  h3: 'mt-3 mb-1 text-sm font-extrabold',
+  h4: 'mt-3 mb-1 text-sm font-bold',
+  h5: 'mt-2 mb-1 text-xs font-bold uppercase tracking-wide text-neutral-500',
+  h6: 'mt-2 mb-1 text-xs font-bold uppercase tracking-wide text-neutral-500',
+  p: 'my-1.5 leading-relaxed',
+  ul: 'list-disc list-outside pl-5 my-2 space-y-1',
+  ol: 'list-decimal list-outside pl-5 my-2 space-y-1',
+  blockquote:
+    'my-2 pl-3 border-l-2 border-primary-400 text-neutral-600 dark:text-neutral-300 italic',
+  hr: 'my-3 border-neutral-200 dark:border-neutral-700',
+  table:
+    'w-full text-xs border-collapse rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 my-2',
+  th: 'px-2 py-1.5 text-left font-bold border-b border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800',
+  td: 'px-2 py-1.5 text-left border-b border-neutral-100 dark:border-neutral-800 align-top',
+  pre: 'my-2 p-3 rounded-lg bg-neutral-900 text-neutral-100 text-xs font-mono overflow-x-auto',
+  code: 'px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 font-mono text-[0.85em]',
+  a: 'text-primary-600 dark:text-primary-400 underline underline-offset-2 hover:no-underline break-all',
+  img: 'max-w-full h-auto rounded-lg my-2',
+  strong: 'font-bold',
+  b: 'font-bold',
+  em: 'italic',
+  i: 'italic',
+};
+
+/** Sanitize une chaîne HTML brute en passthrough des tags whitelisted et
+ *  escape strict pour le reste. Ne parse pas le DOM (pas de dépendance),
+ *  reste léger — c'est un scanner de tokens. */
+function sanitizeHtml(input: string): string {
+  const out: string[] = [];
+  let i = 0;
+  const n = input.length;
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9]*)(\s+[^>]*)?\/?>/g;
+  let m: RegExpExecArray | null;
+  tagRe.lastIndex = 0;
+  while ((m = tagRe.exec(input)) !== null) {
+    // Texte entre le dernier match et celui-ci : escape.
+    if (m.index > i) out.push(esc(input.slice(i, m.index)));
+    const raw = m[0];
+    const tag = m[1].toLowerCase();
+    const isClosing = raw.startsWith('</');
+    const isSelfClose = raw.endsWith('/>') || /^(br|hr|img)$/.test(tag);
+    if (ALLOWED_TAGS.has(tag)) {
+      if (isClosing) {
+        out.push(`</${tag}>`);
+      } else {
+        // Extrait les attributs autorisés (`attr="val"` ou `attr='val'`).
+        const attrs: string[] = [];
+        const rawAttrs = m[2] || '';
+        const attrRe = /([a-zA-Z:_-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
+        let am: RegExpExecArray | null;
+        while ((am = attrRe.exec(rawAttrs)) !== null) {
+          const name = am[1].toLowerCase();
+          const val = am[3] ?? am[4] ?? '';
+          const allowed = ALLOWED_ATTRS[tag];
+          if (!allowed || !allowed.has(name)) continue;
+          // Blocage schemes dangereux
+          if (
+            (name === 'href' || name === 'src')
+            && /^(javascript|data|vbscript):/i.test(val.trim())
+          ) {
+            continue;
+          }
+          attrs.push(`${name}="${esc(val)}"`);
+        }
+        // Sécurité liens : target=_blank → rel noopener noreferrer
+        if (tag === 'a' && attrs.some((a) => /^target=/.test(a))) {
+          if (!attrs.some((a) => /^rel=/.test(a))) {
+            attrs.push('rel="noopener noreferrer"');
+          }
+        }
+        // Style Tailwind auto
+        const cls = TAG_STYLES[tag];
+        if (cls) attrs.push(`class="${cls}"`);
+        out.push(
+          `<${tag}${attrs.length ? ' ' + attrs.join(' ') : ''}${isSelfClose ? ' /' : ''}>`,
+        );
+      }
+    } else {
+      // Tag non whitelisted → réencode en texte visible.
+      out.push(esc(raw));
+    }
+    i = m.index + raw.length;
+  }
+  if (i < n) out.push(esc(input.slice(i)));
+  return out.join('');
+}
+
+/** Détecte si un contenu ressemble à du HTML riche (au moins une balise
+ *  block whitelistée). Sinon → parser Markdown. */
+function looksLikeHtml(s: string): boolean {
+  return /<\s*(h[1-6]|p|ul|ol|li|table|blockquote|pre|div|section|article)\b/i.test(s);
+}
+
 function inline(text: string): string {
   let out = esc(text);
   // Code inline (avant les autres transforms qui pourraient toucher au contenu)
@@ -277,7 +394,12 @@ export function AIMessageRenderer({ content, className }: Props) {
     () => (content || '').replace(/<action>[\s\S]*?<\/action>/g, '').trim(),
     [content],
   );
-  const html = useMemo(() => renderBlocks(cleaned), [cleaned]);
+  // Détection : HTML riche → sanitize + passthrough. Markdown → parser
+  // custom (renderBlocks). Le second cas escape aussi le HTML restant.
+  const html = useMemo(() => {
+    if (looksLikeHtml(cleaned)) return sanitizeHtml(cleaned);
+    return renderBlocks(cleaned);
+  }, [cleaned]);
   return (
     <div
       className={

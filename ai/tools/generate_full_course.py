@@ -46,6 +46,8 @@ dédiés (``publish_course``, ``enroll_learner``) + validation métier.
 """
 from __future__ import annotations
 
+import json
+import re
 from decimal import Decimal
 from typing import Any, Dict, List
 
@@ -60,6 +62,147 @@ MAX_SECTIONS = 30
 MAX_LESSONS_PER_SECTION = 30
 LESSON_TYPES = {"VIDEO", "TEXT", "FILE", "QUIZ", "LIVE"}
 LEVELS = {"BEGINNER", "INTERMEDIATE", "ADVANCED"}
+
+
+def _slugify_unique_quiz(title: str) -> str:
+    """Génère un slug unique pour assessments.Quiz (max 80)."""
+    from assessments.models import Quiz
+
+    base = slugify(title)[:70] or "quiz-ia"
+    slug = base
+    idx = 1
+    while Quiz.objects.filter(slug=slug).exists():
+        idx += 1
+        suffix = f"-{idx}"
+        slug = base[: 80 - len(suffix)] + suffix
+    return slug
+
+
+def _parse_quiz_payload(raw: str) -> Dict[str, Any]:
+    """Extrait `{questions: [...]}` du contenu d'une leçon QUIZ.
+
+    Le contenu peut être :
+      - Un JSON pur : `{"questions": [...]}`
+      - Un JSON dans un bloc code : ```json { ... } ```
+      - Une string qui contient les 2 (on cherche le premier `{ ... }`
+        équilibré qui contient la clé `questions`).
+
+    Retourne `{}` si non parsable.
+    """
+    if not raw:
+        return {}
+    txt = raw.strip()
+    # Retire un éventuel bloc fenced (```json ... ``` ou ``` ... ```).
+    fenced = re.match(r"^```(?:json)?\s*([\s\S]+?)\s*```$", txt)
+    if fenced:
+        txt = fenced.group(1).strip()
+
+    # Tentative directe.
+    try:
+        data = json.loads(txt)
+        if isinstance(data, dict) and isinstance(data.get("questions"), list):
+            return data
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Fallback : trouve la première accolade équilibrée qui contient
+    # "questions". Utile quand le contenu contient à la fois du HTML
+    # descriptif ET un JSON.
+    start = txt.find("{")
+    while start != -1:
+        depth = 0
+        for j, ch in enumerate(txt[start:], start):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = txt[start : j + 1]
+                    try:
+                        data = json.loads(candidate)
+                        if isinstance(data, dict) and isinstance(
+                            data.get("questions"), list
+                        ):
+                            return data
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                    break
+        start = txt.find("{", start + 1)
+    return {}
+
+
+def _create_quiz_from_payload(
+    lesson, section, course, payload: Dict[str, Any]
+) -> int:
+    """Crée un Quiz + Question(s) + Choice(s) attachés à la leçon.
+
+    Retourne le nombre de questions créées (0 = pas de quiz créé).
+
+    Accepte 2 formats de question :
+      - multiple_choice : options=[{text, correct}, ...]
+      - true_false : correct=bool (Vrai/Faux comme choix)
+    """
+    from assessments.models import Quiz, Question, Choice
+
+    questions_raw = payload.get("questions") or []
+    if not isinstance(questions_raw, list) or not questions_raw:
+        return 0
+
+    quiz = Quiz.objects.create(
+        title=lesson.title[:200],
+        slug=_slugify_unique_quiz(lesson.title),
+        course=course,
+        section=section,
+        lesson=lesson,
+        is_active=True,
+        passing_score=70,
+        max_attempts=3,
+    )
+
+    created = 0
+    for order_idx, q in enumerate(questions_raw, start=1):
+        if not isinstance(q, dict):
+            continue
+        prompt = str(q.get("question") or q.get("prompt") or "").strip()
+        if not prompt:
+            continue
+        question = Question.objects.create(
+            quiz=quiz, prompt=prompt[:2000], order=order_idx
+        )
+
+        qtype = str(q.get("type") or "multiple_choice").lower()
+        if qtype in ("true_false", "boolean", "tf"):
+            correct_val = bool(q.get("correct"))
+            Choice.objects.create(
+                question=question, text="Vrai", is_correct=correct_val
+            )
+            Choice.objects.create(
+                question=question, text="Faux", is_correct=not correct_val
+            )
+        else:
+            opts = q.get("options") or []
+            if not isinstance(opts, list) or not opts:
+                # Question sans options → on la retire.
+                question.delete()
+                continue
+            for opt in opts:
+                if isinstance(opt, dict):
+                    text = str(opt.get("text") or "").strip()
+                    is_correct = bool(opt.get("correct"))
+                else:
+                    text = str(opt).strip()
+                    is_correct = False
+                if not text:
+                    continue
+                Choice.objects.create(
+                    question=question, text=text[:500], is_correct=is_correct
+                )
+        created += 1
+
+    if created == 0:
+        # Rien de valide → on supprime le quiz vide.
+        quiz.delete()
+    return created
 
 
 def _slugify_unique(title: str) -> str:
@@ -239,8 +382,30 @@ class GenerateFullCourseTool(AbstractAITool):
                     language=language,
                 )
 
+                # Génération auto d'une cover SVG thématique (adaptée au
+                # titre + niveau + langue). Ne bloque jamais la création
+                # du cours en cas d'erreur — c'est purement décoratif.
+                try:
+                    from catalog.cover_generator import generate_svg_cover
+                    from django.core.files.base import ContentFile
+
+                    svg_bytes = generate_svg_cover(
+                        title=title,
+                        subtitle=subtitle,
+                        level=level,
+                        language=language,
+                    )
+                    filename = f"course-{course.id}-cover.svg"
+                    course.thumbnail.save(
+                        filename, ContentFile(svg_bytes), save=True
+                    )
+                except Exception:  # noqa: BLE001 — cover facultative
+                    pass
+
                 sections_created = 0
                 lessons_created = 0
+                quizzes_created = 0
+                questions_created = 0
                 for s_idx, section_data in enumerate(sections):
                     section = CourseSection.objects.create(
                         course=course,
@@ -249,30 +414,65 @@ class GenerateFullCourseTool(AbstractAITool):
                     )
                     sections_created += 1
                     for l_idx, lesson_data in enumerate(section_data["lessons"]):
-                        Lesson.objects.create(
+                        ltype = lesson_data["lesson_type"]
+                        raw_content = lesson_data["content"]
+                        is_quiz = ltype == "QUIZ"
+
+                        # Pour un QUIZ, le contenu texte de la leçon reste
+                        # descriptif (résumé/consignes), mais les
+                        # questions sont stockées dans le modèle Quiz.
+                        display_content = raw_content
+                        if is_quiz:
+                            # On remplace le JSON par un placeholder pédagogique
+                            # si le contenu est justement le JSON du quiz.
+                            if raw_content.startswith("{") or raw_content.startswith("```"):
+                                display_content = (
+                                    "<p>Répondez au quiz ci-dessous pour "
+                                    "valider vos acquis.</p>"
+                                )
+
+                        lesson = Lesson.objects.create(
                             section=section,
                             title=lesson_data["title"] or f"Leçon {l_idx + 1}",
                             order=l_idx + 1,
-                            lesson_type=lesson_data["lesson_type"],
+                            lesson_type=ltype,
                             duration_sec=lesson_data["duration_min"] * 60,
                             content=(
-                                lesson_data["content"]
+                                display_content
                                 or "<p>Contenu à compléter par l'instructeur.</p>"
                             ),
                         )
                         lessons_created += 1
+
+                        # Création Quiz/Question/Choice si applicable.
+                        if is_quiz:
+                            payload = _parse_quiz_payload(raw_content)
+                            if payload:
+                                nb = _create_quiz_from_payload(
+                                    lesson, section, course, payload
+                                )
+                                if nb > 0:
+                                    quizzes_created += 1
+                                    questions_created += nb
         except Exception as exc:  # pragma: no cover — safeguard DB errors
             return ToolResult(
                 ok=False,
                 detail=f"Création interrompue : {exc.__class__.__name__} — {str(exc)[:200]}",
             )
 
+        quiz_extra = ""
+        if quizzes_created:
+            quiz_extra = (
+                f", {quizzes_created} quiz avec "
+                f"{questions_created} question(s)"
+            )
         return ToolResult(
             ok=True,
             detail=(
                 f"Formation créée : « {course.title} » "
-                f"({sections_created} section(s), {lessons_created} leçon(s), "
-                "statut DRAFT). Prochaine étape : éditer les leçons puis publier."
+                f"({sections_created} section(s), {lessons_created} leçon(s)"
+                f"{quiz_extra}, statut DRAFT). Prochaine étape : éditer "
+                "les leçons puis publier."
             ),
             data={
                 "course_id": course.id,
@@ -280,6 +480,8 @@ class GenerateFullCourseTool(AbstractAITool):
                 "status": course.status,
                 "sections_created": sections_created,
                 "lessons_created": lessons_created,
+                "quizzes_created": quizzes_created,
+                "questions_created": questions_created,
                 # URL relative — le frontend peut la préfixer d'un
                 # host ou l'utiliser en href direct.
                 "edit_url": f"/instructor/courses/{course.id}/edit",

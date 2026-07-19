@@ -172,6 +172,13 @@ def generate_svg_cover(
     subtitle_txt = escape((subtitle or "").strip())[:60]
     footer_left = escape(f"{level_label} · {language.upper()}")
 
+    # Éléments décoratifs pseudo-aléatoires dérivés du titre (stable) :
+    # cercles concentriques, courbes et dots pour donner du relief.
+    h = hashlib.sha1(title.encode("utf-8")).digest()
+    circle_x = 120 + (h[1] % 200)
+    circle_y = 620 + (h[2] % 120)
+    curve_offset = 50 + (h[3] % 100)
+
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}"
      width="{W}" height="{H}" role="img"
@@ -186,13 +193,32 @@ def generate_svg_cover(
       <stop offset="0%" stop-color="rgba(255,255,255,0.35)"/>
       <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
     </radialGradient>
+    <pattern id="dots" x="0" y="0" width="40" height="40"
+             patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.5" fill="rgba(255,255,255,0.10)"/>
+    </pattern>
   </defs>
 
   <rect width="{W}" height="{H}" fill="url(#bg)"/>
+  <rect width="{W}" height="{H}" fill="url(#dots)"/>
   <rect width="{W}" height="{H}" fill="url(#glow)"/>
 
-  <!-- Emoji thématique (gros, coin haut-droit) -->
-  <text x="{W - 100}" y="200" text-anchor="end"
+  <!-- Formes décoratives (donnent un côté illustré / réaliste) -->
+  <g opacity="0.12" fill="none" stroke="white" stroke-width="2">
+    <circle cx="{circle_x}" cy="{circle_y}" r="120"/>
+    <circle cx="{circle_x}" cy="{circle_y}" r="180"/>
+    <circle cx="{circle_x}" cy="{circle_y}" r="240"/>
+  </g>
+  <path d="M 0 {H - curve_offset} Q {W/2} {H - curve_offset - 120}
+           {W} {H - curve_offset}"
+        fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="3"/>
+  <path d="M 0 {H - curve_offset - 60} Q {W/2} {H - curve_offset - 200}
+           {W} {H - curve_offset - 60}"
+        fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+
+  <!-- Emoji thématique (gros, coin haut-droit) avec halo -->
+  <circle cx="{W - 180}" cy="180" r="140" fill="rgba(255,255,255,0.08)"/>
+  <text x="{W - 100}" y="240" text-anchor="end"
         font-size="220"
         style="filter: drop-shadow(0 4px 12px rgba(0,0,0,0.25));">
     {emoji}
