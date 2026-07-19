@@ -231,13 +231,34 @@ function renderBlocks(content: string): string {
   const out: string[] = [];
   let i = 0;
 
-  // État courant : liste puce ou numérotée
+  // État courant : liste puce ou numérotée.
+  // Pour les <ol>, on garde un compteur global qui persiste entre
+  // sous-listes séparées par des puces — Claude écrit souvent "1." pour
+  // chaque item d'une liste top-level, ce qui casserait la numérotation
+  // (chaque nouveau <ol> repartirait de 1). On utilise start=N.
   let listState: { kind: 'ul' | 'ol' } | null = null;
+  let olCounter = 0; // items <ol> déjà émis dans la séquence courante
+  let olJustClosed = false; // sentinel : dernier bloc fermé = un <ol>
+
   const closeList = () => {
     if (listState) {
+      if (listState.kind === 'ol') {
+        olJustClosed = true;
+      } else {
+        // Une <ul> intercalée ne réinitialise PAS olCounter — elle
+        // ne fait qu'interrompre visuellement la séquence numérotée.
+      }
       out.push(listState.kind === 'ul' ? '</ul>' : '</ol>');
       listState = null;
     }
+  };
+
+  // Reset du compteur ol : appelé quand on émet un bloc "de rupture"
+  // (paragraphe, titre, hr, code, table) — indique que la séquence
+  // numérotée est terminée.
+  const resetOlCounter = () => {
+    olCounter = 0;
+    olJustClosed = false;
   };
 
   while (i < lines.length) {
@@ -246,6 +267,7 @@ function renderBlocks(content: string): string {
     // Code fence
     if (line.startsWith('```')) {
       closeList();
+      resetOlCounter();
       const lang = line.slice(3).trim();
       const codeLines: string[] = [];
       i++;
@@ -263,6 +285,7 @@ function renderBlocks(content: string): string {
     // Séparateur horizontal ---
     if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
       closeList();
+      resetOlCounter();
       out.push('<hr class="my-3 border-neutral-200 dark:border-neutral-700" />');
       i++;
       continue;
@@ -276,6 +299,7 @@ function renderBlocks(content: string): string {
       && isTableSeparator(lines[i + 1])
     ) {
       closeList();
+      resetOlCounter();
       const headerLine = line;
       const sepLine = lines[i + 1];
       const bodyLines: string[] = [];
@@ -300,6 +324,7 @@ function renderBlocks(content: string): string {
     const h1 = line.match(/^#\s+(.*)$/);
     if (h1 || h2 || h3 || h4) {
       closeList();
+      resetOlCounter();
       if (h1) out.push(`<h3 class="mt-4 mb-1.5 text-base font-extrabold">${inline(h1[1])}</h3>`);
       if (h2) out.push(`<h4 class="mt-3 mb-1 text-sm font-extrabold">${inline(h2[1])}</h4>`);
       if (h3) out.push(`<h5 class="mt-3 mb-1 text-sm font-bold">${inline(h3[1])}</h5>`);
@@ -311,6 +336,7 @@ function renderBlocks(content: string): string {
     // Blockquote
     if (line.startsWith('>')) {
       closeList();
+      resetOlCounter();
       const q = line.replace(/^>\s?/, '');
       out.push(
         `<blockquote class="my-2 pl-3 border-l-2 border-primary-400 text-neutral-600 dark:text-neutral-300 italic">${inline(q)}</blockquote>`,
@@ -332,14 +358,26 @@ function renderBlocks(content: string): string {
       continue;
     }
 
-    // Liste numérotée (1. 2. ...)
+    // Liste numérotée (1. 2. ...) — continue le compteur global si on
+    // rouvre une <ol> juste après en avoir fermé une (avec ou sans <ul>
+    // intercalée). Cela répare le cas où Claude écrit "1." pour chaque
+    // item top-level d'une liste numérotée avec sous-puces.
     const oli = line.match(/^\s*(\d+)\.\s+(.*)$/);
     if (oli) {
       if (!listState || listState.kind !== 'ol') {
         closeList();
-        out.push('<ol class="list-decimal list-outside pl-5 my-2 space-y-1">');
+        // Si on avait déjà des items <ol> avant (avec juste des <ul>
+        // intercalées), continue la numérotation à N+1.
+        const startAttr = olJustClosed && olCounter > 0
+          ? ` start="${olCounter + 1}"`
+          : '';
+        out.push(
+          `<ol class="list-decimal list-outside pl-5 my-2 space-y-1"${startAttr}>`,
+        );
         listState = { kind: 'ol' };
+        olJustClosed = false;
       }
+      olCounter += 1;
       out.push(`<li>${inline(oli[2])}</li>`);
       i++;
       continue;
@@ -390,10 +428,22 @@ export function AIMessageRenderer({ content, className }: Props) {
   // pour déclencher un tool use. Ils sont interceptés côté backend et
   // remontés en event SSE dédié qui affiche un bouton — les afficher ici
   // (JSON brut) polluerait la lecture pour l'utilisateur.
-  const cleaned = useMemo(
-    () => (content || '').replace(/<action>[\s\S]*?<\/action>/g, '').trim(),
-    [content],
-  );
+  const cleaned = useMemo(() => {
+    let s = content || '';
+    // 1) Bloc fermé : <action>...</action>
+    s = s.replace(/<action>[\s\S]*?<\/action>/g, '');
+    // 2) Bloc ouvert (streaming en cours ou tag jamais fermé) : masque tout
+    //    depuis <action> jusqu'à la fin.
+    s = s.replace(/<action>[\s\S]*$/, '');
+    // 3) Fragment JSON escappé (\"key\": ...) qui a fuité du bloc action —
+    //    typique quand le LLM colle une partie du payload en dehors des
+    //    tags. On coupe agressivement à partir du premier \"" (guillemet
+    //    escappé) suivi d'un \"": ou d'un [{. Ces séquences n'apparaissent
+    //    JAMAIS dans du markdown normal.
+    const leakIdx = s.search(/[",\s]\\"[a-zA-Z_]+\\"\s*:\s*/);
+    if (leakIdx > 0) s = s.slice(0, leakIdx);
+    return s.trim();
+  }, [content]);
   // Détection : HTML riche → sanitize + passthrough. Markdown → parser
   // custom (renderBlocks). Le second cas escape aussi le HTML restant.
   const html = useMemo(() => {

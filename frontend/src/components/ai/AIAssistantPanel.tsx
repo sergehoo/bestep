@@ -660,29 +660,49 @@ function MessageBubble({
         )}
       </div>
       <AIMessageRenderer content={message.content} />
-      {/* BEST-AI T5 — Action proposée par Claude : bouton d'exécution. */}
+      {/* BEST-AI T5 — Action proposée par Claude : bouton d'exécution.
+          Rendu compact mais très visible pour ne pas rater le CTA. */}
       {!isUser && (pendingAction || actionFlash) && (
-        <div className="mt-3 rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50/60 dark:bg-primary-900/20 p-3">
+        <div className="mt-3 rounded-xl border-2 border-primary-400 dark:border-primary-600 bg-gradient-to-br from-primary-50 to-white dark:from-primary-900/30 dark:to-neutral-900 p-4 shadow-md">
           {pendingAction && !actionFlash?.kind && (
             <>
-              <p className="text-xs font-bold text-primary-800 dark:text-primary-200 mb-1">
-                Action proposée
-              </p>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-2">
-                Best-AI peut exécuter directement l'action{' '}
-                <code className="text-[11px] px-1 py-0.5 rounded bg-white dark:bg-neutral-800 font-mono">
-                  {pendingAction.tool}
-                </code>{' '}
-                sur le serveur. Vérifiez le contenu proposé, puis cliquez
-                pour l'exécuter.
-              </p>
+              <div className="flex items-start gap-2 mb-2">
+                <Sparkles className="w-5 h-5 text-primary-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-primary-800 dark:text-primary-200">
+                    {pendingAction.tool === 'generate_full_course'
+                      ? 'Prêt à créer la formation en base'
+                      : 'Action prête à être exécutée'}
+                  </p>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">
+                    {pendingAction.tool === 'generate_full_course' ? (
+                      <>
+                        Best-AI va enregistrer le cours, ses sections, ses
+                        leçons et ses quiz dans votre catalogue (statut
+                        <strong className="font-bold"> Brouillon</strong>).
+                        Vous pourrez ensuite l'éditer et le publier.
+                      </>
+                    ) : (
+                      <>
+                        Cliquez pour exécuter{' '}
+                        <code className="text-[11px] px-1 py-0.5 rounded bg-white dark:bg-neutral-800 font-mono">
+                          {pendingAction.tool}
+                        </code>{' '}
+                        sur le serveur.
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => onExecuteAction?.()}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold transition"
+                className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold shadow-sm transition w-full sm:w-auto justify-center"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                Exécuter l'action
+                <Sparkles className="w-4 h-4" />
+                {pendingAction.tool === 'generate_full_course'
+                  ? 'Créer la formation maintenant'
+                  : "Exécuter l'action"}
               </button>
             </>
           )}

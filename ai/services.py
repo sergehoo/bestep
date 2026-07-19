@@ -27,24 +27,78 @@ from .providers import ChatMessage, get_provider_for_purpose
 # fin d'une réponse assistant. Non-greedy pour ne capturer qu'un seul
 # bloc si Claude en émet plusieurs par erreur — on ne prend que le
 # premier. Le JSON peut contenir des sauts de ligne.
-_ACTION_BLOCK_RE = re.compile(r"<action>\s*(\{.*?\})\s*</action>", re.DOTALL)
+_ACTION_OPEN_RE = re.compile(r"<action>\s*", re.IGNORECASE)
+
+
+def _extract_json_from_start(text: str, start: int) -> Optional[str]:
+    """Extrait un objet JSON équilibré à partir de ``start`` dans ``text``.
+
+    Respecte les strings escappées (guillemets échappés avec \\ ne
+    comptent pas comme fermeture). Retourne la sous-chaîne ``{...}``
+    ou None si non trouvé / non équilibré.
+    """
+    n = len(text)
+    # Cherche l'ouverture de l'objet.
+    while start < n and text[start] != "{":
+        if text[start] not in " \n\r\t":
+            return None
+        start += 1
+    if start >= n:
+        return None
+
+    depth = 0
+    i = start
+    in_str = False
+    escape = False
+    while i < n:
+        ch = text[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+        else:
+            if ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+        i += 1
+    return None
 
 
 def _extract_action_block(text: str) -> Optional[dict]:
     """Cherche un bloc <action>{...}</action> dans ``text``.
 
+    Utilise un parseur d'accolades équilibrées (le regex non-gourmand
+    ne suffit pas quand le JSON contient des objets imbriqués). La
+    balise ``</action>`` est optionnelle — si le LLM oublie de fermer
+    mais que le JSON est équilibré, on récupère quand même.
+
     Retourne l'objet parsé ``{"tool": str, "params": dict}`` ou None si
     absent / JSON invalide / structure inattendue.
     """
-    if not text or "<action>" not in text:
+    if not text or "<action>" not in text.lower():
         return None
-    match = _ACTION_BLOCK_RE.search(text)
-    if not match:
+    m = _ACTION_OPEN_RE.search(text)
+    if not m:
+        return None
+    payload_str = _extract_json_from_start(text, m.end())
+    if not payload_str:
         return None
     try:
-        payload = json.loads(match.group(1))
+        payload = json.loads(payload_str)
     except (json.JSONDecodeError, ValueError):
-        return None
+        # Second essai : parfois le LLM double-escape (\\") — on nettoie.
+        try:
+            payload = json.loads(payload_str.replace("\\\n", " "))
+        except (json.JSONDecodeError, ValueError):
+            return None
     if not isinstance(payload, dict):
         return None
     tool = payload.get("tool")
@@ -80,6 +134,36 @@ détectera ce bloc, montrera à l'utilisateur un aperçu de l'action, puis
 l'exécutera après confirmation explicite. N'émets un bloc que si tu as
 tous les paramètres nécessaires ; sinon pose d'abord les questions
 manquantes.
+
+RÈGLES STRICTES pour émettre un bloc <action> :
+- Toujours en TOUT DERNIER dans ta réponse. Aucun texte après </action>.
+- Le JSON DOIT être valide et refermé (accolades et crochets équilibrés)
+  AVANT la balise </action>. Ne coupe jamais un bloc en plein milieu.
+- N'écris JAMAIS de JSON de plan de cours en dehors du bloc <action>
+  (pas d'exemple, pas d'extrait, pas de "voici le payload"). Le JSON
+  reste UNIQUEMENT à l'intérieur de <action>...</action>.
+- Si tu n'as pas fini de construire le plan, NE COMMENCE PAS la balise
+  <action> — écris d'abord la version textuelle, puis émets le bloc
+  complet en une seule fois à la fin.
+- Les listes numérotées : utilise "1." "2." "3." pour la numérotation
+  top-level, PAS "1." "1." "1." — sinon l'ordre n'est pas préservé
+  visuellement.
+
+QUAND ÉMETTRE l'ACTION (très important) :
+- Dès que l'utilisateur demande "crée / génère / enregistre le cours"
+  ET que tu as un titre + au moins 1 section + 1 leçon, ÉMETS
+  IMMÉDIATEMENT l'action. Ne pose PAS de questions de confirmation
+  supplémentaires (image de couverture, statut, certificat, prix, etc.)
+  — ces choix sont ÉDITABLES après création via l'éditeur du cours.
+- Les valeurs par défaut à utiliser sans demander :
+    - status = DRAFT (le cours est toujours créé en brouillon)
+    - pricing = FREE (l'instructeur ajustera après)
+    - cover = auto-générée par le serveur (SVG thématique)
+    - language = "fr" si non précisé
+    - level = "BEGINNER" si non précisé
+- L'utilisateur voit un aperçu de l'action puis clique "Exécuter". Ta
+  seule job = produire le JSON valide et complet du plan. Le reste
+  (image, publication, tarif) se fait dans l'éditeur.
 
 Outils disponibles (accès selon le rôle {role}) :
 
