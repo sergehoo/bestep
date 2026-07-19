@@ -2459,18 +2459,80 @@ class InstructorSectionQuizAssignView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, course_id: int, section_id: int):
+        """FIX QUIZ-01 — Affectation quiz → section.
+
+        Bug initial : ``get_object_or_404(Quiz, course=course)`` retournait
+        404 dès que le quiz n'était pas déjà attaché AU MÊME cours, ce qui
+        empêchait :
+          - d'attacher un quiz autonome (``course=None``).
+          - de transférer un quiz d'un cours à un autre (même owner).
+          - de rattacher un quiz créé via ``add_quiz_to_course`` mais dont
+            l'affectation à la section a échoué initialement.
+
+        Correction : lookup permissif par ID, vérification stricte du
+        droit d'accès sur le quiz (owner du cours actuel ou admin), puis
+        transfert (course + section) en une passe.
+        """
         course = _get_writable_course(course_id, request.user)
         section = get_object_or_404(CourseSection, id=section_id, course=course)
 
         quiz_id = request.data.get("quiz_id")
         if not quiz_id:
-            return Response({"detail": "quiz_id requis."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "quiz_id requis."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        quiz = get_object_or_404(Quiz, id=quiz_id, course=course)
+        # Lookup permissif : le quiz existe indépendamment du cours.
+        try:
+            quiz = Quiz.objects.select_related("course").get(pk=quiz_id)
+        except Quiz.DoesNotExist:
+            return Response(
+                {"detail": f"Quiz #{quiz_id} introuvable."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        quiz.section = section
+        # Rejet des quiz d'onboarding (contrainte CheckConstraint ASS-16).
+        if quiz.is_onboarding:
+            return Response(
+                {
+                    "detail": (
+                        "Ce quiz est d'onboarding — il ne peut pas être "
+                        "rattaché à un cours ou à une section."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Contrôle d'accès : si le quiz est rattaché à un autre cours,
+        # vérifier que ce cours appartient aussi à l'user courant (ou admin).
+        if quiz.course_id and quiz.course_id != course.id:
+            other_owner = quiz.course.instructor_id if quiz.course else None
+            if other_owner != request.user.id and not getattr(
+                request.user, "is_platform_admin", False
+            ):
+                return Response(
+                    {
+                        "detail": (
+                            f"Ce quiz appartient à un cours qui n'est pas "
+                            f"le vôtre. Créez un nouveau quiz ou demandez à "
+                            f"l'administrateur."
+                        )
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        # Transfert atomique : course + section en une seule save.
         quiz.course = course
-        quiz.save(update_fields=["section", "course"])
+        quiz.section = section
+        # Défaire un éventuel rattachement lesson (qui rendrait le quiz
+        # spécifique à une leçon plutôt qu'à la section).
+        if quiz.lesson_id and quiz.lesson.section_id != section.id:
+            quiz.lesson = None
+            fields = ["section", "course", "lesson"]
+        else:
+            fields = ["section", "course"]
+        quiz.save(update_fields=fields)
 
         return Response({
             "ok": True,
@@ -2479,6 +2541,7 @@ class InstructorSectionQuizAssignView(APIView):
                 "title": quiz.title,
                 "section_id": quiz.section_id,
                 "section_title": section.title,
+                "course_id": quiz.course_id,
             }
         })
 
