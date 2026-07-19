@@ -234,9 +234,11 @@ export function AIAssistantPanel() {
         await import('@/lib/api')
       ).default.post<{
         status?: string;
+        approval?: { id: number } | null;
         approval_id?: number | null;
         result?: { ok: boolean; detail: string; data?: Record<string, unknown> } | null;
         requires_approval?: boolean;
+        detail?: string;
       }>(
         '/ai/tools/execute/',
         // Backend attend `tool_key` (voir ExecuteToolInput). On envoie
@@ -247,20 +249,41 @@ export function AIAssistantPanel() {
           conversation_id: activeConversationId,
         },
       );
+      // Contrat backend :
+      //   confirmation_level=0 → {status: "executed",         result: {ok,detail,data}}
+      //   confirmation_level=1 → {status: "pending_approval", approval: {id, ...}, result: null}
+      //   refus RBAC/inconnu   → {status: "denied",           detail: "…"}
       let ok = exec.result?.ok ?? false;
       let detail = exec.result?.detail || '';
       let data = exec.result?.data || {};
-      // Si l'action requiert une approbation explicite, on la confirme
-      // immédiatement (le user a déjà cliqué "Exécuter").
-      if (exec.requires_approval && exec.approval_id != null) {
+
+      // Denied côté RBAC / whitelist → on remonte l'erreur telle quelle.
+      if (exec.status === 'denied') {
+        ok = false;
+        detail = exec.detail || "Action refusée par le serveur.";
+      }
+
+      // Approbation requise : on la confirme immédiatement (le user a
+      // déjà cliqué "Créer maintenant" côté chat = intention explicite).
+      const approvalId = exec.approval?.id ?? exec.approval_id ?? null;
+      if (exec.status === 'pending_approval' && approvalId != null) {
         const { data: confirmed } = await (
           await import('@/lib/api')
-        ).default.post<{ result: { ok: boolean; detail: string; data?: Record<string, unknown> } }>(
-          `/ai/tools/approvals/${exec.approval_id}/confirm/`,
+        ).default.post<{
+          status?: string;
+          result?: { ok: boolean; detail: string; data?: Record<string, unknown> } | null;
+          detail?: string;
+        }>(
+          `/ai/tools/approvals/${approvalId}/confirm/`,
         );
-        ok = confirmed.result?.ok ?? false;
-        detail = confirmed.result?.detail || detail;
-        data = confirmed.result?.data || data;
+        if (confirmed.status === 'denied') {
+          ok = false;
+          detail = confirmed.detail || "Confirmation refusée.";
+        } else {
+          ok = confirmed.result?.ok ?? false;
+          detail = confirmed.result?.detail || detail;
+          data = confirmed.result?.data || data;
+        }
       }
       setActionFlash((p) => ({
         ...p,
