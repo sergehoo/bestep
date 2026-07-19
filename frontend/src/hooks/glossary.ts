@@ -399,6 +399,57 @@ export function useRejectGlossaryTerm() {
   });
 }
 
+export interface ImportRowResult {
+  line: number;
+  word: string;
+  action: 'created' | 'skipped_duplicate' | 'error';
+  detail: string;
+}
+
+export interface ImportReport {
+  total_rows: number;
+  created: number;
+  skipped: number;
+  errors: number;
+  rows: ImportRowResult[];
+}
+
+export function useImportGlossary() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      file,
+      format,
+      dryRun,
+    }: {
+      file: File;
+      format: 'csv' | 'json';
+      dryRun: boolean;
+    }) => {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('format', format);
+      form.append('dry_run', dryRun ? 'true' : 'false');
+      const { data } = await api.post<{ dry_run: boolean; report: ImportReport }>(
+        '/glossary/admin/import/',
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      // Rafraîchit la liste si un import effectif a eu lieu.
+      if (data && !data.dry_run) {
+        qc.invalidateQueries({ queryKey: [KEY] });
+      }
+    },
+  });
+}
+
+export function buildExportUrl(format: 'csv' | 'json' = 'csv'): string {
+  return `/api/glossary/admin/export/?format=${format}`;
+}
+
 export function useMergeGlossaryTerms() {
   const qc = useQueryClient();
   return useMutation({

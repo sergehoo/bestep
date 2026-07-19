@@ -40,4 +40,8 @@ urlpatterns = [
     path("admin/terms/<int:term_id>/validate/", v.AdminGlossaryValidateView.as_view(), name="admin-term-validate"),
     path("admin/terms/<int:term_id>/reject/", v.AdminGlossaryRejectView.as_view(), name="admin-term-reject"),
     path("admin/terms/<int:term_id>/merge/", v.AdminGlossaryMergeView.as_view(), name="admin-term-merge"),
+
+    # GLOSS-10 — Import/Export admin (CSV, JSON).
+    path("admin/import/", v.AdminGlossaryImportView.as_view(), name="admin-import"),
+    path("admin/export/", v.AdminGlossaryExportView.as_view(), name="admin-export"),
 ]

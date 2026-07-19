@@ -165,24 +165,70 @@ class GlossaryTermDetailView(APIView):
 # ─────────────────────────────────────────────────────────────
 
 class GlossaryTermSearchView(APIView):
-    """GET /api/glossary/terms/search/?q=... — autocomplétion (max 20)."""
+    """GET /api/glossary/terms/search/?q=... — autocomplétion (max 20).
+
+    Utilise PostgreSQL Full-Text Search (search_vector) quand la base
+    est Postgres (voir migration GLOSS-11). Fallback icontains sinon.
+    """
     permission_classes = [AllowAny]
 
     def get(self, request):
+        from django.conf import settings as _settings
+
         q = (request.query_params.get("q") or "").strip()
         if len(q) < 1:
             return Response([])
         key = normalize_search_key(q)
-        qs = (
-            _active_public_terms()
-            .filter(
-                Q(search_key__startswith=key)
-                | Q(variants__search_key__startswith=key)
-                | Q(word__icontains=q)
-            )
-            .distinct()
-            .order_by("search_key")[:20]
+        base = _active_public_terms()
+
+        is_pg = "postgresql" in (
+            _settings.DATABASES.get("default", {}).get("ENGINE") or ""
         )
+        qs = base.none()
+        if is_pg and len(q) >= 2:
+            try:
+                from django.contrib.postgres.search import (
+                    SearchQuery, SearchRank, SearchVector,
+                )
+                # `search_vector` est une colonne générée par la
+                # migration 0002_pg_fts — sinon on tombe en fallback.
+                sq = SearchQuery(q, config="french", search_type="websearch")
+                qs = (
+                    base.extra(
+                        select={"__has_sv": (
+                            "COALESCE(NULLIF(pg_typeof(search_vector)::text, ''),"
+                            " '') = 'tsvector'"
+                        )}
+                    )
+                    .annotate(rank=SearchRank(
+                        SearchVector("word", "short_definition", config="french"),
+                        sq,
+                    ))
+                    .filter(
+                        Q(search_key__istartswith=key)
+                        | Q(word__icontains=q)
+                        | Q(variants__search_key__icontains=key)
+                    )
+                    .order_by("-rank", "search_key")
+                    .distinct()
+                )
+            except Exception:
+                qs = base.none()
+
+        if not qs.exists():
+            # Fallback universel (SQLite dev ou fail FTS) : icontains.
+            qs = (
+                base.filter(
+                    Q(search_key__startswith=key)
+                    | Q(variants__search_key__startswith=key)
+                    | Q(word__icontains=q)
+                    | Q(search_key__icontains=key)
+                )
+                .distinct()
+                .order_by("search_key")
+            )
+
+        qs = qs[:20]
         ser = GlossaryTermListSerializer(qs, many=True, context={"request": request})
         return Response(ser.data)
 
@@ -646,6 +692,79 @@ class AdminGlossaryMergeView(APIView):
                 "target_id": target.pk,
             }
         )
+
+
+class AdminGlossaryImportView(APIView):
+    """POST /api/glossary/admin/import/ — importe des termes depuis CSV/JSON.
+
+    Payload multipart :
+      - ``file`` : le fichier CSV ou JSON.
+      - ``format`` : "csv" (défaut) ou "json".
+      - ``dry_run`` : "true" (défaut) → aperçu sans écrire en base.
+
+    Retourne le rapport complet ligne par ligne.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not _is_platform_admin(request.user):
+            return Response({"detail": "Réservé aux administrateurs."}, status=403)
+        from .io_service import import_terms
+
+        upload = request.FILES.get("file")
+        if not upload:
+            return Response({"detail": "Fichier manquant (champ 'file')."}, status=400)
+        try:
+            raw = upload.read().decode("utf-8-sig")
+        except UnicodeDecodeError:
+            try:
+                upload.seek(0)
+                raw = upload.read().decode("latin-1")
+            except Exception:
+                return Response(
+                    {"detail": "Impossible de décoder le fichier (UTF-8 attendu)."},
+                    status=400,
+                )
+        fmt = (request.data.get("format") or "csv").lower()
+        dry_run = str(request.data.get("dry_run") or "true").lower() != "false"
+
+        # Sécurité : borne 5000 lignes / 5 Mo.
+        if len(raw) > 5 * 1024 * 1024:
+            return Response(
+                {"detail": "Fichier trop volumineux (max 5 Mo)."}, status=400
+            )
+
+        report = import_terms(
+            user=request.user, raw_content=raw, fmt=fmt, dry_run=dry_run
+        )
+        return Response({"dry_run": dry_run, "report": report.to_dict()})
+
+
+class AdminGlossaryExportView(APIView):
+    """GET /api/glossary/admin/export/?format=csv|json — export du lexique."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.http import HttpResponse
+        from .io_service import export_terms_csv, export_terms_json
+
+        if not _is_platform_admin(request.user):
+            return Response({"detail": "Réservé aux administrateurs."}, status=403)
+        fmt = (request.query_params.get("format") or "csv").lower()
+        qs = GlossaryTerm.objects.select_related("category").filter(is_active=True)
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        if fmt == "json":
+            body = export_terms_json(qs)
+            resp = HttpResponse(body, content_type="application/json; charset=utf-8")
+            resp["Content-Disposition"] = 'attachment; filename="lexique.json"'
+            return resp
+        body = export_terms_csv(qs)
+        resp = HttpResponse(body, content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = 'attachment; filename="lexique.csv"'
+        return resp
 
 
 class InstructorGlossarySubmitView(APIView):
