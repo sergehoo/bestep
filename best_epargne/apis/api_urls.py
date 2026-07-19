@@ -68,6 +68,7 @@ from best_epargne.apis.views import (
     MediaMultipartInitView,
     MediaMultipartListPartsView,
     MediaMultipartPartUrlView,
+    MediaAssetServeRedirectView,
     MediaSignedGetView,
     MediaThumbnailSignedGetView,
     MediaUploadFinalizeView,
@@ -1099,6 +1100,9 @@ urlpatterns = [
     path("media/<uuid:asset_id>/signed/", MediaSignedGetView.as_view(), name="api_media_signed_get"),
     path("media/<uuid:asset_id>/thumbnail/", MediaThumbnailSignedGetView.as_view(),
          name="api_media_thumbnail_signed_get"),
+    # FIX-IMG-01 — Redirect stable pour <img src> dans le HTML des leçons.
+    path("media/<uuid:asset_id>/serve/", MediaAssetServeRedirectView.as_view(),
+         name="api_media_serve"),
 
 path("media/upload/multipart/init/", MediaMultipartInitView.as_view(), name="api_media_multipart_init"),
 path("media/upload/multipart/part-url/", MediaMultipartPartUrlView.as_view(), name="api_media_multipart_part_url"),

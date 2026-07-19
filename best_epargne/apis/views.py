@@ -2022,6 +2022,57 @@ class MediaThumbnailSignedGetView(APIView):
         return Response({"url": url})
 
 
+class MediaAssetServeRedirectView(APIView):
+    """GET /api/media/<uuid>/serve/ — redirection 302 vers URL présignée fraîche.
+
+    FIX-IMG-01 — Résout le bug d'images cassées dans le HTML des leçons :
+    les URLs présignées MinIO expirent (~1h par défaut), donc stocker
+    ``<img src="minio.../?X-Amz-Signature=…">`` en base garantit une image
+    cassée au bout d'une heure.
+
+    Solution : le frontend insère ``<img src="/api/media/<uuid>/serve/">``
+    (URL stable), et cet endpoint retourne un 302 vers une URL fraîchement
+    signée à chaque appel.
+
+    Accès : AllowAny — l'ID est un UUID (2^128 possibilités, unguessable).
+    Le média n'est révélé que si son ID est déjà connu (ce qui suppose
+    qu'il a été inséré dans du contenu lisible par l'utilisateur). Cache
+    court côté client pour éviter de spammer l'endpoint.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, asset_id):
+        from django.http import HttpResponseRedirect, Http404
+        from catalog.models import MediaAsset
+
+        try:
+            asset = MediaAsset.objects.get(pk=asset_id)
+        except (MediaAsset.DoesNotExist, ValueError):
+            raise Http404("Média introuvable.")
+
+        bucket = getattr(settings, "MINIO_BUCKET", None) or getattr(
+            settings, "AWS_STORAGE_BUCKET_NAME", None
+        )
+        key = asset.effective_object_key
+        if not bucket or not key:
+            raise Http404("Média sans clé objet.")
+
+        client = s3_public_client()
+        fresh_url = client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=int(
+                getattr(settings, "AWS_QUERYSTRING_EXPIRE", 3600)
+            ),
+        )
+        response = HttpResponseRedirect(fresh_url)
+        # Cache court côté navigateur : évite de refetch cet endpoint à
+        # chaque render, mais suffisamment court pour rester en dessous de
+        # la TTL de la signature.
+        response["Cache-Control"] = "private, max-age=300"
+        return response
+
+
 class InstructorMediaListView(APIView):
     """Bibliothèque média de l'espace instructeur.
 

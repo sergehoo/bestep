@@ -210,23 +210,27 @@ export default function InstructorLessonEditorPage() {
       if (asset.duration_seconds) setDurationSec(asset.duration_seconds);
     } else {
       // Doc : distinguer image (embed <img>) vs autres docs (lien attachment).
-      // UX-16 — Insertion à la position du curseur via editorRef.insertHTML
-      // au lieu de setContent(prev + html) qui appendait en fin de string.
+      // UX-16 — Insertion à la position du curseur via editorRef.insertHTML.
+      // FIX-IMG-01 — On stocke l'URL STABLE /api/media/:id/serve/ au lieu
+      // de l'URL présignée (qui expire en ~1h et casse l'image quand le
+      // formateur revient éditer plus tard). Le backend redirige vers une
+      // URL fraîche à chaque requête.
       const ct = (asset.content_type || '').toLowerCase();
-      const url = asset.preview_url || asset.thumbnail_url || '';
+      const stableUrl = `/api/media/${asset.id}/serve/`;
       const isImage = ct.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(asset.title);
       let html = '';
-      if (isImage && url) {
+      if (isImage) {
         const alt = (asset.title || 'image').replace(/"/g, '&quot;');
-        html = `<p><img src="${url}" alt="${alt}" style="max-width:100%;height:auto;" /></p>`;
+        // ``data-media-id`` conserve la référence stable pour d'éventuels
+        // futurs traitements (repair, migration, statistiques d'usage).
+        html = `<p><img src="${stableUrl}" data-media-id="${asset.id}" alt="${alt}" style="max-width:100%;height:auto;" /></p>`;
         setFlash({
           kind: 'ok',
           msg: `Image « ${asset.title} » insérée.`,
         });
       } else {
-        // Autres docs (PDF, DOCX…) → lien téléchargeable.
-        const href = asset.preview_url || `media://${asset.id}`;
-        html = `<p><a href="${href}" target="_blank" rel="noopener">📎 ${asset.title}</a></p>`;
+        // Autres docs (PDF, DOCX…) → lien téléchargeable stable.
+        html = `<p><a href="${stableUrl}" data-media-id="${asset.id}" target="_blank" rel="noopener">📎 ${asset.title}</a></p>`;
       }
       // Priorité : insertion à la position du curseur si l'éditeur est
       // monté. Fallback : append en fin de content si la ref n'est pas
