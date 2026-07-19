@@ -167,6 +167,47 @@ QUAND ÉMETTRE l'ACTION (très important) :
 
 Outils disponibles (accès selon le rôle {role}) :
 
+0. ``add_quiz_to_course`` — Ajoute un quiz à un cours DÉJÀ EN BASE.
+   Réservé aux instructeurs et admins plateforme.
+
+   À utiliser quand l'user dit « ajoute un quiz au cours X », « crée le
+   quiz du module Y de la formation Z », « quiz final pour AVANT
+   D'INVESTIR », etc.
+
+   Paramètres :
+     - ``course_id`` (int) OU ``course_slug`` (str) OU
+       ``course_title`` (str) — l'un des trois suffit. course_title
+       fait un match par nom (insensible casse, partiel accepté).
+     - ``section_id`` (int, opt.) OU ``section_title`` (str, opt.) —
+       cible une section précise. Si absent, le quiz est ajouté à la
+       fin de la dernière section (ou dans une nouvelle section
+       « Évaluation » si le cours est vide).
+     - ``title`` (str, requis) : titre du quiz (= titre de la leçon).
+     - ``duration_min`` (int, opt., défaut 10) : durée estimée.
+     - ``passing_score`` (int, opt., défaut 70) : % pour réussir.
+     - ``is_final`` (bool, opt.) : true si c'est le quiz final du
+       cours (déclenche l'émission du certificat à la réussite).
+     - ``questions`` (array, requis) : voir FORMAT QUIZ ci-dessous.
+
+   Exemple d'appel :
+
+     <action>{{"tool": "add_quiz_to_course", "params": {{
+       "course_title": "AVANT D'INVESTIR",
+       "title": "Quiz final — Validation",
+       "is_final": true,
+       "passing_score": 70,
+       "questions": [
+         {{"type": "multiple_choice", "question": "...",
+          "options": [{{"text": "A", "correct": false}}, {{"text": "B", "correct": true}}],
+          "explanation": "..."}},
+         {{"type": "true_false", "question": "...", "correct": true,
+          "explanation": "..."}}
+       ]
+     }}}}</action>
+
+   Si le cours cible n'existe pas dans le catalogue de l'user, dis-le
+   clairement et propose de le créer d'abord avec generate_full_course.
+
 1. ``generate_full_course`` — Crée une formation complète (Course +
    Sections + Leçons) en statut BROUILLON. Réservé aux instructeurs et
    admins plateforme.
@@ -182,7 +223,7 @@ Outils disponibles (accès selon le rôle {role}) :
        ``lesson_type`` ∈ {{VIDEO, TEXT, FILE, QUIZ, LIVE}}. ``content``
        peut contenir du HTML pour la leçon TEXT.
 
-   Exemple de bloc d'action à émettre :
+   Exemple de bloc d'action à émettre (format QUIZ IMPORTANT) :
 
      <action>{{"tool": "generate_full_course", "params": {{
        "title": "Investir en bourse : les fondamentaux",
@@ -192,11 +233,25 @@ Outils disponibles (accès selon le rôle {role}) :
          {{"title": "Module 1 — Fondamentaux",
           "lessons": [
             {{"title": "Qu'est-ce qu'une action ?", "lesson_type": "TEXT",
-             "duration_min": 15, "content": "<p>...</p>"}}
+             "duration_min": 15, "content": "<p>...</p>"}},
+            {{"title": "Quiz — Fondamentaux", "lesson_type": "QUIZ",
+             "duration_min": 10,
+             "content": "{{\\"questions\\": [{{\\"id\\": 1, \\"type\\": \\"multiple_choice\\", \\"question\\": \\"...\\", \\"options\\": [{{\\"text\\": \\"A\\", \\"correct\\": false}}, {{\\"text\\": \\"B\\", \\"correct\\": true}}], \\"explanation\\": \\"...\\"}}, {{\\"id\\": 2, \\"type\\": \\"true_false\\", \\"question\\": \\"...\\", \\"correct\\": true, \\"explanation\\": \\"...\\"}}]}}"}}
           ]
          }}
        ]
      }}}}</action>
+
+   FORMAT QUIZ obligatoire : ``content`` est une CHAÎNE JSON échappée
+   (backslash-quotes). Structure :
+     - ``questions``: liste (obligatoire) d'objets.
+     - Chaque question a ``type`` = ``"multiple_choice"`` ou ``"true_false"``.
+     - Pour ``multiple_choice`` : ``options`` = liste d'objets
+       ``{{"text": "...", "correct": true|false}}``. Exactement UNE seule
+       option a ``correct: true``.
+     - Pour ``true_false`` : ``correct`` = ``true`` ou ``false``
+       (booléen JSON, PAS une chaîne).
+     - ``explanation`` (facultatif) : justification pédagogique.
 
 Après une action réussie, propose à l'utilisateur les prochaines étapes
 naturelles (éditer les leçons, prévisualiser, publier). Ne relance

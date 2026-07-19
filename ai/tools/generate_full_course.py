@@ -172,7 +172,13 @@ def _create_quiz_from_payload(
 
         qtype = str(q.get("type") or "multiple_choice").lower()
         if qtype in ("true_false", "boolean", "tf"):
-            correct_val = bool(q.get("correct"))
+            # Le champ "correct" (booléen) OU "correct_answer" (chaîne
+            # "Vrai"/"Faux"/"true"/"false") : on normalise les deux.
+            raw_correct = q.get("correct")
+            if raw_correct is None:
+                ca = str(q.get("correct_answer") or "").strip().lower()
+                raw_correct = ca in ("true", "vrai", "yes", "oui", "1")
+            correct_val = bool(raw_correct)
             Choice.objects.create(
                 question=question, text="Vrai", is_correct=correct_val
             )
@@ -185,18 +191,51 @@ def _create_quiz_from_payload(
                 # Question sans options → on la retire.
                 question.delete()
                 continue
-            for opt in opts:
+            # Support de 2 formats :
+            #   A) options: [{"text": "...", "correct": true}, ...]
+            #   B) options: ["str", "str", ...] + correct_answer: "str"
+            #      (ou correct_answer: 0 = index, ou une liste d'index).
+            correct_answer = q.get("correct_answer")
+            correct_answers_norm: set[str] = set()
+            correct_index_set: set[int] = set()
+            if isinstance(correct_answer, str):
+                correct_answers_norm.add(correct_answer.strip().lower())
+            elif isinstance(correct_answer, list):
+                for a in correct_answer:
+                    if isinstance(a, str):
+                        correct_answers_norm.add(a.strip().lower())
+                    elif isinstance(a, int):
+                        correct_index_set.add(a)
+            elif isinstance(correct_answer, int):
+                correct_index_set.add(correct_answer)
+
+            for opt_idx, opt in enumerate(opts):
                 if isinstance(opt, dict):
                     text = str(opt.get("text") or "").strip()
                     is_correct = bool(opt.get("correct"))
+                    # Cas dict avec is_correct absent → utiliser
+                    # correct_answer top-level en fallback.
+                    if "correct" not in opt and correct_answers_norm:
+                        is_correct = text.lower() in correct_answers_norm
                 else:
                     text = str(opt).strip()
-                    is_correct = False
+                    is_correct = (
+                        text.lower() in correct_answers_norm
+                        or opt_idx in correct_index_set
+                    )
                 if not text:
                     continue
                 Choice.objects.create(
                     question=question, text=text[:500], is_correct=is_correct
                 )
+            # Sécurité : si aucune choice n'est marquée correcte (LLM
+            # buggy), on prend la 1ère comme correcte pour éviter un
+            # quiz insoluble.
+            if not question.choices.filter(is_correct=True).exists():
+                first = question.choices.first()
+                if first:
+                    first.is_correct = True
+                    first.save(update_fields=["is_correct"])
         created += 1
 
     if created == 0:
@@ -385,6 +424,10 @@ class GenerateFullCourseTool(AbstractAITool):
                 # Génération auto d'une cover SVG thématique (adaptée au
                 # titre + niveau + langue). Ne bloque jamais la création
                 # du cours en cas d'erreur — c'est purement décoratif.
+                # NB : ImageField valide via Pillow qui rejette le SVG →
+                # on utilise save=False + save(update_fields) comme le
+                # font InstructorCourseGenerateCoverView (chemin manuel
+                # qui marche déjà en prod).
                 try:
                     from catalog.cover_generator import generate_svg_cover
                     from django.core.files.base import ContentFile
@@ -395,10 +438,11 @@ class GenerateFullCourseTool(AbstractAITool):
                         level=level,
                         language=language,
                     )
-                    filename = f"course-{course.id}-cover.svg"
+                    filename = f"cover-{course.slug or course.id}.svg"
                     course.thumbnail.save(
-                        filename, ContentFile(svg_bytes), save=True
+                        filename, ContentFile(svg_bytes), save=False
                     )
+                    course.save(update_fields=["thumbnail"])
                 except Exception:  # noqa: BLE001 — cover facultative
                     pass
 
