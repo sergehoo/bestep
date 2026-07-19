@@ -1,10 +1,18 @@
 from django.contrib import admin
+from import_export.admin import ImportExportModelAdmin
 
 from .models import Category, Course, CourseSection, Lesson
+from .resources import (
+    CategoryResource,
+    CourseResource,
+    CourseSectionResource,
+    LessonResource,
+)
 
 
 @admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
+class CategoryAdmin(ImportExportModelAdmin):
+    resource_class = CategoryResource
     list_display = ("name", "slug")
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
@@ -26,7 +34,8 @@ class CourseSectionInline(admin.TabularInline):
 
 
 @admin.register(CourseSection)
-class CourseSectionAdmin(admin.ModelAdmin):
+class CourseSectionAdmin(ImportExportModelAdmin):
+    resource_class = CourseSectionResource
     list_display = ("title", "course", "order")
     list_filter = ("course",)
     search_fields = ("title", "course__title")
@@ -35,7 +44,8 @@ class CourseSectionAdmin(admin.ModelAdmin):
 
 
 @admin.register(Lesson)
-class LessonAdmin(admin.ModelAdmin):
+class LessonAdmin(ImportExportModelAdmin):
+    resource_class = LessonResource
     list_display = ("title", "section", "lesson_type", "order", "is_preview", "duration_sec")
     list_filter = ("lesson_type", "is_preview")
     search_fields = ("title", "section__title", "section__course__title")
@@ -43,7 +53,8 @@ class LessonAdmin(admin.ModelAdmin):
 
 
 @admin.register(Course)
-class CourseAdmin(admin.ModelAdmin):
+class CourseAdmin(ImportExportModelAdmin):
+    resource_class = CourseResource
     list_display = (
     "title", "instructor", "course_type", "pricing_type", "price", "currency", "status", "company_only", "company",
     "published_at")

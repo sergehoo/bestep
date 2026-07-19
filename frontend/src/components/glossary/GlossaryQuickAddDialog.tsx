@@ -151,10 +151,10 @@ export function GlossaryQuickAddDialog({
         </header>
         <div className="p-5 space-y-3 text-sm">
           {exactMatch && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-3 text-xs">
-              <strong>Attention :</strong> « {exactMatch.word} » existe
-              déjà dans le lexique. Voulez-vous créer un doublon ou l'associer
-              à votre cours plutôt ?
+            <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-900/20 dark:border-rose-800 p-3 text-xs">
+              <strong>Doublon détecté :</strong> « {exactMatch.word} » existe
+              déjà dans le lexique. La création sera refusée par le serveur —
+              utilisez plutôt l'association au cours.
             </div>
           )}
 
@@ -278,7 +278,8 @@ export function GlossaryQuickAddDialog({
               onChange={(e) => setSubmitForValidation(e.target.checked)}
             />
             <span>
-              Soumettre pour validation par l'équipe (sinon, brouillon).
+              Publier immédiatement (visible dans le lexique + détection
+              automatique dans les leçons). Décoché : brouillon privé.
             </span>
           </label>
 

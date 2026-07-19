@@ -1,4 +1,6 @@
 from django.contrib import admin
+from import_export.admin import ImportExportModelAdmin
+
 from .models import (
     GlossaryCategory,
     GlossaryTerm,
@@ -11,6 +13,12 @@ from .models import (
     GlossaryUserNote,
     GlossaryView,
     GlossaryRevision,
+)
+from .resources import (
+    GlossaryCategoryResource,
+    GlossaryExampleResource,
+    GlossaryTermResource,
+    GlossaryVariantResource,
 )
 
 
@@ -34,7 +42,8 @@ class AssociationInline(admin.TabularInline):
 
 
 @admin.register(GlossaryCategory)
-class GlossaryCategoryAdmin(admin.ModelAdmin):
+class GlossaryCategoryAdmin(ImportExportModelAdmin):
+    resource_class = GlossaryCategoryResource
     list_display = ("name", "slug", "parent", "is_active", "order")
     list_filter = ("is_active", "parent")
     search_fields = ("name", "slug", "description")
@@ -42,7 +51,8 @@ class GlossaryCategoryAdmin(admin.ModelAdmin):
 
 
 @admin.register(GlossaryTerm)
-class GlossaryTermAdmin(admin.ModelAdmin):
+class GlossaryTermAdmin(ImportExportModelAdmin):
+    resource_class = GlossaryTermResource
     list_display = (
         "word", "category", "scope", "status",
         "is_active", "enable_auto_detection", "view_count", "updated_at",

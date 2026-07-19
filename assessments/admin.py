@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from import_export.admin import ImportExportModelAdmin
 
 from .models import Attempt, AttemptAnswer, Choice, Question, Quiz
+from .resources import ChoiceResource, QuestionResource, QuizResource
 
 
 class ChoiceInline(admin.TabularInline):
@@ -19,7 +21,8 @@ class QuestionInline(admin.TabularInline):
 
 
 @admin.register(Quiz)
-class QuizAdmin(admin.ModelAdmin):
+class QuizAdmin(ImportExportModelAdmin):
+    resource_class = QuizResource
     list_display = (
         "title",
         "quiz_type",
@@ -56,7 +59,8 @@ class QuizAdmin(admin.ModelAdmin):
 
 
 @admin.register(Question)
-class QuestionAdmin(admin.ModelAdmin):
+class QuestionAdmin(ImportExportModelAdmin):
+    resource_class = QuestionResource
     list_display = ("quiz", "topic","short_prompt", "order")
     list_filter = ("quiz",)
     search_fields = ("prompt",)

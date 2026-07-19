@@ -32,6 +32,9 @@ django-filter==25.1
 django-allauth==65.13.1
 django-axes==8.0.0
 django-otp==1.6.3
+# GLOSS-15 : Import/Export Excel + CSV + JSON dans l'admin Django.
+django-import-export==4.3.9
+openpyxl==3.1.5  # Requis par django-import-export pour le format .xlsx.
 django-two-factor-auth==1.18.1
 django-csp==3.8  # CORRECTIF SEC-08 (CSP).
 argon2-cffi==25.1.0

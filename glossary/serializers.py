@@ -244,7 +244,16 @@ class GlossaryUserNoteSerializer(serializers.ModelSerializer):
 # ─────────────────────────────────────────────────────────────
 
 class GlossaryTermWriteSerializer(serializers.ModelSerializer):
-    """Serializer d'écriture — variantes + exemples nested."""
+    """Serializer d'écriture — variantes + exemples nested.
+
+    GLOSS-14 :
+      - Auto-validation : les termes créés par un instructor ou platform_admin
+        sortent en ``status=validated`` par défaut (au lieu de draft). Seules
+        les suggestions apprenants passent en pending queue.
+      - Anti-doublons : refuse la création si un terme actif existe déjà
+        avec la même search_key (mot normalisé). L'update ignore ce check
+        sur le pk courant.
+    """
     variants = GlossaryVariantSerializer(many=True, required=False)
     examples = GlossaryExampleSerializer(many=True, required=False)
 
@@ -261,12 +270,45 @@ class GlossaryTermWriteSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {"slug": {"required": False}}
 
+    def validate_word(self, value: str) -> str:
+        from .models import normalize_search_key
+        key = normalize_search_key(value)
+        qs = GlossaryTerm.objects.filter(
+            search_key=key, is_active=True,
+        ).exclude(status=GlossaryTerm.Status.ARCHIVED)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        existing = qs.first()
+        if existing:
+            raise serializers.ValidationError(
+                f"Un terme actif existe déjà avec ce mot : « {existing.word} » "
+                f"(#{existing.id}, statut {existing.status})."
+            )
+        return value
+
     def create(self, validated_data):
+        from django.utils import timezone
         variants_data = validated_data.pop("variants", [])
         examples_data = validated_data.pop("examples", [])
         request = self.context.get("request")
-        if request and getattr(request, "user", None) and request.user.is_authenticated:
-            validated_data["created_by"] = request.user
+        user = getattr(request, "user", None) if request else None
+        if user and user.is_authenticated:
+            validated_data["created_by"] = user
+            # Auto-validation : les termes créés par instructor ou admin
+            # sont considérés fiables. Seules les suggestions apprenants
+            # (via /api/glossary/suggestions/) passent en pending.
+            is_trusted = bool(
+                getattr(user, "is_platform_admin", False)
+                or getattr(user, "is_instructor", False)
+            )
+            if is_trusted:
+                # Ne pas écraser un status explicitement passé (ex. draft
+                # si le formateur veut un brouillon privé).
+                if not validated_data.get("status"):
+                    validated_data["status"] = GlossaryTerm.Status.VALIDATED
+                if validated_data.get("status") == GlossaryTerm.Status.VALIDATED:
+                    validated_data["validated_by"] = user
+                    validated_data["published_at"] = timezone.now()
         term = GlossaryTerm.objects.create(**validated_data)
         for v in variants_data:
             GlossaryVariant.objects.create(term=term, **v)

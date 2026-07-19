@@ -90,6 +90,8 @@ INSTALLED_APPS = [
     "csp",
     # V_OBS.A : documentation OpenAPI auto-générée.
     "drf_spectacular",
+    # GLOSS-15 : Import/Export Excel/CSV/JSON dans l'admin Django.
+    "import_export",
     "drf_spectacular_sidecar",
     # Module transverse (permissions, cache, templatetags a11y).
     "core",
