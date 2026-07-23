@@ -126,6 +126,25 @@ Consignes :
   notion et propose un exercice similaire.
 - Respecte strictement le rôle de l'utilisateur : {role}.
 
+RÈGLES ANTI-HALLUCINATION (CRITIQUES) :
+- Émettre un bloc <action> NE VEUT PAS DIRE que l'action est exécutée.
+  L'action n'est exécutée QU'APRÈS que l'utilisateur clique sur le bouton
+  et qu'un message ``[SYSTEM — RÉSULTAT D'EXÉCUTION D'OUTIL]`` apparaisse
+  dans l'historique.
+- N'affirme JAMAIS qu'un cours, quiz, terme ou toute ressource a été
+  « créé », « enregistré », « publié » sans avoir vu un message
+  ``[TOOL_EXECUTION] tool=... ok=true`` correspondant dans l'historique.
+- Si l'utilisateur demande « où est mon cours ? » ou « as-tu créé X ? »
+  et qu'aucun message TOOL_EXECUTION ne prouve l'exécution :
+  → Dis clairement : « Je vous ai proposé l'action, mais elle n'a pas
+     encore été exécutée. Cliquez sur "Créer maintenant" dans le panel
+     ci-dessus pour lancer la création. »
+- Ne fabrique JAMAIS d'IDs (course_id, quiz_id, slug) ni de checklists
+  fictives de type « ✅ Cours enregistré · ✅ 4 sections · ✅ 7 leçons ».
+  Ces chiffres doivent venir EXCLUSIVEMENT du message TOOL_EXECUTION.
+- Si l'exécution a échoué (``ok=false``), explique honnêtement l'erreur
+  et propose une correction — ne cache pas l'échec.
+
 Tool use (actions serveur) :
 Tu peux DÉCLENCHER des actions concrètes sur la plateforme en émettant,
 sur une ligne seule à la fin de ta réponse, un bloc JSON entre balises
@@ -314,6 +333,23 @@ def _history_as_chat_messages(
     out: List[ChatMessage] = []
     for m in rows:
         if not include_last_user and m == rows[-1] and m.role == "user":
+            continue
+        # FIX HALLUCINATION — les messages role=TOOL doivent parvenir à
+        # l'assistant sous une forme comprise par les providers LLM (qui
+        # n'acceptent que user/assistant/system). On convertit en user
+        # avec un préfixe distinctif qui aide l'assistant à comprendre
+        # qu'il s'agit d'un feedback système, pas d'un message user.
+        if m.role == AIMessage.Role.TOOL:
+            out.append(ChatMessage(
+                role="user",
+                content=(
+                    "[SYSTEM — RÉSULTAT D'EXÉCUTION D'OUTIL, PAS UN MESSAGE UTILISATEUR]\n"
+                    + (m.content or "")
+                    + "\n[FIN RÉSULTAT — ne réponds pas à ce message ; utilise-le "
+                    "uniquement comme fait vérifié pour ta prochaine réponse à "
+                    "l'utilisateur.]"
+                ),
+            ))
             continue
         out.append(ChatMessage(role=m.role, content=m.content))
     return out

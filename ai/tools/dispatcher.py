@@ -218,6 +218,19 @@ def confirm_execution(*, user, approval_id: int, ip: Optional[str] = None) -> di
     execution = approval.execution
     result = _run_and_persist(execution, tool, user, approval.input_payload or {})
 
+    # FIX HALLUCINATION — Injecte un message TOOL dans la conversation
+    # pour que l'assistant voie effectivement le résultat au prochain tour.
+    # Sans ce message, l'assistant est aveugle et hallucine (« votre cours
+    # a bien été créé ») sur la seule base du bloc <action> qu'il a émis.
+    if execution.conversation_id:
+        _write_tool_feedback_message(
+            conversation_id=execution.conversation_id,
+            tool_key=tool.key,
+            ok=bool(result.ok),
+            detail=result.detail or "",
+            data=result.data or {},
+        )
+
     AIAuditLog.objects.create(
         user=user,
         kind=AIAuditLog.Kind.ACTION_APPROVAL,
@@ -235,6 +248,55 @@ def confirm_execution(*, user, approval_id: int, ip: Optional[str] = None) -> di
         "approval": _serialize_approval(approval),
         "result": {"ok": result.ok, "detail": result.detail, "data": result.data},
     }
+
+
+def _write_tool_feedback_message(
+    *, conversation_id: int, tool_key: str, ok: bool, detail: str, data: dict
+) -> None:
+    """Persiste un message role=TOOL récapitulant l'exécution.
+
+    Cet enregistrement remplit deux rôles :
+      1. Historique lisible pour l'utilisateur dans le panel (transparent).
+      2. Contexte factuel pour l'assistant au prochain tour — évite les
+         hallucinations « votre cours a bien été créé » alors que rien
+         n'a été enregistré.
+    """
+    try:
+        from ai.models import AIConversation, AIMessage
+        conv = AIConversation.objects.filter(pk=conversation_id).first()
+        if not conv:
+            return
+        # Résumé structuré compact + lisible.
+        lines = [
+            f"[TOOL_EXECUTION] tool={tool_key} ok={ok}",
+        ]
+        if detail:
+            lines.append(f"detail: {detail[:400]}")
+        # On expose quelques champs data utiles pour l'assistant (course_id,
+        # edit_url, quizzes_created…) sans dump JSON brut illisible.
+        allowed_keys = (
+            "course_id", "slug", "status", "edit_url", "preview_url",
+            "sections_created", "lessons_created",
+            "quizzes_created", "questions_created",
+            "quiz_id", "lesson_id", "section_id",
+            "created", "skipped",
+        )
+        for k in allowed_keys:
+            if k in data and data[k] is not None:
+                lines.append(f"{k}: {data[k]}")
+        content = "\n".join(lines)
+        AIMessage.objects.create(
+            conversation=conv,
+            role=AIMessage.Role.TOOL,
+            content=content,
+            metadata={
+                "tool_key": tool_key,
+                "ok": ok,
+                "data": {k: data.get(k) for k in allowed_keys if k in data},
+            },
+        )
+    except Exception:  # noqa: BLE001 — non-bloquant
+        pass
 
 
 def cancel_execution(*, user, approval_id: int, ip: Optional[str] = None) -> dict:

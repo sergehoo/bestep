@@ -645,6 +645,36 @@ function MessageBubble({
   const feedback = useAIFeedback();
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
+  const isTool = message.role === 'tool';
+
+  // FIX HALLUCINATION — Les messages role=tool sont des feedbacks
+  // système injectés par le dispatcher après exécution. On les rend
+  // sous forme de badge discret (succès/échec) pour informer l'user
+  // sans afficher le dump technique brut ``[TOOL_EXECUTION] tool=...``.
+  if (isTool) {
+    const okMatch = /ok=(true|false)/i.exec(message.content || '');
+    const toolMatch = /tool=([\w_]+)/i.exec(message.content || '');
+    const detailMatch = /detail:\s*(.+?)(?:\n|$)/i.exec(message.content || '');
+    const ok = okMatch?.[1]?.toLowerCase() === 'true';
+    const toolKey = toolMatch?.[1] ?? 'action';
+    const detail = detailMatch?.[1] ?? '';
+    return (
+      <div
+        className={
+          'mx-4 my-1 px-3 py-2 rounded-lg text-xs border ' +
+          (ok
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+            : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300')
+        }
+      >
+        <p className="font-bold">
+          {ok ? '✓ Action exécutée' : '✗ Échec de l\'action'} —{' '}
+          <code className="font-mono text-[11px]">{toolKey}</code>
+        </p>
+        {detail && <p className="mt-0.5 opacity-80">{detail}</p>}
+      </div>
+    );
+  }
 
   async function copy() {
     try {
