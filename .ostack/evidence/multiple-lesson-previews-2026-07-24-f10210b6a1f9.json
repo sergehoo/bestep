@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "taskId": "multiple-lesson-previews-2026-07-24",
+  "feature": "Aperçus multiples de leçons",
+  "intentId": "multiple-lesson-previews",
+  "generatedFrom": {
+    "request": "Permettre à un formateur de définir plusieurs leçons d'un même cours comme aperçus publics, sans altérer le fonctionnement existant.",
+    "specificationCoverage": 100,
+    "assumptions": [
+      "Le bouton principal d'aperçu du cours continue volontairement d'ouvrir la première leçon disponible",
+      "Aucune migration de données n'est nécessaire car is_preview est déjà un booléen porté par chaque leçon",
+      "Le déploiement en production est hors du périmètre de cette modification locale"
+    ],
+    "acceptanceCriteria": [
+      "Créer une nouvelle leçon en aperçu ne désactive pas les aperçus existants",
+      "Activer l'aperçu d'une leçon existante ne modifie pas l'état des autres leçons",
+      "Désactiver l'aperçu d'une leçon ne modifie que la leçon ciblée",
+      "Les permissions formateur et de propriété du cours restent appliquées",
+      "Chaque leçon en aperçu reste publiquement consultable selon le contrat existant",
+      "L'interface n'affiche plus la règle d'unicité supprimée"
+    ],
+    "plan": "Retirer les deux mises à jour massives qui forçaient l'unicité, conserver le champ et les endpoints existants, corriger le texte d'aide, puis tester les invariants fonctionnels et de permission."
+  },
+  "changedFiles": [
+    "best_epargne/apis/views.py",
+    "frontend/src/pages/instructor/InstructorLessonEditorPage.tsx",
+    "tests/test_multiple_lesson_previews.py"
+  ],
+  "diffRef": "working-tree:multiple-lesson-previews",
+  "architectureDecisions": [
+    "Conserver le modèle existant sans migration : chaque Lesson possède déjà son propre booléen is_preview",
+    "Ne pas changer le CTA global de la fiche cours : il ouvre toujours le premier aperçu, tandis que chaque leçon en aperçu reste accessible dans le programme"
+  ],
+  "migrations": [],
+  "tests": {
+    "unit": {
+      "passed": 7,
+      "failed": 0
+    },
+    "integration": {
+      "passed": 14,
+      "failed": 0
+    },
+    "contract": {
+      "passed": 1,
+      "failed": 0
+    },
+    "functional": {
+      "passed": 7,
+      "failed": 0
+    },
+    "permission": {
+      "passed": 8,
+      "failed": 0
+    }
+  },
+  "security": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "threatModelUpdated": false
+  },
+  "performance": [],
+  "permissionMatrixVerified": true,
+  "rollback": {
+    "defined": true,
+    "tested": false
+  },
+  "humanApprovals": [],
+  "residualRisks": [
+    {
+      "severity": "high",
+      "description": "La suite complète du dépôt contient 33 échecs sur 285 tests, dans des domaines non modifiés par ce changement ; le gate global de release ne peut pas être déclaré sain.",
+      "mitigation": "Résoudre ou qualifier séparément les échecs du cycle de vie des cours, du throttling d'authentification, des emails, de l'import glossaire et du test de performance avant une release globale."
+    },
+    {
+      "severity": "low",
+      "description": "La page de production fournie redirige vers la connexion dans la session navigateur disponible, donc aucun test manuel authentifié n'a été effectué en production.",
+      "mitigation": "Après déploiement, valider avec un compte formateur que deux badges Preview restent actifs simultanément."
+    }
+  ],
+  "deploymentProcedure": "Aucun déploiement effectué. Après validation du gate de release, déployer le backend puis le frontend construit et vérifier deux aperçus simultanés sur un cours de test.",
+  "rollbackProcedure": "Restaurer les deux blocs d'unicité dans les vues de création et mise à jour, restaurer le texte d'aide et retirer le test ajouté. Aucune migration ni restauration de données n'est requise.",
+  "budget": {
+    "withinBudget": true,
+    "breaches": [],
+    "blockingBreaches": [],
+    "activeDerogations": [],
+    "expiredDerogations": []
+  },
+  "confidence": {
+    "dimensions": [
+      {
+        "dimension": "requirements_understanding",
+        "claimed": 98,
+        "effective": 98,
+        "supported": true,
+        "supportingEvidence": [
+          "intent-compile"
+        ]
+      },
+      {
+        "dimension": "implementation_correctness",
+        "claimed": 96,
+        "effective": 96,
+        "supported": true,
+        "supportingEvidence": [
+          "feature-tests",
+          "django-check",
+          "python-targeted-lint",
+          "frontend-typecheck",
+          "frontend-build",
+          "production-browser-observation"
+        ]
+      },
+      {
+        "dimension": "test_strength",
+        "claimed": 88,
+        "effective": 50,
+        "supported": true,
+        "supportingEvidence": [
+          "property-tests"
+        ],
+        "note": "1 failing evidence item(s) cap this dimension at 50"
+      },
+      {
+        "dimension": "security_assurance",
+        "claimed": 90,
+        "effective": 90,
+        "supported": true,
+        "supportingEvidence": [
+          "permission-tests"
+        ]
+      },
+      {
+        "dimension": "performance_assurance",
+        "claimed": 70,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": [],
+        "note": "Claimed 70 but no supporting evidence; capped at 60"
+      },
+      {
+        "dimension": "documentation_consistency",
+        "claimed": 95,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": [],
+        "note": "Claimed 95 but no supporting evidence; capped at 60"
+      },
+      {
+        "dimension": "rollback_readiness",
+        "claimed": 85,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": [],
+        "note": "Claimed 85 but no supporting evidence; capped at 60"
+      }
+    ],
+    "overall": 69,
+    "uncertainty": [
+      "test_strength: Suite complète : 252 tests passent et 33 échouent dans des domaines non modifiés ; ce signal bloque une affirmation de release globale saine.",
+      "performance_assurance is not backed by executable evidence",
+      "documentation_consistency is not backed by executable evidence",
+      "rollback_readiness is not backed by executable evidence"
+    ]
+  },
+  "definitionOfDone": {
+    "status": "IMPLEMENTED",
+    "unmet": [
+      "e2e_tests_passed",
+      "threat_model_updated",
+      "human_approved"
+    ],
+    "rejected": false,
+    "rejectionReasons": []
+  },
+  "releaseRecommendation": "BLOCK",
+  "verified": false,
+  "blockingReasons": [
+    "unmitigated high risk: La suite complète du dépôt contient 33 échecs sur 285 tests, dans des domaines non modifiés par ce changement ; le gate global de release ne peut pas être déclaré sain."
+  ],
+  "contentHash": "f10210b6a1f9aba780356f0e0d6d48bd94867261528f1ba289acb8c963979c0e"
+}

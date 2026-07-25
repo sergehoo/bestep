@@ -460,8 +460,8 @@ export default function InstructorLessonEditorPage() {
                       sans inscription.
                     </p>
                     <p className="text-[11px] text-neutral-400 mt-1 italic">
-                      Une seule leçon preview par cours : activer ici
-                      désactive automatiquement les autres.
+                      Vous pouvez définir plusieurs leçons preview dans un même
+                      cours.
                     </p>
                   </div>
                 </label>

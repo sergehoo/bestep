@@ -944,24 +944,17 @@ class InstructorLessonCreateView(APIView):
         if media_asset_id:
             media_asset = get_object_or_404(MediaAsset, id=media_asset_id, owner=request.user)
 
-        wants_preview = bool(request.data.get("is_preview", False))
         lesson = Lesson.objects.create(
             section=section,
             title=title,
             lesson_type=lesson_type,
             order=max_order + 1,
-            is_preview=wants_preview,
+            is_preview=bool(request.data.get("is_preview", False)),
             duration_sec=int(request.data.get("duration_sec") or 0),
             video_url=request.data.get("video_url") or "",
             content=request.data.get("content") or "",
             media_asset=media_asset,
         )
-
-        # UX — Unicité de l'aperçu : une seule leçon en preview par cours.
-        if wants_preview:
-            Lesson.objects.filter(
-                section__course=course
-            ).exclude(pk=lesson.pk).update(is_preview=False)
 
         return Response(LessonSerializer(lesson, context={"request": request}).data, status=201)
 
@@ -977,14 +970,6 @@ class InstructorLessonUpdateView(APIView):
         for f in ["title", "lesson_type", "is_preview", "duration_sec", "content"]:
             if f in request.data:
                 setattr(lesson, f, request.data.get(f))
-
-        # UX — Unicité de l'aperçu : une seule leçon par cours peut avoir
-        # is_preview=True. Si l'instructeur active is_preview sur cette leçon,
-        # on décoche automatiquement toutes les autres leçons du même cours.
-        if bool(request.data.get("is_preview")):
-            Lesson.objects.filter(
-                section__course=course
-            ).exclude(pk=lesson.pk).update(is_preview=False)
 
         # UX-06 — video_url : URLField(max_length=200) par défaut. Une URL
         # presignée MinIO dépasse largement 200 caractères → PostgreSQL

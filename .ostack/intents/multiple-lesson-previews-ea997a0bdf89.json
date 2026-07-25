@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "id": "multiple-lesson-previews",
+  "request": "Permettre à un formateur de définir plusieurs leçons d'un même cours comme aperçus publics, sans altérer le fonctionnement existant des autres leçons ni les contrôles d'accès.",
+  "functionalIntent": [
+    "Chaque leçon conserve son propre indicateur is_preview",
+    "Activer l'aperçu sur une leçon ne désactive aucune autre leçon du cours",
+    "La création d'une nouvelle leçon en aperçu préserve les aperçus existants",
+    "La désactivation d'un aperçu continue de ne modifier que la leçon ciblée",
+    "Le texte d'aide de l'éditeur décrit la possibilité de plusieurs aperçus"
+  ],
+  "actors": [
+    "formateur",
+    "visiteur"
+  ],
+  "invariants": [
+    {
+      "id": "preserve-existing-previews-on-create",
+      "statement": "Créer une nouvelle leçon en aperçu ne doit jamais désactiver les aperçus déjà définis dans le même cours",
+      "kind": "consistency",
+      "given": "un cours contient déjà une leçon avec is_preview à vrai",
+      "when": "le formateur crée une autre leçon avec is_preview à vrai",
+      "outcome": "les deux leçons conservent is_preview à vrai"
+    },
+    {
+      "id": "preserve-existing-previews-on-update",
+      "statement": "Activer l'aperçu d'une leçon existante ne doit jamais modifier l'état des autres leçons du cours",
+      "kind": "consistency",
+      "given": "un cours contient une leçon en aperçu et une leçon privée",
+      "when": "le formateur active is_preview sur la leçon privée",
+      "outcome": "les deux leçons conservent is_preview à vrai"
+    },
+    {
+      "id": "targeted-preview-disable",
+      "statement": "Désactiver l'aperçu d'une leçon ne doit modifier que la leçon ciblée",
+      "kind": "consistency",
+      "given": "un cours contient plusieurs leçons en aperçu",
+      "when": "le formateur désactive is_preview sur une de ces leçons",
+      "outcome": "la leçon ciblée devient privée et les autres restent en aperçu"
+    },
+    {
+      "id": "preserve-course-write-permissions",
+      "statement": "Seul un utilisateur autorisé à modifier le cours peut changer les aperçus de ses leçons",
+      "kind": "permission",
+      "given": "une leçon appartient à un cours protégé par les permissions formateur existantes",
+      "when": "un utilisateur demande une création ou une modification de leçon",
+      "outcome": "les contrôles d'authentification et de propriété existants restent appliqués",
+      "auditRequired": false
+    },
+    {
+      "id": "public-preview-contract-unchanged",
+      "statement": "Une leçon ne devient publiquement consultable que si son propre indicateur is_preview est vrai",
+      "kind": "obligation",
+      "given": "un visiteur consulte le programme ou demande le contenu d'une leçon",
+      "when": "plusieurs leçons du cours sont marquées en aperçu",
+      "outcome": "chaque leçon en aperçu suit le contrat public existant indépendamment des autres"
+    }
+  ],
+  "properties": [
+    {
+      "id": "preserve-existing-previews-on-create-holds",
+      "invariantId": "preserve-existing-previews-on-create",
+      "title": "La cohérence est préservée",
+      "gherkin": "Given un cours contient déjà une leçon avec is_preview à vrai\nWhen le formateur crée une autre leçon avec is_preview à vrai\nThen les deux leçons conservent is_preview à vrai",
+      "adversarial": false
+    },
+    {
+      "id": "preserve-existing-previews-on-create-generative",
+      "invariantId": "preserve-existing-previews-on-create",
+      "title": "La cohérence tient sur des données générées",
+      "gherkin": "Given de nombreux jeux de données générés pour un cours contient déjà une leçon avec is_preview à vrai\nWhen le formateur crée une autre leçon avec is_preview à vrai\nThen les deux leçons conservent is_preview à vrai pour chaque jeu de données",
+      "adversarial": true
+    },
+    {
+      "id": "preserve-existing-previews-on-update-holds",
+      "invariantId": "preserve-existing-previews-on-update",
+      "title": "La cohérence est préservée",
+      "gherkin": "Given un cours contient une leçon en aperçu et une leçon privée\nWhen le formateur active is_preview sur la leçon privée\nThen les deux leçons conservent is_preview à vrai",
+      "adversarial": false
+    },
+    {
+      "id": "preserve-existing-previews-on-update-generative",
+      "invariantId": "preserve-existing-previews-on-update",
+      "title": "La cohérence tient sur des données générées",
+      "gherkin": "Given de nombreux jeux de données générés pour un cours contient une leçon en aperçu et une leçon privée\nWhen le formateur active is_preview sur la leçon privée\nThen les deux leçons conservent is_preview à vrai pour chaque jeu de données",
+      "adversarial": true
+    },
+    {
+      "id": "targeted-preview-disable-holds",
+      "invariantId": "targeted-preview-disable",
+      "title": "La cohérence est préservée",
+      "gherkin": "Given un cours contient plusieurs leçons en aperçu\nWhen le formateur désactive is_preview sur une de ces leçons\nThen la leçon ciblée devient privée et les autres restent en aperçu",
+      "adversarial": false
+    },
+    {
+      "id": "targeted-preview-disable-generative",
+      "invariantId": "targeted-preview-disable",
+      "title": "La cohérence tient sur des données générées",
+      "gherkin": "Given de nombreux jeux de données générés pour un cours contient plusieurs leçons en aperçu\nWhen le formateur désactive is_preview sur une de ces leçons\nThen la leçon ciblée devient privée et les autres restent en aperçu pour chaque jeu de données",
+      "adversarial": true
+    },
+    {
+      "id": "preserve-course-write-permissions-allowed",
+      "invariantId": "preserve-course-write-permissions",
+      "title": "L'acteur autorisé peut agir",
+      "gherkin": "Given une leçon appartient à un cours protégé par les permissions formateur existantes\nWhen un utilisateur demande une création ou une modification de leçon\nThen les contrôles d'authentification et de propriété existants restent appliqués",
+      "adversarial": false
+    },
+    {
+      "id": "preserve-course-write-permissions-denied",
+      "invariantId": "preserve-course-write-permissions",
+      "title": "Un acteur non autorisé est refusé",
+      "gherkin": "Given une leçon appartient à un cours protégé par les permissions formateur existantes\nWhen un acteur non autorisé tente la même action\nThen l'action est refusée\nAnd aucun changement n'est appliqué",
+      "adversarial": true
+    },
+    {
+      "id": "public-preview-contract-unchanged-holds",
+      "invariantId": "public-preview-contract-unchanged",
+      "title": "L'obligation est respectée",
+      "gherkin": "Given un visiteur consulte le programme ou demande le contenu d'une leçon\nWhen plusieurs leçons du cours sont marquées en aperçu\nThen chaque leçon en aperçu suit le contrat public existant indépendamment des autres",
+      "adversarial": false
+    }
+  ],
+  "controls": [
+    "input_validation",
+    "data_integrity_check",
+    "authentication",
+    "object_permission",
+    "endpoint_protection",
+    "audit_log"
+  ],
+  "requiredTests": [
+    "unit_test",
+    "property_test",
+    "permission_test",
+    "integration_test"
+  ],
+  "acceptanceCriteria": [
+    "Créer une nouvelle leçon en aperçu ne doit jamais désactiver les aperçus déjà définis dans le même cours",
+    "Activer l'aperçu d'une leçon existante ne doit jamais modifier l'état des autres leçons du cours",
+    "Désactiver l'aperçu d'une leçon ne doit modifier que la leçon ciblée",
+    "Seul un utilisateur autorisé à modifier le cours peut changer les aperçus de ses leçons",
+    "Une leçon ne devient publiquement consultable que si son propre indicateur is_preview est vrai"
+  ],
+  "expectedEvidence": [
+    {
+      "invariantId": "preserve-existing-previews-on-create",
+      "kind": "unit_test",
+      "description": "Test unitaire proving: Créer une nouvelle leçon en aperçu ne doit jamais désactiver les aperçus déjà définis dans le même cours"
+    },
+    {
+      "invariantId": "preserve-existing-previews-on-create",
+      "kind": "property_test",
+      "description": "Test fondé sur les propriétés proving: Créer une nouvelle leçon en aperçu ne doit jamais désactiver les aperçus déjà définis dans le même cours"
+    },
+    {
+      "invariantId": "preserve-existing-previews-on-update",
+      "kind": "unit_test",
+      "description": "Test unitaire proving: Activer l'aperçu d'une leçon existante ne doit jamais modifier l'état des autres leçons du cours"
+    },
+    {
+      "invariantId": "preserve-existing-previews-on-update",
+      "kind": "property_test",
+      "description": "Test fondé sur les propriétés proving: Activer l'aperçu d'une leçon existante ne doit jamais modifier l'état des autres leçons du cours"
+    },
+    {
+      "invariantId": "targeted-preview-disable",
+      "kind": "unit_test",
+      "description": "Test unitaire proving: Désactiver l'aperçu d'une leçon ne doit modifier que la leçon ciblée"
+    },
+    {
+      "invariantId": "targeted-preview-disable",
+      "kind": "property_test",
+      "description": "Test fondé sur les propriétés proving: Désactiver l'aperçu d'une leçon ne doit modifier que la leçon ciblée"
+    },
+    {
+      "invariantId": "preserve-course-write-permissions",
+      "kind": "permission_test",
+      "description": "Test de permission (incluant tentative de contournement) proving: Seul un utilisateur autorisé à modifier le cours peut changer les aperçus de ses leçons"
+    },
+    {
+      "invariantId": "preserve-course-write-permissions",
+      "kind": "integration_test",
+      "description": "Test d'intégration proving: Seul un utilisateur autorisé à modifier le cours peut changer les aperçus de ses leçons"
+    },
+    {
+      "invariantId": "public-preview-contract-unchanged",
+      "kind": "integration_test",
+      "description": "Test d'intégration proving: Une leçon ne devient publiquement consultable que si son propre indicateur is_preview est vrai"
+    }
+  ],
+  "contentHash": "ea997a0bdf89b04928806920c438cf5aebd7fc54edc5fcae9df8406a3b51e49e"
+}

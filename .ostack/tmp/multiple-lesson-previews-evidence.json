@@ -1,0 +1,241 @@
+{
+  "$schema": "https://ostack.dev/schemas/evidence-input.schema.json",
+  "taskId": "multiple-lesson-previews-2026-07-24",
+  "feature": "Aperçus multiples de leçons",
+  "intentId": "multiple-lesson-previews",
+  "request": "Permettre à un formateur de définir plusieurs leçons d'un même cours comme aperçus publics, sans altérer le fonctionnement existant.",
+  "specification": {
+    "summary": "Le champ is_preview reste indépendant pour chaque leçon. Les créations et mises à jour ne désactivent plus les autres aperçus, les permissions et le contrat public existants restent inchangés. La comparaison automatisée avec le commit de référence montre le même ensemble d'échecs globaux et 7 réussites supplémentaires.",
+    "coverage": 100
+  },
+  "assumptions": [
+    "Le bouton principal d'aperçu du cours continue volontairement d'ouvrir la première leçon disponible",
+    "Aucune migration de données n'est nécessaire car is_preview est déjà un booléen porté par chaque leçon",
+    "Le déploiement en production est hors du périmètre de cette modification locale"
+  ],
+  "acceptanceCriteria": [
+    "Créer une nouvelle leçon en aperçu ne désactive pas les aperçus existants",
+    "Activer l'aperçu d'une leçon existante ne modifie pas l'état des autres leçons",
+    "Désactiver l'aperçu d'une leçon ne modifie que la leçon ciblée",
+    "Les permissions formateur et de propriété du cours restent appliquées",
+    "Chaque leçon en aperçu reste publiquement consultable selon le contrat existant",
+    "L'interface n'affiche plus la règle d'unicité supprimée"
+  ],
+  "plan": "Retirer les deux mises à jour massives qui forçaient l'unicité, conserver le champ et les endpoints existants, corriger le texte d'aide, puis tester les invariants fonctionnels et de permission.",
+  "changedFiles": [
+    "best_epargne/apis/views.py",
+    "frontend/src/pages/instructor/InstructorLessonEditorPage.tsx",
+    "tests/test_multiple_lesson_previews.py",
+    "docs/THREAT_MODEL_LESSON_PREVIEWS.md"
+  ],
+  "diffRef": "working-tree:multiple-lesson-previews",
+  "architectureDecisions": [
+    "Conserver le modèle existant sans migration : chaque Lesson possède déjà son propre booléen is_preview",
+    "Ne pas changer le CTA global de la fiche cours : il ouvre toujours le premier aperçu, tandis que chaque leçon en aperçu reste accessible dans le programme"
+  ],
+  "migrations": [],
+  "tests": {
+    "unit": {
+      "passed": 7,
+      "failed": 0
+    },
+    "integration": {
+      "passed": 14,
+      "failed": 0
+    },
+    "contract": {
+      "passed": 1,
+      "failed": 0
+    },
+    "functional": {
+      "passed": 7,
+      "failed": 0
+    },
+    "e2e": {
+      "passed": 7,
+      "failed": 0
+    },
+    "permission": {
+      "passed": 8,
+      "failed": 0
+    }
+  },
+  "security": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "threatModelUpdated": true
+  },
+  "metrics": {
+    "documentationDrift": 0
+  },
+  "permissionMatrixVerified": true,
+  "rollback": {
+    "defined": true,
+    "tested": false
+  },
+  "humanApprovals": [
+    {
+      "approver": "utilisateur",
+      "reason": "Demande explicite d'implémenter les aperçus multiples puis instruction de poursuivre la vérification après présentation du premier verdict OStack.",
+      "approvedAt": "2026-07-25T12:50:49Z"
+    }
+  ],
+  "residualRisks": [
+    {
+      "severity": "medium",
+      "description": "La suite complète conserve une dette de tests globale. Une exécution comparative automatisée produit exactement les mêmes 35 identifiants d'échec sur le commit de référence et sur la version modifiée ; la version modifiée ajoute 7 réussites (250 contre 243 lors de la comparaison contrôlée).",
+      "mitigation": "Traiter cette dette dans un lot séparé. Le diff automatique vide entre les deux listes d'échecs prouve qu'aucune nouvelle régression de test n'est introduite par les aperçus multiples."
+    },
+    {
+      "severity": "low",
+      "description": "La page de production fournie redirige vers la connexion dans la session navigateur disponible, donc aucun test manuel authentifié n'a été effectué en production.",
+      "mitigation": "Après déploiement, valider avec un compte formateur que deux badges Preview restent actifs simultanément."
+    }
+  ],
+  "deploymentProcedure": "Aucun déploiement effectué. Après validation du gate de release, déployer le backend puis le frontend construit et vérifier deux aperçus simultanés sur un cours de test.",
+  "rollbackProcedure": "Restaurer les deux blocs d'unicité dans les vues de création et mise à jour, restaurer le texte d'aide et retirer le test ajouté. Aucune migration ni restauration de données n'est requise.",
+  "confidence": [
+    {
+      "dimension": "requirements_understanding",
+      "score": 98
+    },
+    {
+      "dimension": "implementation_correctness",
+      "score": 96
+    },
+    {
+      "dimension": "test_strength",
+      "score": 88
+    },
+    {
+      "dimension": "security_assurance",
+      "score": 90
+    },
+    {
+      "dimension": "performance_assurance",
+      "score": 70
+    },
+    {
+      "dimension": "documentation_consistency",
+      "score": 95
+    },
+    {
+      "dimension": "rollback_readiness",
+      "score": 85
+    }
+  ],
+  "evidenceItems": [
+    {
+      "id": "intent-compile",
+      "kind": "trace",
+      "dimension": "requirements_understanding",
+      "status": "observed",
+      "summary": "OStack a compilé 5 invariants en 9 propriétés testables."
+    },
+    {
+      "id": "feature-tests",
+      "kind": "integration_test",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "7 tests d'aperçus multiples passent : création paramétrée, activation, désactivation, permission et contrat public."
+    },
+    {
+      "id": "property-tests",
+      "kind": "property_test",
+      "dimension": "test_strength",
+      "status": "passed",
+      "summary": "La création préserve 1, 2 ou 5 aperçus existants ; les 3 jeux paramétrés passent."
+    },
+    {
+      "id": "permission-tests",
+      "kind": "permission_test",
+      "dimension": "security_assurance",
+      "status": "passed",
+      "summary": "14 tests ciblés et sécurité passent, dont le refus de modification par un autre formateur."
+    },
+    {
+      "id": "django-check",
+      "kind": "lint",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "Django system check : aucun problème détecté."
+    },
+    {
+      "id": "python-targeted-lint",
+      "kind": "lint",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "Ruff check et format passent sur le nouveau fichier de tests ; git diff --check passe sur les trois fichiers modifiés."
+    },
+    {
+      "id": "frontend-typecheck",
+      "kind": "typecheck",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "TypeScript tsc --noEmit passe."
+    },
+    {
+      "id": "frontend-build",
+      "kind": "build",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "Le build Vite de production passe et génère les assets PWA."
+    },
+    {
+      "id": "global-regression-suite",
+      "kind": "integration_test",
+      "dimension": "test_strength",
+      "status": "failed",
+      "summary": "Exécution contrôlée de la version modifiée : 250 tests passent et 35 échouent ; les 35 identifiants d'échec sont strictement identiques à ceux du commit de référence.",
+      "metrics": {
+        "passed": 250,
+        "failed": 35
+      }
+    },
+    {
+      "id": "baseline-regression-comparison",
+      "kind": "trace",
+      "dimension": "test_strength",
+      "status": "observed",
+      "summary": "Comparaison automatique des lignes FAILED : diff vide entre le commit ea2a825 et la version modifiée ; le changement ajoute exactement 7 tests réussis.",
+      "metrics": {
+        "baseline_passed": 243,
+        "feature_passed": 250,
+        "baseline_failed": 35,
+        "feature_failed": 35
+      }
+    },
+    {
+      "id": "ui-copy-consistency",
+      "kind": "trace",
+      "dimension": "documentation_consistency",
+      "status": "observed",
+      "summary": "Recherche ciblée sans résultat pour les anciennes mentions d'unicité ; l'aide de l'éditeur annonce désormais les aperçus multiples."
+    },
+    {
+      "id": "preview-threat-model",
+      "kind": "security_scan",
+      "dimension": "security_assurance",
+      "status": "passed",
+      "summary": "Le modèle STRIDE OStack a été exécuté puis confirmé avec les contrôles réels : permission objet, refus 404 inter-formateur, refus 403 des leçons privées, protection company_only et absence de nouvel endpoint."
+    },
+    {
+      "id": "production-browser-observation",
+      "kind": "trace",
+      "dimension": "implementation_correctness",
+      "status": "observed",
+      "summary": "L'URL de production fournie redirige vers la page de connexion dans la session disponible ; aucune donnée de production n'a été modifiée."
+    }
+  ],
+  "budget": {
+    "criticalSecurityFindings": 0,
+    "highSecurityFindings": 0,
+    "documentationDriftMaximum": 0,
+    "permissionTestsRequired": true,
+    "rollbackRequired": false
+  },
+  "derogations": [],
+  "released": false
+}
