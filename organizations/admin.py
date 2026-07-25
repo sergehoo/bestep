@@ -122,18 +122,22 @@ class OrganizationInvitationAdmin(admin.ModelAdmin):
 @admin.register(BusinessInterestRequest)
 class BusinessInterestRequestAdmin(admin.ModelAdmin):
     list_display = (
+        "reference",
         "organization_name",
         "contact_name",
         "email",
-        "phone",
         "learners_count",
-        "is_processed",
+        "plan_interest",
+        "timeframe",
+        "status",
         "created_at",
     )
     list_filter = (
-        "is_processed",
+        "status",
+        "plan_interest",
+        "timeframe",
+        "organization_type",
         "categories",
-        "courses",
         "created_at",
     )
     search_fields = (
@@ -148,7 +152,11 @@ class BusinessInterestRequestAdmin(admin.ModelAdmin):
         "courses",
     )
     readonly_fields = (
+        "consented_at",
+        "processed_at",
+        "processed_by",
         "created_at",
+        "updated_at",
     )
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
@@ -157,27 +165,43 @@ class BusinessInterestRequestAdmin(admin.ModelAdmin):
         ("Informations organisation", {
             "fields": (
                 "organization_name",
+                "organization_type",
+                "country",
+                "city",
                 "learners_count",
             )
         }),
         ("Contact", {
             "fields": (
                 "contact_name",
+                "contact_role",
                 "email",
                 "phone",
+                "preferred_contact",
             )
         }),
         ("Besoins exprimés", {
             "fields": (
                 "categories",
                 "courses",
+                "plan_interest",
+                "timeframe",
+                "budget_range",
                 "message",
             )
         }),
         ("Traitement interne", {
             "fields": (
+                "status",
+                "admin_notes",
                 "is_processed",
+                "processed_by",
+                "processed_at",
+                "source",
+                "privacy_consent",
+                "consented_at",
                 "created_at",
+                "updated_at",
             )
         }),
     )

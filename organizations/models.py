@@ -200,11 +200,74 @@ class OrganizationInvitation(models.Model):
 
 
 class BusinessInterestRequest(models.Model):
+    class OrganizationType(models.TextChoices):
+        COMPANY = "COMPANY", "Entreprise privée"
+        PUBLIC = "PUBLIC", "Administration / institution publique"
+        NGO = "NGO", "ONG / association"
+        EDUCATION = "EDUCATION", "École / université"
+        FINANCIAL = "FINANCIAL", "Institution financière"
+        OTHER = "OTHER", "Autre organisation"
+
+    class PlanInterest(models.TextChoices):
+        PRO = "PRO", "Pro"
+        ENTERPRISE = "ENTERPRISE", "Enterprise"
+        DEMO = "DEMO", "Démonstration"
+        UNSURE = "UNSURE", "À définir avec un conseiller"
+
+    class Timeframe(models.TextChoices):
+        IMMEDIATE = "IMMEDIATE", "Dès que possible"
+        ONE_TO_THREE_MONTHS = "1_3_MONTHS", "Dans 1 à 3 mois"
+        THREE_TO_SIX_MONTHS = "3_6_MONTHS", "Dans 3 à 6 mois"
+        SIX_TO_TWELVE_MONTHS = "6_12_MONTHS", "Dans 6 à 12 mois"
+        EXPLORING = "EXPLORING", "En phase d'exploration"
+
+    class PreferredContact(models.TextChoices):
+        EMAIL = "EMAIL", "E-mail"
+        PHONE = "PHONE", "Téléphone"
+        WHATSAPP = "WHATSAPP", "WhatsApp"
+
+    class Status(models.TextChoices):
+        NEW = "NEW", "Nouvelle"
+        CONTACTED = "CONTACTED", "Contactée"
+        QUALIFIED = "QUALIFIED", "Qualifiée"
+        PROPOSAL_SENT = "PROPOSAL_SENT", "Devis envoyé"
+        WON = "WON", "Gagnée"
+        LOST = "LOST", "Perdue"
+        ARCHIVED = "ARCHIVED", "Archivée"
+
     organization_name = models.CharField("Nom de l'organisation", max_length=180)
+    organization_type = models.CharField(
+        "Type d'organisation",
+        max_length=20,
+        choices=OrganizationType.choices,
+        default=OrganizationType.COMPANY,
+    )
+    country = models.CharField("Pays", max_length=80, blank=True, default="Côte d’Ivoire")
+    city = models.CharField("Ville", max_length=80, blank=True)
     contact_name = models.CharField("Nom du contact", max_length=160)
+    contact_role = models.CharField("Fonction du contact", max_length=160, blank=True)
     email = models.EmailField("Email professionnel")
     phone = models.CharField("Téléphone", max_length=40, blank=True)
+    preferred_contact = models.CharField(
+        "Canal de contact préféré",
+        max_length=20,
+        choices=PreferredContact.choices,
+        default=PreferredContact.EMAIL,
+    )
     learners_count = models.PositiveIntegerField("Apprenants estimé", default=1)
+    plan_interest = models.CharField(
+        "Offre souhaitée",
+        max_length=20,
+        choices=PlanInterest.choices,
+        default=PlanInterest.UNSURE,
+    )
+    timeframe = models.CharField(
+        "Période de démarrage",
+        max_length=20,
+        choices=Timeframe.choices,
+        default=Timeframe.EXPLORING,
+    )
+    budget_range = models.CharField("Budget indicatif", max_length=80, blank=True)
     categories = models.ManyToManyField(
         "catalog.Category",
         blank=True,
@@ -218,13 +281,42 @@ class BusinessInterestRequest(models.Model):
         verbose_name="Formations souhaitées",
     )
     message = models.TextField("Besoin spécifique", blank=True)
+    privacy_consent = models.BooleanField("Consentement au traitement", default=False)
+    consented_at = models.DateTimeField("Consentement donné le", null=True, blank=True)
+    source = models.CharField("Source", max_length=80, blank=True, default="enterprise_page")
+    status = models.CharField(
+        "Statut commercial",
+        max_length=20,
+        choices=Status.choices,
+        default=Status.NEW,
+        db_index=True,
+    )
+    admin_notes = models.TextField("Notes administratives", blank=True)
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="business_interest_requests_processed",
+        verbose_name="Dernier traitement par",
+    )
+    processed_at = models.DateTimeField("Premier traitement le", null=True, blank=True)
     is_processed = models.BooleanField("Traité", default=False)
     created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Manifestation d’intérêt entreprise"
         verbose_name_plural = "Manifestations d’intérêt entreprises"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "-created_at"]),
+            models.Index(fields=["email", "-created_at"]),
+        ]
+
+    @property
+    def reference(self) -> str:
+        return f"DEV-{self.pk:06d}" if self.pk else "DEV-EN-COURS"
 
     def __str__(self):
         return f"{self.organization_name} — {self.contact_name}"

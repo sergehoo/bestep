@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "taskId": "public-business-quote-requests-2026-07-25",
+  "feature": "Formulaire public et traitement des demandes de devis entreprise",
+  "intentId": "public-business-quote-requests",
+  "generatedFrom": {
+    "request": "Remplacer les liens e-mail de la page Entreprise par un formulaire modal accessible sans inscription, enregistrer une demande complète et permettre à l’administrateur principal de la traiter.",
+    "specificationCoverage": 100,
+    "assumptions": [
+      "L’administrateur principal correspond au rôle administrateur plateforme existant",
+      "La notification demandée est une notification interne ; aucun e-mail externe n’est envoyé dans ce lot",
+      "Le déploiement et l’application de la migration en production sont hors de cette modification locale"
+    ],
+    "acceptanceCriteria": [
+      "Un prospect peut envoyer une demande de devis valide sans compte ni authentification",
+      "Une demande incomplète, incohérente ou automatisée est refusée sans création de donnée",
+      "Les CTA commerciaux ne dépendent plus d’un client de messagerie",
+      "Seuls les administrateurs plateforme peuvent consulter ou traiter les demandes",
+      "Le traitement conserve statut, notes, administrateur et dates",
+      "La réponse publique n’expose aucune donnée de suivi interne",
+      "Une nouvelle demande crée une notification pour les administrateurs plateforme actifs"
+    ],
+    "plan": "Étendre le modèle existant de manifestation d’intérêt, ajouter une API publique minimale et limitée, une API admin protégée, une modale responsive et une file de traitement admin, puis vérifier permissions, validations, build et comportement navigateur."
+  },
+  "changedFiles": [
+    "best_epargne/apis/api_business_interest.py",
+    "best_epargne/apis/api_urls.py",
+    "best_epargne/settings/base.py",
+    "organizations/models.py",
+    "organizations/admin.py",
+    "organizations/migrations/0006_business_interest_workflow.py",
+    "frontend/src/components/business/BusinessQuoteRequestModal.tsx",
+    "frontend/src/pages/EnterprisePage.tsx",
+    "frontend/src/pages/admin/AdminQuoteRequestsPage.tsx",
+    "frontend/src/components/admin/AdminShell.tsx",
+    "frontend/src/router/index.tsx",
+    "tests/test_business_quote_requests.py",
+    "docs/THREAT_MODEL_BUSINESS_QUOTE_REQUESTS.md"
+  ],
+  "diffRef": "working-tree:public-business-quote-requests",
+  "architectureDecisions": [
+    "Réutiliser BusinessInterestRequest pour préserver l’ancien parcours et ses données",
+    "Séparer strictement le sérialiseur public du sérialiseur administrateur",
+    "Utiliser la permission IsPlatformAdmin existante pour la liste et le traitement",
+    "Conserver is_processed pour compatibilité et piloter le nouveau workflow par un statut à choix fermé"
+  ],
+  "migrations": [
+    {
+      "id": "organizations.0006_business_interest_workflow",
+      "reversible": true,
+      "backupTaken": false
+    }
+  ],
+  "tests": {
+    "integration": {
+      "passed": 12,
+      "failed": 0
+    },
+    "contract": {
+      "passed": 2,
+      "failed": 0
+    },
+    "functional": {
+      "passed": 8,
+      "failed": 0
+    },
+    "e2e": {
+      "passed": 8,
+      "failed": 0
+    },
+    "permission": {
+      "passed": 3,
+      "failed": 0
+    }
+  },
+  "security": {
+    "critical": 3,
+    "high": 2,
+    "medium": 53,
+    "low": 1,
+    "threatModelUpdated": true
+  },
+  "performance": [],
+  "permissionMatrixVerified": true,
+  "rollback": {
+    "defined": true,
+    "tested": false
+  },
+  "humanApprovals": [
+    {
+      "approver": "utilisateur",
+      "reason": "Demande explicite d’implémenter le formulaire de devis sans inscription et le traitement par l’administrateur principal.",
+      "approvedAt": "2026-07-25T13:17:14Z"
+    }
+  ],
+  "residualRisks": [
+    {
+      "severity": "critical",
+      "description": "Le scan OStack global signale trois secrets potentiels préexistants dans .env, une documentation et un sourcemap généré.",
+      "mitigation": "Faire confirmer les constats, révoquer toute valeur réelle et exclure les secrets et sourcemaps sensibles avant une release."
+    },
+    {
+      "severity": "high",
+      "description": "Le scan OStack global signale un Dockerfile sans utilisateur non-root et une dépendance haute, hors fichiers de cette fonctionnalité.",
+      "mitigation": "Traiter ces constats dans un lot sécurité avant déploiement."
+    },
+    {
+      "severity": "medium",
+      "description": "La suite globale conserve 33 échecs préexistants dans le lexique, le cycle de vie des cours, les throttles d’authentification et les templates e-mail ; les 12 tests dédiés passent.",
+      "mitigation": "Conserver le lot isolé et corriger la dette globale séparément avant le gate de release."
+    },
+    {
+      "severity": "low",
+      "description": "Le throttling et le champ leurre limitent le spam simple mais ne constituent pas une protection distribuée.",
+      "mitigation": "Ajouter WAF ou CAPTCHA si la télémétrie révèle des abus."
+    },
+    {
+      "severity": "low",
+      "description": "OStack observe et la mesure de performance ne sont pas configurés dans ce dépôt.",
+      "mitigation": "Déclarer une sonde loopback après déploiement en environnement de test."
+    }
+  ],
+  "deploymentProcedure": "Sauvegarder la base de production, appliquer la migration organizations.0006, déployer le backend puis le build frontend, vérifier une soumission de test et son apparition dans /admin/quote-requests.",
+  "rollbackProcedure": "Retirer les routes et écrans ajoutés, inverser organizations.0006 et redéployer la version précédente. Les champs historiques du modèle restent inchangés.",
+  "budget": {
+    "withinBudget": false,
+    "breaches": [
+      {
+        "metric": "critical_security_findings",
+        "threshold": 0,
+        "observed": 3,
+        "blocking": true
+      },
+      {
+        "metric": "high_security_findings",
+        "threshold": 0,
+        "observed": 2,
+        "blocking": true
+      }
+    ],
+    "blockingBreaches": [
+      {
+        "metric": "critical_security_findings",
+        "threshold": 0,
+        "observed": 3,
+        "blocking": true
+      },
+      {
+        "metric": "high_security_findings",
+        "threshold": 0,
+        "observed": 2,
+        "blocking": true
+      }
+    ],
+    "activeDerogations": [],
+    "expiredDerogations": []
+  },
+  "confidence": {
+    "dimensions": [
+      {
+        "dimension": "requirements_understanding",
+        "claimed": 98,
+        "effective": 98,
+        "supported": true,
+        "supportingEvidence": [
+          "intent-compile"
+        ]
+      },
+      {
+        "dimension": "implementation_correctness",
+        "claimed": 95,
+        "effective": 95,
+        "supported": true,
+        "supportingEvidence": [
+          "targeted-api-tests",
+          "browser-modal-observation",
+          "django-check",
+          "python-lint-format",
+          "frontend-typecheck",
+          "frontend-build"
+        ]
+      },
+      {
+        "dimension": "test_strength",
+        "claimed": 88,
+        "effective": 50,
+        "supported": false,
+        "supportingEvidence": [],
+        "note": "2 failing evidence item(s) cap this dimension at 50"
+      },
+      {
+        "dimension": "security_assurance",
+        "claimed": 72,
+        "effective": 50,
+        "supported": true,
+        "supportingEvidence": [
+          "permission-tests",
+          "public-contract",
+          "quote-threat-model"
+        ],
+        "note": "1 failing evidence item(s) cap this dimension at 50"
+      },
+      {
+        "dimension": "performance_assurance",
+        "claimed": 40,
+        "effective": 40,
+        "supported": false,
+        "supportingEvidence": []
+      },
+      {
+        "dimension": "documentation_consistency",
+        "claimed": 96,
+        "effective": 96,
+        "supported": true,
+        "supportingEvidence": [
+          "architecture-boundaries"
+        ]
+      },
+      {
+        "dimension": "rollback_readiness",
+        "claimed": 78,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": [],
+        "note": "Claimed 78 but no supporting evidence; capped at 60"
+      }
+    ],
+    "overall": 69,
+    "uncertainty": [
+      "test_strength: La suite globale exécute 296 tests : 263 passent et 33 échouent dans des modules préexistants sans lien avec les demandes de devis.; La contestation OStack n’a pas pu s’exécuter : le modèle local qwen3 configuré est absent.",
+      "security_assurance: Le scan défensif global OStack bloque la release sur 3 secrets potentiels, 2 constats hauts et des constats moyens préexistants.",
+      "rollback_readiness is not backed by executable evidence"
+    ]
+  },
+  "definitionOfDone": {
+    "status": "REJECTED",
+    "unmet": [
+      "unit_tests_passed"
+    ],
+    "rejected": true,
+    "rejectionReasons": [
+      "3 critical security finding(s)",
+      "2 high security finding(s)"
+    ]
+  },
+  "releaseRecommendation": "REJECT",
+  "verified": false,
+  "blockingReasons": [
+    "3 critical security finding(s)",
+    "2 high security finding(s)",
+    "quality budget breach: critical_security_findings (observed 3, threshold 0)",
+    "quality budget breach: high_security_findings (observed 2, threshold 0)",
+    "unmitigated critical risk: Le scan OStack global signale trois secrets potentiels préexistants dans .env, une documentation et un sourcemap généré.",
+    "unmitigated high risk: Le scan OStack global signale un Dockerfile sans utilisateur non-root et une dépendance haute, hors fichiers de cette fonctionnalité."
+  ],
+  "contentHash": "53b33a43048d708584aff2f93cb618bab547fbe5b3334f1ada85ca3836f9c976"
+}

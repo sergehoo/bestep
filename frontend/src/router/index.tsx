@@ -78,6 +78,9 @@ const AIAdminCenterPage = lazy(() => import('@/pages/admin/AIAdminCenterPage'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage'));
 const AdminUserDetailPage = lazy(() => import('@/pages/admin/AdminUserDetailPage'));
 const AdminConfigPage = lazy(() => import('@/pages/admin/AdminConfigPage'));
+const AdminQuoteRequestsPage = lazy(
+  () => import('@/pages/admin/AdminQuoteRequestsPage'),
+);
 // R27 : supervision des cours plateforme
 const AdminCoursesPage = lazy(() => import('@/pages/admin/AdminCoursesPage'));
 // R28 : audit + enrollments + placeholders
@@ -877,6 +880,7 @@ const router = createBrowserRouter([
     { path: '/admin/content', Component: AdminContentPage },
     { path: '/admin/quiz', Component: AdminQuizzesPage },
     { path: '/admin/payments', Component: AdminPaymentsPage },
+    { path: '/admin/quote-requests', Component: AdminQuoteRequestsPage },
     { path: '/admin/commissions', Component: AdminCommissionsPage },
     { path: '/admin/payouts', Component: AdminPayoutsPage },
     { path: '/admin/marketing', Component: AdminMarketingPage },

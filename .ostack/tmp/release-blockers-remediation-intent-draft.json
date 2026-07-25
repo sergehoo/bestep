@@ -1,0 +1,61 @@
+{
+  "$schema": "https://ostack.dev/schemas/intent-draft.schema.json",
+  "schemaVersion": 1,
+  "id": "release-blockers-remediation",
+  "request": "Identifier et corriger les secrets potentiels, les alertes de sécurité hautes et les 33 échecs de tests globaux qui bloquent la release du projet, sans masquer les vrais défauts ni altérer les fonctionnalités existantes.",
+  "functionalIntent": [
+    "Aucun secret réel ne doit être versionné, documenté ou inclus dans les artefacts frontend",
+    "Les conteneurs de production doivent fonctionner avec un utilisateur non privilégié",
+    "Les dépendances critiques ou hautes doivent être corrigées sans régression",
+    "La suite complète de tests doit passer sans désactiver les contrôles de sécurité",
+    "Les faux positifs de scan doivent être documentés par des règles précises et non par des exclusions globales"
+  ],
+  "actors": [
+    "développeur",
+    "pipeline CI",
+    "utilisateur de la plateforme",
+    "attaquant non authentifié"
+  ],
+  "invariants": [
+    {
+      "id": "no-versioned-secrets",
+      "statement": "Aucun secret exploitable ne peut être présent dans les fichiers versionnés ou les artefacts frontend",
+      "kind": "prohibition",
+      "given": "le dépôt et les artefacts de build",
+      "when": "un scan de secrets est exécuté",
+      "outcome": "aucun constat critique confirmé n'est retourné"
+    },
+    {
+      "id": "non-root-container",
+      "statement": "Le conteneur frontend de production ne s'exécute pas avec l'utilisateur root",
+      "kind": "obligation",
+      "given": "l'image frontend construite",
+      "when": "le serveur web démarre",
+      "outcome": "un utilisateur non privilégié exécute le processus et peut lire les fichiers requis"
+    },
+    {
+      "id": "no-high-dependency-vulnerability",
+      "statement": "Les dépendances installées ne contiennent aucune vulnérabilité critique ou haute connue",
+      "kind": "prohibition",
+      "given": "les fichiers de verrouillage du projet",
+      "when": "les audits de dépendances sont exécutés",
+      "outcome": "les compteurs critique et haut sont à zéro"
+    },
+    {
+      "id": "global-tests-green",
+      "statement": "La suite globale passe sans échec et sans neutraliser le throttling, les permissions ou les validations métier",
+      "kind": "obligation",
+      "given": "la base de tests et un cache isolé",
+      "when": "pytest est exécuté sur tous les tests",
+      "outcome": "tous les tests passent"
+    },
+    {
+      "id": "feature-regression-protected",
+      "statement": "Les demandes de devis et les aperçus multiples restent fonctionnels après les corrections transverses",
+      "kind": "consistency",
+      "given": "les fonctionnalités ajoutées précédemment",
+      "when": "leurs suites ciblées sont exécutées",
+      "outcome": "tous leurs tests continuent de passer"
+    }
+  ]
+}

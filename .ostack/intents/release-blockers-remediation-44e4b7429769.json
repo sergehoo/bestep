@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "id": "release-blockers-remediation",
+  "request": "Identifier et corriger les secrets potentiels, les alertes de sécurité hautes et les 33 échecs de tests globaux qui bloquent la release du projet, sans masquer les vrais défauts ni altérer les fonctionnalités existantes.",
+  "functionalIntent": [
+    "Aucun secret réel ne doit être versionné, documenté ou inclus dans les artefacts frontend",
+    "Les conteneurs de production doivent fonctionner avec un utilisateur non privilégié",
+    "Les dépendances critiques ou hautes doivent être corrigées sans régression",
+    "La suite complète de tests doit passer sans désactiver les contrôles de sécurité",
+    "Les faux positifs de scan doivent être documentés par des règles précises et non par des exclusions globales"
+  ],
+  "actors": [
+    "développeur",
+    "pipeline CI",
+    "utilisateur de la plateforme",
+    "attaquant non authentifié"
+  ],
+  "invariants": [
+    {
+      "id": "no-versioned-secrets",
+      "statement": "Aucun secret exploitable ne peut être présent dans les fichiers versionnés ou les artefacts frontend",
+      "kind": "prohibition",
+      "given": "le dépôt et les artefacts de build",
+      "when": "un scan de secrets est exécuté",
+      "outcome": "aucun constat critique confirmé n'est retourné"
+    },
+    {
+      "id": "non-root-container",
+      "statement": "Le conteneur frontend de production ne s'exécute pas avec l'utilisateur root",
+      "kind": "obligation",
+      "given": "l'image frontend construite",
+      "when": "le serveur web démarre",
+      "outcome": "un utilisateur non privilégié exécute le processus et peut lire les fichiers requis"
+    },
+    {
+      "id": "no-high-dependency-vulnerability",
+      "statement": "Les dépendances installées ne contiennent aucune vulnérabilité critique ou haute connue",
+      "kind": "prohibition",
+      "given": "les fichiers de verrouillage du projet",
+      "when": "les audits de dépendances sont exécutés",
+      "outcome": "les compteurs critique et haut sont à zéro"
+    },
+    {
+      "id": "global-tests-green",
+      "statement": "La suite globale passe sans échec et sans neutraliser le throttling, les permissions ou les validations métier",
+      "kind": "obligation",
+      "given": "la base de tests et un cache isolé",
+      "when": "pytest est exécuté sur tous les tests",
+      "outcome": "tous les tests passent"
+    },
+    {
+      "id": "feature-regression-protected",
+      "statement": "Les demandes de devis et les aperçus multiples restent fonctionnels après les corrections transverses",
+      "kind": "consistency",
+      "given": "les fonctionnalités ajoutées précédemment",
+      "when": "leurs suites ciblées sont exécutées",
+      "outcome": "tous leurs tests continuent de passer"
+    }
+  ],
+  "properties": [
+    {
+      "id": "no-versioned-secrets-holds",
+      "invariantId": "no-versioned-secrets",
+      "title": "L'issue interdite ne se produit pas",
+      "gherkin": "Given le dépôt et les artefacts de build\nWhen un scan de secrets est exécuté\nThen il est vérifié que « aucun constat critique confirmé n'est retourné » ne s'est pas produit",
+      "adversarial": false
+    },
+    {
+      "id": "no-versioned-secrets-adversarial",
+      "invariantId": "no-versioned-secrets",
+      "title": "Une tentative directe de provoquer l'issue interdite est refusée",
+      "gherkin": "Given le dépôt et les artefacts de build\nWhen un scan de secrets est exécuté en tentant délibérément de provoquer \"aucun constat critique confirmé n'est retourné\"\nThen la tentative est refusée\nAnd il est vérifié que « aucun constat critique confirmé n'est retourné » ne s'est pas produit",
+      "adversarial": true
+    },
+    {
+      "id": "non-root-container-holds",
+      "invariantId": "non-root-container",
+      "title": "L'obligation est respectée",
+      "gherkin": "Given l'image frontend construite\nWhen le serveur web démarre\nThen un utilisateur non privilégié exécute le processus et peut lire les fichiers requis",
+      "adversarial": false
+    },
+    {
+      "id": "no-high-dependency-vulnerability-holds",
+      "invariantId": "no-high-dependency-vulnerability",
+      "title": "L'issue interdite ne se produit pas",
+      "gherkin": "Given les fichiers de verrouillage du projet\nWhen les audits de dépendances sont exécutés\nThen il est vérifié que « les compteurs critique et haut sont à zéro » ne s'est pas produit",
+      "adversarial": false
+    },
+    {
+      "id": "no-high-dependency-vulnerability-adversarial",
+      "invariantId": "no-high-dependency-vulnerability",
+      "title": "Une tentative directe de provoquer l'issue interdite est refusée",
+      "gherkin": "Given les fichiers de verrouillage du projet\nWhen les audits de dépendances sont exécutés en tentant délibérément de provoquer \"les compteurs critique et haut sont à zéro\"\nThen la tentative est refusée\nAnd il est vérifié que « les compteurs critique et haut sont à zéro » ne s'est pas produit",
+      "adversarial": true
+    },
+    {
+      "id": "global-tests-green-holds",
+      "invariantId": "global-tests-green",
+      "title": "L'obligation est respectée",
+      "gherkin": "Given la base de tests et un cache isolé\nWhen pytest est exécuté sur tous les tests\nThen tous les tests passent",
+      "adversarial": false
+    },
+    {
+      "id": "feature-regression-protected-holds",
+      "invariantId": "feature-regression-protected",
+      "title": "La cohérence est préservée",
+      "gherkin": "Given les fonctionnalités ajoutées précédemment\nWhen leurs suites ciblées sont exécutées\nThen tous leurs tests continuent de passer",
+      "adversarial": false
+    },
+    {
+      "id": "feature-regression-protected-generative",
+      "invariantId": "feature-regression-protected",
+      "title": "La cohérence tient sur des données générées",
+      "gherkin": "Given de nombreux jeux de données générés pour les fonctionnalités ajoutées précédemment\nWhen leurs suites ciblées sont exécutées\nThen tous leurs tests continuent de passer pour chaque jeu de données",
+      "adversarial": true
+    }
+  ],
+  "controls": [
+    "endpoint_protection",
+    "status_validation",
+    "audit_log",
+    "input_validation",
+    "data_integrity_check"
+  ],
+  "requiredTests": [
+    "functional_test",
+    "e2e_test",
+    "integration_test",
+    "unit_test",
+    "property_test"
+  ],
+  "acceptanceCriteria": [
+    "Aucun secret exploitable ne peut être présent dans les fichiers versionnés ou les artefacts frontend",
+    "Le conteneur frontend de production ne s'exécute pas avec l'utilisateur root",
+    "Les dépendances installées ne contiennent aucune vulnérabilité critique ou haute connue",
+    "La suite globale passe sans échec et sans neutraliser le throttling, les permissions ou les validations métier",
+    "Les demandes de devis et les aperçus multiples restent fonctionnels après les corrections transverses"
+  ],
+  "expectedEvidence": [
+    {
+      "invariantId": "no-versioned-secrets",
+      "kind": "functional_test",
+      "description": "Test fonctionnel proving: Aucun secret exploitable ne peut être présent dans les fichiers versionnés ou les artefacts frontend"
+    },
+    {
+      "invariantId": "no-versioned-secrets",
+      "kind": "e2e_test",
+      "description": "Test E2E proving: Aucun secret exploitable ne peut être présent dans les fichiers versionnés ou les artefacts frontend"
+    },
+    {
+      "invariantId": "non-root-container",
+      "kind": "integration_test",
+      "description": "Test d'intégration proving: Le conteneur frontend de production ne s'exécute pas avec l'utilisateur root"
+    },
+    {
+      "invariantId": "no-high-dependency-vulnerability",
+      "kind": "functional_test",
+      "description": "Test fonctionnel proving: Les dépendances installées ne contiennent aucune vulnérabilité critique ou haute connue"
+    },
+    {
+      "invariantId": "no-high-dependency-vulnerability",
+      "kind": "e2e_test",
+      "description": "Test E2E proving: Les dépendances installées ne contiennent aucune vulnérabilité critique ou haute connue"
+    },
+    {
+      "invariantId": "global-tests-green",
+      "kind": "integration_test",
+      "description": "Test d'intégration proving: La suite globale passe sans échec et sans neutraliser le throttling, les permissions ou les validations métier"
+    },
+    {
+      "invariantId": "feature-regression-protected",
+      "kind": "unit_test",
+      "description": "Test unitaire proving: Les demandes de devis et les aperçus multiples restent fonctionnels après les corrections transverses"
+    },
+    {
+      "invariantId": "feature-regression-protected",
+      "kind": "property_test",
+      "description": "Test fondé sur les propriétés proving: Les demandes de devis et les aperçus multiples restent fonctionnels après les corrections transverses"
+    }
+  ],
+  "contentHash": "44e4b74297694fa878463e74e3dbafb97f35920f8a6467b3ba30d5c49013aab0"
+}

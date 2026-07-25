@@ -5,11 +5,12 @@
  *  - Convertir les RH / dirigeants qui arrivent depuis AudienceSpaces
  *  - Présenter les bénéfices concrets pour une équipe
  *  - Afficher une offre tarifaire claire (Starter / Pro / Enterprise)
- *  - Fournir un CTA de contact commercial (mailto par défaut)
+ *  - Fournir un formulaire public de contact commercial sans inscription
  *
  * Cohérent avec le design de la HomePage (PublicHeader + PublicFooter,
  * palette primary/accent, motion framer, gradients dark-aware).
  */
+import { useCallback, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -33,6 +34,10 @@ import {
 
 import { PublicHeader } from '@/components/layout/PublicHeader';
 import { PublicFooter } from '@/components/layout/PublicFooter';
+import {
+  BusinessQuoteRequestModal,
+  type QuotePlan,
+} from '@/components/business/BusinessQuoteRequestModal';
 
 // ─────────────────────────────────────────────────────────────
 // Contenu
@@ -101,7 +106,8 @@ interface PricingTier {
   description: string;
   features: string[];
   cta: string;
-  ctaHref: string;
+  ctaHref?: string;
+  quotePlan?: QuotePlan;
   featured?: boolean;
 }
 
@@ -134,7 +140,7 @@ const PRICING: PricingTier[] = [
       "Onboarding assisté",
     ],
     cta: 'Demander un devis',
-    ctaHref: 'mailto:commercial@ayo-group.com?subject=Demande%20de%20devis%20Best-%C3%89pargne%20Pro',
+    quotePlan: 'PRO',
     featured: true,
   },
   {
@@ -151,7 +157,7 @@ const PRICING: PricingTier[] = [
       "Audit sécurité annuel",
     ],
     cta: 'Contacter les ventes',
-    ctaHref: 'mailto:commercial@ayo-group.com?subject=Demande%20de%20contact%20Best-%C3%89pargne%20Enterprise',
+    quotePlan: 'ENTERPRISE',
   },
 ];
 
@@ -197,6 +203,16 @@ const FAQ = [
 // ─────────────────────────────────────────────────────────────
 
 export default function EnterprisePage() {
+  const [quoteRequest, setQuoteRequest] = useState<{
+    plan: QuotePlan;
+    source: string;
+  } | null>(null);
+
+  const openQuoteRequest = (plan: QuotePlan, source: string) => {
+    setQuoteRequest({ plan, source });
+  };
+  const closeQuoteRequest = useCallback(() => setQuoteRequest(null), []);
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
       <Helmet>
@@ -244,13 +260,14 @@ export default function EnterprisePage() {
                 de vos équipes.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <a
-                  href="mailto:commercial@ayo-group.com?subject=Demande%20de%20d%C3%A9mo%20Best-%C3%89pargne%20Entreprise"
+                <button
+                  type="button"
+                  onClick={() => openQuoteRequest('DEMO', 'enterprise_hero_demo')}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-primary-700 font-bold text-sm sm:text-base hover:bg-neutral-100 transition shadow-lift"
                 >
                   <Mail className="w-4 h-4" />
                   Demander une démo
-                </a>
+                </button>
                 <Link
                   to="/register?role=org_admin"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/25 text-white font-bold text-sm sm:text-base hover:bg-white/20 transition"
@@ -489,7 +506,7 @@ export default function EnterprisePage() {
                     ))}
                   </ul>
                   <div className="mt-7">
-                    {tier.ctaHref.startsWith('/') ? (
+                    {tier.ctaHref ? (
                       <Link
                         to={tier.ctaHref}
                         className={
@@ -503,8 +520,14 @@ export default function EnterprisePage() {
                         <ArrowRight className="w-4 h-4" />
                       </Link>
                     ) : (
-                      <a
-                        href={tier.ctaHref}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openQuoteRequest(
+                            tier.quotePlan ?? 'UNSURE',
+                            `enterprise_pricing_${tier.name.toLowerCase()}`,
+                          )
+                        }
                         className={
                           'w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition '
                           + (tier.featured
@@ -514,7 +537,7 @@ export default function EnterprisePage() {
                       >
                         <Mail className="w-4 h-4" />
                         {tier.cta}
-                      </a>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -570,13 +593,14 @@ export default function EnterprisePage() {
               votre plan de formation.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <a
-                href="mailto:commercial@ayo-group.com?subject=R%C3%A9servation%20de%20d%C3%A9mo%20Best-%C3%89pargne"
+              <button
+                type="button"
+                onClick={() => openQuoteRequest('DEMO', 'enterprise_final_demo')}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-primary-700 font-bold text-sm sm:text-base hover:bg-neutral-100 transition shadow-lift"
               >
                 <Mail className="w-4 h-4" />
                 Réserver une démo
-              </a>
+              </button>
               <Link
                 to="/catalogue"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/25 text-white font-bold text-sm sm:text-base hover:bg-white/20 transition"
@@ -589,6 +613,12 @@ export default function EnterprisePage() {
         </section>
       </main>
 
+      <BusinessQuoteRequestModal
+        open={quoteRequest !== null}
+        initialPlan={quoteRequest?.plan}
+        source={quoteRequest?.source}
+        onClose={closeQuoteRequest}
+      />
       <PublicFooter />
     </div>
   );

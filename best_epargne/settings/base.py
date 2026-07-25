@@ -190,6 +190,7 @@ REST_FRAMEWORK = {
         "login": "5/min",
         "signup": "5/h",
         "reset_password": "3/h",
+        "business_quote": "5/h",
         "media_upload": "30/min",
         "quiz_submit": "5/min",
         "reviews_read": "120/min",

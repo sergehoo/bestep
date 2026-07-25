@@ -136,6 +136,14 @@ urlpatterns = [
         ).PublicCategoryListView.as_view(),
         name="api_public_categories",
     ),
+    path(
+        "public/business-interest-requests/",
+        __import__(
+            "best_epargne.apis.api_business_interest",
+            fromlist=["PublicBusinessInterestRequestCreateView"],
+        ).PublicBusinessInterestRequestCreateView.as_view(),
+        name="api_public_business_interest_request_create",
+    ),
 
     # R4 — Reviews publics + related courses
     path(
@@ -199,6 +207,22 @@ urlpatterns = [
             "best_epargne.apis.api_admin", fromlist=["AdminConfigView"]
         ).AdminConfigView.as_view(),
         name="api_admin_config",
+    ),
+    path(
+        "admin/business-interest-requests/",
+        __import__(
+            "best_epargne.apis.api_business_interest",
+            fromlist=["AdminBusinessInterestRequestListView"],
+        ).AdminBusinessInterestRequestListView.as_view(),
+        name="api_admin_business_interest_requests",
+    ),
+    path(
+        "admin/business-interest-requests/<int:request_id>/",
+        __import__(
+            "best_epargne.apis.api_business_interest",
+            fromlist=["AdminBusinessInterestRequestDetailView"],
+        ).AdminBusinessInterestRequestDetailView.as_view(),
+        name="api_admin_business_interest_request_detail",
     ),
 
     # R2.2 — Dashboards par rôle (hydratation SPA en 1 call)

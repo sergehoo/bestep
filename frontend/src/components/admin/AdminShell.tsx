@@ -138,6 +138,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
     label: 'Finance',
     items: [
       { to: '/admin/payments', label: 'Paiements', Icon: Wallet },
+      { to: '/admin/quote-requests', label: 'Demandes de devis', Icon: ClipboardList },
       { to: '/admin/commissions', label: 'Commissions', Icon: Coins },
       { to: '/admin/payouts', label: 'Reversements', Icon: Wallet },
       { to: '/admin/marketing', label: 'Marketing', Icon: Tag },
