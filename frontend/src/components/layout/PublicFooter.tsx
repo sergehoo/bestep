@@ -131,15 +131,15 @@ export function PublicFooter() {
           <ul className="mt-4 space-y-2 text-sm text-neutral-400">
             <li className="flex items-center gap-2">
               <Phone className="w-3.5 h-3.5" />
-              +221 33 000 00 00
+              +225 01 08 66 826
             </li>
             <li className="flex items-center gap-2">
               <Mail className="w-3.5 h-3.5" />
-              contact@ayo-group.com
+              contact@bestepargne.com
             </li>
             <li className="flex items-center gap-2">
               <MapPin className="w-3.5 h-3.5" />
-              Dakar · Sénégal
+              Abidjan – Côte d’Ivoire Boulevard des Martyrs Cocody, II plateaux, En face de L’ENA
             </li>
           </ul>
           <div className="mt-4 flex items-center gap-2">
