@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "id": "enterprise-training-content",
+  "request": "Remplacer le contenu éditorial de la page publique /entreprise par une adaptation du contenu de formation.bestepargne.com, tout en conservant le design applicatif, le formulaire modal de devis sans inscription et les protections existantes.",
+  "invariants": [
+    {
+      "id": "source-content-covered",
+      "statement": "La page présente les domaines de formation, les formats, les éléments de confiance, la présentation et la FAQ issus de la page source",
+      "kind": "obligation",
+      "given": "la page de référence formation.bestepargne.com",
+      "when": "un visiteur consulte /entreprise",
+      "outcome": "les principaux contenus de la page source sont présents dans une version adaptée et corrigée"
+    },
+    {
+      "id": "quote-modal-preserved",
+      "statement": "Les appels à l'action commerciaux continuent d'ouvrir le formulaire modal public de devis",
+      "kind": "consistency",
+      "given": "un visiteur non inscrit",
+      "when": "il clique sur une demande d'information ou de devis",
+      "outcome": "la modale existante s'ouvre sans redirection vers un client de messagerie"
+    },
+    {
+      "id": "application-shell-preserved",
+      "statement": "L'en-tête, le pied de page, le thème sombre, le responsive et les routes applicatives restent compatibles",
+      "kind": "consistency",
+      "given": "l'application publique existante",
+      "when": "le nouveau contenu est rendu",
+      "outcome": "la page compile et reste utilisable sur mobile et bureau"
+    },
+    {
+      "id": "no-unverified-statistics",
+      "statement": "La page ne publie pas les compteurs à zéro ou des statistiques non vérifiées de la source",
+      "kind": "prohibition",
+      "given": "les compteurs animés non chargés de la page source",
+      "when": "le contenu est adapté",
+      "outcome": "aucune statistique trompeuse n'est affichée"
+    }
+  ],
+  "properties": [
+    {
+      "id": "source-content-covered-holds",
+      "invariantId": "source-content-covered",
+      "title": "L'obligation est respectée",
+      "gherkin": "Given la page de référence formation.bestepargne.com\nWhen un visiteur consulte /entreprise\nThen les principaux contenus de la page source sont présents dans une version adaptée et corrigée",
+      "adversarial": false
+    },
+    {
+      "id": "quote-modal-preserved-holds",
+      "invariantId": "quote-modal-preserved",
+      "title": "La cohérence est préservée",
+      "gherkin": "Given un visiteur non inscrit\nWhen il clique sur une demande d'information ou de devis\nThen la modale existante s'ouvre sans redirection vers un client de messagerie",
+      "adversarial": false
+    },
+    {
+      "id": "quote-modal-preserved-generative",
+      "invariantId": "quote-modal-preserved",
+      "title": "La cohérence tient sur des données générées",
+      "gherkin": "Given de nombreux jeux de données générés pour un visiteur non inscrit\nWhen il clique sur une demande d'information ou de devis\nThen la modale existante s'ouvre sans redirection vers un client de messagerie pour chaque jeu de données",
+      "adversarial": true
+    },
+    {
+      "id": "application-shell-preserved-holds",
+      "invariantId": "application-shell-preserved",
+      "title": "La cohérence est préservée",
+      "gherkin": "Given l'application publique existante\nWhen le nouveau contenu est rendu\nThen la page compile et reste utilisable sur mobile et bureau",
+      "adversarial": false
+    },
+    {
+      "id": "application-shell-preserved-generative",
+      "invariantId": "application-shell-preserved",
+      "title": "La cohérence tient sur des données générées",
+      "gherkin": "Given de nombreux jeux de données générés pour l'application publique existante\nWhen le nouveau contenu est rendu\nThen la page compile et reste utilisable sur mobile et bureau pour chaque jeu de données",
+      "adversarial": true
+    },
+    {
+      "id": "no-unverified-statistics-holds",
+      "invariantId": "no-unverified-statistics",
+      "title": "L'issue interdite ne se produit pas",
+      "gherkin": "Given les compteurs animés non chargés de la page source\nWhen le contenu est adapté\nThen il est vérifié que « aucune statistique trompeuse n'est affichée » ne s'est pas produit",
+      "adversarial": false
+    },
+    {
+      "id": "no-unverified-statistics-adversarial",
+      "invariantId": "no-unverified-statistics",
+      "title": "Une tentative directe de provoquer l'issue interdite est refusée",
+      "gherkin": "Given les compteurs animés non chargés de la page source\nWhen le contenu est adapté en tentant délibérément de provoquer \"aucune statistique trompeuse n'est affichée\"\nThen la tentative est refusée\nAnd il est vérifié que « aucune statistique trompeuse n'est affichée » ne s'est pas produit",
+      "adversarial": true
+    }
+  ],
+  "controls": [
+    "audit_log",
+    "input_validation",
+    "data_integrity_check",
+    "endpoint_protection",
+    "status_validation"
+  ],
+  "requiredTests": [
+    "integration_test",
+    "unit_test",
+    "property_test",
+    "functional_test",
+    "e2e_test"
+  ],
+  "acceptanceCriteria": [
+    "La page présente les domaines de formation, les formats, les éléments de confiance, la présentation et la FAQ issus de la page source",
+    "Les appels à l'action commerciaux continuent d'ouvrir le formulaire modal public de devis",
+    "L'en-tête, le pied de page, le thème sombre, le responsive et les routes applicatives restent compatibles",
+    "La page ne publie pas les compteurs à zéro ou des statistiques non vérifiées de la source"
+  ],
+  "expectedEvidence": [
+    {
+      "invariantId": "source-content-covered",
+      "kind": "integration_test",
+      "description": "Test d'intégration proving: La page présente les domaines de formation, les formats, les éléments de confiance, la présentation et la FAQ issus de la page source"
+    },
+    {
+      "invariantId": "quote-modal-preserved",
+      "kind": "unit_test",
+      "description": "Test unitaire proving: Les appels à l'action commerciaux continuent d'ouvrir le formulaire modal public de devis"
+    },
+    {
+      "invariantId": "quote-modal-preserved",
+      "kind": "property_test",
+      "description": "Test fondé sur les propriétés proving: Les appels à l'action commerciaux continuent d'ouvrir le formulaire modal public de devis"
+    },
+    {
+      "invariantId": "application-shell-preserved",
+      "kind": "unit_test",
+      "description": "Test unitaire proving: L'en-tête, le pied de page, le thème sombre, le responsive et les routes applicatives restent compatibles"
+    },
+    {
+      "invariantId": "application-shell-preserved",
+      "kind": "property_test",
+      "description": "Test fondé sur les propriétés proving: L'en-tête, le pied de page, le thème sombre, le responsive et les routes applicatives restent compatibles"
+    },
+    {
+      "invariantId": "no-unverified-statistics",
+      "kind": "functional_test",
+      "description": "Test fonctionnel proving: La page ne publie pas les compteurs à zéro ou des statistiques non vérifiées de la source"
+    },
+    {
+      "invariantId": "no-unverified-statistics",
+      "kind": "e2e_test",
+      "description": "Test E2E proving: La page ne publie pas les compteurs à zéro ou des statistiques non vérifiées de la source"
+    }
+  ],
+  "contentHash": "a04b3d716c957729c7be9a588e13582cbd6a58546cb67ff92a98af5953acfc2c"
+}

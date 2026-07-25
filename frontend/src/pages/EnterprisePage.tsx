@@ -1,206 +1,168 @@
 /**
- * EnterprisePage.tsx — Landing publique B2B (Espace Entreprise).
+ * Landing publique consacrée à l'offre de formation pour les entreprises.
  *
- * Objectifs :
- *  - Convertir les RH / dirigeants qui arrivent depuis AudienceSpaces
- *  - Présenter les bénéfices concrets pour une équipe
- *  - Afficher une offre tarifaire claire (Starter / Pro / Enterprise)
- *  - Fournir un formulaire public de contact commercial sans inscription
- *
- * Cohérent avec le design de la HomePage (PublicHeader + PublicFooter,
- * palette primary/accent, motion framer, gradients dark-aware).
+ * Le contenu adapte l'offre historique de formation.bestepargne.com au design
+ * de la plateforme, tout en conservant le formulaire public de demande de devis.
  */
 import { useCallback, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Building2,
-  BarChart3,
-  Users,
-  FileSpreadsheet,
-  ShieldCheck,
-  Zap,
-  Award,
-  Check,
   ArrowRight,
-  Mail,
-  Sparkles,
-  Briefcase,
-  Landmark,
-  Cpu,
+  Award,
+  BookOpenCheck,
+  Building2,
   GraduationCap,
+  Laptop,
+  Mail,
+  Presentation,
+  Sparkles,
+  Target,
+  Users,
+  Video,
 } from 'lucide-react';
 
-import { PublicHeader } from '@/components/layout/PublicHeader';
-import { PublicFooter } from '@/components/layout/PublicFooter';
 import {
   BusinessQuoteRequestModal,
   type QuotePlan,
 } from '@/components/business/BusinessQuoteRequestModal';
+import { PublicFooter } from '@/components/layout/PublicFooter';
+import { PublicHeader } from '@/components/layout/PublicHeader';
 
-// ─────────────────────────────────────────────────────────────
-// Contenu
-// ─────────────────────────────────────────────────────────────
+const HERO_IMAGE =
+  'https://formation.bestepargne.com/wp-content/uploads/2023/05/m2-scaled.jpeg';
 
-const BENEFITS = [
+const TRAINING_DOMAINS = [
   {
-    Icon: BarChart3,
-    title: 'Dashboard analytique',
-    desc: 'Visualisez l\'engagement, les taux de complétion, les compétences acquises par équipe et par collaborateur en temps réel.',
+    title: 'Banque de détail',
+    description:
+      'Maîtrisez les produits bancaires, la relation client et les fondamentaux de la banque de proximité.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2016/01/dmytro-demidko-eBWzFKahEaU-unsplash-255x182.jpg',
   },
   {
-    Icon: Users,
-    title: 'Gestion des équipes',
-    desc: 'Invitez vos collaborateurs, structurez-les en groupes, assignez des parcours de formation par département ou par rôle.',
+    title: 'Banque et opérations',
+    description:
+      'Renforcez les compétences opérationnelles indispensables au fonctionnement efficace d’un établissement financier.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2016/01/cdc-_XLJy3h77cw-unsplash-255x182.jpg',
   },
   {
-    Icon: FileSpreadsheet,
-    title: 'Rapports exportables',
-    desc: 'Générez des rapports CSV/PDF détaillés — conformes aux exigences des audits internes et des OPCO.',
+    title: 'Finance d’entreprise et analyse financière',
+    description:
+      'Analysez la performance, les états financiers et les décisions de financement de l’entreprise.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2016/01/stephen-dawson-qwtCeJ5cLYs-unsplash-255x182.jpg',
   },
   {
-    Icon: ShieldCheck,
-    title: 'Sécurité entreprise',
-    desc: 'Authentification renforcée (2FA), journalisation complète des accès, hébergement conforme RGPD.',
+    title: 'Gestion des risques et gouvernance',
+    description:
+      'Identifiez, mesurez et pilotez les risques grâce à des pratiques de gouvernance adaptées.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2016/01/Comming-Soon-CG-255x182.jpg',
   },
   {
-    Icon: Zap,
-    title: 'Onboarding en 24 h',
-    desc: 'Notre équipe configure votre espace, importe vos collaborateurs et forme vos administrateurs — en un jour ouvré.',
+    title: 'Gestion d’actifs',
+    description:
+      'Développez une approche structurée de l’allocation, du suivi de portefeuille et de la performance.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2016/01/asset-m-255x182.jpg',
+  },
+  {
+    title: 'Investissement et gestion de fonds',
+    description:
+      'Approfondissez l’analyse des opportunités, la construction de fonds et les décisions d’investissement.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2016/01/austin-distel-DfjJMVhwH_8-unsplash-255x182.jpg',
+  },
+  {
+    title: 'Marchés des capitaux et banque d’investissement',
+    description:
+      'Comprenez les marchés, les instruments financiers et les opérations de banque d’investissement.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2016/01/capital-255x182.jpg',
+  },
+  {
+    title: 'Réglementation et conformité',
+    description:
+      'Actualisez vos pratiques en matière de conformité, de contrôle et d’exigences réglementaires.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2016/01/conformite-255x182.jpg',
+  },
+];
+
+const FORMATS = [
+  {
+    Icon: Presentation,
+    title: 'Séminaires en présentiel',
+    description:
+      'Des sessions interactives dans vos locaux ou dans un espace spécialement réservé.',
+  },
+  {
+    Icon: Video,
+    title: 'Webinaires en direct',
+    description:
+      'Des formations à distance animées par nos experts sur des plateformes interactives.',
+  },
+  {
+    Icon: Laptop,
+    title: 'Formations en ligne',
+    description:
+      'Des parcours accessibles sans date limite pour progresser selon votre propre rythme.',
+  },
+  {
+    Icon: Target,
+    title: 'Modules sur mesure',
+    description:
+      'Des contenus conçus à partir de vos métiers, de vos objectifs et de vos contraintes.',
+  },
+];
+
+const TRUST_POINTS = [
+  {
+    Icon: BookOpenCheck,
+    title: 'Expertise technique et sectorielle',
+    description:
+      'Nos formations développent les compétences clés de l’industrie financière : gestion des risques, gouvernance, conformité, banque et gestion d’actifs.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2023/07/sean-pollock-PhYq704ffdA-unsplash-scaled.jpg',
+  },
+  {
+    Icon: Sparkles,
+    title: 'Pédagogie simple et innovante',
+    description:
+      'En présentiel comme en ligne, nous privilégions des méthodes claires, pratiques et soutenues par des outils numériques actuels.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2023/07/sincerely-media-dGxOgeXAXm8-unsplash-1-scaled.jpg',
   },
   {
     Icon: Award,
-    title: 'Certifications reconnues',
-    desc: 'Vos équipes obtiennent des certificats vérifiables (QR code + URL publique) attestés par nos experts métier.',
-  },
-];
-
-const SECTORS = [
-  {
-    Icon: Landmark,
-    title: 'Banques & institutions financières',
-    desc: 'Conformité, KYC/AML, marchés financiers, gestion des risques.',
-  },
-  {
-    Icon: Briefcase,
-    title: 'Assurances & mutuelles',
-    desc: 'Réglementation, souscription, gestion sinistres, distribution.',
-  },
-  {
-    Icon: Cpu,
-    title: 'Fintechs & startups',
-    desc: 'Croissance produit, ops finance, levée de fonds, réglementation.',
-  },
-  {
-    Icon: GraduationCap,
-    title: 'Institutions publiques',
-    desc: 'Formation continue, montée en compétences des agents, digital gov.',
-  },
-];
-
-interface PricingTier {
-  name: string;
-  price: string;
-  priceHint: string;
-  description: string;
-  features: string[];
-  cta: string;
-  ctaHref?: string;
-  quotePlan?: QuotePlan;
-  featured?: boolean;
-}
-
-const PRICING: PricingTier[] = [
-  {
-    name: 'Starter',
-    price: 'Gratuit',
-    priceHint: 'jusqu\'à 5 collaborateurs',
-    description: 'Pour tester la plateforme en équipe restreinte.',
-    features: [
-      "Accès à tout le catalogue public",
-      "Dashboard équipe basique",
-      "Assignation manuelle de cours",
-      "Support par e-mail",
-    ],
-    cta: 'Créer un compte',
-    ctaHref: '/register?role=org_admin',
-  },
-  {
-    name: 'Pro',
-    price: 'Sur devis',
-    priceHint: 'à partir de 50 collaborateurs',
-    description: 'La formule la plus choisie par les PME et scale-ups.',
-    features: [
-      "Tout Starter, plus :",
-      "Parcours personnalisés par équipe",
-      "Rapports CSV/PDF automatisés",
-      "Certificats brandés à votre logo",
-      "Support prioritaire (SLA 24 h)",
-      "Onboarding assisté",
-    ],
-    cta: 'Demander un devis',
-    quotePlan: 'PRO',
-    featured: true,
-  },
-  {
-    name: 'Enterprise',
-    price: 'Sur mesure',
-    priceHint: 'à partir de 500 collaborateurs',
-    description: 'Grandes organisations avec besoins avancés.',
-    features: [
-      "Tout Pro, plus :",
-      "SSO (SAML / Google Workspace)",
-      "Contenu sur mesure co-produit",
-      "Hébergement dédié (option)",
-      "Account manager dédié",
-      "Audit sécurité annuel",
-    ],
-    cta: 'Contacter les ventes',
-    quotePlan: 'ENTERPRISE',
-  },
-];
-
-const STEPS = [
-  {
-    n: '01',
-    title: 'Discovery call',
-    desc: 'Nous comprenons vos objectifs, votre effectif et vos contraintes.',
-  },
-  {
-    n: '02',
-    title: 'Configuration',
-    desc: 'Nous configurons votre espace, importons vos utilisateurs et paramétrons les parcours.',
-  },
-  {
-    n: '03',
-    title: 'Lancement',
-    desc: 'Vos équipes reçoivent leurs accès et commencent à apprendre. Vous suivez les résultats en direct.',
+    title: 'Formateurs reconnus et certifiés',
+    description:
+      'Nos intervenants associent plusieurs années d’expérience métier à des parcours académiques et professionnels exigeants.',
+    image:
+      'https://formation.bestepargne.com/wp-content/uploads/2023/07/charles-forerunner-3fPXt37X6UQ-unsplash-scaled.jpg',
   },
 ];
 
 const FAQ = [
   {
-    q: 'Puis-je tester avant de m\'engager ?',
-    a: "Oui. La formule Starter est gratuite jusqu'à 5 collaborateurs, sans limite de durée. Elle vous permet de vérifier la qualité du contenu et la pertinence de la plateforme avant tout engagement.",
+    question: 'Quels types de formations proposez-vous ?',
+    answer:
+      'Nous proposons des séminaires en présentiel, des webinaires et des cours en ligne accessibles à votre rythme, dans les principaux domaines de la banque, de la finance d’entreprise, de l’investissement et de la gestion d’actifs.',
   },
   {
-    q: 'Le contenu est-il adapté au marché africain ?',
-    a: "Oui. Tous nos parcours finance sont conçus par des experts locaux (BCEAO, BRVM, UEMOA, réglementation CIMA…). Ils intègrent les cas réels des marchés d'Afrique francophone.",
+    question: 'Quelle est la durée des formations ?',
+    answer:
+      'Les séminaires et webinaires sont généralement organisés sur un ou deux jours minimum. Les formations en ligne restent accessibles sans date limite afin que chaque participant avance à son rythme.',
   },
   {
-    q: 'Est-ce que je peux créer mes propres contenus ?',
-    a: "Absolument. Les formateurs internes de votre organisation peuvent créer, publier et suivre leurs propres cours, réservés à vos équipes ou publiés dans le catalogue global.",
-  },
-  {
-    q: 'Comment sont facturés les collaborateurs supplémentaires ?',
-    a: "En formule Pro, la facturation est mensuelle et proportionnelle au nombre de comptes actifs. En Enterprise, un tarif dégressif s'applique dès 500 collaborateurs.",
+    question: 'Où les formations sont-elles dispensées ?',
+    answer:
+      'Les séminaires peuvent se tenir dans vos locaux ou dans un lieu réservé par Best-Épargne. Les webinaires sont diffusés sur une plateforme interactive accessible avec un lien de connexion.',
   },
 ];
-
-// ─────────────────────────────────────────────────────────────
-// Composant
-// ─────────────────────────────────────────────────────────────
 
 export default function EnterprisePage() {
   const [quoteRequest, setQuoteRequest] = useState<{
@@ -214,18 +176,21 @@ export default function EnterprisePage() {
   const closeQuoteRequest = useCallback(() => setQuoteRequest(null), []);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
+    <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <Helmet>
-        <title>Best-Épargne pour les entreprises — Formez vos équipes</title>
+        <title>Formations en banque, investissement et finance | Best-Épargne</title>
         <meta
           name="description"
-          content="Formations premium finance & investissement pour vos équipes. Dashboards analytiques, gestion des parcours, rapports exportables. Demandez une démo."
+          content="Développez les compétences de vos équipes avec nos formations en banque, finance, investissement, gestion des risques et conformité."
         />
         <link rel="canonical" href="https://ayo-group.com/entreprise" />
-        <meta property="og:title" content="Best-Épargne pour les entreprises" />
+        <meta
+          property="og:title"
+          content="Best-Épargne Formation — Banque, investissement et finance"
+        />
         <meta
           property="og:description"
-          content="La plateforme e-learning finance pour former vos équipes en Afrique francophone."
+          content="Formations en présentiel, webinaires, parcours en ligne et modules sur mesure pour les entreprises."
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://ayo-group.com/entreprise" />
@@ -234,381 +199,290 @@ export default function EnterprisePage() {
       <PublicHeader />
 
       <main>
-        {/* ── HERO ───────────────────────────────────────── */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-primary-700 via-primary-600 to-accent-500 text-white">
-          <div className="absolute inset-0 opacity-10 pointer-events-none"
-               style={{
-                 backgroundImage:
-                   'radial-gradient(circle at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.3) 0%, transparent 40%)',
-               }}
-          />
-          <div className="relative container mx-auto px-4 max-w-6xl py-20 sm:py-28">
-            <div className="max-w-3xl">
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-xs font-bold uppercase tracking-widest">
-                <Building2 className="w-3.5 h-3.5" />
-                Espace Entreprise
+        <section
+          className="relative isolate min-h-[640px] overflow-hidden bg-primary-950 bg-cover bg-center text-white"
+          style={{
+            backgroundImage: `linear-gradient(90deg, rgba(8, 34, 71, 0.96) 0%, rgba(8, 34, 71, 0.78) 52%, rgba(8, 34, 71, 0.48) 100%), url("${HERO_IMAGE}")`,
+          }}
+        >
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_78%_25%,rgba(245,158,11,0.2),transparent_34%)]" />
+          <div className="container mx-auto flex min-h-[640px] max-w-6xl items-center px-4 py-20 sm:py-28">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55 }}
+              className="max-w-3xl"
+            >
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] backdrop-blur-sm">
+                <GraduationCap className="h-4 w-4 text-accent-300" />
+                Best-Épargne Formation
               </span>
-              <h1 className="mt-5 text-3xl sm:text-5xl lg:text-6xl font-extrabold leading-tight">
-                Formez vos équipes.
-                <br />
-                <span className="text-accent-300">Mesurez l'impact.</span>
+              <h1 className="mt-6 text-4xl font-black leading-[1.08] sm:text-6xl lg:text-7xl">
+                Formation en banque,
+                <span className="block text-accent-300">investissement et finance</span>
               </h1>
-              <p className="mt-5 text-base sm:text-lg text-white/85 max-w-2xl leading-relaxed">
-                Best-Épargne pour l'entreprise offre à vos collaborateurs les
-                meilleures formations en finance, investissement et gestion — avec
-                un tableau de bord temps réel pour piloter la montée en compétences
-                de vos équipes.
+              <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/85 sm:text-xl">
+                Donnez à vos équipes les compétences nécessaires pour progresser,
+                innover et se distinguer dans un environnement financier en constante
+                évolution.
+              </p>
+              <div className="mt-9 flex flex-wrap gap-3">
+                <a
+                  href="#domaines"
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent-400 px-6 py-3.5 text-sm font-extrabold text-neutral-950 shadow-lift transition hover:bg-accent-300 sm:text-base"
+                >
+                  Découvrir nos formations
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => openQuoteRequest('DEMO', 'enterprise_training_hero')}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-6 py-3.5 text-sm font-extrabold text-white backdrop-blur-sm transition hover:bg-white/20 sm:text-base"
+                >
+                  <Mail className="h-4 w-4" />
+                  Demander des informations
+                </button>
+              </div>
+              <p className="mt-4 text-sm font-medium text-white/65">
+                Présentiel · Webinaires · En ligne · Formations sur mesure
+              </p>
+            </motion.div>
+          </div>
+        </section>
+
+        <section className="bg-accent-400 py-9 text-neutral-950">
+          <div className="container mx-auto flex max-w-6xl flex-col items-center justify-between gap-5 px-4 text-center sm:flex-row sm:text-left">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-primary-900/70">
+                Un projet de formation ?
+              </p>
+              <h2 className="mt-1 text-xl font-black sm:text-2xl">
+                Besoin de conseils ou d’informations sur nos formations ?
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => openQuoteRequest('UNSURE', 'enterprise_training_advice')}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary-900 px-6 py-3 text-sm font-extrabold text-white transition hover:bg-primary-800"
+            >
+              Contactez-nous
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </section>
+
+        <section id="domaines" className="scroll-mt-24 py-16 sm:py-24">
+          <div className="container mx-auto max-w-6xl px-4">
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-accent-600 dark:text-accent-400">
+                Développez vos expertises
+              </p>
+              <h2 className="mt-3 text-3xl font-black text-primary-900 dark:text-white sm:text-5xl">
+                Nos domaines de formation
+              </h2>
+              <p className="mt-4 text-neutral-600 dark:text-neutral-400">
+                Des parcours conçus pour répondre aux exigences opérationnelles,
+                réglementaires et stratégiques des métiers financiers.
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {TRAINING_DOMAINS.map((domain, index) => (
+                <motion.article
+                  key={domain.title}
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.4, delay: index * 0.04 }}
+                  className="group relative min-h-[300px] overflow-hidden rounded-2xl bg-primary-950 shadow-soft"
+                >
+                  <img
+                    src={domain.image}
+                    alt=""
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover grayscale transition duration-500 group-hover:scale-105 group-hover:grayscale-0"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary-950 via-primary-950/75 to-primary-950/20" />
+                  <div className="relative flex min-h-[300px] flex-col justify-end p-5 text-white">
+                    <h3 className="text-lg font-black leading-tight">{domain.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-white/75">
+                      {domain.description}
+                    </p>
+                  </div>
+                </motion.article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-neutral-50 py-16 dark:bg-neutral-900 sm:py-24">
+          <div className="container mx-auto max-w-6xl px-4">
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-accent-600 dark:text-accent-400">
+                Une pédagogie adaptée
+              </p>
+              <h2 className="mt-3 text-3xl font-black text-primary-900 dark:text-white sm:text-5xl">
+                Choisissez le format qui vous convient
+              </h2>
+            </div>
+            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {FORMATS.map(({ Icon, title, description }) => (
+                <article
+                  key={title}
+                  className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-soft dark:border-neutral-700 dark:bg-neutral-800"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-300">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="mt-5 text-lg font-black text-neutral-900 dark:text-white">
+                    {title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                    {description}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 sm:py-24">
+          <div className="container mx-auto max-w-6xl px-4">
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-accent-600 dark:text-accent-400">
+                Notre engagement
+              </p>
+              <h2 className="mt-3 text-3xl font-black text-primary-900 dark:text-white sm:text-5xl">
+                Pourquoi nous faire confiance ?
+              </h2>
+            </div>
+            <div className="mt-12 grid gap-6 lg:grid-cols-3">
+              {TRUST_POINTS.map(({ Icon, title, description, image }) => (
+                <article
+                  key={title}
+                  className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-soft dark:border-neutral-700 dark:bg-neutral-800"
+                >
+                  <div className="relative h-52 overflow-hidden bg-neutral-200">
+                    <img
+                      src={image}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover grayscale"
+                    />
+                    <div className="absolute inset-0 bg-primary-950/15" />
+                  </div>
+                  <div className="p-6">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-100 text-accent-700 dark:bg-accent-900/40 dark:text-accent-300">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="mt-4 text-xl font-black text-neutral-900 dark:text-white">
+                      {title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                      {description}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="overflow-hidden bg-primary-950 py-16 text-white sm:py-24">
+          <div className="container mx-auto grid max-w-6xl items-center gap-10 px-4 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="relative">
+              <div className="absolute -inset-5 rounded-3xl bg-accent-400/20 blur-2xl" />
+              <div className="relative rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-sm sm:p-10">
+                <Building2 className="h-12 w-12 text-accent-300" />
+                <p className="mt-8 text-2xl font-black leading-snug sm:text-3xl">
+                  Acquérir des compétences pour progresser dans le monde de la
+                  finance.
+                </p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-accent-300">
+                À propos
+              </p>
+              <h2 className="mt-3 text-3xl font-black sm:text-5xl">
+                Des savoirs actuels transmis par des experts de terrain
+              </h2>
+              <p className="mt-5 text-base leading-relaxed text-white/75 sm:text-lg">
+                Best-Épargne Formation accompagne les professionnels qui souhaitent
+                approfondir leurs connaissances en banque, réglementation, gestion de
+                fonds, investissement et patrimoine. Nos parcours associent expertise
+                métier, cas pratiques et outils pédagogiques modernes.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={() => openQuoteRequest('DEMO', 'enterprise_hero_demo')}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-primary-700 font-bold text-sm sm:text-base hover:bg-neutral-100 transition shadow-lift"
+                  onClick={() => openQuoteRequest('ENTERPRISE', 'enterprise_training_about')}
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent-400 px-6 py-3.5 text-sm font-extrabold text-neutral-950 transition hover:bg-accent-300"
                 >
-                  <Mail className="w-4 h-4" />
-                  Demander une démo
+                  Construire un programme sur mesure
+                  <ArrowRight className="h-4 w-4" />
                 </button>
                 <Link
-                  to="/register?role=org_admin"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/25 text-white font-bold text-sm sm:text-base hover:bg-white/20 transition"
+                  to="/catalogue"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-6 py-3.5 text-sm font-extrabold text-white transition hover:bg-white/10"
                 >
-                  Créer un compte gratuit
-                  <ArrowRight className="w-4 h-4" />
+                  Explorer le catalogue
                 </Link>
               </div>
-              <p className="mt-4 text-xs text-white/70">
-                Sans engagement · Réponse sous 24 h ouvrées
-              </p>
             </div>
           </div>
         </section>
 
-        {/* ── STATS ROW ──────────────────────────────────── */}
-        <section className="bg-neutral-50 dark:bg-neutral-900 py-10 border-y border-neutral-100 dark:border-neutral-800">
-          <div className="container mx-auto px-4 max-w-6xl grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-            {[
-              { value: '250+', label: 'Cours disponibles' },
-              { value: '30+', label: 'Formateurs experts' },
-              { value: '12 500+', label: 'Apprenants actifs' },
-              { value: '96 %', label: 'Taux de satisfaction' },
-            ].map((s) => (
-              <div key={s.label}>
-                <p className="text-2xl sm:text-3xl font-extrabold text-primary-600 dark:text-primary-400 tabular-nums">
-                  {s.value}
-                </p>
-                <p className="mt-1 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 font-semibold">
-                  {s.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── BÉNÉFICES ──────────────────────────────────── */}
-        <section className="py-16 sm:py-20">
-          <div className="container mx-auto px-4 max-w-6xl">
-            <div className="max-w-2xl mx-auto text-center">
-              <p className="text-xs font-bold text-primary-600 uppercase tracking-widest">
-                Ce que vous obtenez
-              </p>
-              <h2 className="mt-2 text-3xl sm:text-4xl font-extrabold text-neutral-900 dark:text-white">
-                Une plateforme conçue pour l'entreprise
-              </h2>
-              <p className="mt-3 text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                Toutes les fonctionnalités qu'il vous faut pour piloter la
-                formation de vos équipes, sans complexité inutile.
-              </p>
-            </div>
-            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {BENEFITS.map((b, i) => (
-                <motion.div
-                  key={b.title}
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: i * 0.05 }}
-                  viewport={{ once: true }}
-                  className="p-6 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-soft hover:shadow-lift transition"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 flex items-center justify-center mb-4">
-                    <b.Icon className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-extrabold text-neutral-900 dark:text-white">
-                    {b.title}
-                  </h3>
-                  <p className="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                    {b.desc}
-                  </p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── SECTEURS ───────────────────────────────────── */}
-        <section className="py-16 sm:py-20 bg-neutral-50 dark:bg-neutral-900">
-          <div className="container mx-auto px-4 max-w-6xl">
-            <div className="max-w-2xl mx-auto text-center">
-              <p className="text-xs font-bold text-primary-600 uppercase tracking-widest">
-                Ils nous font confiance
-              </p>
-              <h2 className="mt-2 text-3xl sm:text-4xl font-extrabold text-neutral-900 dark:text-white">
-                Adaptée à votre secteur
-              </h2>
-              <p className="mt-3 text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                Que vous soyez une banque, une compagnie d'assurance ou une
-                fintech, notre catalogue et nos parcours répondent aux enjeux
-                de votre métier.
-              </p>
-            </div>
-            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {SECTORS.map((s) => (
-                <div
-                  key={s.title}
-                  className="p-6 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-accent-100 dark:bg-accent-900/40 text-accent-700 dark:text-accent-300 flex items-center justify-center mb-4">
-                    <s.Icon className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-extrabold text-neutral-900 dark:text-white">
-                    {s.title}
-                  </h3>
-                  <p className="mt-1.5 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                    {s.desc}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── COMMENT ÇA MARCHE ──────────────────────────── */}
-        <section className="py-16 sm:py-20">
-          <div className="container mx-auto px-4 max-w-6xl">
-            <div className="max-w-2xl mx-auto text-center">
-              <p className="text-xs font-bold text-primary-600 uppercase tracking-widest">
-                Simple et rapide
-              </p>
-              <h2 className="mt-2 text-3xl sm:text-4xl font-extrabold text-neutral-900 dark:text-white">
-                Lancez-vous en 3 étapes
-              </h2>
-            </div>
-            <ol className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {STEPS.map((step, i) => (
-                <li
-                  key={step.n}
-                  className="relative p-6 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-soft"
-                >
-                  <span className="absolute -top-4 left-6 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary-600 text-white font-extrabold text-lg shadow-lift">
-                    {step.n}
-                  </span>
-                  <h3 className="mt-4 font-extrabold text-neutral-900 dark:text-white">
-                    {step.title}
-                  </h3>
-                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                    {step.desc}
-                  </p>
-                  {i < STEPS.length - 1 && (
-                    <ArrowRight
-                      className="hidden sm:block absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 text-primary-400"
-                      aria-hidden="true"
-                    />
-                  )}
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* ── TARIFICATION ───────────────────────────────── */}
-        <section className="py-16 sm:py-20 bg-neutral-50 dark:bg-neutral-900">
-          <div className="container mx-auto px-4 max-w-6xl">
-            <div className="max-w-2xl mx-auto text-center">
-              <p className="text-xs font-bold text-primary-600 uppercase tracking-widest">
-                Tarification transparente
-              </p>
-              <h2 className="mt-2 text-3xl sm:text-4xl font-extrabold text-neutral-900 dark:text-white">
-                Un plan pour chaque taille d'équipe
-              </h2>
-              <p className="mt-3 text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                Démarrez gratuitement, évoluez à votre rythme.
-              </p>
-            </div>
-            <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-5">
-              {PRICING.map((tier) => (
-                <div
-                  key={tier.name}
-                  className={
-                    'relative p-6 sm:p-8 rounded-3xl border shadow-soft transition ' +
-                    (tier.featured
-                      ? 'bg-gradient-to-br from-primary-600 to-primary-800 text-white border-primary-500 shadow-lift lg:scale-105 lg:-my-2'
-                      : 'bg-white dark:bg-neutral-800 border-neutral-100 dark:border-neutral-700')
-                  }
-                >
-                  {tier.featured && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-accent-400 text-neutral-900 text-xs font-extrabold uppercase tracking-widest shadow-lift">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Populaire
-                    </span>
-                  )}
-                  <h3
-                    className={
-                      'text-xl font-extrabold '
-                      + (tier.featured ? 'text-white' : 'text-neutral-900 dark:text-white')
-                    }
-                  >
-                    {tier.name}
-                  </h3>
-                  <p
-                    className={
-                      'mt-1 text-sm '
-                      + (tier.featured ? 'text-white/85' : 'text-neutral-600 dark:text-neutral-400')
-                    }
-                  >
-                    {tier.description}
-                  </p>
-                  <div className="mt-5">
-                    <p
-                      className={
-                        'text-3xl sm:text-4xl font-extrabold '
-                        + (tier.featured ? 'text-white' : 'text-neutral-900 dark:text-white')
-                      }
-                    >
-                      {tier.price}
-                    </p>
-                    <p
-                      className={
-                        'text-xs mt-1 '
-                        + (tier.featured ? 'text-white/70' : 'text-neutral-500 dark:text-neutral-400')
-                      }
-                    >
-                      {tier.priceHint}
-                    </p>
-                  </div>
-                  <ul className="mt-6 space-y-2.5">
-                    {tier.features.map((f) => (
-                      <li
-                        key={f}
-                        className={
-                          'flex items-start gap-2 text-sm '
-                          + (tier.featured
-                            ? 'text-white/90'
-                            : 'text-neutral-700 dark:text-neutral-300')
-                        }
-                      >
-                        <Check
-                          className={
-                            'w-4 h-4 shrink-0 mt-0.5 '
-                            + (tier.featured ? 'text-accent-300' : 'text-emerald-500')
-                          }
-                        />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-7">
-                    {tier.ctaHref ? (
-                      <Link
-                        to={tier.ctaHref}
-                        className={
-                          'w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition '
-                          + (tier.featured
-                            ? 'bg-white text-primary-700 hover:bg-neutral-100'
-                            : 'bg-primary-600 hover:bg-primary-700 text-white')
-                        }
-                      >
-                        {tier.cta}
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openQuoteRequest(
-                            tier.quotePlan ?? 'UNSURE',
-                            `enterprise_pricing_${tier.name.toLowerCase()}`,
-                          )
-                        }
-                        className={
-                          'w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition '
-                          + (tier.featured
-                            ? 'bg-white text-primary-700 hover:bg-neutral-100'
-                            : 'bg-primary-600 hover:bg-primary-700 text-white')
-                        }
-                      >
-                        <Mail className="w-4 h-4" />
-                        {tier.cta}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── FAQ ────────────────────────────────────────── */}
-        <section className="py-16 sm:py-20">
-          <div className="container mx-auto px-4 max-w-3xl">
+        <section className="bg-neutral-50 py-16 dark:bg-neutral-900 sm:py-24">
+          <div className="container mx-auto max-w-4xl px-4">
             <div className="text-center">
-              <p className="text-xs font-bold text-primary-600 uppercase tracking-widest">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-accent-600 dark:text-accent-400">
                 Questions fréquentes
               </p>
-              <h2 className="mt-2 text-3xl sm:text-4xl font-extrabold text-neutral-900 dark:text-white">
-                Vous avez une question ?
+              <h2 className="mt-3 text-3xl font-black text-primary-900 dark:text-white sm:text-5xl">
+                Tout savoir sur nos formations
               </h2>
             </div>
-            <dl className="mt-10 space-y-4">
-              {FAQ.map((f) => (
+            <div className="mt-10 space-y-4">
+              {FAQ.map(({ question, answer }, index) => (
                 <details
-                  key={f.q}
-                  className="group rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 open:shadow-soft"
+                  key={question}
+                  open={index === 0}
+                  className="group rounded-2xl border border-neutral-100 bg-white shadow-soft dark:border-neutral-700 dark:bg-neutral-800"
                 >
-                  <summary className="cursor-pointer list-none p-5 flex items-start justify-between gap-4">
-                    <dt className="font-bold text-neutral-900 dark:text-white text-sm sm:text-base">
-                      {f.q}
-                    </dt>
-                    <ArrowRight
-                      aria-hidden="true"
-                      className="w-4 h-4 text-primary-500 shrink-0 mt-1 rotate-90 group-open:rotate-[270deg] transition-transform"
-                    />
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-5 p-5 font-extrabold text-neutral-900 dark:text-white sm:p-6">
+                    {question}
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-100 text-xl text-accent-700 transition group-open:rotate-45 dark:bg-accent-900/40 dark:text-accent-300">
+                      +
+                    </span>
                   </summary>
-                  <dd className="px-5 pb-5 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                    {f.a}
-                  </dd>
+                  <p className="px-5 pb-5 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400 sm:px-6 sm:pb-6">
+                    {answer}
+                  </p>
                 </details>
               ))}
-            </dl>
+            </div>
           </div>
         </section>
 
-        {/* ── CTA FINAL ──────────────────────────────────── */}
-        <section className="py-16 sm:py-20 bg-gradient-to-br from-primary-700 via-primary-600 to-accent-500 text-white">
-          <div className="container mx-auto px-4 max-w-4xl text-center">
-            <h2 className="text-3xl sm:text-4xl font-extrabold">
-              Prêt à transformer vos équipes ?
+        <section className="bg-gradient-to-br from-primary-800 via-primary-700 to-primary-950 py-16 text-white sm:py-20">
+          <div className="container mx-auto max-w-4xl px-4 text-center">
+            <Users className="mx-auto h-12 w-12 text-accent-300" />
+            <h2 className="mt-5 text-3xl font-black sm:text-5xl">
+              Faites grandir les compétences de vos équipes
             </h2>
-            <p className="mt-4 text-white/85 text-base sm:text-lg max-w-2xl mx-auto">
-              Réservez une démo de 30 minutes avec l'un de nos consultants.
-              Vous verrez concrètement comment nos parcours peuvent s'intégrer à
-              votre plan de formation.
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
+              Parlez-nous de vos métiers, de votre effectif et de vos objectifs.
+              Nous vous proposerons le format et le programme les plus adaptés.
             </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => openQuoteRequest('DEMO', 'enterprise_final_demo')}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-primary-700 font-bold text-sm sm:text-base hover:bg-neutral-100 transition shadow-lift"
-              >
-                <Mail className="w-4 h-4" />
-                Réserver une démo
-              </button>
-              <Link
-                to="/catalogue"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/25 text-white font-bold text-sm sm:text-base hover:bg-white/20 transition"
-              >
-                Explorer le catalogue
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
+            <button
+              type="button"
+              onClick={() => openQuoteRequest('UNSURE', 'enterprise_training_final')}
+              className="mt-8 inline-flex items-center gap-2 rounded-xl bg-accent-400 px-7 py-3.5 text-sm font-extrabold text-neutral-950 shadow-lift transition hover:bg-accent-300 sm:text-base"
+            >
+              <Mail className="h-4 w-4" />
+              Demander un devis
+            </button>
           </div>
         </section>
       </main>

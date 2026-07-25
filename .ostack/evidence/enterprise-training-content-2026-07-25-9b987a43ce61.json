@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "taskId": "enterprise-training-content-2026-07-25",
+  "feature": "Contenu formation de la page Entreprise",
+  "intentId": "enterprise-training-content",
+  "generatedFrom": {
+    "request": "Remplacer le contenu de /entreprise par une adaptation de formation.bestepargne.com.",
+    "specificationCoverage": 100,
+    "assumptions": [
+      "Le contenu source est adapté et corrigé plutôt que copié avec ses erreurs typographiques",
+      "Les compteurs à zéro de la page source ne constituent pas des statistiques publiables",
+      "Les images publiques de la page source peuvent être réutilisées depuis leur adresse HTTPS",
+      "Le déploiement sur ayo-group.com est hors de cette modification locale"
+    ],
+    "acceptanceCriteria": [
+      "Les huit domaines de formation de la source sont présentés",
+      "Les formats présentiel, webinaire, en ligne et sur mesure sont présentés",
+      "Les arguments de confiance, la présentation et les trois FAQ sont adaptés",
+      "L'ancienne section tarifaire est retirée",
+      "Les CTA ouvrent la modale de devis sans lien mailto",
+      "La page est responsive, compile et ne contient aucune statistique non vérifiée"
+    ],
+    "plan": "Inspecter la page source rendue, adapter son architecture éditoriale au design React existant, préserver la modale de devis, puis vérifier le contenu, le build, le bureau et le mobile."
+  },
+  "changedFiles": [
+    "frontend/src/pages/EnterprisePage.tsx",
+    "frontend/e2e/enterprise.spec.ts"
+  ],
+  "diffRef": "working-tree:enterprise-training-content",
+  "architectureDecisions": [
+    "Conserver PublicHeader, PublicFooter et BusinessQuoteRequestModal",
+    "Remplacer la tarification par les domaines et formats de la page de formation",
+    "Paraphraser les contenus et corriger les formulations sans inventer de chiffres",
+    "Utiliser des images décoratives publiques de la source avec chargement différé"
+  ],
+  "migrations": [],
+  "tests": {
+    "unit": {
+      "passed": 300,
+      "failed": 0
+    },
+    "integration": {
+      "passed": 3,
+      "failed": 0
+    },
+    "contract": {
+      "passed": 3,
+      "failed": 0
+    },
+    "functional": {
+      "passed": 3,
+      "failed": 0
+    },
+    "e2e": {
+      "passed": 3,
+      "failed": 0
+    },
+    "permission": {
+      "passed": 4,
+      "failed": 0
+    }
+  },
+  "security": {
+    "critical": 0,
+    "high": 26,
+    "medium": 73,
+    "low": 11,
+    "threatModelUpdated": true
+  },
+  "performance": [],
+  "permissionMatrixVerified": true,
+  "rollback": {
+    "defined": true,
+    "tested": false
+  },
+  "humanApprovals": [
+    {
+      "approver": "utilisateur",
+      "reason": "Demande explicite de remplacer le contenu de la page Entreprise à partir de formation.bestepargne.com.",
+      "approvedAt": "2026-07-25T15:02:19Z"
+    }
+  ],
+  "residualRisks": [
+    {
+      "severity": "high",
+      "description": "Le scan OStack global effectué dans le même état du dépôt signale 26 avis hauts dans des dépendances Python préexistantes.",
+      "mitigation": "Mettre à niveau Django, PyJWT, cryptography, Pillow et urllib3 dans un lot dédié avant une release globale."
+    },
+    {
+      "severity": "medium",
+      "description": "Les images sont servies par formation.bestepargne.com et dépendent donc de la disponibilité de ce domaine.",
+      "mitigation": "Importer ces médias dans le stockage statique de la plateforme si l'ancienne page doit être retirée."
+    },
+    {
+      "severity": "low",
+      "description": "La nouvelle page est locale et n'est pas encore visible sur ayo-group.com.",
+      "mitigation": "Déployer le frontend construit puis valider /entreprise sur mobile et bureau."
+    }
+  ],
+  "deploymentProcedure": "Déployer le build frontend, purger le cache CDN si nécessaire, puis vérifier /entreprise, les images et l'ouverture de la modale de devis.",
+  "rollbackProcedure": "Restaurer la version précédente de EnterprisePage.tsx et supprimer le test E2E associé. Aucune migration ni restauration de données n'est nécessaire.",
+  "budget": {
+    "withinBudget": false,
+    "breaches": [
+      {
+        "metric": "high_security_findings",
+        "threshold": 0,
+        "observed": 26,
+        "blocking": true
+      }
+    ],
+    "blockingBreaches": [
+      {
+        "metric": "high_security_findings",
+        "threshold": 0,
+        "observed": 26,
+        "blocking": true
+      }
+    ],
+    "activeDerogations": [],
+    "expiredDerogations": []
+  },
+  "confidence": {
+    "dimensions": [
+      {
+        "dimension": "requirements_understanding",
+        "claimed": 98,
+        "effective": 98,
+        "supported": true,
+        "supportingEvidence": [
+          "intent-compile",
+          "source-browser-inspection"
+        ]
+      },
+      {
+        "dimension": "implementation_correctness",
+        "claimed": 97,
+        "effective": 97,
+        "supported": true,
+        "supportingEvidence": [
+          "local-browser-content-review",
+          "frontend-typecheck",
+          "frontend-diff-quality",
+          "frontend-production-build"
+        ]
+      },
+      {
+        "dimension": "test_strength",
+        "claimed": 96,
+        "effective": 96,
+        "supported": true,
+        "supportingEvidence": [
+          "enterprise-e2e-suite",
+          "global-regression-suite"
+        ]
+      },
+      {
+        "dimension": "security_assurance",
+        "claimed": 65,
+        "effective": 50,
+        "supported": true,
+        "supportingEvidence": [
+          "quote-permission-regression",
+          "quote-threat-model-review"
+        ],
+        "note": "1 failing evidence item(s) cap this dimension at 50"
+      },
+      {
+        "dimension": "performance_assurance",
+        "claimed": 70,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": [],
+        "note": "Claimed 70 but no supporting evidence; capped at 60"
+      },
+      {
+        "dimension": "documentation_consistency",
+        "claimed": 96,
+        "effective": 96,
+        "supported": true,
+        "supportingEvidence": [
+          "no-unverified-statistics"
+        ]
+      },
+      {
+        "dimension": "rollback_readiness",
+        "claimed": 80,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": [],
+        "note": "Claimed 80 but no supporting evidence; capped at 60"
+      }
+    ],
+    "overall": 69,
+    "uncertainty": [
+      "security_assurance: Le scan global ne trouve aucune fuite mais conserve 26 avis hauts préexistants dans les dépendances Python.",
+      "performance_assurance is not backed by executable evidence",
+      "rollback_readiness is not backed by executable evidence"
+    ]
+  },
+  "definitionOfDone": {
+    "status": "REJECTED",
+    "unmet": [],
+    "rejected": true,
+    "rejectionReasons": [
+      "26 high security finding(s)"
+    ]
+  },
+  "releaseRecommendation": "REJECT",
+  "verified": false,
+  "blockingReasons": [
+    "26 high security finding(s)",
+    "quality budget breach: high_security_findings (observed 26, threshold 0)",
+    "unmitigated high risk: Le scan OStack global effectué dans le même état du dépôt signale 26 avis hauts dans des dépendances Python préexistantes."
+  ],
+  "contentHash": "9b987a43ce615b6ce7422eddf1dfdddcf8c17cd587915c943eb07c923fcb91ee"
+}

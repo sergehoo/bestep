@@ -1,0 +1,40 @@
+{
+  "$schema": "https://ostack.dev/schemas/intent-draft.schema.json",
+  "schemaVersion": 1,
+  "id": "enterprise-training-content",
+  "request": "Remplacer le contenu éditorial de la page publique /entreprise par une adaptation du contenu de formation.bestepargne.com, tout en conservant le design applicatif, le formulaire modal de devis sans inscription et les protections existantes.",
+  "invariants": [
+    {
+      "id": "source-content-covered",
+      "statement": "La page présente les domaines de formation, les formats, les éléments de confiance, la présentation et la FAQ issus de la page source",
+      "kind": "obligation",
+      "given": "la page de référence formation.bestepargne.com",
+      "when": "un visiteur consulte /entreprise",
+      "outcome": "les principaux contenus de la page source sont présents dans une version adaptée et corrigée"
+    },
+    {
+      "id": "quote-modal-preserved",
+      "statement": "Les appels à l'action commerciaux continuent d'ouvrir le formulaire modal public de devis",
+      "kind": "consistency",
+      "given": "un visiteur non inscrit",
+      "when": "il clique sur une demande d'information ou de devis",
+      "outcome": "la modale existante s'ouvre sans redirection vers un client de messagerie"
+    },
+    {
+      "id": "application-shell-preserved",
+      "statement": "L'en-tête, le pied de page, le thème sombre, le responsive et les routes applicatives restent compatibles",
+      "kind": "consistency",
+      "given": "l'application publique existante",
+      "when": "le nouveau contenu est rendu",
+      "outcome": "la page compile et reste utilisable sur mobile et bureau"
+    },
+    {
+      "id": "no-unverified-statistics",
+      "statement": "La page ne publie pas les compteurs à zéro ou des statistiques non vérifiées de la source",
+      "kind": "prohibition",
+      "given": "les compteurs animés non chargés de la page source",
+      "when": "le contenu est adapté",
+      "outcome": "aucune statistique trompeuse n'est affichée"
+    }
+  ]
+}
