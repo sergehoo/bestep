@@ -3,16 +3,11 @@
  * nouveau service worker est en attente (R8.3).
  *
  * Design : notification bas-droite discrète, dismissable, cliquable
- * "Recharger" qui appelle `updateSW(true)`.
+ * "Recharger" qui active le nouveau service worker.
  */
 import { useEffect, useState } from 'react';
 import { RefreshCw, X } from 'lucide-react';
 
-/**
- * `vite-plugin-pwa` expose `registerSW` via son virtual module.
- * On l'importe dynamiquement pour ne pas casser le typecheck si le
- * plugin est désactivé.
- */
 type UpdateFn = (reloadPage?: boolean) => Promise<void>;
 
 export function PWAUpdatePrompt() {
@@ -20,28 +15,51 @@ export function PWAUpdatePrompt() {
   const [updateSW, setUpdateSW] = useState<UpdateFn | null>(null);
 
   useEffect(() => {
-    // Import dynamique du virtual module généré par vite-plugin-pwa.
-    // Si le plugin n'est pas actif (SSR, tests), on ignore silencieusement.
     let cancelled = false;
-    (async () => {
-      try {
-        const mod: {
-          registerSW: (opts: {
-            onNeedRefresh?: () => void;
-            onOfflineReady?: () => void;
-          }) => UpdateFn;
-        } = await import(
-          /* @vite-ignore */ 'virtual:pwa-register'
-        );
-        if (cancelled) return;
-        const update = mod.registerSW({
-          onNeedRefresh: () => setNeedsRefresh(true),
+    if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
+
+    navigator.serviceWorker.register('/sw.js').then((registration) => {
+      if (cancelled) return;
+
+      const activateUpdate: UpdateFn = async (reloadPage = false) => {
+        const waiting = registration.waiting;
+        if (!waiting) {
+          await registration.update();
+          return;
+        }
+        if (reloadPage) {
+          navigator.serviceWorker.addEventListener(
+            'controllerchange',
+            () => window.location.reload(),
+            { once: true },
+          );
+        }
+        waiting.postMessage({ type: 'SKIP_WAITING' });
+      };
+      setUpdateSW(() => activateUpdate);
+
+      const watchInstallingWorker = () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (
+            worker.state === 'installed'
+            && navigator.serviceWorker.controller
+            && !cancelled
+          ) {
+            setNeedsRefresh(true);
+          }
         });
-        setUpdateSW(() => update);
-      } catch {
-        // Plugin absent : rien à faire.
+      };
+
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        setNeedsRefresh(true);
       }
-    })();
+      registration.addEventListener('updatefound', watchInstallingWorker);
+    }).catch(() => {
+      // Le mode hors ligne est optionnel : l'application reste disponible.
+    });
+
     return () => {
       cancelled = true;
     };

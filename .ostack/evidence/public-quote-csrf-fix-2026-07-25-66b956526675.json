@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "taskId": "public-quote-csrf-fix-2026-07-25",
+  "feature": "Soumission publique de devis sans erreur CSRF",
+  "intentId": "public-quote-csrf-fix",
+  "generatedFrom": {
+    "request": "Corriger l'erreur CSRF token missing sur POST /api/public/business-interest-requests/.",
+    "specificationCoverage": 100,
+    "assumptions": [
+      "L'endpoint de création est volontairement public et ne dépend d'aucune identité utilisateur",
+      "Le frontend peut envoyer un cookie de session existant via le même domaine",
+      "Le déploiement en production est hors de cette modification locale"
+    ],
+    "acceptanceCriteria": [
+      "Un POST valide sans CSRF et sans session retourne 201",
+      "Un POST valide sans CSRF avec une session existante retourne 201",
+      "La sixième soumission dans la fenêtre de throttling retourne 429",
+      "Un PATCH administratif avec session mais sans CSRF reste refusé",
+      "La suite globale reste verte"
+    ],
+    "plan": "Reproduire le défaut avec un client imposant le CSRF et une session, supprimer les classes d'authentification uniquement sur la vue publique, puis vérifier la soumission, le throttling, les permissions admin et la suite globale."
+  },
+  "changedFiles": [
+    "best_epargne/apis/api_business_interest.py",
+    "tests/test_business_quote_requests.py",
+    "docs/THREAT_MODEL_BUSINESS_QUOTE_REQUESTS.md"
+  ],
+  "diffRef": "working-tree:public-quote-csrf-fix",
+  "architectureDecisions": [
+    "Utiliser authentication_classes = [] uniquement sur la création publique plutôt qu'une exemption CSRF globale",
+    "Ignorer la session sur la route publique puisque la donnée créée n'appartient pas à l'utilisateur connecté",
+    "Conserver les authentifications par défaut sur les vues administratives"
+  ],
+  "migrations": [],
+  "tests": {
+    "unit": {
+      "passed": 300,
+      "failed": 0
+    },
+    "integration": {
+      "passed": 15,
+      "failed": 0
+    },
+    "contract": {
+      "passed": 3,
+      "failed": 0
+    },
+    "functional": {
+      "passed": 15,
+      "failed": 0
+    },
+    "e2e": {
+      "passed": 1,
+      "failed": 0
+    },
+    "permission": {
+      "passed": 4,
+      "failed": 0
+    }
+  },
+  "security": {
+    "critical": 0,
+    "high": 26,
+    "medium": 73,
+    "low": 11,
+    "threatModelUpdated": true
+  },
+  "performance": [],
+  "permissionMatrixVerified": true,
+  "rollback": {
+    "defined": true,
+    "tested": false
+  },
+  "humanApprovals": [
+    {
+      "approver": "utilisateur",
+      "reason": "Signalement explicite de l'erreur CSRF sur l'endpoint public de demande de devis.",
+      "approvedAt": "2026-07-25T14:28:15Z"
+    }
+  ],
+  "residualRisks": [
+    {
+      "severity": "high",
+      "description": "Le scan Trivy global signale 26 avis hauts dans des dépendances Python préexistantes, notamment Django, PyJWT, cryptography, Pillow et urllib3.",
+      "mitigation": "Mettre à niveau les dépendances Python dans un lot dédié, exécuter toute la suite et refaire le scan avant une release globale."
+    },
+    {
+      "severity": "low",
+      "description": "Le correctif est local et n'est pas encore déployé sur ayo-group.com.",
+      "mitigation": "Déployer le backend, puis tester une soumission depuis un navigateur avec et sans session existante."
+    }
+  ],
+  "deploymentProcedure": "Déployer le backend contenant la vue corrigée, redémarrer les processus applicatifs, puis envoyer une demande valide depuis la page Entreprise sans en-tête X-CSRFToken.",
+  "rollbackProcedure": "Retirer la surcharge authentication_classes de PublicBusinessInterestRequestCreateView et redéployer la version précédente. Aucune migration ni restauration de données n'est nécessaire.",
+  "budget": {
+    "withinBudget": false,
+    "breaches": [
+      {
+        "metric": "high_security_findings",
+        "threshold": 0,
+        "observed": 26,
+        "blocking": true
+      }
+    ],
+    "blockingBreaches": [
+      {
+        "metric": "high_security_findings",
+        "threshold": 0,
+        "observed": 26,
+        "blocking": true
+      }
+    ],
+    "activeDerogations": [],
+    "expiredDerogations": []
+  },
+  "confidence": {
+    "dimensions": [
+      {
+        "dimension": "requirements_understanding",
+        "claimed": 99,
+        "effective": 99,
+        "supported": true,
+        "supportingEvidence": [
+          "intent-compile"
+        ]
+      },
+      {
+        "dimension": "implementation_correctness",
+        "claimed": 98,
+        "effective": 98,
+        "supported": true,
+        "supportingEvidence": [
+          "csrf-regression-reproduction",
+          "csrf-browser-session-contract",
+          "python-quality",
+          "frontend-typecheck",
+          "frontend-build"
+        ]
+      },
+      {
+        "dimension": "test_strength",
+        "claimed": 97,
+        "effective": 97,
+        "supported": true,
+        "supportingEvidence": [
+          "quote-api-suite",
+          "global-test-suite"
+        ]
+      },
+      {
+        "dimension": "security_assurance",
+        "claimed": 70,
+        "effective": 50,
+        "supported": true,
+        "supportingEvidence": [
+          "public-throttling",
+          "admin-csrf-protection",
+          "admin-access-control"
+        ],
+        "note": "1 failing evidence item(s) cap this dimension at 50"
+      },
+      {
+        "dimension": "performance_assurance",
+        "claimed": 60,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": []
+      },
+      {
+        "dimension": "documentation_consistency",
+        "claimed": 96,
+        "effective": 96,
+        "supported": true,
+        "supportingEvidence": [
+          "threat-model-update"
+        ]
+      },
+      {
+        "dimension": "rollback_readiness",
+        "claimed": 80,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": [],
+        "note": "Claimed 80 but no supporting evidence; capped at 60"
+      }
+    ],
+    "overall": 69,
+    "uncertainty": [
+      "security_assurance: OStack ne trouve aucune fuite mais Trivy bloque la release globale sur 26 avis hauts préexistants.",
+      "rollback_readiness is not backed by executable evidence"
+    ]
+  },
+  "definitionOfDone": {
+    "status": "REJECTED",
+    "unmet": [],
+    "rejected": true,
+    "rejectionReasons": [
+      "26 high security finding(s)"
+    ]
+  },
+  "releaseRecommendation": "REJECT",
+  "verified": false,
+  "blockingReasons": [
+    "26 high security finding(s)",
+    "quality budget breach: high_security_findings (observed 26, threshold 0)",
+    "unmitigated high risk: Le scan Trivy global signale 26 avis hauts dans des dépendances Python préexistantes, notamment Django, PyJWT, cryptography, Pillow et urllib3."
+  ],
+  "contentHash": "66b9565266750e9631ff75231e0d5643dc8220ea74f92c68f0df554b814353cf"
+}

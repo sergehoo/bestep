@@ -1,0 +1,10 @@
+title = "Best-Épargne gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Le fichier .env racine est local, ignoré par Git et absent des artefacts."
+paths = [
+  '''^\.env$'''
+]

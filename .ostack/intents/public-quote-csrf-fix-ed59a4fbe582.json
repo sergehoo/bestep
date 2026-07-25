@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "id": "public-quote-csrf-fix",
+  "request": "Permettre à tout prospect de soumettre le formulaire public de demande de devis sans jeton CSRF, y compris lorsqu'un cookie de session existe déjà, sans modifier la protection CSRF des API administratives.",
+  "invariants": [
+    {
+      "id": "public-post-no-csrf",
+      "statement": "La soumission publique valide ne requiert jamais de jeton CSRF",
+      "kind": "permission",
+      "given": "un prospect avec ou sans cookie de session",
+      "when": "il envoie une demande de devis valide sans jeton CSRF",
+      "outcome": "la demande est créée et une réponse 201 est retournée"
+    },
+    {
+      "id": "admin-auth-unchanged",
+      "statement": "Les routes administratives conservent leurs contrôles d'authentification et d'autorisation",
+      "kind": "obligation",
+      "given": "un utilisateur anonyme ou non administrateur",
+      "when": "il consulte ou modifie la file des demandes",
+      "outcome": "l'accès reste refusé"
+    },
+    {
+      "id": "public-validation-unchanged",
+      "statement": "La suppression de l'authentification de session sur la vue publique ne contourne ni validation ni throttling",
+      "kind": "consistency",
+      "given": "une soumission publique invalide ou excessive",
+      "when": "elle atteint l'API",
+      "outcome": "les validations et limites existantes restent appliquées"
+    }
+  ],
+  "properties": [
+    {
+      "id": "public-post-no-csrf-allowed",
+      "invariantId": "public-post-no-csrf",
+      "title": "L'acteur autorisé peut agir",
+      "gherkin": "Given un prospect avec ou sans cookie de session\nWhen il envoie une demande de devis valide sans jeton CSRF\nThen la demande est créée et une réponse 201 est retournée",
+      "adversarial": false
+    },
+    {
+      "id": "public-post-no-csrf-denied",
+      "invariantId": "public-post-no-csrf",
+      "title": "Un acteur non autorisé est refusé",
+      "gherkin": "Given un prospect avec ou sans cookie de session\nWhen un acteur non autorisé tente la même action\nThen l'action est refusée\nAnd aucun changement n'est appliqué",
+      "adversarial": true
+    },
+    {
+      "id": "admin-auth-unchanged-holds",
+      "invariantId": "admin-auth-unchanged",
+      "title": "L'obligation est respectée",
+      "gherkin": "Given un utilisateur anonyme ou non administrateur\nWhen il consulte ou modifie la file des demandes\nThen l'accès reste refusé",
+      "adversarial": false
+    },
+    {
+      "id": "public-validation-unchanged-holds",
+      "invariantId": "public-validation-unchanged",
+      "title": "La cohérence est préservée",
+      "gherkin": "Given une soumission publique invalide ou excessive\nWhen elle atteint l'API\nThen les validations et limites existantes restent appliquées",
+      "adversarial": false
+    },
+    {
+      "id": "public-validation-unchanged-generative",
+      "invariantId": "public-validation-unchanged",
+      "title": "La cohérence tient sur des données générées",
+      "gherkin": "Given de nombreux jeux de données générés pour une soumission publique invalide ou excessive\nWhen elle atteint l'API\nThen les validations et limites existantes restent appliquées pour chaque jeu de données",
+      "adversarial": true
+    }
+  ],
+  "controls": [
+    "authentication",
+    "object_permission",
+    "endpoint_protection",
+    "audit_log",
+    "input_validation",
+    "data_integrity_check"
+  ],
+  "requiredTests": [
+    "permission_test",
+    "integration_test",
+    "unit_test",
+    "property_test"
+  ],
+  "acceptanceCriteria": [
+    "La soumission publique valide ne requiert jamais de jeton CSRF",
+    "Les routes administratives conservent leurs contrôles d'authentification et d'autorisation",
+    "La suppression de l'authentification de session sur la vue publique ne contourne ni validation ni throttling"
+  ],
+  "expectedEvidence": [
+    {
+      "invariantId": "public-post-no-csrf",
+      "kind": "permission_test",
+      "description": "Test de permission (incluant tentative de contournement) proving: La soumission publique valide ne requiert jamais de jeton CSRF"
+    },
+    {
+      "invariantId": "public-post-no-csrf",
+      "kind": "integration_test",
+      "description": "Test d'intégration proving: La soumission publique valide ne requiert jamais de jeton CSRF"
+    },
+    {
+      "invariantId": "admin-auth-unchanged",
+      "kind": "integration_test",
+      "description": "Test d'intégration proving: Les routes administratives conservent leurs contrôles d'authentification et d'autorisation"
+    },
+    {
+      "invariantId": "public-validation-unchanged",
+      "kind": "unit_test",
+      "description": "Test unitaire proving: La suppression de l'authentification de session sur la vue publique ne contourne ni validation ni throttling"
+    },
+    {
+      "invariantId": "public-validation-unchanged",
+      "kind": "property_test",
+      "description": "Test fondé sur les propriétés proving: La suppression de l'authentification de session sur la vue publique ne contourne ni validation ni throttling"
+    }
+  ],
+  "contentHash": "ed59a4fbe582c56e84c3e4f628ab5e17560c450ae67446e97d4f6848f29f8ee6"
+}

@@ -199,7 +199,7 @@ services:
         VITE_OAUTH_GOOGLE_CLIENT_ID: ${VITE_OAUTH_GOOGLE_CLIENT_ID:-}
         VITE_OAUTH_LINKEDIN_CLIENT_ID: ${VITE_OAUTH_LINKEDIN_CLIENT_ID:-}
         VITE_OAUTH_MICROSOFT_CLIENT_ID: ${VITE_OAUTH_MICROSOFT_CLIENT_ID:-}
-        VITE_BUILD_SOURCEMAP: hidden
+        VITE_BUILD_SOURCEMAP: "false"
     container_name: bestfront
     restart: unless-stopped
     depends_on:
@@ -215,7 +215,7 @@ services:
       - "traefik.http.routers.best-epargne.entrypoints=websecure"
       - "traefik.http.routers.best-epargne.tls=true"
       - "traefik.http.routers.best-epargne.tls.certresolver=${TRAEFIK_CERTRESOLVER:-lets}"
-      - "traefik.http.services.best-epargne.loadbalancer.server.port=80"
+      - "traefik.http.services.best-epargne.loadbalancer.server.port=8080"
       # Sécurité — HSTS + compression
       - "traefik.http.routers.best-epargne.middlewares=best-front-sec-headers,best-front-compress"
       - "traefik.http.middlewares.best-front-sec-headers.headers.stsSeconds=31536000"

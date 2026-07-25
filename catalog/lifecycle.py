@@ -37,9 +37,8 @@ Utilisation :
     publish_course(course, actor=request.user)           # peut raise
     unpublish_course(course, actor=request.user, note="…")
 """
-from __future__ import annotations
 
-from typing import Optional
+from __future__ import annotations
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -48,27 +47,29 @@ from django.utils import timezone
 
 from catalog.models import Course, CourseLifecycleEvent
 
-
 # ─────────────────────────────────────────────────────────────────────
 # Permissions
 # ─────────────────────────────────────────────────────────────────────
+
 
 def _is_platform_admin(user) -> bool:
     if not user or not user.is_authenticated:
         return False
     try:
         from core.permissions import is_platform_admin
+
         return bool(is_platform_admin(user))
     except Exception:
         return bool(getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
 
 
-def _is_org_admin_of(user, organization_id: Optional[int]) -> bool:
+def _is_org_admin_of(user, organization_id: int | None) -> bool:
     """OWNER/ADMIN actif de l'organisation propriétaire du cours."""
     if not user or not user.is_authenticated or not organization_id:
         return False
     try:
         from organizations.models import OrganizationMembership
+
         return OrganizationMembership.objects.filter(
             user=user,
             organization_id=organization_id,
@@ -92,14 +93,13 @@ def _check_permissions(course: Course, actor) -> None:
         return
     if _is_org_admin_of(actor, course.company_id):
         return
-    raise PermissionDenied(
-        "Vous n'avez pas le droit de modifier le cycle de vie de ce cours."
-    )
+    raise PermissionDenied("Vous n'avez pas le droit de modifier le cycle de vie de ce cours.")
 
 
 # ─────────────────────────────────────────────────────────────────────
 # Validation métier pour la publication
 # ─────────────────────────────────────────────────────────────────────
+
 
 def _validate_publishable(course: Course) -> None:
     """
@@ -151,6 +151,7 @@ def _validate_publishable(course: Course) -> None:
 # Audit log
 # ─────────────────────────────────────────────────────────────────────
 
+
 def _log_event(
     course: Course,
     actor,
@@ -175,6 +176,7 @@ def _log_event(
 # Transitions publiques
 # ─────────────────────────────────────────────────────────────────────
 
+
 @transaction.atomic
 def publish_course(course: Course, *, actor, note: str = "") -> Course:
     """
@@ -186,19 +188,16 @@ def publish_course(course: Course, *, actor, note: str = "") -> Course:
     - Renseigne ``published_at`` la première fois (le model.save le fait déjà).
     """
     _check_permissions(course, actor)
+    course = Course.objects.select_for_update().get(pk=course.pk)
 
     if course.status == Course.Status.PUBLISHED:
         return course  # idempotent
 
     if course.status == Course.Status.ARCHIVED:
-        raise ValidationError(
-            "Un cours archivé doit d'abord être restauré avant publication."
-        )
+        raise ValidationError("Un cours archivé doit d'abord être restauré avant publication.")
 
     _validate_publishable(course)
 
-    # Lock pour éviter une publication concurrente.
-    course = Course.objects.select_for_update().get(pk=course.pk)
     from_status = course.status
     course.status = Course.Status.PUBLISHED
     if course.published_at is None:
@@ -228,13 +227,11 @@ def unpublish_course(course: Course, *, actor, note: str = "") -> Course:
       pas à zéro non plus.
     """
     _check_permissions(course, actor)
+    course = Course.objects.select_for_update().get(pk=course.pk)
 
     if course.status != Course.Status.PUBLISHED:
-        raise ValidationError(
-            "Seul un cours publié peut être dépublié."
-        )
+        raise ValidationError("Seul un cours publié peut être dépublié.")
 
-    course = Course.objects.select_for_update().get(pk=course.pk)
     from_status = course.status
     course.status = Course.Status.DRAFT
     course.save(update_fields=["status", "updated_at"])
@@ -263,11 +260,11 @@ def archive_course(course: Course, *, actor, note: str = "") -> Course:
       les ARCHIVED).
     """
     _check_permissions(course, actor)
+    course = Course.objects.select_for_update().get(pk=course.pk)
 
     if course.status == Course.Status.ARCHIVED:
         return course
 
-    course = Course.objects.select_for_update().get(pk=course.pk)
     from_status = course.status
     course.status = Course.Status.ARCHIVED
     course.archived_at = timezone.now()
@@ -295,13 +292,11 @@ def restore_course(course: Course, *, actor, note: str = "") -> Course:
       republie explicitement après vérification du contenu.
     """
     _check_permissions(course, actor)
+    course = Course.objects.select_for_update().get(pk=course.pk)
 
     if course.status != Course.Status.ARCHIVED:
-        raise ValidationError(
-            "Seul un cours archivé peut être restauré."
-        )
+        raise ValidationError("Seul un cours archivé peut être restauré.")
 
-    course = Course.objects.select_for_update().get(pk=course.pk)
     from_status = course.status
     course.status = Course.Status.DRAFT
     course.archived_at = None
@@ -322,6 +317,7 @@ def restore_course(course: Course, *, actor, note: str = "") -> Course:
 # Suppression (hard delete) — protégée
 # ─────────────────────────────────────────────────────────────────────
 
+
 def can_delete_course(course: Course) -> tuple[bool, str]:
     """
     Vérifie si un cours peut être supprimé sans casser de données utilisateur.
@@ -335,6 +331,7 @@ def can_delete_course(course: Course) -> tuple[bool, str]:
         (soft-delete fonctionnel).
     """
     from enrollments.models import Enrollment
+
     if Enrollment.objects.filter(course=course).exists():
         return False, (
             "Suppression refusée : ce cours a des inscriptions. "
@@ -342,6 +339,7 @@ def can_delete_course(course: Course) -> tuple[bool, str]:
         )
     try:
         from catalog.models import Payment
+
         if Payment.objects.filter(course=course).exists():
             return False, (
                 "Suppression refusée : ce cours a des paiements enregistrés. "
@@ -373,12 +371,15 @@ def delete_course(course: Course, *, actor, note: str = "") -> None:
         to_status="",
         note=note or "Hard delete (aucune inscription / paiement).",
     )
-    course.delete()
+    # Le QuerySet conserve l'identifiant sur l'objet reçu, afin que l'appelant
+    # puisse corréler l'événement d'audit après la suppression.
+    Course.objects.filter(pk=course.pk).delete()
 
 
 # ─────────────────────────────────────────────────────────────────────
 # Helpers exposés
 # ─────────────────────────────────────────────────────────────────────
+
 
 def backfill_archived_at() -> int:
     """
@@ -388,6 +389,7 @@ def backfill_archived_at() -> int:
     Retourne le nombre de cours mis à jour.
     """
     from django.db.models import F
+
     qs = Course.objects.filter(
         status=Course.Status.ARCHIVED,
         archived_at__isnull=True,

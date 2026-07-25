@@ -18,24 +18,24 @@ Import : mode ``dry_run`` disponible — retourne un rapport ligne par ligne
 sans écrire en base. En mode non dry_run, chaque ligne devient un
 GlossaryTerm (déduplication par search_key : si déjà présent → skip).
 """
+
 from __future__ import annotations
 
 import csv
 import io
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from django.db import transaction
 
 from .models import (
     GlossaryCategory,
+    GlossaryExample,
     GlossaryTerm,
     GlossaryVariant,
-    GlossaryExample,
     normalize_search_key,
 )
-
 
 CSV_HEADERS_MAP = {
     # français → clé interne (lowercase)
@@ -86,9 +86,9 @@ class ImportReport:
     created: int = 0
     skipped: int = 0
     errors: int = 0
-    rows: List[RowResult] = field(default_factory=list)
+    rows: list[RowResult] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_rows": self.total_rows,
             "created": self.created,
@@ -106,9 +106,9 @@ class ImportReport:
         }
 
 
-def _normalize_row(raw: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_row(raw: dict[str, Any]) -> dict[str, Any]:
     """Normalise les clés (accents, casse) et fusionne acronymes+variants."""
-    norm: Dict[str, Any] = {}
+    norm: dict[str, Any] = {}
     for key, val in raw.items():
         canonical = CSV_HEADERS_MAP.get(str(key).strip().lower())
         if canonical:
@@ -121,7 +121,7 @@ def _normalize_row(raw: Dict[str, Any]) -> Dict[str, Any]:
     return norm
 
 
-def _split_variants(s: Any) -> List[str]:
+def _split_variants(s: Any) -> list[str]:
     if not s:
         return []
     txt = str(s)
@@ -129,7 +129,9 @@ def _split_variants(s: Any) -> List[str]:
     return [p for p in parts if p]
 
 
-def _resolve_category(name: Optional[str], cache: Dict[str, GlossaryCategory]) -> Optional[GlossaryCategory]:
+def _resolve_category(
+    name: str | None, cache: dict[str, GlossaryCategory]
+) -> GlossaryCategory | None:
     if not name:
         return None
     key = name.strip().lower()
@@ -146,27 +148,38 @@ def _resolve_category(name: Optional[str], cache: Dict[str, GlossaryCategory]) -
     return cat
 
 
-def _parse_csv(content: str) -> List[Dict[str, Any]]:
+def _parse_csv(content: str) -> list[dict[str, Any]]:
     """Parse un CSV en dict[]. Sniff automatique du délimiteur."""
-    # Sniff délimiteur — sinon fallback comma.
+    # Sniff délimiteur — sinon choix déterministe depuis l'en-tête.
     sample = content[:2048]
     try:
-        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+        # "|" sépare les synonymes dans une cellule, pas les colonnes.
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
     except csv.Error:
+        header = sample.splitlines()[0] if sample.splitlines() else ""
+        fallback_delimiter = ";" if ";" in header else "\t" if "\t" in header else ","
+
         class _D(csv.excel):
-            delimiter = ","
+            delimiter = fallback_delimiter
+
         dialect = _D
     reader = csv.DictReader(io.StringIO(content), dialect=dialect)
-    return [row for row in reader if any((v or "").strip() for v in row.values())]
+
+    def has_content(value: Any) -> bool:
+        if isinstance(value, list):
+            return any(str(item or "").strip() for item in value)
+        return bool(str(value or "").strip())
+
+    return [row for row in reader if any(has_content(value) for value in row.values())]
 
 
-def _parse_json(content: str) -> List[Dict[str, Any]]:
+def _parse_json(content: str) -> list[dict[str, Any]]:
     data = json.loads(content)
     if isinstance(data, dict) and isinstance(data.get("terms"), list):
         return data["terms"]
     if isinstance(data, list):
         return data
-    raise ValueError("Le JSON doit être une liste d'objets ou {\"terms\": [...]}.")
+    raise ValueError('Le JSON doit être une liste d\'objets ou {"terms": [...]}.')
 
 
 def import_terms(
@@ -180,7 +193,7 @@ def import_terms(
     if fmt.lower() == "json":
         try:
             rows = _parse_json(raw_content)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             report = ImportReport()
             report.errors += 1
             report.rows.append(RowResult(line=0, word="", action="error", detail=str(exc)[:200]))
@@ -189,7 +202,7 @@ def import_terms(
         rows = _parse_csv(raw_content)
 
     report = ImportReport()
-    cat_cache: Dict[str, GlossaryCategory] = {}
+    cat_cache: dict[str, GlossaryCategory] = {}
     # Transaction : appliquée seulement si !dry_run.
     outer_ctx = transaction.atomic() if not dry_run else _noop_ctx()
     with outer_ctx:
@@ -202,7 +215,8 @@ def import_terms(
                 report.errors += 1
                 report.rows.append(
                     RowResult(
-                        line=idx, word=word,
+                        line=idx,
+                        word=word,
                         action="error",
                         detail="Colonnes 'Terme' et 'Définition courte' obligatoires.",
                     )
@@ -214,7 +228,8 @@ def import_terms(
                 report.skipped += 1
                 report.rows.append(
                     RowResult(
-                        line=idx, word=word,
+                        line=idx,
+                        word=word,
                         action="skipped_duplicate",
                         detail="Un terme avec ce mot existe déjà.",
                     )
@@ -223,9 +238,7 @@ def import_terms(
 
             if dry_run:
                 report.created += 1
-                report.rows.append(
-                    RowResult(line=idx, word=word, action="created", detail="")
-                )
+                report.rows.append(RowResult(line=idx, word=word, action="created", detail=""))
                 continue
 
             # Création réelle.
@@ -257,21 +270,22 @@ def import_terms(
                 variants = _split_variants(norm.get("variants"))
                 for v in variants[:20]:
                     GlossaryVariant.objects.create(
-                        term=term, variant=v[:200],
+                        term=term,
+                        variant=v[:200],
                         variant_type=GlossaryVariant.VariantType.SYNONYM,
                     )
                 example = str(norm.get("example") or "").strip()
                 if example:
-                    GlossaryExample.objects.create(
-                        term=term, example=example, order=0
-                    )
+                    GlossaryExample.objects.create(term=term, example=example, order=0)
                 report.created += 1
                 report.rows.append(RowResult(line=idx, word=word, action="created"))
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 report.errors += 1
                 report.rows.append(
                     RowResult(
-                        line=idx, word=word, action="error",
+                        line=idx,
+                        word=word,
+                        action="error",
                         detail=str(exc)[:200],
                     )
                 )
@@ -334,7 +348,7 @@ def export_terms_csv(queryset) -> str:
 
 
 def export_terms_json(queryset) -> str:
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for t in queryset.prefetch_related("variants", "examples").select_related("category"):
         out.append(
             {

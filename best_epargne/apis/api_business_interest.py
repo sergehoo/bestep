@@ -166,6 +166,10 @@ def _notify_platform_admins(interest: BusinessInterestRequest) -> None:
 
 
 class PublicBusinessInterestRequestCreateView(APIView):
+    # Cette route est volontairement anonyme. Sans cette surcharge, une session
+    # déjà présente dans le navigateur active SessionAuthentication avant même
+    # AllowAny et impose alors un jeton CSRF au formulaire public.
+    authentication_classes = []
     permission_classes = [AllowAny]
     throttle_scope = "business_quote"
 

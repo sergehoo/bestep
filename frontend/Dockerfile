@@ -35,7 +35,7 @@ ARG VITE_SENTRY_DSN=
 ARG VITE_OAUTH_GOOGLE_CLIENT_ID=
 ARG VITE_OAUTH_LINKEDIN_CLIENT_ID=
 ARG VITE_OAUTH_MICROSOFT_CLIENT_ID=
-ARG VITE_BUILD_SOURCEMAP=hidden
+ARG VITE_BUILD_SOURCEMAP=false
 
 ENV VITE_API_URL=${VITE_API_URL} \
     VITE_API_BASE=${VITE_API_BASE} \
@@ -59,18 +59,26 @@ RUN npm run build
 FROM nginx:1.27-alpine AS runtime
 
 # Support des logs vers stdout/stderr par défaut (héritage du base image).
-RUN rm -f /etc/nginx/conf.d/default.conf
+RUN rm -f /etc/nginx/conf.d/default.conf \
+    && touch /var/run/nginx.pid \
+    && chown -R nginx:nginx \
+        /etc/nginx/conf.d \
+        /usr/share/nginx/html \
+        /var/cache/nginx \
+        /var/run/nginx.pid
 
 # Config nginx custom (SPA + reverse proxy Django).
-COPY nginx.conf /etc/nginx/conf.d/best_epargne.conf
+COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/best_epargne.conf
 
 # Bundle statique.
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --chown=nginx:nginx --from=builder /app/dist /usr/share/nginx/html
+
+USER nginx
 
 # Healthcheck : renvoie la page d'accueil sur / (nginx directement).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget --spider -q http://127.0.0.1/healthz || exit 1
+    CMD wget --spider -q http://127.0.0.1:8080/healthz || exit 1
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]

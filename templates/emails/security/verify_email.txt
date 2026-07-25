@@ -1,4 +1,4 @@
-Bonjour {{ user_name|default:user.email }},
+Bonjour {% if user_name %}{{ user_name }}{% elif user %}{{ user.email }}{% else %}utilisateur{% endif %},
 
 Merci pour votre inscription sur Best-Épargne.
 Confirmez votre adresse e-mail en cliquant sur le lien ci-dessous :

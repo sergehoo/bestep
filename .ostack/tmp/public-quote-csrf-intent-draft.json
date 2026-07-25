@@ -1,0 +1,32 @@
+{
+  "$schema": "https://ostack.dev/schemas/intent-draft.schema.json",
+  "schemaVersion": 1,
+  "id": "public-quote-csrf-fix",
+  "request": "Permettre à tout prospect de soumettre le formulaire public de demande de devis sans jeton CSRF, y compris lorsqu'un cookie de session existe déjà, sans modifier la protection CSRF des API administratives.",
+  "invariants": [
+    {
+      "id": "public-post-no-csrf",
+      "statement": "La soumission publique valide ne requiert jamais de jeton CSRF",
+      "kind": "permission",
+      "given": "un prospect avec ou sans cookie de session",
+      "when": "il envoie une demande de devis valide sans jeton CSRF",
+      "outcome": "la demande est créée et une réponse 201 est retournée"
+    },
+    {
+      "id": "admin-auth-unchanged",
+      "statement": "Les routes administratives conservent leurs contrôles d'authentification et d'autorisation",
+      "kind": "obligation",
+      "given": "un utilisateur anonyme ou non administrateur",
+      "when": "il consulte ou modifie la file des demandes",
+      "outcome": "l'accès reste refusé"
+    },
+    {
+      "id": "public-validation-unchanged",
+      "statement": "La suppression de l'authentification de session sur la vue publique ne contourne ni validation ni throttling",
+      "kind": "consistency",
+      "given": "une soumission publique invalide ou excessive",
+      "when": "elle atteint l'API",
+      "outcome": "les validations et limites existantes restent appliquées"
+    }
+  ]
+}

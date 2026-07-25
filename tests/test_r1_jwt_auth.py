@@ -14,17 +14,17 @@ Couverture :
 
 Tests d'intégration via APIClient DRF.
 """
+
 from __future__ import annotations
 
 import pytest
 from django.urls import reverse
-from rest_framework import status
 from rest_framework.test import APIClient
-
 
 # ─────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def api_client():
@@ -54,6 +54,7 @@ def _auth(client, user, password="MotDePasseSolide123!"):
 # ─────────────────────────────────────────────────────────────────────
 # Register
 # ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_register_success(api_client):
@@ -104,6 +105,7 @@ def test_register_weak_password_refused(api_client):
 # Login
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_login_success_returns_tokens_and_user(api_client, registered_user):
     resp = api_client.post(
@@ -132,12 +134,11 @@ def test_login_wrong_password_refused(api_client, registered_user):
 # Refresh
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_refresh_returns_new_access(api_client, registered_user):
     access, refresh, _ = _auth(api_client, registered_user)
-    resp = api_client.post(
-        reverse("compte_api:refresh"), {"refresh": refresh}, format="json"
-    )
+    resp = api_client.post(reverse("compte_api:refresh"), {"refresh": refresh}, format="json")
     assert resp.status_code == 200
     assert "access" in resp.data
     # ROTATE_REFRESH_TOKENS=True → nouveau refresh aussi
@@ -149,20 +150,17 @@ def test_refresh_returns_new_access(api_client, registered_user):
 # Logout
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_logout_blacklists_refresh(api_client, registered_user):
     access, refresh, _ = _auth(api_client, registered_user)
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
-    resp = api_client.post(
-        reverse("compte_api:logout"), {"refresh": refresh}, format="json"
-    )
+    resp = api_client.post(reverse("compte_api:logout"), {"refresh": refresh}, format="json")
     assert resp.status_code == 205  # RESET_CONTENT
 
     # Le refresh est maintenant blacklisté → refresh échoue.
     api_client.credentials()  # unset
-    resp2 = api_client.post(
-        reverse("compte_api:refresh"), {"refresh": refresh}, format="json"
-    )
+    resp2 = api_client.post(reverse("compte_api:refresh"), {"refresh": refresh}, format="json")
     assert resp2.status_code == 401
 
 
@@ -177,6 +175,7 @@ def test_logout_requires_refresh_in_body(api_client, registered_user):
 # ─────────────────────────────────────────────────────────────────────
 # Me
 # ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_me_get_returns_user(api_client, registered_user):
@@ -216,6 +215,7 @@ def test_me_patch_updates_writable_fields(api_client, registered_user):
 # Password change
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_password_change_success(api_client, registered_user):
     access, _, _ = _auth(api_client, registered_user)
@@ -250,6 +250,7 @@ def test_password_change_wrong_current(api_client, registered_user):
 # Password reset (enum-safe)
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_password_reset_request_always_200(api_client):
     """Enum-safe : renvoie 200 même si l'email n'existe pas."""
@@ -276,6 +277,7 @@ def test_password_reset_request_existing_email_200(api_client, registered_user):
 # Claims dans le JWT
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_jwt_contains_email_and_admin_claim(api_client, registered_user):
     """Le token contient les claims custom pour éviter re-fetch /me/."""
@@ -283,9 +285,10 @@ def test_jwt_contains_email_and_admin_claim(api_client, registered_user):
     # On décode sans vérif (juste pour lire les claims — ne PAS faire ça en prod !)
     import base64
     import json
+
     header, payload, _sig = access.split(".")
     padded = payload + "=" * (-len(payload) % 4)
     claims = json.loads(base64.urlsafe_b64decode(padded))
     assert claims["email"] == registered_user.email
     assert claims["is_platform_admin"] is False
-    assert claims["user_id"] == registered_user.id
+    assert str(claims["user_id"]) == str(registered_user.id)

@@ -37,8 +37,8 @@ Légende : 🌐 = public, 🔒 = requiert JWT
 
 ```json
 {
-  "access": "eyJhbGciOiJIUzI1NiIs...",
-  "refresh": "eyJhbGciOiJIUzI1NiIs...",
+  "access": "example-access-token",
+  "refresh": "example-refresh-token",
   "user": {
     "id": 42,
     "email": "alice@example.com",

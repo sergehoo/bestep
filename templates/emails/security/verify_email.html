@@ -3,7 +3,7 @@
 {% block subtitle %}Vérification e-mail{% endblock %}
 {% block body %}
   <p style="margin:0 0 12px;font-size:18px;font-weight:700;color:#0f172a;">
-    Bonjour {{ user_name|default:user.email }},
+    Bonjour {% if user_name %}{{ user_name }}{% elif user %}{{ user.email }}{% else %}utilisateur{% endif %},
   </p>
   <p style="margin:0 0 18px;">
     Merci pour votre inscription. Confirmez votre adresse e-mail

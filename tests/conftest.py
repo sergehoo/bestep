@@ -1,10 +1,20 @@
 """Pytest fixtures partagées pour les tests Phase 1."""
+
 from __future__ import annotations
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 
 User = get_user_model()
+
+
+@pytest.fixture(autouse=True)
+def isolate_test_cache():
+    """Chaque test démarre avec un cache propre, sans désactiver le throttling."""
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.fixture
@@ -15,9 +25,11 @@ def make_user(db):
     ne pas casser les tests existants. Les tests spécifiques à la
     vérification e-mail passent explicitement ``is_email_verified=False``.
     """
+
     def _make(email="alice@example.com", password="StrongPa$$word12", **extra):
         extra.setdefault("is_email_verified", True)
         return User.objects.create_user(email=email, password=password, **extra)
+
     return _make
 
 
@@ -41,4 +53,5 @@ def platform_admin(make_user):
 def rf():
     """RequestFactory pour les tests de decorators."""
     from django.test import RequestFactory
+
     return RequestFactory()

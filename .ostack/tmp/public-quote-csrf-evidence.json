@@ -1,0 +1,237 @@
+{
+  "$schema": "https://ostack.dev/schemas/evidence-input.schema.json",
+  "taskId": "public-quote-csrf-fix-2026-07-25",
+  "feature": "Soumission publique de devis sans erreur CSRF",
+  "intentId": "public-quote-csrf-fix",
+  "request": "Corriger l'erreur CSRF token missing sur POST /api/public/business-interest-requests/.",
+  "specification": {
+    "summary": "La vue de création publique ignore toute session éventuellement présente afin de ne pas imposer de CSRF, tandis que les validations, le throttling et les protections administratives restent inchangés.",
+    "coverage": 100
+  },
+  "assumptions": [
+    "L'endpoint de création est volontairement public et ne dépend d'aucune identité utilisateur",
+    "Le frontend peut envoyer un cookie de session existant via le même domaine",
+    "Le déploiement en production est hors de cette modification locale"
+  ],
+  "acceptanceCriteria": [
+    "Un POST valide sans CSRF et sans session retourne 201",
+    "Un POST valide sans CSRF avec une session existante retourne 201",
+    "La sixième soumission dans la fenêtre de throttling retourne 429",
+    "Un PATCH administratif avec session mais sans CSRF reste refusé",
+    "La suite globale reste verte"
+  ],
+  "plan": "Reproduire le défaut avec un client imposant le CSRF et une session, supprimer les classes d'authentification uniquement sur la vue publique, puis vérifier la soumission, le throttling, les permissions admin et la suite globale.",
+  "changedFiles": [
+    "best_epargne/apis/api_business_interest.py",
+    "tests/test_business_quote_requests.py",
+    "docs/THREAT_MODEL_BUSINESS_QUOTE_REQUESTS.md"
+  ],
+  "diffRef": "working-tree:public-quote-csrf-fix",
+  "architectureDecisions": [
+    "Utiliser authentication_classes = [] uniquement sur la création publique plutôt qu'une exemption CSRF globale",
+    "Ignorer la session sur la route publique puisque la donnée créée n'appartient pas à l'utilisateur connecté",
+    "Conserver les authentifications par défaut sur les vues administratives"
+  ],
+  "migrations": [],
+  "tests": {
+    "unit": {
+      "passed": 300,
+      "failed": 0
+    },
+    "integration": {
+      "passed": 15,
+      "failed": 0
+    },
+    "contract": {
+      "passed": 3,
+      "failed": 0
+    },
+    "functional": {
+      "passed": 15,
+      "failed": 0
+    },
+    "e2e": {
+      "passed": 1,
+      "failed": 0
+    },
+    "permission": {
+      "passed": 4,
+      "failed": 0
+    }
+  },
+  "security": {
+    "critical": 0,
+    "high": 26,
+    "medium": 73,
+    "low": 11,
+    "threatModelUpdated": true
+  },
+  "metrics": {
+    "documentationDrift": 0
+  },
+  "permissionMatrixVerified": true,
+  "rollback": {
+    "defined": true,
+    "tested": false
+  },
+  "humanApprovals": [
+    {
+      "approver": "utilisateur",
+      "reason": "Signalement explicite de l'erreur CSRF sur l'endpoint public de demande de devis.",
+      "approvedAt": "2026-07-25T14:28:15Z"
+    }
+  ],
+  "residualRisks": [
+    {
+      "severity": "high",
+      "description": "Le scan Trivy global signale 26 avis hauts dans des dépendances Python préexistantes, notamment Django, PyJWT, cryptography, Pillow et urllib3.",
+      "mitigation": "Mettre à niveau les dépendances Python dans un lot dédié, exécuter toute la suite et refaire le scan avant une release globale."
+    },
+    {
+      "severity": "low",
+      "description": "Le correctif est local et n'est pas encore déployé sur ayo-group.com.",
+      "mitigation": "Déployer le backend, puis tester une soumission depuis un navigateur avec et sans session existante."
+    }
+  ],
+  "deploymentProcedure": "Déployer le backend contenant la vue corrigée, redémarrer les processus applicatifs, puis envoyer une demande valide depuis la page Entreprise sans en-tête X-CSRFToken.",
+  "rollbackProcedure": "Retirer la surcharge authentication_classes de PublicBusinessInterestRequestCreateView et redéployer la version précédente. Aucune migration ni restauration de données n'est nécessaire.",
+  "confidence": [
+    {
+      "dimension": "requirements_understanding",
+      "score": 99
+    },
+    {
+      "dimension": "implementation_correctness",
+      "score": 98
+    },
+    {
+      "dimension": "test_strength",
+      "score": 97
+    },
+    {
+      "dimension": "security_assurance",
+      "score": 70
+    },
+    {
+      "dimension": "performance_assurance",
+      "score": 60
+    },
+    {
+      "dimension": "documentation_consistency",
+      "score": 96
+    },
+    {
+      "dimension": "rollback_readiness",
+      "score": 80
+    }
+  ],
+  "evidenceItems": [
+    {
+      "id": "intent-compile",
+      "kind": "trace",
+      "dimension": "requirements_understanding",
+      "status": "observed",
+      "summary": "OStack a compilé 3 invariants et 5 propriétés testables."
+    },
+    {
+      "id": "csrf-regression-reproduction",
+      "kind": "integration_test",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "Le test reproduisait un 403 CSRF avec session avant correction et retourne maintenant 201 sans jeton CSRF.",
+      "uri": "tests/test_business_quote_requests.py"
+    },
+    {
+      "id": "csrf-browser-session-contract",
+      "kind": "e2e_test",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "Le parcours complet avec cookie de session, contrôle CSRF actif et absence de jeton crée la demande et retourne 201."
+    },
+    {
+      "id": "quote-api-suite",
+      "kind": "functional_test",
+      "dimension": "test_strength",
+      "status": "passed",
+      "summary": "Les 15 tests du parcours devis passent.",
+      "metrics": {
+        "passed": 15,
+        "failed": 0
+      }
+    },
+    {
+      "id": "global-test-suite",
+      "kind": "unit_test",
+      "dimension": "test_strength",
+      "status": "passed",
+      "summary": "La suite complète passe.",
+      "metrics": {
+        "passed": 300,
+        "failed": 0
+      }
+    },
+    {
+      "id": "public-throttling",
+      "kind": "property_test",
+      "dimension": "security_assurance",
+      "status": "passed",
+      "summary": "Cinq soumissions sont acceptées et la sixième est refusée avec 429."
+    },
+    {
+      "id": "admin-csrf-protection",
+      "kind": "permission_test",
+      "dimension": "security_assurance",
+      "status": "passed",
+      "summary": "Un administrateur authentifié par session ne peut toujours pas modifier une demande sans jeton CSRF."
+    },
+    {
+      "id": "admin-access-control",
+      "kind": "permission_test",
+      "dimension": "security_assurance",
+      "status": "passed",
+      "summary": "L'anonyme et l'utilisateur standard restent exclus de la file administrative."
+    },
+    {
+      "id": "python-quality",
+      "kind": "lint",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "Black, Ruff, Django check, makemigrations --check et git diff --check passent."
+    },
+    {
+      "id": "frontend-typecheck",
+      "kind": "typecheck",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "Le contrôle TypeScript du frontend passe."
+    },
+    {
+      "id": "frontend-build",
+      "kind": "build",
+      "dimension": "implementation_correctness",
+      "status": "passed",
+      "summary": "La compilation Vite de production passe."
+    },
+    {
+      "id": "threat-model-update",
+      "kind": "trace",
+      "dimension": "documentation_consistency",
+      "status": "observed",
+      "summary": "Le modèle de menace documente l'ignorance de la session uniquement sur la route publique."
+    },
+    {
+      "id": "global-security-review",
+      "kind": "security_scan",
+      "dimension": "security_assurance",
+      "status": "failed",
+      "summary": "OStack ne trouve aucune fuite mais Trivy bloque la release globale sur 26 avis hauts préexistants."
+    }
+  ],
+  "budget": {
+    "criticalSecurityFindings": 0,
+    "highSecurityFindings": 0,
+    "permissionTestsRequired": true,
+    "rollbackRequired": true
+  },
+  "released": false
+}

@@ -118,6 +118,27 @@ class TestPublicBusinessQuoteRequest:
         assert notification.payload["business_interest_request_id"] == interest.id
         assert notification.payload["reference"] == interest.reference
 
+    def test_submission_with_existing_session_does_not_require_csrf(
+        self, platform_admin, regular_user, valid_payload
+    ):
+        client = APIClient(enforce_csrf_checks=True)
+        client.force_login(regular_user)
+
+        response = client.post(PUBLIC_URL, valid_payload, format="json")
+
+        assert response.status_code == 201, response.data
+        assert response.data["status"] == "received"
+        assert BusinessInterestRequest.objects.count() == 1
+
+    def test_public_submission_remains_throttled(self, platform_admin, valid_payload):
+        client = APIClient()
+
+        responses = [client.post(PUBLIC_URL, valid_payload, format="json") for _ in range(6)]
+
+        assert [response.status_code for response in responses[:5]] == [201] * 5
+        assert responses[5].status_code == 429
+        assert BusinessInterestRequest.objects.count() == 5
+
     @pytest.mark.parametrize(
         ("field", "value"),
         [
@@ -154,6 +175,21 @@ class TestAdminBusinessQuoteWorkflow:
         admin_client.force_authenticate(platform_admin)
         admin_response = admin_client.get(ADMIN_URL)
         assert admin_response.status_code == 200
+
+    def test_admin_session_patch_still_requires_csrf(self, platform_admin):
+        interest = _create_request()
+        client = APIClient(enforce_csrf_checks=True)
+        client.force_login(platform_admin)
+
+        response = client.patch(
+            f"{ADMIN_URL}{interest.id}/",
+            {"status": "CONTACTED"},
+            format="json",
+        )
+
+        assert response.status_code == 403
+        interest.refresh_from_db()
+        assert interest.status == BusinessInterestRequest.Status.NEW
 
     def test_admin_list_filters_and_exposes_aggregates(self, platform_admin):
         _create_request(organization_name="Alpha", status="NEW")

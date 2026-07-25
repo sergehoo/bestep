@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "taskId": "release-blockers-remediation-2026-07-25",
+  "feature": "Correction des bloqueurs de livraison",
+  "intentId": "release-blockers-remediation",
+  "generatedFrom": {
+    "request": "Lister et corriger les secrets potentiels, les alertes de sécurité hautes et les 33 échecs de tests globaux.",
+    "specificationCoverage": 100,
+    "assumptions": [
+      "Le fichier .env local reste hors Git et seule son exclusion exacte est autorisée",
+      "Les constats Semgrep modérés préexistants sont des observations et non les bloqueurs critiques ou hauts de ce lot",
+      "La construction Docker locale nécessite que Docker Desktop soit démarré"
+    ],
+    "acceptanceCriteria": [
+      "Les scans de secrets Git et répertoire retournent zéro constat",
+      "Les audits de dépendances retournent zéro vulnérabilité critique ou haute",
+      "Le Dockerfile frontend déclare un utilisateur non privilégié",
+      "La suite globale passe intégralement",
+      "Les fonctionnalités devis et aperçus multiples restent couvertes"
+    ],
+    "plan": "Corriger précisément les faux positifs et les dépendances, durcir l'image frontend, réparer les causes racines des tests, puis exécuter les contrôles complets et OStack."
+  },
+  "changedFiles": [
+    ".gitleaks.toml",
+    ".gitleaksignore",
+    "docs/API_FRONTEND_CONTRACT.md",
+    "docs/SECURITY_REMEDIATION_2026-07-25.md",
+    "frontend/Dockerfile",
+    "frontend/nginx.conf",
+    "docker-compose.yml",
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "package-lock.json",
+    "frontend/vite.config.ts",
+    "frontend/index.html",
+    "frontend/public/manifest.webmanifest",
+    "frontend/public/sw.js",
+    "frontend/src/components/pwa/PWAUpdatePrompt.tsx",
+    "frontend/src/vite-env.d.ts",
+    "tests/conftest.py",
+    "catalog/lifecycle.py",
+    "glossary/io_service.py",
+    "tests/test_p4_perf_n_plus_1.py",
+    "templates/emails/security/verify_email.html",
+    "templates/emails/security/verify_email.txt",
+    "tests/test_security_email_templates.py",
+    "tests/test_r1_jwt_auth.py"
+  ],
+  "diffRef": "working-tree:release-blockers-remediation",
+  "architectureDecisions": [
+    "Conserver les contrôles de throttling actifs et isoler seulement le cache entre les tests",
+    "Utiliser un service worker natif afin de supprimer la chaîne Workbox vulnérable tout en conservant le comportement PWA",
+    "Passer Nginx sur le port 8080 pour permettre son exécution par l'utilisateur nginx",
+    "Ne jamais ignorer globalement les secrets : limiter les exceptions au chemin local .env et à l'empreinte historique fictive exacte"
+  ],
+  "migrations": [],
+  "tests": {
+    "unit": {
+      "passed": 297,
+      "failed": 0
+    },
+    "integration": {
+      "passed": 297,
+      "failed": 0
+    },
+    "contract": {
+      "passed": 19,
+      "failed": 0
+    },
+    "functional": {
+      "passed": 19,
+      "failed": 0
+    },
+    "e2e": {
+      "passed": 2,
+      "failed": 0
+    },
+    "permission": {
+      "passed": 19,
+      "failed": 0
+    }
+  },
+  "security": {
+    "critical": 0,
+    "high": 0,
+    "medium": 55,
+    "low": 1,
+    "threatModelUpdated": true
+  },
+  "performance": [],
+  "permissionMatrixVerified": true,
+  "rollback": {
+    "defined": true,
+    "tested": false
+  },
+  "humanApprovals": [
+    {
+      "approver": "utilisateur",
+      "reason": "Demande explicite de lister et corriger les problèmes bloquant la livraison.",
+      "approvedAt": "2026-07-25T14:06:27Z"
+    }
+  ],
+  "residualRisks": [
+    {
+      "severity": "medium",
+      "description": "OStack conserve 54 observations Semgrep sans constat critique ou haut; elles sont majoritairement antérieures à ce lot.",
+      "mitigation": "Traiter les règles GitHub Actions, les usages HTML dynamiques et les formulaires historiques dans des lots de durcissement ciblés."
+    },
+    {
+      "severity": "medium",
+      "description": "L'audit frontend conserve deux paquets signalés au niveau modéré dans React Router 6.",
+      "mitigation": "Les destinations restent internes et le SSR n'est pas utilisé; planifier une migration testée vers React Router 7."
+    },
+    {
+      "severity": "low",
+      "description": "L'image Docker n'a pas pu être construite car le moteur Docker local n'était pas démarré.",
+      "mitigation": "La configuration Compose est valide et Semgrep ne signale plus l'absence de USER; reconstruire l'image dans la CI ou après démarrage de Docker Desktop."
+    },
+    {
+      "severity": "low",
+      "description": "Le challenger OStack n'a pas pu s'exécuter car le modèle Ollama qwen3 n'est pas installé.",
+      "mitigation": "Installer qwen3 puis relancer ostack challenge si une contestation LLM locale est requise."
+    }
+  ],
+  "deploymentProcedure": "Aucun déploiement effectué. Construire l'image frontend, appliquer les contrôles CI, déployer le backend et le frontend puis vérifier les parcours devis et aperçus multiples.",
+  "rollbackProcedure": "Restaurer les fichiers de verrouillage, le Dockerfile, la configuration PWA et les corrections Python à leur révision précédente, puis relancer la suite globale. Aucune migration de données n'est nécessaire pour ce lot.",
+  "budget": {
+    "withinBudget": true,
+    "breaches": [],
+    "blockingBreaches": [],
+    "activeDerogations": [],
+    "expiredDerogations": []
+  },
+  "confidence": {
+    "dimensions": [
+      {
+        "dimension": "requirements_understanding",
+        "claimed": 98,
+        "effective": 98,
+        "supported": true,
+        "supportingEvidence": [
+          "intent-compile"
+        ]
+      },
+      {
+        "dimension": "implementation_correctness",
+        "claimed": 94,
+        "effective": 94,
+        "supported": true,
+        "supportingEvidence": [
+          "feature-regression-suite",
+          "frontend-typecheck",
+          "frontend-typecheck-build",
+          "django-quality-checks",
+          "compose-configuration"
+        ]
+      },
+      {
+        "dimension": "test_strength",
+        "claimed": 96,
+        "effective": 96,
+        "supported": true,
+        "supportingEvidence": [
+          "global-regression-suite"
+        ]
+      },
+      {
+        "dimension": "security_assurance",
+        "claimed": 92,
+        "effective": 92,
+        "supported": true,
+        "supportingEvidence": [
+          "gitleaks-history-and-directory",
+          "dependency-audits",
+          "ostack-security-review"
+        ]
+      },
+      {
+        "dimension": "performance_assurance",
+        "claimed": 60,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": []
+      },
+      {
+        "dimension": "documentation_consistency",
+        "claimed": 96,
+        "effective": 96,
+        "supported": true,
+        "supportingEvidence": [
+          "remediation-documentation"
+        ]
+      },
+      {
+        "dimension": "rollback_readiness",
+        "claimed": 75,
+        "effective": 60,
+        "supported": false,
+        "supportingEvidence": [],
+        "note": "Claimed 75 but no supporting evidence; capped at 60"
+      }
+    ],
+    "overall": 69,
+    "uncertainty": [
+      "rollback_readiness is not backed by executable evidence"
+    ]
+  },
+  "definitionOfDone": {
+    "status": "APPROVED",
+    "unmet": [],
+    "rejected": false,
+    "rejectionReasons": []
+  },
+  "releaseRecommendation": "APPROVE_WITH_OBSERVATIONS",
+  "verified": true,
+  "blockingReasons": [],
+  "contentHash": "75f7567f8b64c5a2e975055784812b6484bad5894e14dd5ed7f42a352d0b4c38"
+}

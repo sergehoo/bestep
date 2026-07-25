@@ -19,6 +19,7 @@ et modifiables uniquement dans l’espace administrateur plateforme.
 
 | Menace | Risque | Contrôle implémenté | Preuve |
 | --- | --- | --- | --- |
+| Cookie de session déjà présent | rejet CSRF injustifié d’un formulaire volontairement public | aucune classe d’authentification sur la seule vue de création publique ; la session éventuelle est ignorée | test avec contrôle CSRF actif et session existante |
 | Soumission automatisée / spam | saturation de la file | limite de 5 soumissions anonymes par heure et champ leurre invisible | réglage `business_quote`, tests de rejet |
 | Payload invalide ou surdimensionné | données incohérentes, abus de stockage | validation stricte des formats, longueurs et bornes ; consentement obligatoire | tests paramétrés API |
 | Lecture des prospects par un visiteur ou utilisateur standard | fuite de données personnelles | aucun endpoint public de lecture ; endpoints admin protégés par `IsPlatformAdmin` | tests 401/403/200 |

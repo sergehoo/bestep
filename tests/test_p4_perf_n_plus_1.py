@@ -17,6 +17,7 @@ Si ces bornes paraissent élevées, on les abaisse au fur et à mesure que
 les optimisations progressent. L'objectif est de **détecter les régressions**,
 pas de chasser la perfection.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -31,11 +32,12 @@ from catalog.querysets import (
     with_instructor,
     with_sections_and_lessons,
 )
-
+from enrollments.models import Enrollment
 
 # ─────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def instructor(make_user):
@@ -69,6 +71,7 @@ def catalog_data(instructor, db):
 # ─────────────────────────────────────────────────────────────────────
 # QuerySet helpers (catalog/querysets.py)
 # ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_with_instructor_eager_loads_user(catalog_data):
@@ -109,14 +112,13 @@ def test_with_sections_and_lessons_bounded(catalog_data):
             for section in course.sections.all():
                 list(section.lessons.all())
     # 1 (Course) + 1 (Sections via prefetch) + 1 (Lessons via prefetch) = 3
-    assert len(ctx.captured_queries) <= 4, (
-        f"Expected ≤ 4 queries, got {len(ctx.captured_queries)}"
-    )
+    assert len(ctx.captured_queries) <= 4, f"Expected ≤ 4 queries, got {len(ctx.captured_queries)}"
 
 
 # ─────────────────────────────────────────────────────────────────────
 # Presets composites
 # ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_for_public_listing_bounded(catalog_data):
@@ -141,9 +143,7 @@ def test_for_course_detail_bounded(catalog_data, instructor):
         for section in course.sections.all():
             list(section.lessons.all())
         _ = course.instructor.email
-    assert len(ctx.captured_queries) <= 6, (
-        f"Expected ≤ 6 queries, got {len(ctx.captured_queries)}"
-    )
+    assert len(ctx.captured_queries) <= 6, f"Expected ≤ 6 queries, got {len(ctx.captured_queries)}"
 
 
 @pytest.mark.django_db
@@ -162,10 +162,12 @@ def test_for_instructor_dashboard_bounded(catalog_data):
 # Sanity check constants module
 # ─────────────────────────────────────────────────────────────────────
 
+
 def test_constants_module_imports_cleanly():
     """Le module de constantes doit s'importer sans déclencher d'erreur
     de Django apps ready (pas d'import lourd au top-level)."""
     from core import constants
+
     assert constants.CourseStatus.PUBLISHED == "PUBLISHED"
     assert "OWNER" in constants.ORG_ADMIN_ROLES
     assert "ADMIN" in constants.ORG_ADMIN_ROLES
@@ -180,6 +182,7 @@ def test_constants_org_role_helpers():
         ORG_TEACHING_ROLES,
         is_valid_org_role,
     )
+
     # OWNER appartient à tous les ensembles "supérieurs"
     assert "OWNER" in ORG_ADMIN_ROLES
     assert "OWNER" in ORG_MANAGER_ROLES
@@ -197,6 +200,7 @@ def test_constants_org_role_helpers():
 # P4.6 — Aggregate conditionnel sur Enrollment (StudentDashboard fix)
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_enrollment_kpis_single_query(catalog_data, make_user):
     """Le pattern aggregate(filter=Q(...)) compte multiple statuses en 1 query.
@@ -204,21 +208,16 @@ def test_enrollment_kpis_single_query(catalog_data, make_user):
     Reproduit le fix P4.6 appliqué dans StudentDashboard.
     """
     from django.db.models import Count, Q
+
     from enrollments.models import Enrollment
 
     user = make_user(email="enroll.kpi@example.com")
     for course in catalog_data[:3]:
         Enrollment.objects.create(user=user, course=course, status=Enrollment.Status.ACTIVE)
-    Enrollment.objects.create(
-        user=user, course=catalog_data[3], status=Enrollment.Status.COMPLETED
-    )
-    Enrollment.objects.create(
-        user=user, course=catalog_data[4], status=Enrollment.Status.CANCELED
-    )
+    Enrollment.objects.create(user=user, course=catalog_data[3], status=Enrollment.Status.COMPLETED)
+    Enrollment.objects.create(user=user, course=catalog_data[4], status=Enrollment.Status.CANCELED)
 
-    enrollments = Enrollment.objects.filter(user=user).exclude(
-        status=Enrollment.Status.CANCELED
-    )
+    enrollments = Enrollment.objects.filter(user=user).exclude(status=Enrollment.Status.CANCELED)
 
     # ANTI-PATTERN : 2 .count() séparés = 2 queries
     # PATTERN OPTIMAL : 1 aggregate = 1 query
@@ -240,15 +239,9 @@ def test_enrollment_select_related_no_n_plus_1(catalog_data, make_user):
     for course in catalog_data:
         Enrollment.objects.create(user=user, course=course, status="ACTIVE")
 
-    from enrollments.models import Enrollment
-    qs = list(
-        Enrollment.objects.filter(user=user)
-        .select_related("course", "course__category")
-    )
+    qs = list(Enrollment.objects.filter(user=user).select_related("course", "course__category"))
     with CaptureQueriesContext(connection) as ctx:
         for e in qs:
             _ = e.course.title
             _ = e.course.category.name if e.course.category else None
-    assert len(ctx.captured_queries) == 0, (
-        f"Expected 0 queries, got {len(ctx.captured_queries)}"
-    )
+    assert len(ctx.captured_queries) == 0, f"Expected 0 queries, got {len(ctx.captured_queries)}"

@@ -9,6 +9,7 @@ Vérifie que les templates HTML + text pour :
     ``EmailMultiAlternatives`` envoie bien un mail multipart avec le
     text plain en primary + le HTML en alternative.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -37,7 +38,7 @@ class TestVerifyEmailTemplate:
             },
         )
         assert "Alice Test" in html
-        assert "https://example.com/verify?uid=1&token=abc" in html
+        assert "https://example.com/verify?uid=1&amp;token=abc" in html
         assert "48 heures" in html
         assert "Vérifier mon e-mail" in html
 
@@ -57,6 +58,7 @@ class TestVerifyEmailTemplate:
 
     def test_issue_token_sends_multipart_email(self):
         from compte.email_verification import issue_token
+
         u = User.objects.create_user(
             email="tpl.multi@example.com",
             password="pw123!Solid",
@@ -138,6 +140,7 @@ class TestInstructorEmailTemplates:
 class TestInstructorApprovalSendsEmail:
     def test_approve_endpoint_sends_html_email(self, db):
         from compte.models import InstructorProfile
+
         admin = User.objects.create_user(
             email="mailtest.admin@example.com",
             password="pw123!Solid",
@@ -152,10 +155,13 @@ class TestInstructorApprovalSendsEmail:
             is_email_verified=True,
         )
         InstructorProfile.objects.create(
-            user=target, is_verified=False, payout_percent=70,
+            user=target,
+            is_verified=False,
+            payout_percent=70,
         )
         from rest_framework.test import APIClient
         from rest_framework_simplejwt.tokens import RefreshToken
+
         client = APIClient()
         token = RefreshToken.for_user(admin)
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
