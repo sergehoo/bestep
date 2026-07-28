@@ -13,6 +13,13 @@ interface Props {
   initialPlan?: QuotePlan;
   source?: string;
   onClose: () => void;
+  /**
+   * Pré-remplit le champ « Décrivez votre besoin » avec une phrase
+   * mentionnant la formation sélectionnée. Utilisé quand la modal est
+   * ouverte depuis la fiche d'une formation professionnelle.
+   */
+  initialCourseTitle?: string;
+  initialCourseSlug?: string;
 }
 
 interface Category {
@@ -49,7 +56,7 @@ interface QuoteForm {
 const selectClassName =
   'w-full rounded-xl border border-neutral-200 bg-white px-3.5 py-2.5 text-sm text-neutral-900 transition-colors focus:border-primary-400 focus:outline-none focus:ring-4 focus:ring-primary-200/60';
 
-const initialForm = (plan: QuotePlan): QuoteForm => ({
+const initialForm = (plan: QuotePlan, courseTitle?: string): QuoteForm => ({
   organization_name: '',
   organization_type: 'COMPANY',
   country: 'Côte d’Ivoire',
@@ -64,7 +71,9 @@ const initialForm = (plan: QuotePlan): QuoteForm => ({
   timeframe: '1_3_MONTHS',
   budget_range: '',
   category_ids: [],
-  message: '',
+  message: courseTitle
+    ? `Bonjour, je souhaite obtenir un devis pour la formation professionnelle « ${courseTitle} » pour mon organisation. Merci de me préciser les modalités (formats, planning, tarifs par groupe).`
+    : '',
   privacy_consent: false,
   website: '',
 });
@@ -74,8 +83,12 @@ export function BusinessQuoteRequestModal({
   initialPlan = 'UNSURE',
   source = 'enterprise_page',
   onClose,
+  initialCourseTitle,
+  initialCourseSlug,
 }: Props) {
-  const [form, setForm] = useState<QuoteForm>(() => initialForm(initialPlan));
+  const [form, setForm] = useState<QuoteForm>(() =>
+    initialForm(initialPlan, initialCourseTitle),
+  );
   const [categories, setCategories] = useState<Category[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -89,7 +102,7 @@ export function BusinessQuoteRequestModal({
 
   useEffect(() => {
     if (!open) return;
-    setForm(initialForm(initialPlan));
+    setForm(initialForm(initialPlan, initialCourseTitle));
     setError('');
     setSuccess(null);
     const previousOverflow = document.body.style.overflow;
@@ -104,7 +117,7 @@ export function BusinessQuoteRequestModal({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [initialPlan, onClose, open]);
+  }, [initialCourseTitle, initialPlan, onClose, open]);
 
   useEffect(() => {
     if (!open || categories.length) return;
@@ -115,10 +128,11 @@ export function BusinessQuoteRequestModal({
   }, [categories.length, open]);
 
   const planTitle = useMemo(() => {
+    if (initialCourseTitle) return `Demander un devis — « ${initialCourseTitle} »`;
     if (initialPlan === 'PRO') return 'Demander un devis Pro';
     if (initialPlan === 'ENTERPRISE') return 'Parler à notre équipe Enterprise';
     return 'Réserver une démonstration';
-  }, [initialPlan]);
+  }, [initialCourseTitle, initialPlan]);
 
   const update = <K extends keyof QuoteForm>(key: K, value: QuoteForm[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -138,12 +152,18 @@ export function BusinessQuoteRequestModal({
     setIsSubmitting(true);
     setError('');
     try {
+      // Le slug de la formation d'origine est concaténé au champ `source`
+      // pour tracer la provenance dans le back-office sans dépendre d'un
+      // schéma back-end additionnel.
+      const effectiveSource = initialCourseSlug
+        ? `${source}:course=${initialCourseSlug}`
+        : source;
       const response = await api.post<QuoteResponse>(
         '/public/business-interest-requests/',
         {
           ...form,
           learners_count: Number(form.learners_count),
-          source,
+          source: effectiveSource,
         },
       );
       setSuccess(response.data);

@@ -26,6 +26,8 @@ import { ReviewsList } from '@/components/course/ReviewsList';
 import { ReviewsSummaryCard } from '@/components/course/ReviewsSummaryCard';
 import { ReviewForm } from '@/components/course/ReviewForm';
 import { LessonPreviewModal } from '@/components/course/LessonPreviewModal';
+// F1 — Modal de demande de devis pour les formations professionnelles
+import { BusinessQuoteRequestModal } from '@/components/business/BusinessQuoteRequestModal';
 // Hooks
 import {
   usePublicCourseDetail,
@@ -57,6 +59,8 @@ export default function CourseDetailPage() {
   const { enrollment } = useMyEnrollment(course?.id);
   const [previewLessonId, setPreviewLessonId] = useState<number | null>(null);
   const [favorite, setFavorite] = useState(false);
+  // F1 — Devis Pro : ouvre BusinessQuoteRequestModal pré-remplie
+  const [quoteOpen, setQuoteOpen] = useState(false);
 
   if (isLoading && !course) {
     return (
@@ -134,6 +138,10 @@ export default function CourseDetailPage() {
 
   const ratingAvg = reviewsSummary?.average ?? Number(course.rating_avg) ?? 0;
   const ratingCount = reviewsSummary?.count ?? course.rating_count ?? 0;
+  // F1 — Une formation professionnelle est tarifée sur devis. Le bouton
+  // « S'inscrire » est remplacé par « Demander un devis » qui ouvre la modal
+  // B2B pré-remplie avec la formation.
+  const isProfessional = course.course_type === 'PROFESSIONNELLE';
 
   const pricingCard = (
     <StickyPricingCard
@@ -158,6 +166,7 @@ export default function CourseDetailPage() {
       onToggleFavorite={() => setFavorite((v) => !v)}
       isFavorite={favorite}
       onShare={handleShare}
+      onRequestQuote={isProfessional ? () => setQuoteOpen(true) : undefined}
     />
   );
 
@@ -270,6 +279,20 @@ export default function CourseDetailPage() {
         lessonId={previewLessonId}
         onClose={() => setPreviewLessonId(null)}
       />
+
+      {/* F1 — Modal devis pro (uniquement pour les formations
+          professionnelles ; instanciée en permanence pour permettre
+          l'animation de fermeture propre). */}
+      {isProfessional && (
+        <BusinessQuoteRequestModal
+          open={quoteOpen}
+          onClose={() => setQuoteOpen(false)}
+          initialPlan="PRO"
+          source="course_pro_detail"
+          initialCourseTitle={course.title}
+          initialCourseSlug={slug}
+        />
+      )}
     </div>
   );
 }

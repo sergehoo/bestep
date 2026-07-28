@@ -22,6 +22,15 @@ interface CatalogHeroProps {
     instructors: number;
     satisfactionPercent: number;
   };
+  /** Badge (pill) affiché au-dessus du titre. */
+  badge?: string;
+  /** Titre principal (en 2 lignes possibles via <br/>). Le mot mis en accent est
+   *  passé via `titleHighlight` pour rester stylable. */
+  title?: string;
+  titleHighlight?: string;
+  subtitle?: string;
+  /** Placeholder de la barre de recherche. */
+  searchPlaceholder?: string;
 }
 
 const DEFAULT_STATS = {
@@ -36,6 +45,11 @@ export function CatalogHero({
   onQueryChange,
   onSubmit,
   stats = DEFAULT_STATS,
+  badge = 'Nouvelle plateforme e-learning',
+  title = 'Développez vos compétences financières',
+  titleHighlight = 'avec les meilleurs experts.',
+  subtitle = 'Formations premium en investissement, épargne et finance — certifiées, encadrées, éprouvées.',
+  searchPlaceholder = 'Bourse, épargne, immobilier, crypto…',
 }: CatalogHeroProps) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -66,20 +80,21 @@ export function CatalogHero({
         >
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-semibold uppercase tracking-wide">
             <Sparkles className="w-3.5 h-3.5" />
-            Nouvelle plateforme e-learning
+            {badge}
           </span>
           <h1
             id="catalog-hero-title"
             className="mt-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight break-words"
           >
-            Développez vos compétences financières
-            <br className="hidden sm:block" />
-            <span className="text-accent-300"> avec les meilleurs experts.</span>
+            {title}
+            {titleHighlight && (
+              <>
+                <br className="hidden sm:block" />
+                <span className="text-accent-300"> {titleHighlight}</span>
+              </>
+            )}
           </h1>
-          <p className="mt-4 text-sm sm:text-base text-primary-100">
-            Formations premium en investissement, épargne et finance —
-            certifiées, encadrées, éprouvées.
-          </p>
+          <p className="mt-4 text-sm sm:text-base text-primary-100">{subtitle}</p>
 
           {/* Recherche */}
           <form
@@ -91,7 +106,7 @@ export function CatalogHero({
               type="search"
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
-              placeholder="Bourse, épargne, immobilier, crypto…"
+              placeholder={searchPlaceholder}
               className="flex-1 bg-transparent text-neutral-900 text-sm placeholder:text-neutral-400 outline-none"
               aria-label="Rechercher un cours"
             />

@@ -35,6 +35,8 @@ const AdminGlossaryPage = lazy(
   () => import('@/pages/admin/AdminGlossaryPage'),
 );
 const CatalogPage = lazy(() => import('@/pages/CatalogPage'));
+// F1 — Catalogue « Professionnel » (course_type=PROFESSIONNELLE)
+const CatalogProPage = lazy(() => import('@/pages/CatalogProPage'));
 const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage'));
 const CertifyPage = lazy(() => import('@/pages/CertifyPage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
@@ -288,6 +290,17 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageSpinner />}>
         <HomePage />
+      </Suspense>
+    ),
+  },
+  {
+    // F1 — Catalogue « Professionnel » : formations B2B tarifées sur devis.
+    // Rendu avant `/catalogue` pour que le matcher exact prenne cette route
+    // en priorité (react-router matche linéairement sur les chemins statiques).
+    path: '/catalogue/professionnel',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <CatalogProPage />
       </Suspense>
     ),
   },

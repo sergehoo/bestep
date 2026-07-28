@@ -25,6 +25,8 @@ import {
   Rocket,
   ArrowRight,
   Download,
+  Building2,
+  FileText,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -45,6 +47,13 @@ interface StickyPricingCardProps {
   isFavorite?: boolean;
   /** Descripteur d'état R18 : détermine label + href + progression. */
   cta: CTADescriptor;
+  /**
+   * F1 — Mode « formation professionnelle » : si fourni, le CTA principal
+   * devient « Demander un devis » et déclenche ce callback (au lieu de
+   * `onEnroll`). Le bloc prix / promo / panier / progression / certificat
+   * est également masqué : le pricing est en devis.
+   */
+  onRequestQuote?: () => void;
 }
 
 export function StickyPricingCard({
@@ -57,16 +66,19 @@ export function StickyPricingCard({
   onShare,
   isFavorite,
   cta,
+  onRequestQuote,
 }: StickyPricingCardProps) {
   const price = derivePrice(course);
   const isCertifying = course.course_type === 'CERTIFIANTE';
+  const isProfessional = !!onRequestQuote;
   const isEnrolled =
     cta.state === 'ENROLLED_NEW' ||
     cta.state === 'ENROLLED_IN_PROGRESS' ||
     cta.state === 'COMPLETED';
   // Icône adaptative sur le bouton principal
-  const PrimaryIcon =
-    cta.state === 'ENROLLED_NEW'
+  const PrimaryIcon = isProfessional
+    ? FileText
+    : cta.state === 'ENROLLED_NEW'
       ? Rocket
       : cta.state === 'ENROLLED_IN_PROGRESS'
         ? Play
@@ -109,52 +121,86 @@ export function StickyPricingCard({
       )}
 
       <div className="p-4 sm:p-5">
-        {/* Price */}
-        <div className="flex items-baseline gap-3 flex-wrap">
-          <p className="text-2xl sm:text-3xl font-extrabold text-primary-700">
-            {price.main}
-          </p>
-          {price.old && (
-            <>
-              <p className="text-sm text-neutral-400 line-through">
-                {price.old}
+        {isProfessional ? (
+          // Formation professionnelle : le pricing est en devis — pas d'affichage
+          // de prix public ni de promo. À la place, un bandeau informatif.
+          <div className="rounded-xl bg-primary-50 border border-primary-100 px-3 py-3 flex items-start gap-2.5">
+            <Building2 className="w-5 h-5 text-primary-700 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-extrabold text-primary-900">
+                Formation professionnelle
               </p>
-              {price.discountPercent && (
-                <Badge variant="danger" size="sm">
-                  -{price.discountPercent}%
-                </Badge>
-              )}
-            </>
-          )}
-        </div>
-
-        {price.discountPercent && !isEnrolled && (
-          <p className="mt-2 text-xs text-rose-600 font-semibold inline-flex items-center gap-1">
-            ⏱ Offre limitée
-          </p>
-        )}
-
-        {/* Progression si inscrit avec avancement */}
-        {cta.progressPercent !== undefined && cta.state !== 'COMPLETED' && (
-          <div className="mt-4">
-            <ProgressBar
-              value={cta.progressPercent}
-              showValue
-              label="Votre progression"
-              size="sm"
-              color="primary"
-            />
+              <p className="mt-0.5 text-xs text-primary-700">
+                Tarification sur devis, adaptée à votre effectif et à vos
+                besoins. Notre équipe vous répond sous un jour ouvré.
+              </p>
+            </div>
           </div>
+        ) : (
+          <>
+            {/* Price */}
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <p className="text-2xl sm:text-3xl font-extrabold text-primary-700">
+                {price.main}
+              </p>
+              {price.old && (
+                <>
+                  <p className="text-sm text-neutral-400 line-through">
+                    {price.old}
+                  </p>
+                  {price.discountPercent && (
+                    <Badge variant="danger" size="sm">
+                      -{price.discountPercent}%
+                    </Badge>
+                  )}
+                </>
+              )}
+            </div>
+
+            {price.discountPercent && !isEnrolled && (
+              <p className="mt-2 text-xs text-rose-600 font-semibold inline-flex items-center gap-1">
+                ⏱ Offre limitée
+              </p>
+            )}
+          </>
         )}
-        {cta.state === 'COMPLETED' && (
+
+        {/* Progression si inscrit avec avancement — masquée en mode Pro */}
+        {!isProfessional &&
+          cta.progressPercent !== undefined &&
+          cta.state !== 'COMPLETED' && (
+            <div className="mt-4">
+              <ProgressBar
+                value={cta.progressPercent}
+                showValue
+                label="Votre progression"
+                size="sm"
+                color="primary"
+              />
+            </div>
+          )}
+        {!isProfessional && cta.state === 'COMPLETED' && (
           <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 w-full">
             <BadgeCheck className="w-4 h-4" />
             Cours terminé 🎉
           </div>
         )}
 
-        {/* CTA principal — 5 états gérés par le descripteur */}
-        {cta.primaryHref ? (
+        {/* CTA principal */}
+        {isProfessional ? (
+          // F1 — Mode formation professionnelle : « Demander un devis »
+          // ouvre la modal BusinessQuoteRequestModal via onRequestQuote.
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            className="mt-4"
+            onClick={onRequestQuote}
+          >
+            <PrimaryIcon className="w-4 h-4" />
+            Demander un devis
+          </Button>
+        ) : cta.primaryHref ? (
           <Link
             to={cta.primaryHref}
             className="mt-4 w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-base font-bold shadow-sm transition"
@@ -177,8 +223,8 @@ export function StickyPricingCard({
           </Button>
         )}
 
-        {/* CTA secondaire (Certificat) */}
-        {cta.showCertificateButton && cta.secondaryHref && (
+        {/* CTA secondaire (Certificat) — masqué en mode Pro (devis) */}
+        {!isProfessional && cta.showCertificateButton && cta.secondaryHref && (
           <Link
             to={cta.secondaryHref}
             className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-accent-400 hover:bg-accent-500 text-primary-900 text-sm font-bold transition"
@@ -211,8 +257,8 @@ export function StickyPricingCard({
           )}
         </div>
 
-        {/* Panier — uniquement si non-inscrit ET payant */}
-        {!price.isFree && !isEnrolled && (
+        {/* Panier — uniquement si non-inscrit ET payant ET pas en mode Pro */}
+        {!isProfessional && !price.isFree && !isEnrolled && (
           <Button
             variant="ghost"
             size="sm"
@@ -261,10 +307,14 @@ export function StickyPricingCard({
         <div className="mt-4 rounded-xl bg-emerald-50 border border-emerald-100 p-3">
           <p className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-800">
             <ShieldCheck className="w-4 h-4" />
-            Garantie satisfait ou remboursé — 14 jours
+            {isProfessional
+              ? 'Réponse sous 1 jour ouvré'
+              : 'Garantie satisfait ou remboursé — 14 jours'}
           </p>
           <p className="mt-1 text-[11px] text-emerald-700">
-            Paiement sécurisé · Support client 7j/7
+            {isProfessional
+              ? 'Devis personnalisé · Contrat encadré · Facturation entreprise'
+              : 'Paiement sécurisé · Support client 7j/7'}
           </p>
         </div>
       </div>

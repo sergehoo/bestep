@@ -47,9 +47,26 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+# ─────────────────────────────────────────────────────────────────────
+# Fix CSRF register/login : les endpoints /api/auth/* ne doivent JAMAIS
+# activer SessionAuthentication de DRF. Quand l'utilisateur a un cookie
+# `sessionid` traînant (ex. après un passage sur /admin/), SessionAuth
+# appelle `enforce_csrf` et rejette les POST du SPA (qui utilise JWT et
+# n'envoie pas de token CSRF). On force donc :
+#  - `authentication_classes = []` sur les endpoints publics (register,
+#    login, refresh, verify-email public, password-reset)
+#  - `authentication_classes = [JWTAuthentication]` sur les endpoints
+#    protégés (me, logout, password-change, resend-verify)
+# Cela ne touche pas aux autres endpoints DRF qui restent régis par le
+# DEFAULT_AUTHENTICATION_CLASSES global.
+# ─────────────────────────────────────────────────────────────────────
+_AUTH_PUBLIC: list = []
+_AUTH_JWT_ONLY = [JWTAuthentication]
 
 User = get_user_model()
 
@@ -417,6 +434,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 class RegisterView(APIView):
     """POST /api/auth/register/ — Inscription publique."""
+    authentication_classes = _AUTH_PUBLIC
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signup"
@@ -469,6 +487,7 @@ class RegisterView(APIView):
 
 class LoginView(TokenObtainPairView):
     """POST /api/auth/login/ — Login classique email+password → tokens + user."""
+    authentication_classes = _AUTH_PUBLIC
     serializer_class = TokenObtainWithClaimsSerializer
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
@@ -490,6 +509,8 @@ class LoginView(TokenObtainPairView):
 
 class RefreshView(TokenRefreshView):
     """POST /api/auth/refresh/ — Renouvelle l'access token via refresh."""
+    authentication_classes = _AUTH_PUBLIC
+
     @extend_schema(
         summary="Refresh JWT",
         description="Envoie un refresh token, reçoit un nouvel access token (+ nouveau refresh via rotation).",
@@ -500,6 +521,7 @@ class RefreshView(TokenRefreshView):
 
 class LogoutView(APIView):
     """POST /api/auth/logout/ — Blacklist du refresh token."""
+    authentication_classes = _AUTH_JWT_ONLY
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -525,6 +547,7 @@ class LogoutView(APIView):
 
 class MeView(APIView):
     """GET/PATCH /api/auth/me/ — Profil de l'utilisateur connecté."""
+    authentication_classes = _AUTH_JWT_ONLY
     permission_classes = [IsAuthenticated]
 
     @extend_schema(responses=UserAPISerializer, summary="Profil connecté")
@@ -546,6 +569,7 @@ class MeView(APIView):
 
 class PasswordChangeView(APIView):
     """POST /api/auth/password/change/ — Changement de mot de passe."""
+    authentication_classes = _AUTH_JWT_ONLY
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "reset_password"
@@ -569,6 +593,7 @@ class PasswordChangeView(APIView):
 
 class PasswordResetRequestView(APIView):
     """POST /api/auth/password/reset/ — Demande de reset par email."""
+    authentication_classes = _AUTH_PUBLIC
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "reset_password"
@@ -625,6 +650,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     """POST /api/auth/password/reset/confirm/ — Confirme le reset avec token."""
+    authentication_classes = _AUTH_PUBLIC
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "reset_password"
@@ -681,6 +707,7 @@ class VerifyEmailView(APIView):
     peut cliquer depuis n'importe où). Retourne 200 avec ``user`` mis
     à jour si succès, 400 sinon (codes normalisés).
     """
+    authentication_classes = _AUTH_PUBLIC
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "reset_password"
@@ -723,6 +750,7 @@ class ResendVerifyEmailView(APIView):
     Requiert d'être authentifié (par le token JWT reçu à l'inscription).
     Applique un cooldown pour prévenir le spam.
     """
+    authentication_classes = _AUTH_JWT_ONLY
     permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "reset_password"

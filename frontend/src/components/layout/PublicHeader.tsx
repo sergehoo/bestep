@@ -25,6 +25,7 @@ import {
   BookOpen,
   Heart,
   GraduationCap,
+  Building2,
 } from 'lucide-react';
 import { useIsAuthenticated, useAuthUser } from '@/stores/auth';
 import { useT } from '@/lib/i18n';
@@ -44,7 +45,10 @@ export function PublicHeader() {
 
   const NAV_LINKS_PUBLIC = [
     { to: '/', label: t('nav.home') },
-    { to: '/catalogue', label: t('nav.courses') },
+    // `end: true` → matche exactement /catalogue (pas /catalogue/professionnel)
+    { to: '/catalogue', label: t('nav.courses'), end: true },
+    // F1 — Catalogue « Professionnel » (B2B, tarifé sur devis)
+    { to: '/catalogue/professionnel', label: 'Catalogue Pro' },
     { to: '/lexique', label: 'Lexique' },
   ];
   const location = useLocation();
@@ -111,7 +115,7 @@ export function PublicHeader() {
           {/* Nav desktop */}
           <div className="hidden lg:flex items-center gap-1 ml-4">
             {NAV_LINKS_PUBLIC.map((l) => (
-              <NavLinkItem key={l.to} to={l.to} label={l.label} />
+              <NavLinkItem key={l.to} to={l.to} label={l.label} end={l.end} />
             ))}
             {isAuthed && (
               <>
@@ -228,6 +232,11 @@ export function PublicHeader() {
               <nav className="flex-1 overflow-y-auto p-4 space-y-1">
                 <MobileNavLink to="/" label="Accueil" Icon={Home} />
                 <MobileNavLink to="/catalogue" label="Catalogue" Icon={BookOpen} />
+                <MobileNavLink
+                  to="/catalogue/professionnel"
+                  label="Catalogue Pro"
+                  Icon={Building2}
+                />
                 {isAuthed ? (
                   <>
                     <MobileNavLink
@@ -286,10 +295,24 @@ export function PublicHeader() {
 
 // ─────────────────────────────────────────────────────────────
 
-function NavLinkItem({ to, label }: { to: string; label: string }) {
+function NavLinkItem({
+  to,
+  label,
+  end,
+}: {
+  to: string;
+  label: string;
+  /** Si vrai, l'item est actif uniquement quand pathname === to. Utilisé
+   *  pour éviter que « /catalogue » n'attrape aussi « /catalogue/pro… ». */
+  end?: boolean;
+}) {
   const location = useLocation();
   const active =
-    to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
+    to === '/'
+      ? location.pathname === '/'
+      : end
+        ? location.pathname === to
+        : location.pathname.startsWith(to);
   return (
     <Link
       to={to}

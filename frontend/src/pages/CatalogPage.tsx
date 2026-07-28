@@ -22,7 +22,7 @@ import {
 } from '@/components/premium/SidebarFilters';
 import { usePublicCourses, usePublicCategories } from '@/hooks/queries';
 import { deriveLevel, prefersReducedMotion } from '@/lib/course-meta';
-import type { PublicCourseListItem } from '@/lib/types';
+import type { CourseType, PublicCourseListItem } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────────────
 // Local — types tri + duration mapping
@@ -47,7 +47,29 @@ const SORT_OPTIONS: Array<{ value: SortValue; label: string }> = [
 
 // ─────────────────────────────────────────────────────────────────────
 
-export default function CatalogPage() {
+interface CatalogPageProps {
+  /**
+   * Verrouille le catalogue sur un `course_type` particulier — par exemple
+   * `"PROFESSIONNELLE"` pour la vue « Catalogue Pro ». Le filtre est appliqué
+   * côté API (utilisé par `usePublicCourses`) et masqué à l'utilisateur.
+   */
+  forcedCourseType?: CourseType;
+  /** Overrides du hero (badge / titre / sous-titre / placeholder). */
+  heroBadge?: string;
+  heroTitle?: string;
+  heroTitleHighlight?: string;
+  heroSubtitle?: string;
+  heroSearchPlaceholder?: string;
+}
+
+export default function CatalogPage({
+  forcedCourseType,
+  heroBadge,
+  heroTitle,
+  heroTitleHighlight,
+  heroSubtitle,
+  heroSearchPlaceholder,
+}: CatalogPageProps = {}) {
   const [query, setQuery] = useState('');
   const [committedQuery, setCommittedQuery] = useState('');
   const [sort, setSort] = useState<SortValue>('recent');
@@ -65,6 +87,7 @@ export default function CatalogPage() {
     q: committedQuery || undefined,
     sort,
     page,
+    course_type: forcedCourseType,
   });
   const { data: categories = [] } = usePublicCategories();
 
@@ -118,6 +141,11 @@ export default function CatalogPage() {
           instructors: 120,
           satisfactionPercent: 98,
         }}
+        badge={heroBadge}
+        title={heroTitle}
+        titleHighlight={heroTitleHighlight}
+        subtitle={heroSubtitle}
+        searchPlaceholder={heroSearchPlaceholder}
       />
 
       {/* Barre tri + toggle filtres */}
