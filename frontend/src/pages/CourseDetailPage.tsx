@@ -92,7 +92,11 @@ export default function CourseDetailPage() {
 
   const handleEnroll = async () => {
     if (!isAuthed) {
-      navigate(`/login?next=/courses/${slug}`);
+      // F3 — Un visiteur qui clique sur « S'inscrire / Commencer la formation »
+      // doit être invité à créer un compte (pattern Udemy). La page /register
+      // expose un lien « J'ai déjà un compte » qui renvoie vers /login, donc
+      // les deux chemins restent accessibles depuis cet écran.
+      navigate(`/register?next=/courses/${slug}`);
       return;
     }
     try {

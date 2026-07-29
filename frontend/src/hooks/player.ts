@@ -13,6 +13,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { useIsAuthenticated } from '@/stores/auth';
 import type {
   PlayerData,
   LessonStateResponse,
@@ -179,6 +180,12 @@ export interface LearnerEnrollment {
 }
 
 export function useLearnerEnrollments() {
+  // F3 — Un visiteur anonyme n'a évidemment pas d'inscriptions. On désactive
+  // la requête dans ce cas, sinon l'endpoint /learner/enrollments/ renvoie
+  // 401, l'intercepteur axios tente un refresh (échec), et la page
+  // détail-cours se voit rediriger vers /login?next=… — ce qui bloque
+  // complètement la consultation libre du catalogue.
+  const isAuthed = useIsAuthenticated();
   return useQuery({
     queryKey: KEYS.enrollments(),
     queryFn: async () => {
@@ -188,6 +195,7 @@ export function useLearnerEnrollments() {
       // Le backend peut renvoyer soit un tableau, soit un envelope paginé
       return Array.isArray(data) ? data : data.results ?? [];
     },
+    enabled: isAuthed,
     staleTime: 30_000,
   });
 }

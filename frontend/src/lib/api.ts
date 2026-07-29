@@ -89,6 +89,17 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // F3 — Un visiteur anonyme (aucun refresh token en localStorage) ne
+    // doit PAS être redirigé vers /login quand une requête authentifiée
+    // renvoie 401 : les pages publiques (fiche cours, catalogue, etc.)
+    // doivent rester accessibles. On rejette silencieusement — le hook
+    // appelant (ex. useLearnerEnrollments) sait déjà se désactiver côté
+    // React via `enabled: isAuthed`, ce reject n'est qu'un filet de sûreté.
+    const refreshTokenPresent = !!getStoredRefreshToken();
+    if (!refreshTokenPresent) {
+      return Promise.reject(error);
+    }
+
     original._retry = true;
 
     // Un seul refresh en vol à la fois.
@@ -208,6 +219,10 @@ apiRoot.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as AxiosRequestConfig & { _retry?: boolean };
     if (!original || error.response?.status !== 401 || original._retry) {
+      return Promise.reject(error);
+    }
+    // F3 — Voir le commentaire dans l'intercepteur `api` plus haut.
+    if (!getStoredRefreshToken()) {
       return Promise.reject(error);
     }
     original._retry = true;
