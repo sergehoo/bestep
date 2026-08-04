@@ -77,11 +77,20 @@ class AdminQuizzesListView(APIView):
             .annotate(
                 questions_count=Count("questions", distinct=True),
                 attempts_count=Count("attempts", distinct=True),
-                avg_score=Avg("attempts__score"),
-                # taux de réussite : proportion des tentatives ≥ passing_score
+                # Le champ s'appelle `score_percent` sur assessments.Attempt,
+                # pas `score`. `attempts__score` levait un FieldError et
+                # renvoyait un 500 sur toute la page /admin/quiz.
+                avg_score=Avg("attempts__score_percent"),
+                # ATTENTION : malgré son nom, cette annotation renvoie la
+                # moyenne des SCORES des tentatives réussies, pas un taux de
+                # réussite (qui serait entre 0 et 1). Le seuil 70 est en dur
+                # alors que chaque quiz porte son propre seuil, et
+                # `Attempt.passed` existe déjà pour ça. Corrigé au nom de
+                # champ près pour débloquer la page ; la sémantique de la
+                # métrique reste à trancher.
                 passing_rate=Avg(
-                    "attempts__score",
-                    filter=Q(attempts__score__gte=70),  # approximation
+                    "attempts__score_percent",
+                    filter=Q(attempts__score_percent__gte=70),  # approximation
                 ),
             )
             .order_by("title")
