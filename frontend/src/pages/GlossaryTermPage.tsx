@@ -17,6 +17,7 @@ import {
   useToggleGlossaryFavorite,
 } from '@/hooks/glossary';
 import { useIsAuthenticated } from '@/stores/auth';
+import { sanitizeRichHtml } from '@/lib/sanitize';
 
 const LEVEL_LABEL: Record<string, string> = {
   beginner: 'Débutant',
@@ -179,7 +180,7 @@ export default function GlossaryTermPage() {
                 </h2>
                 <div
                   className="prose prose-sm sm:prose max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: term.long_definition }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(term.long_definition) }}
                 />
               </section>
             )}

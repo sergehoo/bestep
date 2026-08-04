@@ -36,6 +36,7 @@ import {
 } from '@/hooks/queries';
 import { useIsAuthenticated } from '@/stores/auth';
 import { useMyEnrollment } from '@/hooks/player';
+import { sanitizeRichHtml } from '@/lib/sanitize';
 import { deriveCourseCTA } from '@/lib/enrollment-state';
 import { extractApiError } from '@/lib/utils';
 import type { PublicLesson } from '@/lib/types';
@@ -228,7 +229,7 @@ export default function CourseDetailPage() {
                   </h2>
                   <div
                     className="prose prose-sm sm:prose max-w-none text-neutral-800 prose-headings:font-extrabold prose-a:text-primary-600 prose-blockquote:border-l-4 prose-blockquote:border-primary-300 prose-blockquote:bg-primary-50/50 prose-blockquote:italic prose-img:rounded-xl prose-hr:my-6"
-                    dangerouslySetInnerHTML={{ __html: course.description }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(course.description) }}
                   />
                 </div>
               )}

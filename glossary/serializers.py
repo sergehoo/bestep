@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from core.sanitizers import sanitize_plain_text, sanitize_rich_html
+
 from .models import (
     GlossaryCategory,
     GlossaryTerm,
@@ -269,6 +271,17 @@ class GlossaryTermWriteSerializer(serializers.ModelSerializer):
             "variants", "examples",
         ]
         extra_kwargs = {"slug": {"required": False}}
+
+    def validate_long_definition(self, value: str) -> str:
+        """SEC : ``long_definition`` est du HTML rendu tel quel par le SPA
+        (GlossaryTermPage). Il est écrit ici par l'admin, par l'import
+        (``glossary/io_service.py``) et indirectement par le LLM via le tool
+        ``analyze_content_for_glossary``. Allowlist appliquée à l'écriture."""
+        return sanitize_rich_html(value)
+
+    def validate_short_definition(self, value: str) -> str:
+        """Jamais du HTML : affiché en texte dans les listes et tooltips."""
+        return sanitize_plain_text(value)
 
     def validate_word(self, value: str) -> str:
         from .models import normalize_search_key

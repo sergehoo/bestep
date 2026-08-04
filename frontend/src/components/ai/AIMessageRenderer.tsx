@@ -17,6 +17,7 @@
  * bundle : ce parser custom couvre ~95% des cas produits par Claude.
  */
 import { useMemo } from 'react';
+import DOMPurify from 'dompurify';
 
 interface Props {
   content: string;
@@ -24,12 +25,58 @@ interface Props {
 }
 
 // Escape HTML — sécurité de base : le contenu vient d'un LLM.
+//
+// SEC : les guillemets DOIVENT être échappés. `esc()` alimente des valeurs
+// d'attribut construites par concaténation (`name="${esc(val)}"`), et un `"`
+// non échappé permet de sortir de l'attribut pour en injecter un nouveau
+// (`alt='" onerror="…'` devient `alt="" onerror="…"`). Défense en
+// profondeur : la garantie réelle vient de `purify()` ci-dessous.
 function esc(s: string): string {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
+
+/** Passe de sécurité finale, appliquée à TOUT ce qui part vers
+ *  `dangerouslySetInnerHTML`, quelle que soit la branche (HTML riche ou
+ *  Markdown).
+ *
+ *  Pourquoi un vrai parseur DOM plutôt que le scanner de tokens maison :
+ *  un filtre par expression régulière ne peut pas être rendu sûr, c'est
+ *  une classe de bug et non un bug isolé. Trois évasions existaient sur la
+ *  version précédente :
+ *    1. break-out d'attribut, `<img src='x' alt='" onerror="alert(1)'>`
+ *       ressortait avec un `onerror` vivant (`esc` n'échappait pas `"`) ;
+ *    2. schéma dangereux avec caractère de contrôle, `java\tscript:` ne
+ *       matchait pas `/^(javascript|data|vbscript):/i` alors que les
+ *       navigateurs retirent les TAB/LF/CR avant de résoudre l'URL ;
+ *    3. lien Markdown, `inline()` injecte l'URL dans `href="$2"` sans
+ *       aucun contrôle de schéma.
+ *
+ *  DOMPurify parse réellement le document, supprime tout gestionnaire
+ *  `on*` et neutralise les schémas d'URI dangereux. `sanitizeHtml()` reste
+ *  en amont pour l'allowlist de balises et l'injection des classes
+ *  Tailwind, mais ne porte plus la responsabilité de sécurité. */
+function purify(dirty: string): string {
+  return DOMPurify.sanitize(dirty, {
+    USE_PROFILES: { html: true },
+    ALLOWED_ATTR: [
+      'href', 'src', 'alt', 'title', 'target', 'rel',
+      'width', 'height', 'colspan', 'rowspan', 'align', 'class',
+    ],
+  });
+}
+
+// Tout lien ouvert dans un nouvel onglet doit porter rel="noopener
+// noreferrer", sans quoi la page cible accède à window.opener.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A' && node.hasAttribute('target')) {
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
 
 // Tags HTML autorisés en passthrough (whitelist stricte). Toute autre balise
 // est réencodée en texte via esc(). Les attributs sont filtrés à leur tour.
@@ -446,9 +493,14 @@ export function AIMessageRenderer({ content, className }: Props) {
   }, [content]);
   // Détection : HTML riche → sanitize + passthrough. Markdown → parser
   // custom (renderBlocks). Le second cas escape aussi le HTML restant.
+  //
+  // SEC : `purify()` s'applique aux DEUX branches. Le parser Markdown n'est
+  // pas plus sûr que la branche HTML — `inline()` construit les liens par
+  // concaténation dans `href="$2"` sans contrôler le schéma. La passe
+  // DOMPurify finale est le seul point de confiance.
   const html = useMemo(() => {
-    if (looksLikeHtml(cleaned)) return sanitizeHtml(cleaned);
-    return renderBlocks(cleaned);
+    const rendered = looksLikeHtml(cleaned) ? sanitizeHtml(cleaned) : renderBlocks(cleaned);
+    return purify(rendered);
   }, [cleaned]);
   return (
     <div
@@ -456,7 +508,7 @@ export function AIMessageRenderer({ content, className }: Props) {
         'ai-message-content text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed break-words '
         + (className ?? '')
       }
-      // Le HTML est produit par notre parser ci-dessus (escape via `esc`).
+      // Sortie de `purify()` (DOMPurify) — voir le commentaire ci-dessus.
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

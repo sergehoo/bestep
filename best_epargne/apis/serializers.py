@@ -41,6 +41,7 @@ from rest_framework import serializers
 
 from catalog.models import Category, Course, CourseSection, Lesson, MediaAsset
 from commerce.models import OrderItem
+from core.sanitizers import sanitize_rich_html
 from organizations.models import OrganizationMembership
 
 # --- Whitelists upload média ----------------------------------------------
@@ -394,6 +395,17 @@ class LessonSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "media_asset", "resources"]
 
+    def validate_content(self, value):
+        """SEC : ``content`` est du HTML riche rendu tel quel par le SPA
+        (LearnerCoursePlayerPage via GlossaryContent, LessonPreviewModal).
+
+        L'ancienne hypothèse était « sanitisé par l'éditeur Tiptap ». Tiptap
+        assainit dans le navigateur de l'auteur : un instructeur qui poste
+        directement sur cet endpoint ne passe jamais par l'éditeur. Le
+        contenu d'instructeur est lu par les apprenants et les admins, donc
+        c'est du XSS stocké à privilège croissant."""
+        return sanitize_rich_html(value)
+
     def validate_media_asset_id(self, value):
         """CORRECTIF API-31 : un instructeur ne peut référencer que les médias
         qu'il a légitimement le droit de voir (siens + ceux de ses orgs)."""
@@ -527,6 +539,12 @@ class CourseSerializer(serializers.ModelSerializer):
             "company",
             "company_only",
         ]
+
+    def validate_description(self, value):
+        """SEC : ``description`` est du HTML riche rendu tel quel par le SPA
+        (CourseDetailPage), sur une page PUBLIQUE non authentifiée. Écrit par
+        l'instructeur, lu par tout visiteur. Allowlist à l'écriture."""
+        return sanitize_rich_html(value)
 
     def get_updated_at_human(self, obj) -> Optional[str]:  # noqa: UP007
         dt = getattr(obj, "updated_at", None)

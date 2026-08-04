@@ -447,9 +447,11 @@ function LessonPlayer({
         )}
 
         {/* Article / doc / description leçon vidéo — le content est du
-            HTML riche produit par Tiptap. On le rend via
-            dangerouslySetInnerHTML (contenu créé par un instructeur
-            authentifié, sanitisé côté backend).
+            HTML riche produit par Tiptap. Le rendu passe par
+            <GlossaryContent>, qui applique `sanitizeRichHtml` (DOMPurify).
+            « Sanitisé côté backend » ne suffisait pas comme garantie :
+            Tiptap assainit chez l'auteur, contournable en postant sur
+            l'API. Le backend assainit désormais aussi à l'écriture.
 
             UX-12 — Fix : la description était masquée pour les leçons
             de type VIDEO. On l'affiche maintenant en dessous du player,

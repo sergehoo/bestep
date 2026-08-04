@@ -15,6 +15,7 @@ import {
   useGlossaryLessonTerms,
 } from '@/hooks/glossary';
 import { annotateGlossary } from '@/lib/glossary-detector';
+import { sanitizeRichHtml } from '@/lib/sanitize';
 import { GlossaryTooltip } from './GlossaryTooltip';
 
 const PREF_KEY = 'be-glossary-detection';
@@ -67,13 +68,17 @@ export function GlossaryContent({
   const terms = courseQuery.data?.terms ?? lessonQuery.data?.terms ?? [];
   const [enabled] = useGlossaryDetectionEnabled();
 
+  // SEC : on assainit APRÈS l'annotation, pas avant. `annotateGlossary`
+  // réinjecte du balisage autour des termes détectés ; assainir en amont
+  // laisserait sa sortie non contrôlée. Le helper autorise les `data-term*`
+  // que pose l'annotateur.
   const annotated = useMemo(() => {
-    if (disabled || !enabled) return html;
-    if (!terms.length) return html;
+    if (disabled || !enabled) return sanitizeRichHtml(html);
+    if (!terms.length) return sanitizeRichHtml(html);
     try {
-      return annotateGlossary(html, terms, { skipHeadings });
+      return sanitizeRichHtml(annotateGlossary(html, terms, { skipHeadings }));
     } catch {
-      return html;
+      return sanitizeRichHtml(html);
     }
   }, [html, terms, enabled, disabled, skipHeadings]);
 
@@ -84,8 +89,13 @@ export function GlossaryContent({
         className={
           'glossary-scope ' + (className ?? '')
         }
-        // Le HTML est déjà considéré sûr côté back (contenu leçon
-        // sanitisé par l'éditeur Tiptap + policy CSP).
+        // Assaini par `sanitizeRichHtml` juste au-dessus.
+        //
+        // L'ancien commentaire invoquait ici « l'éditeur Tiptap + policy
+        // CSP ». Les deux justifications étaient fausses : Tiptap assainit
+        // dans le navigateur de l'auteur (contournable en postant sur
+        // l'API), et la CSP de Django ne couvrait pas le SPA servi par
+        // nginx. Voir lib/sanitize.ts.
         dangerouslySetInnerHTML={{ __html: annotated }}
       />
       {enabled && !disabled && (

@@ -7,6 +7,7 @@ import { X, Play } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { useLessonPreview } from '@/hooks/queries';
 import { formatDuration } from '@/lib/utils';
+import { sanitizeRichHtml } from '@/lib/sanitize';
 
 interface LessonPreviewModalProps {
   slug: string;
@@ -147,7 +148,7 @@ export function LessonPreviewModal({ slug, lessonId, onClose }: LessonPreviewMod
               {data.content && (
                 <div
                   className="prose prose-sm max-w-none text-neutral-800 prose-a:text-primary-600 prose-headings:font-extrabold prose-blockquote:border-l-4 prose-blockquote:border-primary-300 prose-blockquote:bg-primary-50/50 prose-blockquote:italic prose-img:rounded-xl"
-                  dangerouslySetInnerHTML={{ __html: data.content }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(data.content) }}
                 />
               )}
             </div>

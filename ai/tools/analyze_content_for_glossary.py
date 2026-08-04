@@ -15,10 +15,19 @@ from typing import Any, Dict, List
 
 from django.db import transaction
 
+from core.sanitizers import sanitize_plain_text, sanitize_rich_html
+
 from .base import AbstractAITool, ToolPreview, ToolResult, register
 
 
 MAX_TERMS_PER_CALL = 30
+
+# ``long_definition`` est documenté « HTML » et finit rendu tel quel par le
+# SPA (GlossaryTermPage). C'est une frontière de confiance LLM : la sortie du
+# modèle est influençable par le contenu de cours qu'on lui donne à analyser,
+# donc par un instructeur. Elle est assainie et bornée comme les autres
+# champs, qui eux l'étaient déjà (word 200, short_definition 400).
+MAX_LONG_DEFINITION_LEN = 5000
 
 
 def _normalize_proposals(raw: Any) -> List[Dict[str, Any]]:
@@ -43,15 +52,25 @@ def _normalize_proposals(raw: Any) -> List[Dict[str, Any]]:
     for it in raw[:MAX_TERMS_PER_CALL]:
         if not isinstance(it, dict):
             continue
-        word = str(it.get("word") or "").strip()
-        short = str(it.get("short_definition") or "").strip()
+        # SEC : on assainit AVANT le test de non-vacuité. Un `word` valant
+        # "<script></script>" est non vide à l'entrée mais vide une fois
+        # nettoyé ; l'ordre inverse laisserait créer un terme au libellé vide.
+        # `word` et `short_definition` ne sont jamais du HTML, on retire tout
+        # balisage. `long_definition` est du HTML riche assumé, on lui
+        # applique l'allowlist partagée.
+        word = sanitize_plain_text(str(it.get("word") or ""), max_length=200)
+        short = sanitize_plain_text(
+            str(it.get("short_definition") or ""), max_length=400
+        )
         if not word or not short:
             continue
         out.append(
             {
-                "word": word[:200],
-                "short_definition": short[:400],
-                "long_definition": str(it.get("long_definition") or "").strip(),
+                "word": word,
+                "short_definition": short,
+                "long_definition": sanitize_rich_html(
+                    str(it.get("long_definition") or "").strip()
+                )[:MAX_LONG_DEFINITION_LEN],
                 "category": str(it.get("category") or "").strip(),
                 "domain": str(it.get("domain") or "").strip()[:80],
                 "level": str(it.get("level") or "beginner").lower().strip(),
