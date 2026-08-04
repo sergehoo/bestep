@@ -129,13 +129,17 @@ class AdminOverviewView(APIView):
         # ── Top formateurs (par nb inscrits sur leurs cours) ────────
         top_instructors = list(
             User.objects.filter(instructor_profile__isnull=False)
+            # Le related_name de Course.instructor est `courses_created`
+            # (catalog/models.py:61), pas `instructor_courses`. Le nom
+            # inexistant levait un FieldError et renvoyait un 500 sur
+            # l'endpoint /api/admin/overview/.
             .annotate(
                 enrolled_count=Count(
-                    "instructor_courses__enrollments", distinct=True
+                    "courses_created__enrollments", distinct=True
                 ),
                 published_courses=Count(
-                    "instructor_courses",
-                    filter=Q(instructor_courses__status="PUBLISHED"),
+                    "courses_created",
+                    filter=Q(courses_created__status="PUBLISHED"),
                     distinct=True,
                 ),
             )
