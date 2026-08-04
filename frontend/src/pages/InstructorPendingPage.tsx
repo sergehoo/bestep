@@ -90,7 +90,7 @@ export default function InstructorPendingPage() {
             Continuer en tant qu'apprenant
           </Link>
           <Link
-            to="/catalog"
+            to="/catalogue"
             className="inline-flex items-center justify-center rounded-lg text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
           >
             Explorer le catalogue
