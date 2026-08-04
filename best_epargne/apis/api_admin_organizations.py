@@ -77,7 +77,11 @@ class AdminOrganizationsListView(APIView):
                     filter=Q(memberships__is_active=True),
                     distinct=True,
                 ),
-                courses_count=Count("courses", distinct=True),
+                # Le related_name de Course vers Organization est
+                # `internal_courses` (catalog/models.py:83), pas `courses`.
+                # `Count("courses")` levait un FieldError et renvoyait un 500
+                # sur toute la page /admin/organizations.
+                courses_count=Count("internal_courses", distinct=True),
             )
             .order_by("name")
         )
