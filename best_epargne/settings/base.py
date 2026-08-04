@@ -1,4 +1,5 @@
 
+import logging
 import os
 from pathlib import Path
 
@@ -138,6 +139,36 @@ MIDDLEWARE = [
 # CORS — allow-list driven by env, default to no cross-origin access.
 CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS", "")
 CORS_ALLOW_CREDENTIALS = env_bool("DJANGO_CORS_ALLOW_CREDENTIALS", False)
+
+# ─────────────────────────────────────────────────────────────
+# URL publique du SPA — base de TOUS les liens envoyés par e-mail
+# ─────────────────────────────────────────────────────────────
+# Cette variable était lue par ``compte/email_verification.py`` et
+# ``apis/api_admin_instructors.py`` mais n'était définie nulle part.
+# ``getattr(settings, "FRONTEND_BASE_URL", "")`` renvoyait donc "" et les
+# liens partaient en relatif (``/verify-email?uid=…``), inexploitables dans
+# un client mail. ``ACCOUNT_EMAIL_VERIFICATION`` valant "mandatory", plus
+# aucun compte ne pouvait être activé depuis l'e-mail reçu.
+#
+# Ordre de résolution :
+#   1. DJANGO_FRONTEND_BASE_URL (explicite, à privilégier en prod) ;
+#   2. la première origine CORS autorisée — c'est par définition l'origine
+#      du SPA, donc un repli correct quand la conf CORS est déjà juste ;
+#   3. l'hôte de dev Vite, uniquement en DEBUG.
+FRONTEND_BASE_URL = os.getenv("DJANGO_FRONTEND_BASE_URL", "").strip().rstrip("/")
+if not FRONTEND_BASE_URL and CORS_ALLOWED_ORIGINS:
+    FRONTEND_BASE_URL = CORS_ALLOWED_ORIGINS[0].strip().rstrip("/")
+if not FRONTEND_BASE_URL and DEBUG:
+    FRONTEND_BASE_URL = "http://localhost:5173"
+if not FRONTEND_BASE_URL:
+    # Hors DEBUG on ne bloque pas le démarrage (un lien cassé ne justifie
+    # pas de refuser de servir), mais le silence est ce qui a laissé le bug
+    # passer en production. On le rend bruyant.
+    logging.getLogger("django").error(
+        "DJANGO_FRONTEND_BASE_URL n'est pas défini et aucune origine CORS "
+        "n'est configurée : les liens de vérification d'e-mail et de "
+        "validation formateur partiront en relatif et seront inutilisables."
+    )
 
 ROOT_URLCONF = "best_epargne.urls"
 

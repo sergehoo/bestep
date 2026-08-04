@@ -3,7 +3,15 @@ Bonjour {% if user_name %}{{ user_name }}{% elif user %}{{ user.email }}{% else 
 Merci pour votre inscription sur Best-Épargne.
 Confirmez votre adresse e-mail en cliquant sur le lien ci-dessous :
 
-{{ link }}
+{% comment %}
+Partie text/plain : l'autoescape de Django transformait le & de l'URL en
+&amp;, le paramètre devenait donc "amp;token=" et le jeton ne parsait pas.
+L'échappement HTML n'a aucun sens ici.
+
+Ne pas utiliser {# ... #} pour une note de ce genre : Django ne gère ce
+commentaire que sur UNE seule ligne, le texte se retrouve sinon en clair
+dans l'e-mail reçu par l'utilisateur.
+{% endcomment %}{% autoescape off %}{{ link }}{% endautoescape %}
 
 Ce lien expire dans {{ ttl_hours }} heures.
 
