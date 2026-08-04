@@ -353,9 +353,16 @@ except Exception:  # pragma: no cover
     Payout = None
 
 try:
-    from reviews.models import CourseReview, Review
+    # `Review` n'existe pas dans reviews.models (seul `CourseReview` y est
+    # défini). L'importer levait ImportError, et le `except` ci-dessous
+    # mettait CourseReview à None AUSSI. Conséquences en cascade :
+    #   - InstructorReviewsView (ligne ~548) faisait CourseReview.objects sur
+    #     None → AttributeError → 500 sur /api/instructor/reviews/ ;
+    #   - le bloc `if CourseReview:` des KPI passait à False, donc le
+    #     tableau de bord formateur annonçait 0 avis sans rien signaler.
+    # Le plus coûteux était le second : une donnée fausse et silencieuse.
+    from reviews.models import CourseReview
 except Exception:
-    Review = None
     CourseReview = None  # 🔥 IMPORTANT
 
 try:
@@ -497,7 +504,14 @@ class InstructorKpisView(InstructorBaseAPIView):
 
         # ------------------ NOTIFICATIONS ------------------
         if Notification:
-            unread_notifications = Notification.objects.filter(user=u, is_read=False).count()
+            # notifications_app.Notification n'a pas de champ `is_read` : il
+            # porte `read_at` (nullable). `is_read=False` levait un FieldError
+            # et renvoyait un 500 sur /api/instructor/kpis/. C'est
+            # catalog.Notification qui expose `is_read` — le filtre avait été
+            # écrit contre le schéma de l'autre modèle.
+            unread_notifications = Notification.objects.filter(
+                user=u, read_at__isnull=True
+            ).count()
         else:
             unread_notifications = 0
 
@@ -2904,7 +2918,11 @@ except Exception:
     Notification = None
 
 try:
-    from reviews.models import Review
+    # Même piège que plus haut : `Review` n'existe pas dans reviews.models,
+    # le modèle s'appelle `CourseReview`. L'import échouait, le garde-fou
+    # `if Review is not None` plus bas était donc toujours faux et
+    # `rating_avg_given` restait vide sans le moindre signal.
+    from reviews.models import CourseReview as Review
 except Exception:
     Review = None
 
