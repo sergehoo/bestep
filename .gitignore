@@ -115,3 +115,23 @@ logs/
 # =========================
 .cache/
 .claude/
+
+# ── Artefacts de travail hors produit ────────────────────────────
+# Décompressions PPTX/DOCX, médias extraits et scripts de génération
+# de documents. Aucun code produit n'y fait référence (vérifié par
+# grep sur *.py / *.yml / *.toml). Gardés sur disque, hors du dépôt.
+work/
+
+# ── OStack : sorties régénérables ────────────────────────────────
+# La CONFIG du framework reste versionnée (config.json, commands/,
+# agents/, skills/, policies/, standards/, schemas/, workflows/,
+# intents/, examples/) — ostack la lit via OSTACK_DIR.
+# Idem pour evidence/ et audit.jsonl, qui sont la trace de preuve
+# exigée par CLAUDE.md.
+# Seules les sorties reconstructibles sont ignorées :
+.ostack/tmp/
+.ostack/graph.json
+.ostack/knowledge/
+
+# Artefacts de build Python (setuptools)
+*.egg-info/
