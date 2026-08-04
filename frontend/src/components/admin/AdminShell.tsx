@@ -408,7 +408,7 @@ function SidebarContent({
           <ul className="space-y-0.5">
             <li>
               <a
-                href="/admin/"
+                href="/admin/super/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition"

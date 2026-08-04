@@ -406,7 +406,7 @@ export default function AdminSettingsPage() {
                   />
                 </dl>
                 <a
-                  href="/admin/"
+                  href="/admin/super/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition"
