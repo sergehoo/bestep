@@ -46,6 +46,7 @@ from catalog.services import (
 )
 from compte.workspaces import get_active_workspace
 from core import policies
+from core.sanitizers import sanitize_rich_html
 from formations.tasks import process_media_asset
 from organizations.models import OrganizationMembership
 
@@ -966,7 +967,12 @@ class InstructorLessonCreateView(APIView):
             is_preview=bool(request.data.get("is_preview", False)),
             duration_sec=int(request.data.get("duration_sec") or 0),
             video_url=request.data.get("video_url") or "",
-            content=request.data.get("content") or "",
+            # SEC : cette vue est un APIView qui écrit directement en base.
+            # LessonSerializer n'est utilisé que pour FORMATER la réponse
+            # (plus bas), donc son `validate_content` ne s'exécute jamais
+            # ici : la charge arrivait brute en base. C'est le chemin
+            # d'écriture principal du formateur.
+            content=sanitize_rich_html(request.data.get("content")),
             media_asset=media_asset,
         )
 
@@ -983,7 +989,13 @@ class InstructorLessonUpdateView(APIView):
 
         for f in ["title", "lesson_type", "is_preview", "duration_sec", "content"]:
             if f in request.data:
-                setattr(lesson, f, request.data.get(f))
+                valeur = request.data.get(f)
+                # SEC : même piège qu'à la création. `content` est du HTML
+                # riche rendu tel quel par le lecteur ; il doit passer par
+                # l'allowlist, la boucle l'assignait brut.
+                if f == "content":
+                    valeur = sanitize_rich_html(valeur)
+                setattr(lesson, f, valeur)
 
         # UX-06 — video_url : URLField(max_length=200) par défaut. Une URL
         # presignée MinIO dépasse largement 200 caractères → PostgreSQL
