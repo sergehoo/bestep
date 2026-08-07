@@ -132,6 +132,8 @@ work/
 .ostack/tmp/
 .ostack/graph.json
 .ostack/knowledge/
+.ostack/runs/
 
 # Artefacts de build Python (setuptools)
 *.egg-info/
+.gstack/
