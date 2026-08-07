@@ -19,7 +19,11 @@ export default {
         primary: {
           50: '#F2FAFF', 100: '#DEF3FF', 200: '#BEE8FF', 300: '#8AD7FF',
           400: '#4DBFFF', 500: '#1EA7FF', 600: '#0C87D6', 700: '#0B6FAE',
-          800: '#0C5C8E', 900: '#0A466B',
+          // 950 : nuance la plus sombre, utilisée comme fond des héros de
+          // l'espace entreprise. Elle était employée dans les pages avant
+          // d'exister ici — Tailwind ne générait donc aucune règle et les
+          // fonds/voiles concernés étaient purement transparents.
+          800: '#0C5C8E', 900: '#0A466B', 950: '#06304A',
           DEFAULT: '#0C87D6',
         },
         accent: {
