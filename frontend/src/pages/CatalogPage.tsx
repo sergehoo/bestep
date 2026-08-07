@@ -9,6 +9,7 @@
  *  - Filtrage combinatoire côté client (rapide, pas de round-trip inutile)
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SlidersHorizontal, ChevronDown, X } from 'lucide-react';
 import { PublicHeader } from '@/components/layout/PublicHeader';
@@ -21,7 +22,11 @@ import {
   type CatalogSidebarState,
 } from '@/components/premium/SidebarFilters';
 import { usePublicCourses, usePublicCategories } from '@/hooks/queries';
-import { deriveLevel, prefersReducedMotion } from '@/lib/course-meta';
+import {
+  deriveLevel,
+  prefersReducedMotion,
+  type CourseLevel,
+} from '@/lib/course-meta';
 import type { CourseType, PublicCourseListItem } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────────────
@@ -47,6 +52,76 @@ const SORT_OPTIONS: Array<{ value: SortValue; label: string }> = [
 
 // ─────────────────────────────────────────────────────────────────────
 
+/** Correspondance slug d'URL → libellé de niveau (`CourseLevel`). */
+const LEVEL_BY_SLUG: Record<string, CourseLevel> = {
+  debutant: 'Débutant',
+  beginner: 'Débutant',
+  intermediaire: 'Intermédiaire',
+  intermediate: 'Intermédiaire',
+  avance: 'Avancé',
+  advanced: 'Avancé',
+  'tous niveaux': 'Tous niveaux',
+};
+
+/** Inverse de `LEVEL_BY_SLUG`, pour réécrire l'URL depuis l'état. */
+const SLUG_BY_LEVEL: Record<CourseLevel, string> = {
+  'Débutant': 'debutant',
+  'Intermédiaire': 'intermediaire',
+  'Avancé': 'avance',
+  'Tous niveaux': 'tous niveaux',
+};
+
+/**
+ * Construit l'état des filtres à partir des paramètres d'URL.
+ *
+ * Seul `category` est réellement produit par l'application aujourd'hui
+ * (cartes de l'accueil), mais `level`, `price` et `certified` sont lus au
+ * même endroit pour qu'un lien de catalogue reste partageable et que le
+ * bouton retour du navigateur restitue l'état filtré.
+ *
+ * Les valeurs inconnues sont ignorées plutôt que de faire échouer le rendu :
+ * une URL bricolée à la main doit dégrader vers le catalogue complet.
+ */
+function sidebarFromParams(params: URLSearchParams): CatalogSidebarState {
+  const multi = (key: string) =>
+    params
+      .getAll(key)
+      .flatMap((v) => v.split(','))
+      .map((v) => v.trim())
+      .filter(Boolean);
+
+  const price = params.get('price') ?? params.get('pricing');
+  const rating = params.get('rating');
+
+  return {
+    ...DEFAULT_SIDEBAR,
+    categories: multi('category'),
+    // `CourseLevel` porte les libellés affichés ('Débutant', 'Intermédiaire',
+    // 'Avancé', 'Tous niveaux') et non des clés anglaises — le filtrage plus
+    // bas compare le résultat de `deriveLevel()`, qui renvoie ces mêmes
+    // libellés. On accepte donc l'URL insensible à la casse et aux accents.
+    levels: multi('level')
+      .map((raw) => {
+        const n = raw
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .toLowerCase();
+        return LEVEL_BY_SLUG[n];
+      })
+      .filter((l): l is CourseLevel => Boolean(l)),
+    // `?pricing=FREE` est déjà utilisé par les liens « Gratuits » de
+    // l'accueil ; on l'accepte en plus de `?price=free`.
+    price:
+      price?.toLowerCase() === 'free'
+        ? 'free'
+        : price?.toLowerCase() === 'paid'
+          ? 'paid'
+          : DEFAULT_SIDEBAR.price,
+    rating: rating === '4+' || rating === '3+' ? rating : DEFAULT_SIDEBAR.rating,
+    certifiedOnly: params.get('certified') === '1',
+  };
+}
+
 interface CatalogPageProps {
   /**
    * Verrouille le catalogue sur un `course_type` particulier — par exemple
@@ -70,13 +145,69 @@ export default function CatalogPage({
   heroSubtitle,
   heroSearchPlaceholder,
 }: CatalogPageProps = {}) {
+  // Les cartes de catégorie de l'accueil pointent vers
+  // `/catalogue?category=<slug>` (CategoriesGrid.tsx). Le paramètre était
+  // émis mais jamais lu ici : arriver sur /catalogue?category=x affichait le
+  // catalogue entier, sans filtre actif. On initialise donc l'état des
+  // filtres depuis l'URL.
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [query, setQuery] = useState('');
-  const [committedQuery, setCommittedQuery] = useState('');
-  const [sort, setSort] = useState<SortValue>('recent');
+  const [committedQuery, setCommittedQuery] = useState(
+    () => searchParams.get('q') ?? '',
+  );
+  const [sort, setSort] = useState<SortValue>(() => {
+    const s = searchParams.get('sort');
+    return SORT_OPTIONS.some((o) => o.value === s) ? (s as SortValue) : 'recent';
+  });
   const [page, setPage] = useState(1);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebar, setSidebar] = useState<CatalogSidebarState>(DEFAULT_SIDEBAR);
+  const [sidebar, setSidebar] = useState<CatalogSidebarState>(() =>
+    sidebarFromParams(searchParams),
+  );
   const reducedMotion = prefersReducedMotion();
+
+  // Le hero lit `query` : sans ça une arrivée avec ?q=... filtrerait les
+  // résultats mais laisserait le champ de recherche vide.
+  useEffect(() => {
+    setQuery(searchParams.get('q') ?? '');
+    // volontairement au montage uniquement — les frappes suivantes sont
+    // pilotées par l'utilisateur, pas par l'URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Navigation interne vers une autre catégorie (ou retour arrière du
+  // navigateur) : l'URL change sans démonter la page, il faut resynchroniser.
+  useEffect(() => {
+    setSidebar(sidebarFromParams(searchParams));
+  }, [searchParams]);
+
+  /**
+   * Applique un nouvel état de filtres ET le reflète dans l'URL.
+   *
+   * L'écriture inverse n'est pas cosmétique : l'effet de resynchronisation
+   * ci-dessus relit l'URL, donc sans elle un « Réinitialiser » serait
+   * réappliqué depuis les paramètres restés en place. Elle rend au passage
+   * les vues filtrées partageables et restaure l'état au retour arrière.
+   */
+  const applySidebar = (next: CatalogSidebarState) => {
+    setSidebar(next);
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        for (const k of ['category', 'level', 'price', 'pricing', 'rating', 'certified']) {
+          p.delete(k);
+        }
+        next.categories.forEach((c) => p.append('category', c));
+        next.levels.forEach((l) => p.append('level', SLUG_BY_LEVEL[l]));
+        if (next.price !== 'all') p.set('price', next.price);
+        if (next.rating !== 'all') p.set('rating', next.rating);
+        if (next.certifiedOnly) p.set('certified', '1');
+        return p;
+      },
+      { replace: true },
+    );
+  };
 
   // Reset page à chaque changement de tri/filtre principal
   useEffect(() => {
@@ -210,9 +341,9 @@ export default function CatalogPage({
             <div className="sticky top-24">
               <SidebarFilters
                 state={sidebar}
-                onChange={setSidebar}
+                onChange={applySidebar}
                 categories={categories}
-                onReset={() => setSidebar(DEFAULT_SIDEBAR)}
+                onReset={() => applySidebar(DEFAULT_SIDEBAR)}
               />
             </div>
           </div>
@@ -228,7 +359,7 @@ export default function CatalogPage({
             ) : filtered.length === 0 ? (
               <EmptyState
                 onReset={() => {
-                  setSidebar(DEFAULT_SIDEBAR);
+                  applySidebar(DEFAULT_SIDEBAR);
                   setQuery('');
                   setCommittedQuery('');
                 }}
@@ -313,9 +444,9 @@ export default function CatalogPage({
             >
               <SidebarFilters
                 state={sidebar}
-                onChange={setSidebar}
+                onChange={applySidebar}
                 categories={categories}
-                onReset={() => setSidebar(DEFAULT_SIDEBAR)}
+                onReset={() => applySidebar(DEFAULT_SIDEBAR)}
                 onClose={() => setDrawerOpen(false)}
                 className="m-3"
               />
