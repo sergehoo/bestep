@@ -22,6 +22,9 @@ import { DashboardResolver } from '@/components/DashboardResolver';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 // T7 — Landing publique B2B "Espace Entreprise"
 const EnterprisePage = lazy(() => import('@/pages/EnterprisePage'));
+const EnterpriseDomainPage = lazy(
+  () => import('@/pages/EnterpriseDomainPage'),
+);
 // GLOSS — Lexique pédagogique
 const GlossaryPage = lazy(() => import('@/pages/GlossaryPage'));
 const GlossaryTermPage = lazy(() => import('@/pages/GlossaryTermPage'));
@@ -313,6 +316,15 @@ const router = createBrowserRouter([
     ),
   },
   // T7 — Landing publique B2B (CTA "Découvrir nos offres" de AudienceSpaces)
+  // Vue détail d'un domaine de formation (CTA « Réserver cette formation »).
+  {
+    path: '/entreprise/domaines/:slug',
+    element: (
+      <Suspense fallback={<PageSpinner />}>
+        <EnterpriseDomainPage />
+      </Suspense>
+    ),
+  },
   {
     path: '/entreprise',
     element: (

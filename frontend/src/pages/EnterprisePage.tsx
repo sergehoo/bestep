@@ -7,6 +7,7 @@
 import { useCallback, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
+import { TRAINING_DOMAINS } from '@/data/training-domains';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -33,64 +34,7 @@ import { PublicHeader } from '@/components/layout/PublicHeader';
 const HERO_IMAGE =
   'https://formation.bestepargne.com/wp-content/uploads/2023/05/m2-scaled.jpeg';
 
-const TRAINING_DOMAINS = [
-  {
-    title: 'Banque de détail',
-    description:
-      'Maîtrisez les produits bancaires, la relation client et les fondamentaux de la banque de proximité.',
-    image:
-      'https://formation.bestepargne.com/wp-content/uploads/2016/01/dmytro-demidko-eBWzFKahEaU-unsplash-255x182.jpg',
-  },
-  {
-    title: 'Banque et opérations',
-    description:
-      'Renforcez les compétences opérationnelles indispensables au fonctionnement efficace d’un établissement financier.',
-    image:
-      'https://formation.bestepargne.com/wp-content/uploads/2016/01/cdc-_XLJy3h77cw-unsplash-255x182.jpg',
-  },
-  {
-    title: 'Finance d’entreprise et analyse financière',
-    description:
-      'Analysez la performance, les états financiers et les décisions de financement de l’entreprise.',
-    image:
-      'https://formation.bestepargne.com/wp-content/uploads/2016/01/stephen-dawson-qwtCeJ5cLYs-unsplash-255x182.jpg',
-  },
-  {
-    title: 'Gestion des risques et gouvernance',
-    description:
-      'Identifiez, mesurez et pilotez les risques grâce à des pratiques de gouvernance adaptées.',
-    image:
-      'https://formation.bestepargne.com/wp-content/uploads/2016/01/Comming-Soon-CG-255x182.jpg',
-  },
-  {
-    title: 'Gestion d’actifs',
-    description:
-      'Développez une approche structurée de l’allocation, du suivi de portefeuille et de la performance.',
-    image:
-      'https://formation.bestepargne.com/wp-content/uploads/2016/01/asset-m-255x182.jpg',
-  },
-  {
-    title: 'Investissement et gestion de fonds',
-    description:
-      'Approfondissez l’analyse des opportunités, la construction de fonds et les décisions d’investissement.',
-    image:
-      'https://formation.bestepargne.com/wp-content/uploads/2016/01/austin-distel-DfjJMVhwH_8-unsplash-255x182.jpg',
-  },
-  {
-    title: 'Marchés des capitaux et banque d’investissement',
-    description:
-      'Comprenez les marchés, les instruments financiers et les opérations de banque d’investissement.',
-    image:
-      'https://formation.bestepargne.com/wp-content/uploads/2016/01/capital-255x182.jpg',
-  },
-  {
-    title: 'Réglementation et conformité',
-    description:
-      'Actualisez vos pratiques en matière de conformité, de contrôle et d’exigences réglementaires.',
-    image:
-      'https://formation.bestepargne.com/wp-content/uploads/2016/01/conformite-255x182.jpg',
-  },
-];
+
 
 const FORMATS = [
   {
@@ -289,7 +233,7 @@ export default function EnterprisePage() {
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {TRAINING_DOMAINS.map((domain, index) => (
                 <motion.article
-                  key={domain.title}
+                  key={domain.slug}
                   initial={{ opacity: 0, y: 18 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
@@ -303,12 +247,19 @@ export default function EnterprisePage() {
                     className="absolute inset-0 h-full w-full object-cover grayscale transition duration-500 group-hover:scale-105 group-hover:grayscale-0"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-primary-950 via-primary-950/75 to-primary-950/20" />
-                  <div className="relative flex min-h-[300px] flex-col justify-end p-5 text-white">
+                  <Link
+                    to={`/entreprise/domaines/${domain.slug}`}
+                    className="relative flex min-h-[300px] flex-col justify-end p-5 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
                     <h3 className="text-lg font-black leading-tight">{domain.title}</h3>
                     <p className="mt-2 text-sm leading-relaxed text-white/75">
                       {domain.description}
                     </p>
-                  </div>
+                    <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-accent-300">
+                      Voir le détail
+                      <span aria-hidden="true">→</span>
+                    </span>
+                  </Link>
                 </motion.article>
               ))}
             </div>
